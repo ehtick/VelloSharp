@@ -369,7 +369,7 @@ public class VelloSurfaceView : ContentControl, IDisposable
             return true;
         }
 
-        if (descriptor.Equals("NSView", StringComparison.OrdinalIgnoreCase))
+        if (descriptor.Equals("NSWindow", StringComparison.OrdinalIgnoreCase))
         {
             handle = SurfaceHandle.FromAppKit(platformHandle.Handle);
             return true;
