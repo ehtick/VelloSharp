@@ -233,26 +233,11 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Normalize native artifact layout
-        run: |
-          set -eo pipefail
-          if [ -d artifacts/artifacts ]; then
-            shopt -s dotglob
-            mv artifacts/artifacts/* artifacts/
-            rmdir artifacts/artifacts
-          fi
-          if [ ! -d artifacts/runtimes ]; then
-            for candidate in artifacts/*; do
-              if [ -d "$candidate/runtimes" ]; then
-                echo "Merging runtimes from $candidate"
-                shopt -s dotglob
-                mkdir -p artifacts/runtimes
-                cp -a "$candidate/runtimes"/. artifacts/runtimes/
-                shopt -u dotglob
-              fi
-            done
-          fi
-          ls -R artifacts
+      - name: Collect native runtimes
+        run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes
+
+      - name: List collected runtimes
+        run: ls -R artifacts/runtimes
 
       - name: Copy runtimes into projects
         run: ./scripts/copy-runtimes.sh artifacts/runtimes
