@@ -50,10 +50,28 @@ internal enum VelloAaMode : int
     Msaa16 = 2,
 }
 
+internal enum VelloPresentMode : int
+{
+    AutoVsync = 0,
+    AutoNoVsync = 1,
+    Fifo = 2,
+    Immediate = 3,
+}
+
 internal enum VelloRenderFormat : int
 {
     Rgba8 = 0,
     Bgra8 = 1,
+}
+
+internal enum VelloWindowHandleKind : int
+{
+    None = 0,
+    Win32 = 1,
+    AppKit = 2,
+    Wayland = 3,
+    Xlib = 4,
+    Headless = 100,
 }
 
 internal enum VelloImageAlphaMode : int
@@ -273,6 +291,66 @@ internal struct VelloRendererOptions
     [MarshalAs(UnmanagedType.I1)]
     public bool SupportMsaa16;
     public int InitThreads;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWin32WindowHandle
+{
+    public IntPtr Hwnd;
+    public IntPtr HInstance;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloAppKitWindowHandle
+{
+    public IntPtr NsView;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWaylandWindowHandle
+{
+    public IntPtr Surface;
+    public IntPtr Display;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloXlibWindowHandle
+{
+    public ulong Window;
+    public IntPtr Display;
+    public int Screen;
+    public ulong VisualId;
+}
+
+[StructLayout(LayoutKind.Explicit)]
+internal struct VelloWindowHandlePayload
+{
+    [FieldOffset(0)]
+    public VelloWin32WindowHandle Win32;
+    [FieldOffset(0)]
+    public VelloAppKitWindowHandle AppKit;
+    [FieldOffset(0)]
+    public VelloWaylandWindowHandle Wayland;
+    [FieldOffset(0)]
+    public VelloXlibWindowHandle Xlib;
+    [FieldOffset(0)]
+    public IntPtr None;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWindowHandle
+{
+    public VelloWindowHandleKind Kind;
+    public VelloWindowHandlePayload Payload;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloSurfaceDescriptor
+{
+    public uint Width;
+    public uint Height;
+    public VelloPresentMode PresentMode;
+    public VelloWindowHandle Handle;
 }
 
 [StructLayout(LayoutKind.Sequential)]

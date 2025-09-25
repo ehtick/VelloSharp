@@ -20,6 +20,7 @@ pollster = { workspace = true }
 peniko = { workspace = true }
 kurbo = { workspace = true }
 futures-intrusive = { workspace = true }
+raw-window-handle = { workspace = true }
 
 [features]
 default = []

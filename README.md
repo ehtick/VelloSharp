@@ -133,6 +133,36 @@ public sealed class DemoView : VelloView
 
 Set `IsLoopEnabled` to `false` if you prefer to drive the control manually via `RequestRender()`.
 
+### Surface-backed rendering
+
+For swapchain integration the `VelloSurfaceContext`, `VelloSurface`, and `VelloSurfaceRenderer`
+types wrap the new native surface API. They keep Vello's renderer associated with a platform window
+and avoid CPU readbacks:
+
+```csharp
+var context = new VelloSurfaceContext();
+var descriptor = new SurfaceDescriptor
+{
+    Width = 1920,
+    Height = 1080,
+    PresentMode = PresentMode.AutoVsync,
+    Handle = SurfaceHandle.FromWin32(hwnd),
+};
+using var surface = new VelloSurface(context, descriptor);
+using var renderer = new VelloSurfaceRenderer(surface);
+
+renderer.Render(surface, scene, new RenderParams(1920, 1080, RgbaColor.FromBytes(0, 0, 0))
+{
+    Format = RenderFormat.Rgba8,
+});
+```
+
+`VelloSurfaceView` mirrors the bitmap-based `VelloView` control but first attempts to acquire a native
+surface for the hosting `TopLevel` (using `HWND` on Windows and `NSView` on macOS). When the platform
+does not expose a compatible handle the control automatically falls back to the software path. The
+current implementation targets the entire window swap chain, so place the control at the root of your
+layout when exercising the GPU path. `SurfaceHandle.Headless` is available for headless testing.
+
 Run the sample with:
 
 ```bash

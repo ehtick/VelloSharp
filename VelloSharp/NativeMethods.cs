@@ -139,5 +139,40 @@ internal static class NativeMethods
         in VelloGlyphRunOptions options);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr vello_render_context_create();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void vello_render_context_destroy(IntPtr context);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr vello_render_surface_create(
+        IntPtr context,
+        in VelloSurfaceDescriptor descriptor);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void vello_render_surface_destroy(IntPtr surface);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern VelloStatus vello_render_surface_resize(
+        IntPtr surface,
+        uint width,
+        uint height);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr vello_surface_renderer_create(
+        IntPtr surface,
+        in VelloRendererOptions options);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void vello_surface_renderer_destroy(IntPtr renderer);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern VelloStatus vello_surface_renderer_render(
+        IntPtr renderer,
+        IntPtr surface,
+        IntPtr scene,
+        VelloRenderParams parameters);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern IntPtr vello_last_error_message();
 }

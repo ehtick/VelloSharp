@@ -6,7 +6,7 @@ using FillRule = VelloSharp.FillRule;
 
 namespace AvaloniaVelloDemo;
 
-public sealed class VelloView : VelloSharp.Integration.Avalonia.VelloView
+public sealed class VelloView : VelloSurfaceView
 {
     private readonly PathBuilder _path = new();
     private readonly StrokeStyle _stroke = new()
@@ -24,7 +24,7 @@ public sealed class VelloView : VelloSharp.Integration.Avalonia.VelloView
         {
             BaseColor = RgbaColor.FromBytes(18, 18, 20),
             Antialiasing = AntialiasingMode.Msaa8,
-            Format = RenderFormat.Bgra8,
+            Format = RenderFormat.Rgba8,
         };
     }
 

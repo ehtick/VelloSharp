@@ -5,8 +5,9 @@
 
 use std::{
     cell::RefCell,
-    ffi::{CString, c_char},
-    num::NonZeroUsize,
+    ffi::{CString, c_char, c_void},
+    num::{NonZeroIsize, NonZeroUsize},
+    ptr::NonNull,
     slice,
 };
 
@@ -16,8 +17,16 @@ use peniko::{
     BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
 };
-use vello::{AaConfig, AaSupport, Glyph, RenderParams, Renderer, RendererOptions, Scene};
-use wgpu::{Buffer, Device, Queue};
+use raw_window_handle::{
+    AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle,
+    WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowsDisplayHandle,
+    XlibDisplayHandle, XlibWindowHandle,
+};
+use vello::{
+    AaConfig, AaSupport, Glyph, RenderParams, Renderer, RendererOptions, Scene,
+    util::{RenderContext, RenderSurface},
+};
+use wgpu::{Buffer, Device, Instance, Queue, SurfaceError, SurfaceTargetUnsafe};
 
 #[cfg(feature = "trace-paths")]
 macro_rules! trace_path {
@@ -446,6 +455,735 @@ pub enum VelloAaMode {
 pub enum VelloRenderFormat {
     Rgba8 = 0,
     Bgra8 = 1,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloPresentMode {
+    AutoVsync = 0,
+    AutoNoVsync = 1,
+    Fifo = 2,
+    Immediate = 3,
+}
+
+impl From<VelloPresentMode> for wgpu::PresentMode {
+    fn from(value: VelloPresentMode) -> Self {
+        match value {
+            VelloPresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+            VelloPresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+            VelloPresentMode::Fifo => wgpu::PresentMode::Fifo,
+            VelloPresentMode::Immediate => wgpu::PresentMode::Immediate,
+        }
+    }
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWindowHandleKind {
+    None = 0,
+    Win32 = 1,
+    AppKit = 2,
+    Wayland = 3,
+    Xlib = 4,
+    Headless = 100,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWin32WindowHandle {
+    pub hwnd: *mut c_void,
+    pub hinstance: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloAppKitWindowHandle {
+    pub ns_view: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWaylandWindowHandle {
+    pub surface: *mut c_void,
+    pub display: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloXlibWindowHandle {
+    pub window: u64,
+    pub display: *mut c_void,
+    pub screen: i32,
+    pub visual_id: u64,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union VelloWindowHandlePayload {
+    pub win32: VelloWin32WindowHandle,
+    pub appkit: VelloAppKitWindowHandle,
+    pub wayland: VelloWaylandWindowHandle,
+    pub xlib: VelloXlibWindowHandle,
+    pub none: usize,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct VelloWindowHandle {
+    pub kind: VelloWindowHandleKind,
+    pub payload: VelloWindowHandlePayload,
+}
+
+impl Default for VelloWindowHandle {
+    fn default() -> Self {
+        Self {
+            kind: VelloWindowHandleKind::None,
+            payload: VelloWindowHandlePayload { none: 0 },
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct VelloSurfaceDescriptor {
+    pub width: u32,
+    pub height: u32,
+    pub present_mode: VelloPresentMode,
+    pub handle: VelloWindowHandle,
+}
+
+struct RawSurfaceHandles {
+    window: RawWindowHandle,
+    display: RawDisplayHandle,
+}
+
+impl RawSurfaceHandles {
+    fn new(window: RawWindowHandle, display: RawDisplayHandle) -> Self {
+        Self { window, display }
+    }
+}
+
+impl TryFrom<&VelloWindowHandle> for RawSurfaceHandles {
+    type Error = VelloStatus;
+
+    fn try_from(handle: &VelloWindowHandle) -> Result<Self, Self::Error> {
+        match handle.kind {
+            VelloWindowHandleKind::None => Err(VelloStatus::InvalidArgument),
+            VelloWindowHandleKind::Headless => Err(VelloStatus::Unsupported),
+            VelloWindowHandleKind::Win32 => {
+                let payload = unsafe { handle.payload.win32 };
+                let hwnd =
+                    NonZeroIsize::new(payload.hwnd as isize).ok_or(VelloStatus::InvalidArgument)?;
+                let mut win32 = Win32WindowHandle::new(hwnd);
+                if let Some(hinstance) = NonZeroIsize::new(payload.hinstance as isize) {
+                    win32.hinstance = Some(hinstance);
+                }
+                Ok(Self::new(
+                    RawWindowHandle::Win32(win32),
+                    RawDisplayHandle::Windows(WindowsDisplayHandle::new()),
+                ))
+            }
+            VelloWindowHandleKind::AppKit => {
+                let payload = unsafe { handle.payload.appkit };
+                let ns_view = NonNull::new(payload.ns_view).ok_or(VelloStatus::InvalidArgument)?;
+                Ok(Self::new(
+                    RawWindowHandle::AppKit(AppKitWindowHandle::new(ns_view)),
+                    RawDisplayHandle::AppKit(AppKitDisplayHandle::new()),
+                ))
+            }
+            VelloWindowHandleKind::Wayland => {
+                let payload = unsafe { handle.payload.wayland };
+                let surface = NonNull::new(payload.surface).ok_or(VelloStatus::InvalidArgument)?;
+                let display = NonNull::new(payload.display).ok_or(VelloStatus::InvalidArgument)?;
+                Ok(Self::new(
+                    RawWindowHandle::Wayland(WaylandWindowHandle::new(surface)),
+                    RawDisplayHandle::Wayland(WaylandDisplayHandle::new(display)),
+                ))
+            }
+            VelloWindowHandleKind::Xlib => {
+                let payload = unsafe { handle.payload.xlib };
+                let display = NonNull::new(payload.display);
+                let xlib_display = XlibDisplayHandle::new(display, payload.screen);
+                let mut window = XlibWindowHandle::new(payload.window);
+                window.visual_id = payload.visual_id;
+                Ok(Self::new(
+                    RawWindowHandle::Xlib(window),
+                    RawDisplayHandle::Xlib(xlib_display),
+                ))
+            }
+        }
+    }
+}
+
+struct HeadlessSurface {
+    device: Device,
+    queue: Queue,
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    width: u32,
+    height: u32,
+}
+
+impl HeadlessSurface {
+    fn new(width: u32, height: u32) -> Result<Self, VelloStatus> {
+        if width == 0 || height == 0 {
+            return Err(VelloStatus::InvalidArgument);
+        }
+
+        let backends = wgpu::Backends::from_env().unwrap_or_default();
+        let flags = wgpu::InstanceFlags::from_build_config().with_env();
+        let backend_options = wgpu::BackendOptions::from_env_or_default();
+        let instance = Instance::new(&wgpu::InstanceDescriptor {
+            backends,
+            flags,
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+            backend_options,
+        });
+
+        let adapter = pollster::block_on(wgpu::util::initialize_adapter_from_env_or_default(
+            &instance, None,
+        ))
+        .map_err(|_| VelloStatus::DeviceCreationFailed)?;
+
+        let adapter_features = adapter.features();
+        let mut required_features = wgpu::Features::empty();
+        if adapter_features.contains(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES) {
+            required_features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        }
+        let required_limits = adapter.limits();
+
+        let descriptor = wgpu::DeviceDescriptor {
+            label: Some("vello_surface_headless_device"),
+            required_features,
+            required_limits,
+            memory_hints: wgpu::MemoryHints::default(),
+            trace: Default::default(),
+        };
+
+        let (device, queue) = pollster::block_on(adapter.request_device(&descriptor))
+            .map_err(|_| VelloStatus::DeviceCreationFailed)?;
+
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("vello_surface_headless_texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        Ok(Self {
+            device,
+            queue,
+            texture,
+            view,
+            width,
+            height,
+        })
+    }
+
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), VelloStatus> {
+        if width == 0 || height == 0 {
+            return Err(VelloStatus::InvalidArgument);
+        }
+        self.texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("vello_surface_headless_texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        });
+        self.view = self
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.width = width;
+        self.height = height;
+        Ok(())
+    }
+}
+
+enum SurfaceBackend {
+    Window {
+        context: NonNull<VelloRenderContextHandle>,
+        surface: RenderSurface<'static>,
+    },
+    Headless(HeadlessSurface),
+}
+
+impl SurfaceBackend {
+    fn dimensions(&self) -> (u32, u32) {
+        match self {
+            SurfaceBackend::Window { surface, .. } => (surface.config.width, surface.config.height),
+            SurfaceBackend::Headless(headless) => (headless.width, headless.height),
+        }
+    }
+
+    fn device_queue(&self) -> (&Device, &Queue) {
+        match self {
+            SurfaceBackend::Window { context, surface } => {
+                let ctx = unsafe { context.as_ref() };
+                let device_handle = &ctx.inner.devices[surface.dev_id];
+                (&device_handle.device, &device_handle.queue)
+            }
+            SurfaceBackend::Headless(headless) => (&headless.device, &headless.queue),
+        }
+    }
+
+    fn resize(&mut self, width: u32, height: u32) -> Result<(), VelloStatus> {
+        match self {
+            SurfaceBackend::Window { context, surface } => {
+                if width == 0 || height == 0 {
+                    return Err(VelloStatus::InvalidArgument);
+                }
+                let ctx = unsafe { context.as_ref() };
+                ctx.inner.resize_surface(surface, width, height);
+                Ok(())
+            }
+            SurfaceBackend::Headless(headless) => headless.resize(width, height),
+        }
+    }
+}
+
+pub struct VelloRenderContextHandle {
+    inner: RenderContext,
+}
+
+enum SurfaceDeviceBinding {
+    Window {
+        context: NonNull<VelloRenderContextHandle>,
+        device_index: usize,
+    },
+    Headless,
+}
+
+pub struct VelloRenderSurfaceHandle {
+    backend: SurfaceBackend,
+}
+
+pub struct VelloSurfaceRendererHandle {
+    renderer: Renderer,
+    binding: SurfaceDeviceBinding,
+}
+
+fn resize_surface_if_needed(
+    backend: &mut SurfaceBackend,
+    width: u32,
+    height: u32,
+) -> Result<(), VelloStatus> {
+    let (current_width, current_height) = backend.dimensions();
+    if current_width == width && current_height == height {
+        return Ok(());
+    }
+    backend.resize(width, height)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kurbo::{Affine, Rect};
+    use std::ptr;
+    use vello::peniko::{Color, Fill};
+
+    #[test]
+    fn headless_surface_render_smoke() {
+        let mut descriptor = VelloSurfaceDescriptor {
+            width: 160,
+            height: 120,
+            present_mode: VelloPresentMode::AutoVsync,
+            handle: VelloWindowHandle::default(),
+        };
+        descriptor.handle.kind = VelloWindowHandleKind::Headless;
+
+        let surface = unsafe { vello_render_surface_create(ptr::null_mut(), descriptor) };
+        assert!(!surface.is_null(), "surface creation failed");
+
+        let renderer = unsafe {
+            vello_surface_renderer_create(
+                surface,
+                VelloRendererOptions {
+                    use_cpu: false,
+                    support_area: true,
+                    support_msaa8: true,
+                    support_msaa16: false,
+                    init_threads: 0,
+                },
+            )
+        };
+        assert!(!renderer.is_null(), "renderer creation failed");
+
+        let mut scene = VelloSceneHandle {
+            inner: Scene::new(),
+        };
+        scene.inner.reset();
+        let rect = Rect::new(5.0, 5.0, 90.0, 90.0);
+        scene.inner.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgb8(180, 60, 60),
+            None,
+            &rect,
+        );
+
+        let params = VelloRenderParams {
+            width: descriptor.width,
+            height: descriptor.height,
+            base_color: VelloColor {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            },
+            antialiasing: VelloAaMode::Area,
+            format: VelloRenderFormat::Rgba8,
+        };
+
+        let status =
+            unsafe { vello_surface_renderer_render(renderer, surface, &mut scene, params) };
+        assert_eq!(status, VelloStatus::Success);
+
+        unsafe {
+            vello_surface_renderer_destroy(renderer);
+            vello_render_surface_destroy(surface);
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn vello_render_context_create() -> *mut VelloRenderContextHandle {
+    clear_last_error();
+    let context = VelloRenderContextHandle {
+        inner: RenderContext::new(),
+    };
+    Box::into_raw(Box::new(context))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_render_context_destroy(context: *mut VelloRenderContextHandle) {
+    if !context.is_null() {
+        unsafe {
+            drop(Box::from_raw(context));
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_render_surface_create(
+    context: *mut VelloRenderContextHandle,
+    descriptor: VelloSurfaceDescriptor,
+) -> *mut VelloRenderSurfaceHandle {
+    clear_last_error();
+
+    if descriptor.width == 0 || descriptor.height == 0 {
+        set_last_error("Surface dimensions must be positive");
+        return std::ptr::null_mut();
+    }
+
+    let present_mode = descriptor.present_mode;
+
+    let backend = if descriptor.handle.kind == VelloWindowHandleKind::Headless {
+        match HeadlessSurface::new(descriptor.width, descriptor.height) {
+            Ok(surface) => SurfaceBackend::Headless(surface),
+            Err(VelloStatus::InvalidArgument) => {
+                set_last_error("Surface dimensions must be positive");
+                return std::ptr::null_mut();
+            }
+            Err(_) => {
+                set_last_error("Failed to create headless surface");
+                return std::ptr::null_mut();
+            }
+        }
+    } else {
+        if context.is_null() {
+            set_last_error("Context pointer must not be null for window surfaces");
+            return std::ptr::null_mut();
+        }
+
+        let ctx = unsafe { &mut *context };
+        let handles = match RawSurfaceHandles::try_from(&descriptor.handle) {
+            Ok(handles) => handles,
+            Err(status) => {
+                match status {
+                    VelloStatus::Unsupported => set_last_error("Window handle type not supported"),
+                    VelloStatus::InvalidArgument => set_last_error("Invalid window handle"),
+                    _ => set_last_error("Failed to parse window handle"),
+                }
+                return std::ptr::null_mut();
+            }
+        };
+
+        let surface_raw = match unsafe {
+            ctx.inner
+                .instance
+                .create_surface_unsafe(SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: handles.display,
+                    raw_window_handle: handles.window,
+                })
+        } {
+            Ok(surface) => surface,
+            Err(err) => {
+                set_last_error(format!("Failed to create native surface: {err}"));
+                return std::ptr::null_mut();
+            }
+        };
+
+        let surface = match pollster::block_on(ctx.inner.create_render_surface(
+            surface_raw,
+            descriptor.width,
+            descriptor.height,
+            present_mode.into(),
+        )) {
+            Ok(surface) => surface,
+            Err(err) => {
+                set_last_error(format!("Failed to configure surface: {err}"));
+                return std::ptr::null_mut();
+            }
+        };
+
+        SurfaceBackend::Window {
+            context: NonNull::new(context).expect("context pointer is not null"),
+            surface,
+        }
+    };
+
+    let handle = VelloRenderSurfaceHandle { backend };
+    Box::into_raw(Box::new(handle))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_render_surface_destroy(surface: *mut VelloRenderSurfaceHandle) {
+    if !surface.is_null() {
+        unsafe {
+            drop(Box::from_raw(surface));
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_render_surface_resize(
+    surface: *mut VelloRenderSurfaceHandle,
+    width: u32,
+    height: u32,
+) -> VelloStatus {
+    clear_last_error();
+
+    if surface.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let surface = unsafe { &mut *surface };
+    match resize_surface_if_needed(&mut surface.backend, width, height) {
+        Ok(()) => VelloStatus::Success,
+        Err(status) => {
+            if status == VelloStatus::InvalidArgument {
+                set_last_error("Surface dimensions must be positive");
+            }
+            status
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_surface_renderer_create(
+    surface: *mut VelloRenderSurfaceHandle,
+    options: VelloRendererOptions,
+) -> *mut VelloSurfaceRendererHandle {
+    clear_last_error();
+
+    if surface.is_null() {
+        set_last_error("Surface pointer must not be null");
+        return std::ptr::null_mut();
+    }
+
+    let surface = unsafe { &mut *surface };
+    let renderer_options = renderer_options_from_ffi(&options);
+
+    let (device, _queue) = surface.backend.device_queue();
+    let renderer = match Renderer::new(device, renderer_options) {
+        Ok(renderer) => renderer,
+        Err(err) => {
+            set_last_error(format!("Failed to create renderer: {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+
+    let binding = match &surface.backend {
+        SurfaceBackend::Window { context, surface } => SurfaceDeviceBinding::Window {
+            context: *context,
+            device_index: surface.dev_id,
+        },
+        SurfaceBackend::Headless(_) => SurfaceDeviceBinding::Headless,
+    };
+
+    Box::into_raw(Box::new(VelloSurfaceRendererHandle { renderer, binding }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_surface_renderer_destroy(renderer: *mut VelloSurfaceRendererHandle) {
+    if !renderer.is_null() {
+        unsafe {
+            drop(Box::from_raw(renderer));
+        }
+    }
+}
+
+fn render_params_for_surface(params: &VelloRenderParams, width: u32, height: u32) -> RenderParams {
+    RenderParams {
+        base_color: params.base_color.into(),
+        width,
+        height,
+        antialiasing_method: params.antialiasing.into(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_surface_renderer_render(
+    renderer: *mut VelloSurfaceRendererHandle,
+    surface: *mut VelloRenderSurfaceHandle,
+    scene: *mut VelloSceneHandle,
+    params: VelloRenderParams,
+) -> VelloStatus {
+    clear_last_error();
+
+    if renderer.is_null() || surface.is_null() || scene.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let renderer = unsafe { &mut *renderer };
+    let surface = unsafe { &mut *surface };
+    let Some(scene) = (unsafe { scene.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    match (&renderer.binding, &mut surface.backend) {
+        (
+            SurfaceDeviceBinding::Window {
+                context: renderer_ctx,
+                device_index,
+            },
+            SurfaceBackend::Window {
+                context,
+                surface: wnd_surface,
+            },
+        ) => {
+            if renderer_ctx.as_ptr() != context.as_ptr() {
+                set_last_error("Renderer and surface belong to different contexts");
+                return VelloStatus::InvalidArgument;
+            }
+            if *device_index != wnd_surface.dev_id {
+                set_last_error("Renderer device does not match surface device");
+                return VelloStatus::InvalidArgument;
+            }
+
+            let ctx = unsafe { context.as_ref() };
+            let device_handle = &ctx.inner.devices[wnd_surface.dev_id];
+            let device = &device_handle.device;
+            let queue = &device_handle.queue;
+
+            let width = wnd_surface.config.width;
+            let height = wnd_surface.config.height;
+            let render_params = render_params_for_surface(&params, width, height);
+
+            if let Err(err) = renderer.renderer.render_to_texture(
+                device,
+                queue,
+                &scene.inner,
+                &wnd_surface.target_view,
+                &render_params,
+            ) {
+                set_last_error(format!("Render failed: {err}"));
+                return VelloStatus::RenderError;
+            }
+
+            let mut attempts = 0;
+            loop {
+                match wnd_surface.surface.get_current_texture() {
+                    Ok(surface_texture) => {
+                        let mut encoder =
+                            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                                label: Some("vello_surface_present"),
+                            });
+                        wnd_surface.blitter.copy(
+                            device,
+                            &mut encoder,
+                            &wnd_surface.target_view,
+                            &surface_texture
+                                .texture
+                                .create_view(&wgpu::TextureViewDescriptor::default()),
+                        );
+                        queue.submit(Some(encoder.finish()));
+                        surface_texture.present();
+                        return VelloStatus::Success;
+                    }
+                    Err(SurfaceError::Lost) | Err(SurfaceError::Outdated) => {
+                        attempts += 1;
+                        if attempts > 2 {
+                            set_last_error("Surface became invalid while rendering");
+                            return VelloStatus::RenderError;
+                        }
+                        ctx.inner.resize_surface(wnd_surface, width, height);
+                        continue;
+                    }
+                    Err(SurfaceError::Timeout) => {
+                        attempts += 1;
+                        if attempts > 3 {
+                            set_last_error("Timed out acquiring surface texture");
+                            return VelloStatus::RenderError;
+                        }
+                        continue;
+                    }
+                    Err(SurfaceError::OutOfMemory) => {
+                        set_last_error("Surface ran out of memory");
+                        return VelloStatus::DeviceCreationFailed;
+                    }
+                    Err(SurfaceError::Other) => {
+                        set_last_error("Surface reported an unknown error");
+                        return VelloStatus::RenderError;
+                    }
+                }
+            }
+        }
+        (SurfaceDeviceBinding::Headless, SurfaceBackend::Headless(headless)) => {
+            let width = headless.width;
+            let height = headless.height;
+            let render_params = render_params_for_surface(&params, width, height);
+            if let Err(err) = renderer.renderer.render_to_texture(
+                &headless.device,
+                &headless.queue,
+                &scene.inner,
+                &headless.view,
+                &render_params,
+            ) {
+                set_last_error(format!("Render failed: {err}"));
+                return VelloStatus::RenderError;
+            }
+            headless.queue.submit(std::iter::empty());
+            VelloStatus::Success
+        }
+        _ => {
+            set_last_error("Renderer and surface have incompatible backends");
+            VelloStatus::InvalidArgument
+        }
+    }
 }
 
 #[repr(i32)]

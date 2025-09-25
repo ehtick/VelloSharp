@@ -38,6 +38,14 @@ public enum RenderFormat
     Bgra8 = VelloRenderFormat.Bgra8,
 }
 
+public enum PresentMode
+{
+    AutoVsync = VelloPresentMode.AutoVsync,
+    AutoNoVsync = VelloPresentMode.AutoNoVsync,
+    Fifo = VelloPresentMode.Fifo,
+    Immediate = VelloPresentMode.Immediate,
+}
+
 public enum ImageAlphaMode
 {
     Straight = VelloImageAlphaMode.Straight,
