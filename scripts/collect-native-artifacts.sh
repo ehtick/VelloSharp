@@ -13,35 +13,35 @@ fi
 mkdir -p "${DEST_ROOT}"
 
 found=0
-while IFS= read -r runtime_dir; do
-  if [[ -z "${runtime_dir}" ]]; then
+while IFS= read -r native_dir; do
+  [[ -z "${native_dir}" ]] && continue
+
+  # Skip if we are looking at the destination directory we're populating.
+  if [[ "${native_dir}" -ef "${DEST_ROOT}" ]]; then
     continue
   fi
-  # Skip if this is already the destination directory
-  if [[ "${runtime_dir}" -ef "${DEST_ROOT}" ]]; then
+
+  rid_dir="$(dirname "${native_dir}")"
+  rid_name="$(basename "${rid_dir}")"
+  if [[ -z "${rid_name}" ]]; then
     continue
   fi
+
   found=1
-  shopt -s nullglob dotglob
-  for rid_dir in "${runtime_dir}"/*; do
-    [[ -d "${rid_dir}" ]] || continue
-    rid_name="$(basename "${rid_dir}")"
-    target="${DEST_ROOT}/${rid_name}"
-    mkdir -p "${target}"
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --delete "${rid_dir}/" "${target}/"
-    else
-      shopt -s dotglob nullglob
-      rm -rf "${target}"/*
-      cp -a "${rid_dir}/." "${target}/" 2>/dev/null || true
-      shopt -u dotglob nullglob
-    fi
-  done
-  shopt -u nullglob dotglob
-done < <(find "${SOURCE_ROOT}" -type d -name runtimes | sort)
+  target="${DEST_ROOT}/${rid_name}/native"
+  mkdir -p "${target}"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete "${native_dir}/" "${target}/"
+  else
+    shopt -s dotglob nullglob
+    rm -rf "${target}"/*
+    cp -a "${native_dir}/." "${target}/" 2>/dev/null || true
+    shopt -u dotglob nullglob
+  fi
+done < <(find "${SOURCE_ROOT}" -type d -name native | sort)
 
 if [[ ${found} -eq 0 ]]; then
-  echo "No 'runtimes' directories found under '${SOURCE_ROOT}'." >&2
+  echo "No native runtime directories found under '${SOURCE_ROOT}'." >&2
   exit 1
 fi
 
