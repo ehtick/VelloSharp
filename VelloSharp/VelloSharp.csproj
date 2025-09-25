@@ -20,6 +20,7 @@
     <VelloSkipNativeBuild Condition="'$(VelloSkipNativeBuild)'==''">false</VelloSkipNativeBuild>
     <VelloIncludeNativeAssets Condition="'$(VelloIncludeNativeAssets)'==''">true</VelloIncludeNativeAssets>
     <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
+    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'=='' and '$(VelloUseNativePackageDependencies)'=='true'">VelloSharp.Native.linux-x64;VelloSharp.Native.linux-arm64;VelloSharp.Native.osx-x64;VelloSharp.Native.osx-arm64;VelloSharp.Native.ios-arm64;VelloSharp.Native.iossimulator-x64;VelloSharp.Native.android-arm64;VelloSharp.Native.browser-wasm;VelloSharp.Native.win-x64;VelloSharp.Native.win-arm64</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,17 +47,12 @@
            Text="Vello native assets were not found in '$(VelloNativeAssetsDirectory)'. Provide platform builds or set VelloRequireAllNativeAssets=false." />
   </Target>
 
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true'">
-    <PackageReference Include="VelloSharp.Native.linux-x64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.linux-arm64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.osx-x64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.osx-arm64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.ios-arm64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.iossimulator-x64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.android-arm64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.browser-wasm" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.win-x64" Version="$(Version)" />
-    <PackageReference Include="VelloSharp.Native.win-arm64" Version="$(Version)" />
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '$(VelloNativePackageIds)' != ''">
+    <_VelloNativePackage Include="$(VelloNativePackageIds)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '$(VelloNativePackageIds)' != ''">
+    <PackageReference Include="%(_VelloNativePackage.Identity)" />
   </ItemGroup>
 
   <UsingTask TaskName="GetCurrentRid"

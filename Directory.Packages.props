@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <VelloNativePackageVersion Condition="'$(VelloNativePackageVersion)'==''">$(Version)</VelloNativePackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,5 +11,15 @@
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.1.0" />
     <PackageVersion Include="SkiaSharp" Version="2.88.8" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+    <PackageVersion Include="VelloSharp.Native.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.win-arm64" Version="$(VelloNativePackageVersion)" />
   </ItemGroup>
 </Project>
