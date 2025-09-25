@@ -3,10 +3,15 @@
 This repository hosts the managed bindings that expose the [`vello`](https://github.com/linebender/vello)
 renderer to .NET applications. The bindings are layered:
 
-- `vello_ffi` – a Rust `cdylib` that wraps the core Vello renderer behind a C ABI.
-- `VelloSharp` – a C# library that provides a safe, idiomatic API over the native exports.
-- `samples/AvaloniaVelloDemo` – an Avalonia desktop sample that renders an animated scene and blits it
-  to a `WriteableBitmap` (making it easy to integrate with Skia-backed UI frameworks).
+- `vello_ffi` – a Rust `cdylib` that wraps the core Vello renderer behind a C ABI. The crate now pulls in
+  [`vello_svg`](https://github.com/linebender/vello_svg), [`velato`](https://github.com/linebender/velato), and
+  a slimmed-down [`wgpu`](https://github.com/gfx-rs/wgpu) build to offer SVG ingestion, Lottie playback, and
+  GPU swapchain rendering from the same binary.
+- `VelloSharp` – a C# library that provides a safe, idiomatic API over the native exports, including wrappers
+  for SVG scenes (`VelloSvg`), Velato compositions, and the new wgpu surface/device helpers.
+- `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp, and render-path negotiation.
+- `samples/AvaloniaVelloDemo` / `samples/AvaloniaVelloExamples` – Avalonia desktop samples that exercise the
+  bindings in CPU and GPU modes.
 
 ## Building the native library
 
@@ -83,6 +88,84 @@ renderer.Render(
 
 `buffer` now contains BGRA pixels ready for presentation via SkiaSharp, Avalonia or any other API; omit the assignment to `Format` to receive RGBA output instead.
 
+## Extended bindings
+
+The native layer now ships with optional helpers for common scene sources and GPU surfaces. All of them
+round-trip through the managed API so you can mix and match with the existing `Scene` primitives.
+
+### SVG scenes
+
+`VelloSvg` uses the bundled `vello_svg` parser to ingest an SVG asset and append the generated scene graph to any
+existing `Scene`:
+
+```csharp
+using var scene = new Scene();
+using var svg = VelloSvg.LoadFromFile("Assets/logo.svg", scale: 1.5f);
+svg.Render(scene);
+
+// Optionally apply additional transforms or authoring on the scene afterwards.
+```
+
+Use `LoadFromUtf8` for in-memory buffers and query the intrinsic size via the `Size` property to fit your layout.
+
+### Lottie / Velato compositions
+
+The [`velato`](https://github.com/linebender/velato) submodule provides high-quality Lottie playback. The managed
+wrappers expose composition metadata and let you render into an existing `Scene` or build a standalone one per
+frame:
+
+```csharp
+using var composition = VelatoComposition.LoadFromFile("Assets/intro_lottie.json");
+using var renderer = new VelatoRenderer();
+
+var info = composition.Info; // duration, frame rate, target size
+using var scene = renderer.Render(composition, frame: 42);
+
+// Blend multiple compositions into a shared scene
+renderer.Append(scene, composition, frame: 43, alpha: 0.7);
+```
+
+### GPU interop via wgpu
+
+When paired with `wgpu`, Vello can target swapchain textures directly. The managed side wraps the core handles so
+you can drive the pipeline from your own windowing layer:
+
+```csharp
+using var instance = new WgpuInstance();
+var surfaceDescriptor = new SurfaceDescriptor
+{
+    Width = width,
+    Height = height,
+    PresentMode = PresentMode.AutoVsync,
+    Handle = SurfaceHandle.FromWin32(hwnd), // or FromAppKit / FromWayland / FromXlib
+};
+using var surface = WgpuSurface.Create(instance, surfaceDescriptor);
+using var adapter = instance.RequestAdapter(new WgpuRequestAdapterOptions
+{
+    PowerPreference = WgpuPowerPreference.HighPerformance,
+    CompatibleSurface = surface,
+});
+using var device = adapter.RequestDevice(new WgpuDeviceDescriptor
+{
+    Limits = WgpuLimitsPreset.Default,
+});
+using var renderer = new WgpuRenderer(device);
+
+var surfaceTexture = surface.AcquireNextTexture();
+using (var view = surfaceTexture.CreateView())
+{
+    renderer.Render(scene, view, new RenderParams(width, height, baseColor)
+    {
+        Format = RenderFormat.Bgra8,
+    });
+}
+surfaceTexture.Present();
+surfaceTexture.Dispose();
+```
+
+All handles are disposable and throw once released, making it easy to integrate with `using` scopes. See the
+Avalonia helpers below for a higher-level example.
+
 ## Brushes and Layers
 
 `Scene.FillPath` and `Scene.StrokePath` accept the `Brush` hierarchy, enabling linear/radial gradients and image brushes in addition to solid colors. Example:
@@ -140,37 +223,20 @@ public sealed class DemoView : VelloView
 
 Set `IsLoopEnabled` to `false` if you prefer to drive the control manually via `RequestRender()`.
 
-### Surface-backed rendering
+### Surface-backed rendering (wgpu)
 
-For swapchain integration the `VelloSurfaceContext`, `VelloSurface`, and `VelloSurfaceRenderer`
-types wrap the new native surface API. They keep Vello's renderer associated with a platform window
-and avoid CPU readbacks:
+The Avalonia integration now drives the shared wgpu wrappers. `VelloSurfaceView` tries to obtain a native
+platform handle (`HWND`, `NSView`, and, in a future update, Wayland/X11). When the handle is available it creates
+a `WgpuInstance`, `WgpuSurface`, and `WgpuRenderer`, rendering directly into swapchain textures and presenting
+them via `wgpu`. If the platform cannot provide a compatible handle, or surface configuration fails, the control
+transparently falls back to the software `VelloView` path. You can continue to update the scene through
+`RenderFrame` without special casing either mode.
 
-```csharp
-var context = new VelloSurfaceContext();
-var descriptor = new SurfaceDescriptor
-{
-    Width = 1920,
-    Height = 1080,
-    PresentMode = PresentMode.AutoVsync,
-    Handle = SurfaceHandle.FromWin32(hwnd),
-};
-using var surface = new VelloSurface(context, descriptor);
-using var renderer = new VelloSurfaceRenderer(surface);
-
-renderer.Render(surface, scene, new RenderParams(1920, 1080, RgbaColor.FromBytes(0, 0, 0))
-{
-    Format = RenderFormat.Rgba8,
-});
-```
-
-`VelloSurfaceView` mirrors the bitmap-based `VelloView` control but first attempts to acquire a native
-surface for the hosting `TopLevel` (using `HWND` on Windows and `NSView` on macOS). When the platform
-does not expose a compatible handle the control automatically falls back to the software path. The
-current implementation targets the entire window swap chain, so place the control at the root of your
-layout when exercising the GPU path. At present only `AntialiasingMode.Area` is honoured when the
-surface renderer is active; other modes are coerced to `Area` until the native shaders gain MSAA
-permutations. `SurfaceHandle.Headless` is available for headless testing.
+Applications that need deeper control can replicate the same sequence manually: construct a `SurfaceDescriptor`
+from a window handle with `SurfaceHandle.FromWin32`, `.FromAppKit`, `.FromWayland`, or `.FromXlib`, configure the
+surface with your preferred `PresentMode`, and call `WgpuRenderer.Render` with the acquired texture view. The
+control exposes `RendererOptions`, `RenderParameters`, and `IsLoopEnabled` so you can tune anti-aliasing, swapchain
+formats, or frame pacing at runtime.
 
 Run the sample with:
 
@@ -218,9 +284,52 @@ VelloRenderPath.Render(renderer, scene, span, renderParams, descriptor);
 The descriptor validates stride and size, while `Render` adjusts `RenderParams` to the negotiated format
 before invoking the GPU or CPU pipeline.
 
+## Automation scripts
+
+The repository includes helper scripts that wire up the CI flow and simplify local builds. All scripts emit
+artifacts under `artifacts/` and are safe to combine with `dotnet build`/`cargo` invocations.
+
+### Native builds
+
+- `scripts/build-native-macos.sh [target] [profile] [sdk] [rid]` – builds `vello_ffi` for macOS/iOS targets. Pass
+  an Apple SDK name (for example `macosx` or `iphoneos`) to compile against a specific SDK, and optionally override
+  the runtime identifier. Defaults to `x86_64-apple-darwin` in `release` mode.
+- `scripts/build-native-linux.sh [target] [profile] [rid]` – cross-compiles the shared object for GNU/Linux
+  platforms, defaulting to `x86_64-unknown-linux-gnu`. Supply `aarch64-unknown-linux-gnu` to produce the ARM64
+  variant.
+- `scripts/build-native-windows.ps1 [target] [profile] [rid]` – a PowerShell helper for the Windows MSVC builds.
+  Run from PowerShell or pwsh. Automatically maps the target triple to `win-x64`/`win-arm64` unless a RID is provided.
+- `scripts/build-native-android.sh [target] [profile] [rid]` – targets Android via the NDK. Requires
+  `ANDROID_NDK_HOME` and adds the toolchain binaries to `PATH` before calling `cargo`.
+- `scripts/build-native-wasm.sh [target] [profile] [rid]` – compiles the WebAssembly artifact (`vello_ffi.wasm`) for
+  `wasm32-unknown-unknown`.
+
+All build scripts copy the produced library into `artifacts/runtimes/<rid>/native/`, making the payload immediately
+available to packaging steps.
+
+### Artifact management and packaging
+
+- `scripts/collect-native-artifacts.sh [source-dir] [dest-dir]` – normalises arbitrary build outputs into the
+  `runtimes/<rid>/native/` layout by scanning for `native` folders and copying their contents into the destination.
+  Used by CI to gather per-RID outputs before packing.
+- `scripts/copy-runtimes.sh [artifacts-dir] [targets…]` – copies the assembled runtime folder into project outputs
+  and sample applications. The script defaults to propagating assets into `Debug`/`Release` `net8.0` builds for the
+  library, integrations, and samples, but you can override the target projects, configurations, or frameworks via
+  `COPY_CONFIGURATIONS` / `COPY_TARGET_FRAMEWORKS`.
+- `scripts/pack-native-nugets.sh [runtimes-dir] [output-dir]` – iterates the collected runtimes and packs the
+  corresponding `VelloSharp.Native.<rid>` NuGet packages. Each package simply embeds the `native` folder for its RID.
+- `scripts/pack-managed-nugets.sh [output-dir] [native-feed]` – builds the managed projects in `Release`, registers a
+  temporary NuGet source pointing at the native packages, and packs the aggregate `VelloSharp` NuGet with
+  `VelloUseNativePackageDependencies=true`. Run this after `pack-native-nugets.sh` to produce a coherent set of
+  packages under `artifacts/nuget/`.
+
 ## Repository layout recap
 
 - `vello_ffi`: Rust source for the native shared library.
 - `VelloSharp`: C# wrapper library with `Scene`, `Renderer`, and path-building helpers.
 - `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
 - `samples/AvaloniaVelloDemo`: Avalonia desktop sample that exercises the bindings.
+- `samples/AvaloniaVelloExamples`: showcases the expanded scene catalogue on Avalonia with GPU fallback logic.
+- `velato`: submodule that powers the Lottie/After Effects pipeline.
+- `vello_svg`: submodule responsible for SVG parsing.
+- `wgpu`: vendored subset of wgpu used by the FFI for portable GPU access.
