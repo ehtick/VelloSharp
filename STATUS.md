@@ -8,6 +8,7 @@ This document captures the current state of the .NET bindings for Vello and the 
 - Interop still relies on manual `.dylib` copies, but the `vello_ffi` layer now ships with feature-gated diagnostics, a single map/unmap readback path, and selectable RGBA/BGRA output.
 - Samples now rely on the shared Avalonia control; Skia interop and render-path utilities are provided via `VelloSharp.Integration`, while automated verification is still pending.
 - A surface-backed render path exists but is limited to Win32 and AppKit handles; Avalonia integration uses `VelloSurfaceView`, which falls back to the bitmap path when swapchain creation fails.
+- GPU surfaces currently clamp to `AntialiasingMode.Area`; MSAA requests are coerced until the embedded shaders add those permutations.
 
 ## Completed
 
@@ -16,6 +17,7 @@ This document captures the current state of the .NET bindings for Vello and the 
 - **Automated native loading:** `dotnet build` now drives `cargo` to produce `libvello_ffi`, lays it out under `runtimes/<rid>/native`, and the managed assembly resolves it via a `DllImport` resolver at runtime.
 - **Integration helpers:** introduced `VelloSharp.Integration` with an Avalonia `VelloView`, `SkiaRenderBridge`, and stride/format-negotiating render-path utilities for CPU and GPU targets.
 - **Surface API prototype:** added `vello_render_context*`/`vello_render_surface*` FFI calls, managed wrappers (`VelloSurfaceContext`, `VelloSurface`, `VelloSurfaceRenderer`), and a headless smoke test that exercises the GPU pipeline without CPU readback. Avalonia gains `VelloSurfaceView`, which acquires native window handles and seamlessly falls back to the bitmap control.
+- **Surface AA guard:** surface rendering clamps anti-aliasing to `Area` to avoid runtime shader panics on current Vello builds; documentation and samples reflect the restriction.
 
 ## Completion Plan
 

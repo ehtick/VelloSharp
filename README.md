@@ -161,7 +161,9 @@ renderer.Render(surface, scene, new RenderParams(1920, 1080, RgbaColor.FromBytes
 surface for the hosting `TopLevel` (using `HWND` on Windows and `NSView` on macOS). When the platform
 does not expose a compatible handle the control automatically falls back to the software path. The
 current implementation targets the entire window swap chain, so place the control at the root of your
-layout when exercising the GPU path. `SurfaceHandle.Headless` is available for headless testing.
+layout when exercising the GPU path. At present only `AntialiasingMode.Area` is honoured when the
+surface renderer is active; other modes are coerced to `Area` until the native shaders gain MSAA
+permutations. `SurfaceHandle.Headless` is available for headless testing.
 
 Run the sample with:
 

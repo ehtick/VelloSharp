@@ -23,7 +23,7 @@ public sealed class VelloView : VelloSurfaceView
         RenderParameters = RenderParameters with
         {
             BaseColor = RgbaColor.FromBytes(18, 18, 20),
-            Antialiasing = AntialiasingMode.Msaa8,
+            Antialiasing = AntialiasingMode.Area,
             Format = RenderFormat.Rgba8,
         };
     }

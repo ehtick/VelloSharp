@@ -193,11 +193,19 @@ public class VelloSurfaceView : ContentControl, IDisposable
 
         try
         {
+            var requestedAa = _renderParams.Antialiasing;
             var renderParams = _renderParams with
             {
                 Width = width,
                 Height = height,
+                Antialiasing = AntialiasingMode.Area,
             };
+
+            if (requestedAa != AntialiasingMode.Area)
+            {
+                Debug.WriteLine("VelloSurfaceView: forcing AntialiasingMode.Area for GPU rendering.");
+            }
+
             _renderer.Render(_surface, scene, renderParams);
         }
         catch (Exception ex)
