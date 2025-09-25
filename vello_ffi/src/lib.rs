@@ -564,12 +564,13 @@ impl RawSurfaceHandles {
     }
 }
 
+#[allow(trivial_numeric_casts)]
 fn to_c_ulong(value: u64) -> Result<c_ulong, VelloStatus> {
     if mem::size_of::<c_ulong>() == 4 {
         let narrowed = u32::try_from(value).map_err(|_| VelloStatus::InvalidArgument)?;
-        Ok(c_ulong::from(narrowed))
+        Ok(narrowed as c_ulong)
     } else {
-        Ok(c_ulong::from(value))
+        Ok(value as c_ulong)
     }
 }
 
