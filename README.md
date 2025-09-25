@@ -48,6 +48,10 @@ runtime you want to redistribute:
 
 The generated `.nupkg` and `.snupkg` files are emitted under `artifacts/nuget/`.
 
+In addition to the aggregate `VelloSharp` package, each runtime is also packed individually as
+`VelloSharp.Native.<rid>` containing only the native asset under `runtimes/<rid>/native/`. These
+packages can be consumed directly when you need granular control over native deployment.
+
 ## Using `VelloSharp`
 
 Reference the `VelloSharp` project from your solution or publish it as a NuGet package.

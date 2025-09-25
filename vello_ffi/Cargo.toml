@@ -8,7 +8,7 @@ repository.workspace = true
 description = "C bindings for the Vello renderer"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 
 [lints]
 workspace = true

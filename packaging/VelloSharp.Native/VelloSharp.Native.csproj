@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <PackageId Condition="'$(PackageId)'==''">VelloSharp.Native</PackageId>
+    <Title Condition="'$(Title)'==''">$(PackageId)</Title>
+    <Description Condition="'$(Description)'==''">Native Vello runtime for $(NativeRid)</Description>
+    <PackageOutputPath Condition="'$(PackageOutputPath)'==''">$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', '..', 'artifacts', 'nuget'))</PackageOutputPath>
+    <NativeRid Condition="'$(NativeRid)'==''">unknown</NativeRid>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$(MSBuildThisFileDirectory)</NativeAssetsDirectory>
+    <NativeAssetsDirectory>$([MSBuild]::EnsureTrailingSlash('$(NativeAssetsDirectory)'))</NativeAssetsDirectory>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(NativeAssetsDirectory)')">
+    <Content Include="$(NativeAssetsDirectory)**/*"
+             Pack="true"
+             PackagePath="runtimes/$(NativeRid)/native/%(RecursiveDir)%(Filename)%(Extension)"
+             Visible="false" />
+  </ItemGroup>
+
+  <Target Name="ValidateNativeAssets" BeforeTargets="Pack">
+    <Error Condition="'$(NativeRid)' == 'unknown'" Text="NativeRid must be provided." />
+    <Error Condition="!Exists('$(NativeAssetsDirectory)')" Text="Native assets not found at '$(NativeAssetsDirectory)'." />
+  </Target>
+</Project>

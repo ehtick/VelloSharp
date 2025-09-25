@@ -65,10 +65,107 @@ jobs:
             rid: osx-x64
             artifact-name: native-macos-x64
             library: libvello_ffi.dylib
+            sdk: ""
           - target: aarch64-apple-darwin
             rid: osx-arm64
             artifact-name: native-macos-arm64
             library: libvello_ffi.dylib
+            sdk: ""
+          - target: aarch64-apple-ios
+            rid: ios-arm64
+            artifact-name: native-ios-arm64
+            library: libvello_ffi.a
+            sdk: iphoneos
+          - target: x86_64-apple-ios
+            rid: iossimulator-x64
+            artifact-name: native-iossimulator-x64
+            library: libvello_ffi.a
+            sdk: iphonesimulator
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Configure Apple SDK
+        if: matrix.sdk != ''
+        run: echo "SDKROOT=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)" >> $GITHUB_ENV
+
+      - name: Build native library
+        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
+
+      - name: Collect native artifact
+        run: |
+          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
+          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: artifacts/runtimes/${{ matrix.rid }}
+          if-no-files-found: error
+
+  native-android:
+    name: Native Android (${{ matrix.rid }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-linux-android
+            rid: android-arm64
+            artifact-name: native-android-arm64
+            library: libvello_ffi.so
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Install Android NDK
+        run: |
+          sudo apt-get update && sudo apt-get install -y unzip wget
+          wget https://dl.google.com/android/repository/android-ndk-r26d-linux.zip -O $RUNNER_TEMP/android-ndk.zip
+          unzip -q $RUNNER_TEMP/android-ndk.zip -d $RUNNER_TEMP
+          echo "ANDROID_NDK_HOME=$RUNNER_TEMP/android-ndk-r26d" >> $GITHUB_ENV
+          echo "$RUNNER_TEMP/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+          echo "AR_aarch64_linux_android=$RUNNER_TEMP/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
+
+      - name: Build native library
+        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
+
+      - name: Collect native artifact
+        run: |
+          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
+          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: artifacts/runtimes/${{ matrix.rid }}
+          if-no-files-found: error
+
+  native-wasm:
+    name: Native WASM (${{ matrix.rid }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: wasm32-unknown-unknown
+            rid: browser-wasm
+            artifact-name: native-wasm
+            library: vello_ffi.wasm
     steps:
       - uses: actions/checkout@v4
         with:
@@ -148,6 +245,8 @@ jobs:
     needs:
       - native-linux
       - native-macos
+      - native-android
+      - native-wasm
       - native-windows
     steps:
       - uses: actions/checkout@v4
@@ -176,6 +275,25 @@ jobs:
         env:
           VelloNativeAssetsDirectory: ${{ github.workspace }}/artifacts/runtimes
         run: dotnet pack VelloSharp/VelloSharp.csproj -c Release -p:VelloSkipNativeBuild=true
+
+      - name: Pack native runtime packages
+        run: |
+          set -eo pipefail
+          for dir in artifacts/runtimes/*; do
+            rid=$(basename "$dir")
+            nativeDir="$dir/native"
+            if [ ! -d "$nativeDir" ]; then
+              echo "Skipping $rid (no native dir)"
+              continue
+            fi
+            dotnet pack packaging/VelloSharp.Native/VelloSharp.Native.csproj \
+              -c Release \
+              -p:PackageId=VelloSharp.Native.$rid \
+              -p:NativeRid=$rid \
+              -p:NativeAssetsDirectory=$nativeDir \
+              -p:Description="Native Vello runtime for $rid" \
+              -p:PackageOutputPath=$PWD/artifacts/nuget
+          done
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4

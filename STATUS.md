@@ -18,6 +18,7 @@ This document captures the current state of the .NET bindings for Vello and the 
 - **Integration helpers:** introduced `VelloSharp.Integration` with an Avalonia `VelloView`, `SkiaRenderBridge`, and stride/format-negotiating render-path utilities for CPU and GPU targets.
 - **Surface API prototype:** added `vello_render_context*`/`vello_render_surface*` FFI calls, managed wrappers (`VelloSurfaceContext`, `VelloSurface`, `VelloSurfaceRenderer`), and a headless smoke test that exercises the GPU pipeline without CPU readback. Avalonia gains `VelloSurfaceView`, which acquires native window handles and seamlessly falls back to the bitmap control.
 - **Surface AA guard:** surface rendering clamps anti-aliasing to `Area` to avoid runtime shader panics on current Vello builds; documentation and samples reflect the restriction.
+- **Expanded native coverage:** CI now produces artifacts for Linux, macOS, Windows, Android, iOS, and WebAssembly targets and emits `VelloSharp.Native.<rid>` packages per runtime.
 
 ## Completion Plan
 

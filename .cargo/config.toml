@@ -4,11 +4,23 @@ linker = "gcc"
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"
 
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android21-clang"
+ar = "llvm-ar"
+
 [target.x86_64-apple-darwin]
 linker = "clang"
 
 [target.aarch64-apple-darwin]
 linker = "clang"
+
+[target.x86_64-apple-ios]
+linker = "clang"
+ar = "llvm-ar"
+
+[target.aarch64-apple-ios]
+linker = "clang"
+ar = "llvm-ar"
 
 [target.x86_64-pc-windows-msvc]
 linker = "link.exe"
