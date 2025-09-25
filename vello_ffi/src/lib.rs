@@ -302,10 +302,6 @@ fn renderer_options_from_ffi(options: &VelloRendererOptions) -> RendererOptions 
     if !support.area && !support.msaa8 && !support.msaa16 {
         support = AaSupport::area_only();
     }
-    if support.msaa8 || support.msaa16 {
-        // MSAA shaders are not available in the embedded runtime; fall back to area AA only.
-        support = AaSupport::area_only();
-    }
     let init_threads = if options.init_threads <= 0 {
         None
     } else {
