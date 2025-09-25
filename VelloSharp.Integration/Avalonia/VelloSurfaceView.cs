@@ -13,18 +13,30 @@ public class VelloSurfaceView : ContentControl, IDisposable
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private RendererOptions _rendererOptions = new();
     private RenderParams _renderParams = new RenderParams(1, 1, RgbaColor.FromBytes(0, 0, 0));
-    private VelloSurfaceContext? _context;
-    private VelloSurface? _surface;
-    private VelloSurfaceRenderer? _renderer;
+    private WgpuInstance? _wgpuInstance;
+    private WgpuAdapter? _wgpuAdapter;
+    private WgpuDevice? _wgpuDevice;
+    private WgpuQueue? _wgpuQueue;
+    private WgpuSurface? _wgpuSurface;
+    private WgpuRenderer? _wgpuRenderer;
+    private WgpuTextureFormat _surfaceFormat = WgpuTextureFormat.Bgra8Unorm;
     private Scene? _scene = new();
     private uint _surfaceWidth = 1;
     private uint _surfaceHeight = 1;
+    private bool _surfaceConfigured;
     private TimeSpan _lastFrameTimestamp = TimeSpan.Zero;
     private bool _isLoopEnabled = true;
     private bool _animationFrameRequested;
     private bool _disposed;
     private bool _useFallback;
     private VelloView? _fallback;
+
+    private enum GpuInitResult
+    {
+        Success,
+        Pending,
+        Failed,
+    }
 
     private void PostContentUpdate(Action action)
     {
@@ -125,11 +137,6 @@ public class VelloSurfaceView : ContentControl, IDisposable
             return;
         }
 
-        if (_useFallback)
-        {
-            return;
-        }
-
         var scaling = VisualRoot?.RenderScaling ?? 1.0;
         var width = (uint)Math.Max(1, (int)Math.Ceiling(Bounds.Width * scaling));
         var height = (uint)Math.Max(1, (int)Math.Ceiling(Bounds.Height * scaling));
@@ -138,27 +145,37 @@ public class VelloSurfaceView : ContentControl, IDisposable
             return;
         }
 
-        if (_renderer is null || _surface is null)
+        if (_wgpuRenderer is null || _wgpuSurface is null)
         {
-            if (!TryEnsureGpu(width, height))
+            var gpuInit = TryEnsureGpu(width, height);
+            switch (gpuInit)
             {
-                EnsureFallback();
-                return;
+                case GpuInitResult.Pending:
+                    return;
+                case GpuInitResult.Failed:
+                    EnsureFallback();
+                    return;
             }
         }
 
-        if (_renderer is null || _surface is null)
+        if (_wgpuRenderer is null || _wgpuSurface is null || _wgpuDevice is null)
         {
             return;
         }
 
-        if (width != _surfaceWidth || height != _surfaceHeight)
+        if (_useFallback)
+        {
+            return;
+        }
+
+        if (!_surfaceConfigured || width != _surfaceWidth || height != _surfaceHeight)
         {
             try
             {
-                _surface.Resize(width, height);
-                _surfaceWidth = width;
-                _surfaceHeight = height;
+                if (!ConfigureSurface(width, height))
+                {
+                    throw new InvalidOperationException("Surface configuration failed");
+                }
             }
             catch (Exception ex)
             {
@@ -183,25 +200,25 @@ public class VelloSurfaceView : ContentControl, IDisposable
         var frameContext = new VelloRenderFrameContext(scene, width, height, scaling, delta, now);
         OnRenderFrame(frameContext);
 
+        WgpuSurfaceTexture? surfaceTexture = null;
         try
         {
-            var requestedAa = _renderParams.Antialiasing;
+            surfaceTexture = _wgpuSurface.AcquireNextTexture();
+            using var textureView = surfaceTexture.CreateView();
+
             var renderParams = _renderParams with
             {
                 Width = width,
                 Height = height,
-                Antialiasing = AntialiasingMode.Area,
             };
 
-            if (requestedAa != AntialiasingMode.Area)
-            {
-                Debug.WriteLine("VelloSurfaceView: forcing AntialiasingMode.Area for GPU rendering.");
-            }
-
-            _renderer.Render(_surface, scene, renderParams);
+            _wgpuRenderer.Render(scene, textureView, renderParams);
+            surfaceTexture.Present();
+            surfaceTexture = null;
         }
         catch (Exception ex)
         {
+            surfaceTexture?.Dispose();
             Debug.WriteLine($"VelloSurface render failed: {ex.Message}");
             EnsureFallback();
         }
@@ -253,37 +270,61 @@ public class VelloSurfaceView : ContentControl, IDisposable
         topLevel.RequestAnimationFrame(OnAnimationFrame);
     }
 
-    private bool TryEnsureGpu(uint width, uint height)
+    private GpuInitResult TryEnsureGpu(uint width, uint height)
     {
         var topLevel = TopLevel.GetTopLevel(this);
         var platformHandle = topLevel?.TryGetPlatformHandle();
         if (platformHandle is null)
         {
-            return false;
+            return GpuInitResult.Pending;
+        }
+
+        if (platformHandle.Handle == IntPtr.Zero)
+        {
+            return GpuInitResult.Pending;
         }
 
         if (!TryCreateWindowHandle(platformHandle, out var handle))
         {
-            return false;
+            return GpuInitResult.Failed;
         }
 
         try
         {
-            _context ??= new VelloSurfaceContext();
-            _surface = new VelloSurface(_context, new SurfaceDescriptor
+            _wgpuInstance ??= new WgpuInstance();
+            _wgpuSurface ??= WgpuSurface.Create(_wgpuInstance, new SurfaceDescriptor
             {
                 Width = width,
                 Height = height,
                 PresentMode = PresentMode.AutoVsync,
                 Handle = handle,
             });
-            _renderer = new VelloSurfaceRenderer(_surface, _rendererOptions);
-            _surfaceWidth = width;
-            _surfaceHeight = height;
-            _useFallback = false;
+
+            _wgpuAdapter ??= _wgpuInstance.RequestAdapter(new WgpuRequestAdapterOptions
+            {
+                PowerPreference = WgpuPowerPreference.HighPerformance,
+                CompatibleSurface = _wgpuSurface,
+            });
+
+            _wgpuDevice ??= _wgpuAdapter.RequestDevice(new WgpuDeviceDescriptor
+            {
+                Limits = WgpuLimitsPreset.Default,
+                RequiredFeatures = WgpuFeature.None,
+            });
+
+            _wgpuQueue ??= _wgpuDevice.GetQueue();
+            _wgpuRenderer ??= new WgpuRenderer(_wgpuDevice, _rendererOptions);
+
+            if (!ConfigureSurface(width, height))
+            {
+                DisposeGpuResources();
+                return GpuInitResult.Failed;
+            }
 
             PostContentUpdate(() =>
             {
+                var hadFallback = _fallback is not null || Content is VelloView;
+
                 if (_fallback is not null)
                 {
                     _fallback.RenderFrame -= OnFallbackRenderFrame;
@@ -295,15 +336,21 @@ public class VelloSurfaceView : ContentControl, IDisposable
                 {
                     Content = null;
                 }
+
+                _useFallback = false;
+                if (hadFallback)
+                {
+                    RequestRender();
+                }
             });
 
-            return true;
+            return GpuInitResult.Success;
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to initialize Vello surface: {ex.Message}");
             DisposeGpuResources();
-            return false;
+            return GpuInitResult.Failed;
         }
     }
 
@@ -330,6 +377,57 @@ public class VelloSurfaceView : ContentControl, IDisposable
 
         return false;
     }
+
+    private bool ConfigureSurface(uint width, uint height)
+    {
+        if (_wgpuSurface is null || _wgpuDevice is null || _wgpuAdapter is null)
+        {
+            return false;
+        }
+
+        var format = _surfaceFormat;
+        if (!_surfaceConfigured)
+        {
+            format = _wgpuSurface.GetPreferredFormat(_wgpuAdapter);
+        }
+
+        try
+        {
+            var config = new WgpuSurfaceConfiguration
+            {
+                Usage = WgpuTextureUsage.RenderAttachment,
+                Format = format,
+                Width = width,
+                Height = height,
+                PresentMode = PresentMode.AutoVsync,
+                AlphaMode = WgpuCompositeAlphaMode.Auto,
+                ViewFormats = Array.Empty<WgpuTextureFormat>(),
+            };
+
+            _wgpuSurface.Configure(_wgpuDevice, config);
+            _surfaceWidth = width;
+            _surfaceHeight = height;
+            _surfaceFormat = format;
+            _surfaceConfigured = true;
+
+            var renderFormat = MapRenderFormat(format);
+            RenderParameters = _renderParams with { Format = renderFormat };
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to configure wgpu surface: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static RenderFormat MapRenderFormat(WgpuTextureFormat format)
+        => format switch
+        {
+            WgpuTextureFormat.Bgra8Unorm => RenderFormat.Bgra8,
+            WgpuTextureFormat.Bgra8UnormSrgb => RenderFormat.Bgra8,
+            _ => RenderFormat.Rgba8,
+        };
 
     private void EnsureFallback()
     {
@@ -367,15 +465,15 @@ public class VelloSurfaceView : ContentControl, IDisposable
 
     private void RecreateRenderer()
     {
-        if (_renderer is null || _surface is null)
+        if (_wgpuDevice is null)
         {
             return;
         }
 
         try
         {
-            _renderer.Dispose();
-            _renderer = new VelloSurfaceRenderer(_surface, _rendererOptions);
+            _wgpuRenderer?.Dispose();
+            _wgpuRenderer = new WgpuRenderer(_wgpuDevice, _rendererOptions);
         }
         catch (Exception ex)
         {
@@ -386,14 +484,22 @@ public class VelloSurfaceView : ContentControl, IDisposable
 
     private void DisposeGpuResources()
     {
-        _renderer?.Dispose();
-        _renderer = null;
-        _surface?.Dispose();
-        _surface = null;
-        _context?.Dispose();
-        _context = null;
+        _wgpuRenderer?.Dispose();
+        _wgpuRenderer = null;
+        _wgpuSurface?.Dispose();
+        _wgpuSurface = null;
+        _wgpuQueue?.Dispose();
+        _wgpuQueue = null;
+        _wgpuDevice?.Dispose();
+        _wgpuDevice = null;
+        _wgpuAdapter?.Dispose();
+        _wgpuAdapter = null;
+        _wgpuInstance?.Dispose();
+        _wgpuInstance = null;
         _surfaceWidth = 1;
         _surfaceHeight = 1;
+        _surfaceConfigured = false;
+        _surfaceFormat = WgpuTextureFormat.Bgra8Unorm;
     }
 
     public void Dispose()
