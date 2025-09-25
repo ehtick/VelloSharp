@@ -288,6 +288,22 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_surface_texture_destroy(IntPtr texture);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_wgpu_renderer_create(IntPtr device, VelloRendererOptions options);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_renderer_destroy(IntPtr renderer);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_render")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_render(
+        IntPtr renderer,
+        IntPtr scene,
+        IntPtr textureView,
+        VelloRenderParams parameters);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_glyph_run")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial VelloStatus vello_scene_draw_glyph_run(

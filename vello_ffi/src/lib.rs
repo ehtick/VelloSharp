@@ -1612,6 +1612,13 @@ pub struct VelloWgpuTextureViewHandle {
     view: TextureView,
 }
 
+#[repr(C)]
+pub struct VelloWgpuRendererHandle {
+    device: Device,
+    queue: Queue,
+    renderer: Renderer,
+}
+
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum VelloWgpuPowerPreference {
@@ -3029,6 +3036,83 @@ pub unsafe extern "C" fn vello_wgpu_surface_texture_destroy(
     if !texture.is_null() {
         unsafe { drop(Box::from_raw(texture)) };
     }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_create(
+    device: *mut VelloWgpuDeviceHandle,
+    options: VelloRendererOptions,
+) -> *mut VelloWgpuRendererHandle {
+    clear_last_error();
+    let Some(device_handle) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+
+    let renderer_options = renderer_options_from_ffi(&options);
+    let renderer = match Renderer::new(&device_handle.device, renderer_options) {
+        Ok(renderer) => renderer,
+        Err(err) => {
+            set_last_error(format!("Failed to create renderer: {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+
+    Box::into_raw(Box::new(VelloWgpuRendererHandle {
+        device: device_handle.device.clone(),
+        queue: device_handle.queue.clone(),
+        renderer,
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_destroy(renderer: *mut VelloWgpuRendererHandle) {
+    if !renderer.is_null() {
+        unsafe { drop(Box::from_raw(renderer)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_render(
+    renderer: *mut VelloWgpuRendererHandle,
+    scene: *const VelloSceneHandle,
+    texture_view: *const VelloWgpuTextureViewHandle,
+    params: VelloRenderParams,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(scene) = (unsafe { scene.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(texture_view) = (unsafe { texture_view.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    if params.width == 0 || params.height == 0 {
+        return VelloStatus::InvalidArgument;
+    }
+
+    let render_params = RenderParams {
+        base_color: params.base_color.into(),
+        width: params.width,
+        height: params.height,
+        antialiasing_method: params.antialiasing.into(),
+    };
+
+    if let Err(err) = renderer.renderer.render_to_texture(
+        &renderer.device,
+        &renderer.queue,
+        &scene.inner,
+        &texture_view.view,
+        &render_params,
+    ) {
+        set_last_error(format!("Render failed: {err}"));
+        return VelloStatus::RenderError;
+    }
+
+    VelloStatus::Success
 }
 
 #[unsafe(no_mangle)]

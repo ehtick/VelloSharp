@@ -769,3 +769,86 @@ public sealed class WgpuTextureView : IDisposable
         }
     }
 }
+
+public sealed class WgpuRenderer : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    public WgpuRenderer(WgpuDevice device, RendererOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        var nativeOptions = (options ?? new RendererOptions()).ToNative();
+        _handle = NativeMethods.vello_wgpu_renderer_create(device.Handle, nativeOptions);
+        if (_handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create wgpu renderer.");
+        }
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Render(Scene scene, WgpuTextureView textureView, RenderParams parameters)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(textureView);
+        ThrowIfDisposed();
+
+        var nativeParams = new VelloRenderParams
+        {
+            Width = parameters.Width,
+            Height = parameters.Height,
+            BaseColor = parameters.BaseColor.ToNative(),
+            Antialiasing = (VelloAaMode)parameters.Antialiasing,
+            Format = (VelloRenderFormat)parameters.Format,
+        };
+
+        var status = NativeMethods.vello_wgpu_renderer_render(
+            _handle,
+            scene.Handle,
+            textureView.Handle,
+            nativeParams);
+
+        NativeHelpers.ThrowOnError(status, "Failed to render to wgpu texture.");
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuRenderer));
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_renderer_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuRenderer()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_renderer_destroy(_handle);
+        }
+    }
+}
