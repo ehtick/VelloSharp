@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+    <NativeRid>osx-arm64</NativeRid>
+    <PackageId>VelloSharp.Native.osx-arm64</PackageId>
+    <Title>VelloSharp.Native.osx-arm64</Title>
+    <Description>Native Vello runtime for osx-arm64</Description>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'runtimes', 'osx-arm64', 'native'))</NativeAssetsDirectory>
+  </PropertyGroup>
+  <Import Project="../VelloSharp.Native/VelloSharp.Native.Shared.props" />
+</Project>

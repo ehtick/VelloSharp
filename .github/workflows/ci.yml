@@ -255,6 +255,7 @@ jobs:
       - name: Pack native runtime packages
         run: |
           set -eo pipefail
+          mkdir -p artifacts/nuget
           for dir in artifacts/runtimes/*; do
             rid=$(basename "$dir")
             nativeDir="$dir/native"
@@ -262,12 +263,14 @@ jobs:
               echo "Skipping $rid (no native dir)"
               continue
             fi
-            dotnet pack packaging/VelloSharp.Native/VelloSharp.Native.csproj \
+            project="packaging/VelloSharp.Native.${rid}/VelloSharp.Native.${rid}.csproj"
+            if [ ! -f "$project" ]; then
+              echo "Skipping $rid (no packaging project at $project)"
+              continue
+            fi
+            dotnet pack "$project" \
               -c Release \
-              -p:PackageId=VelloSharp.Native.$rid \
-              -p:NativeRid=$rid \
-              -p:NativeAssetsDirectory=$nativeDir \
-              -p:Description="Native Vello runtime for $rid" \
+              -p:NativeAssetsDirectory="$nativeDir" \
               -p:PackageOutputPath=$PWD/artifacts/nuget
           done
 

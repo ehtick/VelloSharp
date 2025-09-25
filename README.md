@@ -50,7 +50,10 @@ The generated `.nupkg` and `.snupkg` files are emitted under `artifacts/nuget/`.
 
 In addition to the aggregate `VelloSharp` package, each runtime is also packed individually as
 `VelloSharp.Native.<rid>` containing only the native asset under `runtimes/<rid>/native/`. These
-packages can be consumed directly when you need granular control over native deployment.
+packages can be consumed directly when you need granular control over native deployment. When
+packing the managed package you can toggle to native-package dependencies with
+`-p:VelloUseNativePackageDependencies=true`; provide a subset via
+`-p:VelloNativePackageIds="VelloSharp.Native.win-x64;VelloSharp.Native.win-arm64"` when testing locally.
 
 ## Using `VelloSharp`
 
