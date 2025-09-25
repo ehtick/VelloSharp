@@ -226,7 +226,7 @@ Set `IsLoopEnabled` to `false` if you prefer to drive the control manually via `
 ### Surface-backed rendering (wgpu)
 
 The Avalonia integration now drives the shared wgpu wrappers. `VelloSurfaceView` tries to obtain a native
-platform handle (`HWND`, `NSView`, and, in a future update, Wayland/X11). When the handle is available it creates
+platform handle (`HWND`, `NSWindow`, and, in a future update, Wayland/X11). When the handle is available it creates
 a `WgpuInstance`, `WgpuSurface`, and `WgpuRenderer`, rendering directly into swapchain textures and presenting
 them via `wgpu`. If the platform cannot provide a compatible handle, or surface configuration fails, the control
 transparently falls back to the software `VelloView` path. You can continue to update the scene through
