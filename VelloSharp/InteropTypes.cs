@@ -278,6 +278,97 @@ internal struct VelloVelatoCompositionInfo
     public uint Height;
 }
 
+internal enum WgpuPowerPreferenceNative : uint
+{
+    None = 0,
+    LowPower = 1,
+    HighPerformance = 2,
+}
+
+internal enum WgpuDx12CompilerNative : uint
+{
+    Default = 0,
+    Fxc = 1,
+    Dxc = 2,
+}
+
+internal enum WgpuLimitsPresetNative : uint
+{
+    Default = 0,
+    DownlevelWebGl2 = 1,
+    DownlevelDefault = 2,
+    AdapterDefault = 3,
+}
+
+internal enum WgpuCompositeAlphaModeNative : uint
+{
+    Auto = 0,
+    Opaque = 1,
+    Premultiplied = 2,
+    PostMultiplied = 3,
+    Inherit = 4,
+}
+
+internal enum WgpuTextureFormatNative : uint
+{
+    Rgba8Unorm = 0,
+    Rgba8UnormSrgb = 1,
+    Bgra8Unorm = 2,
+    Bgra8UnormSrgb = 3,
+    Rgba16Float = 4,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuInstanceDescriptorNative
+{
+    public uint Backends;
+    public uint Flags;
+    public WgpuDx12CompilerNative Dx12ShaderCompiler;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuRequestAdapterOptionsNative
+{
+    public WgpuPowerPreferenceNative PowerPreference;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool ForceFallbackAdapter;
+    public IntPtr CompatibleSurface;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuDeviceDescriptorNative
+{
+    public IntPtr Label;
+    public ulong RequiredFeatures;
+    public WgpuLimitsPresetNative Limits;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuSurfaceConfigurationNative
+{
+    public uint Usage;
+    public WgpuTextureFormatNative Format;
+    public uint Width;
+    public uint Height;
+    public VelloPresentMode PresentMode;
+    public WgpuCompositeAlphaModeNative AlphaMode;
+    public nuint ViewFormatCount;
+    public IntPtr ViewFormats;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuTextureViewDescriptorNative
+{
+    public IntPtr Label;
+    public WgpuTextureFormatNative Format;
+    public uint Dimension;
+    public uint Aspect;
+    public uint BaseMipLevel;
+    public uint MipLevelCount;
+    public uint BaseArrayLayer;
+    public uint ArrayLayerCount;
+}
+
 [StructLayout(LayoutKind.Sequential)]
 internal struct VelloLayerParams
 {
