@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AvaloniaVelloExamples.ViewModels"
+        xmlns:local="using:AvaloniaVelloExamples.Views"
+        xmlns:sc="clr-namespace:AvaloniaVelloExamples.Scenes"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="AvaloniaVelloExamples.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Vello Examples"
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="600">
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="260,*" Margin="12">
+        <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+            <Button Content="◀" Command="{Binding PreviousSceneCommand}"/>
+            <Button Content="▶" Command="{Binding NextSceneCommand}"/>
+            <Separator Margin="8,0"/>
+            <Button Content="−" Command="{Binding DecreaseComplexityCommand}"/>
+            <Slider Width="160"
+                    Minimum="1"
+                    Maximum="50"
+                    Value="{Binding Complexity}"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True"/>
+            <Button Content="+" Command="{Binding IncreaseComplexityCommand}"/>
+            <TextBlock Text="Complexity" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <Border Margin="12,0"/>
+            <ToggleSwitch IsChecked="{Binding IsInteractive}" Content="Interactive"/>
+            <Border Margin="12,0"/>
+            <Button Content="Reset View" Command="{Binding ResetViewCommand}"/>
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,12,12,0"
+                BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                BorderThickness="1"
+                CornerRadius="6">
+            <ListBox ItemsSource="{Binding Scenes}"
+                     SelectedIndex="{Binding SelectedSceneIndex}"
+                     Background="Transparent"
+                     BorderThickness="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="sc:ExampleScene">
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="8,4">
+                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                            <TextBlock Text="(Animated)"
+                                       Foreground="{DynamicResource ThemeAccentBrush}" 
+                                       IsVisible="{Binding Animated}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <local:ExamplesView x:Name="ExamplesRenderer"
+                             Grid.Row="1"
+                             Grid.Column="1"
+                             Margin="12,12,0,0"
+                             Host="{Binding Host}"
+                             SceneIndex="{Binding SelectedSceneIndex}"
+                             Complexity="{Binding Complexity}"
+                             IsInteractive="{Binding IsInteractive}"/>
+    </Grid>
+</Window>
