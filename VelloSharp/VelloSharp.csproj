@@ -48,11 +48,15 @@
   </Target>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '$(VelloNativePackageIds)' != ''">
-    <_VelloNativePackage Include="$(VelloNativePackageIds)" />
+    <_VelloNativePackage Include="$(VelloNativePackageIds)">
+      <ProjectPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', 'packaging', '%(Identity)', '%(Identity).csproj'))</ProjectPath>
+    </_VelloNativePackage>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '$(VelloNativePackageIds)' != ''">
-    <PackageReference Include="%(_VelloNativePackage.Identity)" />
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '@(_VelloNativePackage)' != ''">
+    <ProjectReference Include="@(_VelloNativePackage->'%(ProjectPath)')"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true" />
   </ItemGroup>
 
   <UsingTask TaskName="GetCurrentRid"
