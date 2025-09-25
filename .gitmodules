@@ -1,0 +1,3 @@
+[submodule "vello"]
+	path = vello
+	url = https://github.com/wieslawsoltes/vello
