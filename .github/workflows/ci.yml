@@ -254,21 +254,37 @@ jobs:
             mv artifacts/artifacts/* artifacts/
             rmdir artifacts/artifacts
           fi
+          if [ ! -d artifacts/runtimes ]; then
+            for candidate in artifacts/*; do
+              if [ -d "$candidate/runtimes" ]; then
+                echo "Merging runtimes from $candidate"
+                shopt -s dotglob
+                mkdir -p artifacts/runtimes
+                cp -a "$candidate/runtimes"/. artifacts/runtimes/
+                shopt -u dotglob
+              fi
+            done
+          fi
           ls -R artifacts
 
       - name: Pack native runtime packages
         run: |
           set -eo pipefail
           mkdir -p artifacts/nuget
-          declare -A seen
-          mapfile -d '' native_dirs < <(find artifacts -type d -name native -path '*/runtimes/*/native' -print0 | sort -zu)
-
-          if [ ${#native_dirs[@]} -eq 0 ]; then
-            echo "No native runtime directories found under artifacts/."
+          runtime_root="artifacts/runtimes"
+          if [ ! -d "$runtime_root" ]; then
+            echo "No runtimes directory found at $runtime_root"
+            find artifacts -maxdepth 4 -type d
             exit 1
           fi
 
-          for nativeDir in "${native_dirs[@]}"; do
+          shopt -s nullglob
+          declare -A seen
+          processed=0
+          for nativeDir in "$runtime_root"/*/native; do
+            if [ ! -d "$nativeDir" ]; then
+              continue
+            fi
             rid=$(basename "$(dirname "$nativeDir")")
 
             if [[ -n "${seen[$rid]}" ]]; then
@@ -287,7 +303,14 @@ jobs:
               -c Release \
               -p:NativeAssetsDirectory="$nativeDir" \
               -p:PackageOutputPath=$PWD/artifacts/nuget
+            processed=$((processed + 1))
           done
+
+          if [ $processed -eq 0 ]; then
+            echo "No native runtime directories were processed under $runtime_root."
+            find "$runtime_root" -maxdepth 2 -type d
+            exit 1
+          fi
 
           if compgen -G "artifacts/nuget/*.nupkg" > /dev/null; then
             echo "Native packages created:"
