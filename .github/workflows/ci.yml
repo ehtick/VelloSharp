@@ -275,11 +275,13 @@ jobs:
         run: dotnet nuget add source "${{ github.workspace }}/artifacts/nuget" --name VelloNativeLocal
 
       - name: Pack VelloSharp
-        run: dotnet pack VelloSharp/VelloSharp.csproj -c Release \
-          -p:VelloSkipNativeBuild=true \
-          -p:VelloIncludeNativeAssets=false \
-          -p:VelloUseNativePackageDependencies=true \
-          -p:VelloRequireAllNativeAssets=false \
+        run: >
+          dotnet pack VelloSharp/VelloSharp.csproj
+          -c Release
+          -p:VelloSkipNativeBuild=true
+          -p:VelloIncludeNativeAssets=false
+          -p:VelloUseNativePackageDependencies=true
+          -p:VelloRequireAllNativeAssets=false
           -p:RestoreAdditionalProjectSources=${{ github.workspace }}/artifacts/nuget
 
       - name: Upload NuGet packages
