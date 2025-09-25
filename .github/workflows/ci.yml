@@ -40,13 +40,8 @@ jobs:
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu
 
-      - name: Build native library
-        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
-
-      - name: Collect native artifact
-        run: |
-          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
-          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+      - name: Build native artifact
+        run: ./scripts/build-native-linux.sh ${{ matrix.target }} release ${{ matrix.rid }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -96,13 +91,8 @@ jobs:
         if: matrix.sdk != ''
         run: echo "SDKROOT=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)" >> $GITHUB_ENV
 
-      - name: Build native library
-        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
-
-      - name: Collect native artifact
-        run: |
-          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
-          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+      - name: Build native artifact
+        run: ./scripts/build-native-macos.sh ${{ matrix.target }} release '${{ matrix.sdk }}' '${{ matrix.rid }}'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -139,15 +129,11 @@ jobs:
           unzip -q $RUNNER_TEMP/android-ndk.zip -d $RUNNER_TEMP
           echo "ANDROID_NDK_HOME=$RUNNER_TEMP/android-ndk-r26d" >> $GITHUB_ENV
           echo "$RUNNER_TEMP/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-          echo "AR_aarch64_linux_android=$RUNNER_TEMP/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> $GITHUB_ENV
 
-      - name: Build native library
-        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
-
-      - name: Collect native artifact
-        run: |
-          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
-          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+      - name: Build native artifact
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+        run: ./scripts/build-native-android.sh ${{ matrix.target }} release ${{ matrix.rid }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -177,13 +163,8 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Build native library
-        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
-
-      - name: Collect native artifact
-        run: |
-          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
-          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+      - name: Build native artifact
+        run: ./scripts/build-native-wasm.sh ${{ matrix.target }} release ${{ matrix.rid }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
