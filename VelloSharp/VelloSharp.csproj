@@ -7,7 +7,42 @@
     <LangVersion>latest</LangVersion>
     <VelloRuntimeIdentifier>$(RuntimeIdentifier)</VelloRuntimeIdentifier>
     <VelloRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</VelloRepositoryRoot>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp</PackageId>
+    <Title>VelloSharp</Title>
+    <Description>.NET bindings for the Vello renderer with native runtime resolution.</Description>
+    <PackageOutputPath Condition="'$(PackageOutputPath)'==''">$([System.IO.Path]::Combine('$(VelloRepositoryRoot)', 'artifacts', 'nuget'))</PackageOutputPath>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <VelloNativeAssetsDirectory Condition="'$(VelloNativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(OutputPath)', 'runtimes'))</VelloNativeAssetsDirectory>
+    <VelloNativeAssetsDirectory>$([MSBuild]::EnsureTrailingSlash('$(VelloNativeAssetsDirectory)'))</VelloNativeAssetsDirectory>
+    <VelloRequireAllNativeAssets Condition="'$(VelloRequireAllNativeAssets)'==''">true</VelloRequireAllNativeAssets>
+    <VelloSkipNativeBuild Condition="'$(VelloSkipNativeBuild)'==''">false</VelloSkipNativeBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and Exists('$(VelloNativeAssetsDirectory)')">
+    <Content Include="$(VelloNativeAssetsDirectory)**/*"
+             Pack="true"
+             PackagePath="runtimes/%(RecursiveDir)%(Filename)%(Extension)"
+             Visible="false">
+      <VelloNativeAsset>true</VelloNativeAsset>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="EnsureVelloNativeAssets"
+          BeforeTargets="Pack"
+          Condition="'$(IsPackable)' == 'true' and '$(VelloRequireAllNativeAssets)' == 'true'">
+    <ItemGroup>
+      <_VelloNativeContent Include="@(Content)"
+                           Condition="'%(VelloNativeAsset)' == 'true'" />
+    </ItemGroup>
+    <Error Condition="'@(_VelloNativeContent)' == ''"
+           Text="Vello native assets were not found in '$(VelloNativeAssetsDirectory)'. Provide platform builds or set VelloRequireAllNativeAssets=false." />
+  </Target>
 
   <UsingTask TaskName="GetCurrentRid"
              TaskFactory="RoslynCodeTaskFactory"
@@ -77,7 +112,7 @@ RuntimeIdentifier = rid;
   <Target Name="BuildVelloNativeLibrary"
           DependsOnTargets="EnsureVelloRuntimeIdentifier"
           BeforeTargets="Build"
-          Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown'">
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown' and '$(VelloSkipNativeBuild)' != 'true'">
     <PropertyGroup>
       <_VelloNativeFileName Condition="'$(VelloRuntimeIdentifier)' == 'win-x64' or '$(VelloRuntimeIdentifier)' == 'win-arm64' or '$(VelloRuntimeIdentifier)' == 'win'">vello_ffi.dll</_VelloNativeFileName>
       <_VelloNativeFileName Condition="'$(VelloRuntimeIdentifier)' == 'osx-x64' or '$(VelloRuntimeIdentifier)' == 'osx-arm64' or '$(VelloRuntimeIdentifier)' == 'osx'">libvello_ffi.dylib</_VelloNativeFileName>

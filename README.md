@@ -34,6 +34,20 @@ Rust target is installed (`rustup target add <triple>`). The produced files are 
 | `linux-x64`| `x86_64-unknown-linux-gnu`   | `libvello_ffi.so`        |
 | `linux-arm64`| `aarch64-unknown-linux-gnu`| `libvello_ffi.so`        |
 
+## Packing NuGet packages
+
+The `VelloSharp` project is now NuGet-ready. Packing requires the native artifacts for each
+runtime you want to redistribute:
+
+1. Build the native libraries (e.g., via CI) and collect them under a directory layout such as
+   `runtimes/<rid>/native/<library>`.
+2. Set the `VelloNativeAssetsDirectory` property to that directory when invoking `dotnet pack`
+   (for example, `dotnet pack VelloSharp/VelloSharp.csproj -c Release -p:VelloSkipNativeBuild=true -p:VelloNativeAssetsDirectory=$PWD/artifacts/runtimes`).
+3. Optionally verify all runtimes by keeping the default `VelloRequireAllNativeAssets=true`, or
+   relax the check with `-p:VelloRequireAllNativeAssets=false` when experimenting locally.
+
+The generated `.nupkg` and `.snupkg` files are emitted under `artifacts/nuget/`.
+
 ## Using `VelloSharp`
 
 Reference the `VelloSharp` project from your solution or publish it as a NuGet package.

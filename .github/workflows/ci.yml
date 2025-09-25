@@ -1,0 +1,173 @@
+name: Build and Pack
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native-linux:
+    name: Native Linux (${{ matrix.rid }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            rid: linux-x64
+            artifact-name: native-linux-x64
+            library: libvello_ffi.so
+          - target: aarch64-unknown-linux-gnu
+            rid: linux-arm64
+            artifact-name: native-linux-arm64
+            library: libvello_ffi.so
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Install cross toolchain
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu
+
+      - name: Build native library
+        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
+
+      - name: Collect native artifact
+        run: |
+          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
+          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: artifacts/runtimes/${{ matrix.rid }}
+          if-no-files-found: error
+
+  native-macos:
+    name: Native macOS (${{ matrix.rid }})
+    runs-on: macos-14
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            rid: osx-x64
+            artifact-name: native-macos-x64
+            library: libvello_ffi.dylib
+          - target: aarch64-apple-darwin
+            rid: osx-arm64
+            artifact-name: native-macos-arm64
+            library: libvello_ffi.dylib
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Build native library
+        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
+
+      - name: Collect native artifact
+        run: |
+          mkdir -p artifacts/runtimes/${{ matrix.rid }}/native
+          cp target/${{ matrix.target }}/release/${{ matrix.library }} artifacts/runtimes/${{ matrix.rid }}/native/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: artifacts/runtimes/${{ matrix.rid }}
+          if-no-files-found: error
+
+  native-windows:
+    name: Native Windows (${{ matrix.rid }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            rid: win-x64
+            artifact-name: native-windows-x64
+            library: vello_ffi.dll
+          - target: aarch64-pc-windows-msvc
+            rid: win-arm64
+            artifact-name: native-windows-arm64
+            library: vello_ffi.dll
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Build native library
+        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
+
+      - name: Collect native artifact
+        shell: pwsh
+        run: |
+          $outDir = "artifacts\runtimes\${{ matrix.rid }}\native"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $library = "${{ matrix.library }}"
+          Copy-Item -Path "target\${{ matrix.target }}\release\$library" -Destination $outDir -Force
+          $pdb = [System.IO.Path]::ChangeExtension("target\${{ matrix.target }}\release\$library", ".pdb")
+          if (Test-Path $pdb) {
+            Copy-Item -Path $pdb -Destination $outDir -Force
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: artifacts/runtimes/${{ matrix.rid }}
+          if-no-files-found: error
+
+  pack-managed:
+    name: Pack NuGet
+    runs-on: ubuntu-latest
+    needs:
+      - native-linux
+      - native-macos
+      - native-windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: List merged artifacts
+        run: ls -R artifacts
+
+      - name: Build managed projects
+        run: dotnet build VelloSharp.sln -c Release -p:VelloSkipNativeBuild=true
+
+      - name: Pack VelloSharp
+        env:
+          VelloNativeAssetsDirectory: ${{ github.workspace }}/artifacts/runtimes
+        run: dotnet pack VelloSharp/VelloSharp.csproj -c Release -p:VelloSkipNativeBuild=true
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/nuget
+          if-no-files-found: error
