@@ -18,5 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../VelloSharp.Integration/VelloSharp.Integration.csproj" />
   </ItemGroup>
 </Project>

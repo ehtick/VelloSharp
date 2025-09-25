@@ -1,94 +1,50 @@
 using System;
 using System.Numerics;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using Avalonia.Threading;
 using VelloSharp;
+using VelloSharp.Integration.Avalonia;
 using FillRule = VelloSharp.FillRule;
-using Vector = Avalonia.Vector;
 
 namespace AvaloniaVelloDemo;
 
-public sealed class VelloView : Control, IDisposable
+public sealed class VelloView : VelloSharp.Integration.Avalonia.VelloView
 {
-    private readonly Renderer _renderer;
-    private readonly Scene _scene;
     private readonly PathBuilder _path = new();
-    private readonly StrokeStyle _stroke = new() { Width = 1.5, LineJoin = LineJoin.Miter, StartCap = LineCap.Butt, EndCap = LineCap.Butt };
-    private WriteableBitmap? _bitmap;
-    private readonly DispatcherTimer _timer;
+    private readonly StrokeStyle _stroke = new()
+    {
+        Width = 1.5,
+        LineJoin = LineJoin.Miter,
+        StartCap = LineCap.Butt,
+        EndCap = LineCap.Butt,
+    };
     private float _time;
-    private bool _disposed;
 
     public VelloView()
     {
-        ClipToBounds = true;
-        _renderer = new Renderer(1, 1);
-        _scene = new Scene();
-
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _timer.Tick += (_, _) =>
+        RenderParameters = RenderParameters with
         {
-            _time += 0.016f;
-            InvalidateVisual();
+            BaseColor = RgbaColor.FromBytes(18, 18, 20),
+            Antialiasing = AntialiasingMode.Msaa8,
+            Format = RenderFormat.Bgra8,
         };
-        _timer.Start();
     }
 
-    public override void Render(DrawingContext context)
+    protected override void OnRenderFrame(VelloRenderFrameContext context)
     {
-        base.Render(context);
+        base.OnRenderFrame(context);
 
-        if (_disposed)
-        {
-            return;
-        }
-
-        var scaling = VisualRoot?.RenderScaling ?? 1.0;
-        var width = Math.Max(1, (int)Math.Ceiling(Bounds.Width * scaling));
-        var height = Math.Max(1, (int)Math.Ceiling(Bounds.Height * scaling));
-
-        EnsureBitmap(width, height, scaling);
-        BuildScene(width, height, _time);
-
-        if (_bitmap is null)
-        {
-            return;
-        }
-
-        using var frame = _bitmap.Lock();
-        unsafe
-        {
-            var span = new Span<byte>((void*)frame.Address, frame.RowBytes * frame.Size.Height);
-            var parameters = new RenderParams(
-                (uint)width,
-                (uint)height,
-                RgbaColor.FromBytes(18, 18, 20),
-                AntialiasingMode.Msaa8)
-            {
-                Format = RenderFormat.Bgra8,
-            };
-            _renderer.Render(_scene, parameters, span, frame.RowBytes);
-        }
-
-        var sourceRect = new Rect(0, 0, _bitmap.PixelSize.Width, _bitmap.PixelSize.Height);
-        context.DrawImage(_bitmap, sourceRect, Bounds);
+        _time += (float)context.DeltaTime.TotalSeconds;
+        BuildScene(context.Scene, (int)context.Width, (int)context.Height, _time);
     }
 
-    private void BuildScene(int width, int height, float time)
+    private void BuildScene(Scene scene, int width, int height, float time)
     {
-        _scene.Reset();
         var transform = Matrix3x2.Identity;
-
-        DrawGrid(width, height, transform);
-        DrawAxis(width, height, transform);
-        DrawRotor(width, height, time);
+        DrawGrid(scene, width, height, transform);
+        DrawAxis(scene, width, height, transform);
+        DrawRotor(scene, width, height, time);
     }
 
-    private void DrawGrid(int width, int height, Matrix3x2 transform)
+    private void DrawGrid(Scene scene, int width, int height, Matrix3x2 transform)
     {
         const int Step = 64;
         var color = RgbaColor.FromBytes(60, 60, 72, 255);
@@ -96,34 +52,40 @@ public sealed class VelloView : Control, IDisposable
         {
             _path.Clear();
             _path.MoveTo(x, 0).LineTo(x, height);
-            _scene.StrokePath(_path, _stroke, transform, color);
+            scene.StrokePath(_path, _stroke, transform, color);
         }
 
         for (var y = Step; y < height; y += Step)
         {
             _path.Clear();
             _path.MoveTo(0, y).LineTo(width, y);
-            _scene.StrokePath(_path, _stroke, transform, color);
+            scene.StrokePath(_path, _stroke, transform, color);
         }
     }
 
-    private void DrawAxis(int width, int height, Matrix3x2 transform)
+    private void DrawAxis(Scene scene, int width, int height, Matrix3x2 transform)
     {
         var center = new Vector2(width / 2f, height / 2f);
         var axisColor = RgbaColor.FromBytes(220, 85, 85);
-        var axisStroke = new StrokeStyle { Width = 2.5, LineJoin = LineJoin.Miter, StartCap = LineCap.Round, EndCap = LineCap.Round };
+        var axisStroke = new StrokeStyle
+        {
+            Width = 2.5,
+            LineJoin = LineJoin.Miter,
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+        };
 
         _path.Clear();
         _path.MoveTo(0, center.Y).LineTo(width, center.Y);
-        _scene.StrokePath(_path, axisStroke, transform, axisColor);
+        scene.StrokePath(_path, axisStroke, transform, axisColor);
 
         axisColor = RgbaColor.FromBytes(95, 175, 240);
         _path.Clear();
         _path.MoveTo(center.X, 0).LineTo(center.X, height);
-        _scene.StrokePath(_path, axisStroke, transform, axisColor);
+        scene.StrokePath(_path, axisStroke, transform, axisColor);
     }
 
-    private void DrawRotor(int width, int height, float time)
+    private void DrawRotor(Scene scene, int width, int height, float time)
     {
         var center = new Vector2(width / 2f, height / 2f);
         var radius = Math.Min(width, height) * 0.35f;
@@ -143,7 +105,7 @@ public sealed class VelloView : Control, IDisposable
         }
 
         var bladeColor = RgbaColor.FromBytes(156, 220, 255, 204);
-        _scene.FillPath(_path, FillRule.NonZero, rotation, bladeColor);
+        scene.FillPath(_path, FillRule.NonZero, rotation, bladeColor);
 
         var rimStroke = new StrokeStyle
         {
@@ -171,43 +133,6 @@ public sealed class VelloView : Control, IDisposable
         }
         _path.Close();
 
-        _scene.StrokePath(_path, rimStroke, Matrix3x2.Identity, RgbaColor.FromBytes(240, 240, 245, 230));
-    }
-
-    private void EnsureBitmap(int width, int height, double scaling)
-    {
-        if (_bitmap is { } bitmap && bitmap.PixelSize.Width == width && bitmap.PixelSize.Height == height)
-        {
-            return;
-        }
-
-        _bitmap?.Dispose();
-        var dpi = 96.0 * scaling;
-        _bitmap = new WriteableBitmap(
-            new PixelSize(width, height),
-            new Vector(dpi, dpi),
-            PixelFormat.Bgra8888,
-            AlphaFormat.Premul);
-        _renderer.Resize((uint)width, (uint)height);
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _timer.Stop();
-        _bitmap?.Dispose();
-        _scene.Dispose();
-        _renderer.Dispose();
-        _disposed = true;
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        Dispose();
+        scene.StrokePath(_path, rimStroke, Matrix3x2.Identity, RgbaColor.FromBytes(240, 240, 245, 230));
     }
 }

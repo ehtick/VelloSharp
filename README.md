@@ -90,24 +90,34 @@ Use `Image.FromPixels` and `Scene.DrawImage` to render textures directly. Glyph 
 
 ## Avalonia integration
 
-The `VelloView` control in the sample project demonstrates how to render directly into an
-Avalonia `WriteableBitmap` that is drawn with the Skia backend:
+`VelloSharp.Integration` includes a reusable `VelloView` control that owns the renderer, scene, and
+backing `WriteableBitmap`. Subscribe to `RenderFrame` or override `OnRenderFrame` to populate the
+scene — the control manages size changes, render-loop invalidation, and stride/format negotiation for you:
 
 ```csharp
-using var frame = _bitmap.Lock();
-unsafe
+using VelloSharp.Integration.Avalonia;
+
+public sealed class DemoView : VelloView
 {
-    var span = new Span<byte>((void*)frame.Address, frame.RowBytes * frame.Size.Height);
-    _renderer.Render(_scene, parameters, span, frame.RowBytes);
+    public DemoView()
+    {
+        RenderParameters = RenderParameters with
+        {
+            BaseColor = RgbaColor.FromBytes(18, 18, 20),
+            Antialiasing = AntialiasingMode.Msaa8,
+        };
+
+        RenderFrame += context =>
+        {
+            var scene = context.Scene;
+            scene.Reset();
+            // build your Vello scene here
+        };
+    }
 }
-context.DrawImage(_bitmap, sourceRect, Bounds);
 ```
 
-Key points:
-
-- Use `VisualRoot.RenderScaling` to obtain physical pixels from logical Avalonia units.
-- Reuse `Scene` and `Renderer` across frames; call `Scene.Reset()` before encoding a new frame.
-- Pass the stride reported by `ILockedFramebuffer.RowBytes` back into `Renderer.Render`.
+Set `IsLoopEnabled` to `false` if you prefer to drive the control manually via `RequestRender()`.
 
 Run the sample with:
 
@@ -121,32 +131,43 @@ required as long as the Rust toolchain is installed.
 
 ## SkiaSharp interop
 
-If you are already using SkiaSharp primitives (for example in Avalonia custom draw calls), you can wrap
-Vello's BGRA output without additional conversions:
+`VelloSharp.Integration.Skia.SkiaRenderBridge` renders straight into `SKBitmap` or `SKSurface`
+instances and picks the correct render format based on the underlying color type and stride:
 
 ```csharp
 using SkiaSharp;
+using VelloSharp.Integration.Skia;
 
-void BlitToCanvas(SKCanvas canvas, ReadOnlySpan<byte> pixels, int width, int height, int stride)
+void RenderToSurface(SKSurface surface, Renderer renderer, Scene scene, RenderParams renderParams)
 {
-    var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
-    unsafe
-    {
-        fixed (byte* ptr = pixels)
-        {
-            using var pixmap = new SKPixmap(info, (IntPtr)ptr, stride);
-            using var paint = new SKPaint { FilterQuality = SKFilterQuality.High };
-            canvas.DrawPixmap(pixmap, SKRect.Create(width, height), paint);
-        }
-    }
+    SkiaRenderBridge.Render(surface, renderer, scene, renderParams);
+    surface.Canvas.Flush();
 }
+
+void RenderToBitmap(SKBitmap bitmap, Renderer renderer, Scene scene, RenderParams renderParams)
+    => SkiaRenderBridge.Render(bitmap, renderer, scene, renderParams);
 ```
 
-`InstallPixels` pins the span for the duration of the draw. If you need to retain the bitmap beyond the
-current frame, copy the data into a dedicated `SKBitmap`.
+The helper inspects the target stride and format, and falls back to an intermediate bitmap when Skia
+does not expose CPU pixels for GPU-backed surfaces.
+
+## CPU/GPU render paths
+
+For advanced scenarios you can work directly with raw buffers using
+`VelloSharp.Integration.Rendering.VelloRenderPath`:
+
+```csharp
+Span<byte> span = GetBuffer();
+var descriptor = new RenderTargetDescriptor((uint)width, (uint)height, RenderFormat.Bgra8, stride);
+VelloRenderPath.Render(renderer, scene, span, renderParams, descriptor);
+```
+
+The descriptor validates stride and size, while `Render` adjusts `RenderParams` to the negotiated format
+before invoking the GPU or CPU pipeline.
 
 ## Repository layout recap
 
 - `vello_ffi`: Rust source for the native shared library.
 - `VelloSharp`: C# wrapper library with `Scene`, `Renderer`, and path-building helpers.
+- `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
 - `samples/AvaloniaVelloDemo`: Avalonia desktop sample that exercises the bindings.
