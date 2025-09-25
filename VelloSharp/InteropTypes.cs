@@ -269,6 +269,16 @@ internal struct VelloRect
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloVelatoCompositionInfo
+{
+    public double StartFrame;
+    public double EndFrame;
+    public double FrameRate;
+    public uint Width;
+    public uint Height;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloLayerParams
 {
     public VelloBlendMix Mix;

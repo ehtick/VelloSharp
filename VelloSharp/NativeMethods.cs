@@ -152,6 +152,62 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_font_destroy(IntPtr font);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_svg_load_from_memory")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_svg_load_from_memory(byte* data, nuint length, float scale);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_svg_load_from_file", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_svg_load_from_file(string path, float scale);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_svg_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_svg_destroy(IntPtr svg);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_svg_get_size")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_svg_get_size(IntPtr svg, out VelloPoint size);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_svg_render")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_svg_render(IntPtr svg, IntPtr scene, VelloAffine* transform);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_composition_load_from_memory")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_velato_composition_load_from_memory(byte* data, nuint length);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_composition_load_from_file", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_velato_composition_load_from_file(string path);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_composition_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_velato_composition_destroy(IntPtr composition);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_composition_get_info")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_velato_composition_get_info(
+        IntPtr composition,
+        out VelloVelatoCompositionInfo info);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_renderer_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_velato_renderer_create();
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_renderer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_velato_renderer_destroy(IntPtr renderer);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_velato_renderer_render")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_velato_renderer_render(
+        IntPtr renderer,
+        IntPtr composition,
+        IntPtr scene,
+        double frame,
+        double alpha,
+        VelloAffine* transform);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_glyph_run")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial VelloStatus vello_scene_draw_glyph_run(

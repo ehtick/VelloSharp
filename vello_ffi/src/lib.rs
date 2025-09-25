@@ -5,7 +5,8 @@
 
 use std::{
     cell::RefCell,
-    ffi::{CString, c_char, c_ulong, c_void},
+    convert::TryFrom,
+    ffi::{CStr, CString, c_char, c_ulong, c_void},
     mem,
     num::{NonZeroIsize, NonZeroUsize},
     ptr::NonNull,
@@ -13,7 +14,7 @@ use std::{
 };
 
 use futures_intrusive::channel::shared::oneshot_channel;
-use kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke};
+use kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2};
 use peniko::{
     BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
@@ -23,10 +24,12 @@ use raw_window_handle::{
     WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowsDisplayHandle,
     XlibDisplayHandle, XlibWindowHandle,
 };
+use velato::{self, Composition as VelatoComposition, Renderer as VelatoRenderer};
 use vello::{
     AaConfig, AaSupport, Glyph, RenderParams, Renderer, RendererOptions, Scene,
     util::{RenderContext, RenderSurface},
 };
+use vello_svg::{self, usvg};
 use wgpu::{Buffer, Device, Instance, Queue, SurfaceError, SurfaceTargetUnsafe};
 
 #[cfg(feature = "trace-paths")]
@@ -1542,6 +1545,32 @@ pub struct VelloFontHandle {
     font: FontData,
 }
 
+#[repr(C)]
+pub struct VelloSvgHandle {
+    scene: Scene,
+    resolution: Vec2,
+}
+
+#[repr(C)]
+pub struct VelloVelatoCompositionHandle {
+    composition: VelatoComposition,
+}
+
+#[repr(C)]
+pub struct VelloVelatoRendererHandle {
+    renderer: RefCell<VelatoRenderer>,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloVelatoCompositionInfo {
+    pub start_frame: f64,
+    pub end_frame: f64,
+    pub frame_rate: f64,
+    pub width: u32,
+    pub height: u32,
+}
+
 impl RenderTarget {
     fn extent(&self) -> wgpu::Extent3d {
         wgpu::Extent3d {
@@ -2256,6 +2285,311 @@ pub unsafe extern "C" fn vello_font_destroy(font: *mut VelloFontHandle) {
     if !font.is_null() {
         unsafe { drop(Box::from_raw(font)) };
     }
+}
+
+fn load_svg_from_str(contents: &str) -> Result<VelloSvgHandle, String> {
+    let options = usvg::Options::default();
+    let tree = usvg::Tree::from_str(contents, &options).map_err(|err| err.to_string())?;
+
+    let mut scene = Scene::new();
+    vello_svg::append_tree(&mut scene, &tree);
+
+    let size = tree.size();
+    let resolution = Vec2::new(size.width() as f64, size.height() as f64);
+
+    Ok(VelloSvgHandle { scene, resolution })
+}
+
+fn load_velato_composition_from_slice(
+    bytes: &[u8],
+) -> Result<VelloVelatoCompositionHandle, String> {
+    let composition = VelatoComposition::from_slice(bytes).map_err(|err| err.to_string())?;
+    Ok(VelloVelatoCompositionHandle { composition })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_svg_load_from_memory(
+    data: *const u8,
+    length: usize,
+    scale: f32,
+) -> *mut VelloSvgHandle {
+    clear_last_error();
+    if data.is_null() {
+        set_last_error("SVG data pointer is null");
+        return std::ptr::null_mut();
+    }
+    if length == 0 {
+        set_last_error("SVG data length must be non-zero");
+        return std::ptr::null_mut();
+    }
+    let bytes = unsafe { slice::from_raw_parts(data, length) };
+    let contents = match std::str::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(err) => {
+            set_last_error(format!("SVG data is not valid UTF-8: {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+
+    if scale.abs() > f32::EPSILON && (scale - 1.0).abs() > f32::EPSILON {
+        set_last_error("Scaling SVG is not supported by the FFI bindings.");
+        return std::ptr::null_mut();
+    }
+
+    match load_svg_from_str(contents) {
+        Ok(svg) => Box::into_raw(Box::new(svg)),
+        Err(err) => {
+            set_last_error(err);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_svg_load_from_file(
+    path: *const c_char,
+    scale: f32,
+) -> *mut VelloSvgHandle {
+    clear_last_error();
+    if path.is_null() {
+        set_last_error("SVG path pointer is null");
+        return std::ptr::null_mut();
+    }
+    let c_path = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_path.to_str() {
+        Ok(value) => value,
+        Err(err) => {
+            set_last_error(format!("SVG path is not valid UTF-8: {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+    let contents = match std::fs::read_to_string(path_str) {
+        Ok(contents) => contents,
+        Err(err) => {
+            set_last_error(format!("Failed to read SVG file '{path_str}': {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+
+    if scale.abs() > f32::EPSILON && (scale - 1.0).abs() > f32::EPSILON {
+        set_last_error("Scaling SVG is not supported by the FFI bindings.");
+        return std::ptr::null_mut();
+    }
+
+    match load_svg_from_str(&contents) {
+        Ok(svg) => Box::into_raw(Box::new(svg)),
+        Err(err) => {
+            set_last_error(err);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_svg_destroy(svg: *mut VelloSvgHandle) {
+    if !svg.is_null() {
+        unsafe { drop(Box::from_raw(svg)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_svg_get_size(
+    svg: *const VelloSvgHandle,
+    out_size: *mut VelloPoint,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(svg) = (unsafe { svg.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    if out_size.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        (*out_size).x = svg.resolution.x;
+        (*out_size).y = svg.resolution.y;
+    }
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_svg_render(
+    svg: *const VelloSvgHandle,
+    scene: *mut VelloSceneHandle,
+    transform: *const VelloAffine,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(svg) = (unsafe { svg.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(scene) = (unsafe { scene.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    let transform = match optional_affine(transform) {
+        Ok(value) => value,
+        Err(status) => return status,
+    };
+
+    scene.inner.append(&svg.scene, transform);
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_composition_load_from_memory(
+    data: *const u8,
+    length: usize,
+) -> *mut VelloVelatoCompositionHandle {
+    clear_last_error();
+    if data.is_null() {
+        set_last_error("Lottie data pointer is null");
+        return std::ptr::null_mut();
+    }
+    if length == 0 {
+        set_last_error("Lottie data length must be non-zero");
+        return std::ptr::null_mut();
+    }
+    let bytes = unsafe { slice::from_raw_parts(data, length) };
+    match load_velato_composition_from_slice(bytes) {
+        Ok(handle) => Box::into_raw(Box::new(handle)),
+        Err(err) => {
+            set_last_error(err);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_composition_load_from_file(
+    path: *const c_char,
+) -> *mut VelloVelatoCompositionHandle {
+    clear_last_error();
+    if path.is_null() {
+        set_last_error("Lottie path pointer is null");
+        return std::ptr::null_mut();
+    }
+    let c_path = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_path.to_str() {
+        Ok(value) => value,
+        Err(err) => {
+            set_last_error(format!("Lottie path is not valid UTF-8: {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+    let bytes = match std::fs::read(path_str) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            set_last_error(format!("Failed to read Lottie file '{path_str}': {err}"));
+            return std::ptr::null_mut();
+        }
+    };
+    match load_velato_composition_from_slice(&bytes) {
+        Ok(handle) => Box::into_raw(Box::new(handle)),
+        Err(err) => {
+            set_last_error(err);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_composition_destroy(
+    composition: *mut VelloVelatoCompositionHandle,
+) {
+    if !composition.is_null() {
+        unsafe { drop(Box::from_raw(composition)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_composition_get_info(
+    composition: *const VelloVelatoCompositionHandle,
+    out_info: *mut VelloVelatoCompositionInfo,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(composition) = (unsafe { composition.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    if out_info.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let width = match u32::try_from(composition.composition.width) {
+        Ok(value) => value,
+        Err(_) => {
+            set_last_error("Lottie composition width exceeds u32 range");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+    let height = match u32::try_from(composition.composition.height) {
+        Ok(value) => value,
+        Err(_) => {
+            set_last_error("Lottie composition height exceeds u32 range");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    unsafe {
+        (*out_info).start_frame = composition.composition.frames.start;
+        (*out_info).end_frame = composition.composition.frames.end;
+        (*out_info).frame_rate = composition.composition.frame_rate;
+        (*out_info).width = width;
+        (*out_info).height = height;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_renderer_create() -> *mut VelloVelatoRendererHandle {
+    clear_last_error();
+    let renderer = VelatoRenderer::new();
+    Box::into_raw(Box::new(VelloVelatoRendererHandle {
+        renderer: RefCell::new(renderer),
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_renderer_destroy(renderer: *mut VelloVelatoRendererHandle) {
+    if !renderer.is_null() {
+        unsafe { drop(Box::from_raw(renderer)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_velato_renderer_render(
+    renderer: *mut VelloVelatoRendererHandle,
+    composition: *const VelloVelatoCompositionHandle,
+    scene: *mut VelloSceneHandle,
+    frame: f64,
+    alpha: f64,
+    transform: *const VelloAffine,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(composition) = (unsafe { composition.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(scene) = (unsafe { scene.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    let transform = match optional_affine(transform) {
+        Ok(value) => value.unwrap_or(Affine::IDENTITY),
+        Err(status) => return status,
+    };
+
+    renderer.renderer.borrow_mut().append(
+        &composition.composition,
+        frame,
+        transform,
+        alpha,
+        &mut scene.inner,
+    );
+
+    VelloStatus::Success
 }
 
 #[unsafe(no_mangle)]
