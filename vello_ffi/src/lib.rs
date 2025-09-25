@@ -5,7 +5,8 @@
 
 use std::{
     cell::RefCell,
-    ffi::{CString, c_char, c_void},
+    ffi::{CString, c_char, c_ulong, c_void},
+    mem,
     num::{NonZeroIsize, NonZeroUsize},
     ptr::NonNull,
     slice,
@@ -563,6 +564,15 @@ impl RawSurfaceHandles {
     }
 }
 
+fn to_c_ulong(value: u64) -> Result<c_ulong, VelloStatus> {
+    if mem::size_of::<c_ulong>() == 4 {
+        let narrowed = u32::try_from(value).map_err(|_| VelloStatus::InvalidArgument)?;
+        Ok(c_ulong::from(narrowed))
+    } else {
+        Ok(c_ulong::from(value))
+    }
+}
+
 impl TryFrom<&VelloWindowHandle> for RawSurfaceHandles {
     type Error = VelloStatus;
 
@@ -604,8 +614,13 @@ impl TryFrom<&VelloWindowHandle> for RawSurfaceHandles {
                 let payload = unsafe { handle.payload.xlib };
                 let display = NonNull::new(payload.display);
                 let xlib_display = XlibDisplayHandle::new(display, payload.screen);
-                let mut window = XlibWindowHandle::new(payload.window);
-                window.visual_id = payload.visual_id;
+                let window_id = to_c_ulong(payload.window)?;
+                let mut window = XlibWindowHandle::new(window_id);
+                window.visual_id = if payload.visual_id == 0 {
+                    0
+                } else {
+                    to_c_ulong(payload.visual_id)?
+                };
                 Ok(Self::new(
                     RawWindowHandle::Xlib(window),
                     RawDisplayHandle::Xlib(xlib_display),
