@@ -260,25 +260,29 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p artifacts/nuget
-          shopt -s nullglob
-          runtime_root="artifacts/runtimes"
-          if [ ! -d "$runtime_root" ]; then
-            echo "No runtimes directory found at $runtime_root"
+          declare -A seen
+          mapfile -d '' native_dirs < <(find artifacts -type d -name native -path '*/runtimes/*/native' -print0 | sort -zu)
+
+          if [ ${#native_dirs[@]} -eq 0 ]; then
+            echo "No native runtime directories found under artifacts/."
             exit 1
           fi
-          for dir in "$runtime_root"/*; do
-            rid=$(basename "$dir")
-            nativeDir="$dir/native"
-            if [ ! -d "$nativeDir" ]; then
-              echo "Skipping $rid (no native dir)"
+
+          for nativeDir in "${native_dirs[@]}"; do
+            rid=$(basename "$(dirname "$nativeDir")")
+
+            if [[ -n "${seen[$rid]}" ]]; then
               continue
             fi
+            seen[$rid]=1
+
             project="packaging/VelloSharp.Native.${rid}/VelloSharp.Native.${rid}.csproj"
             if [ ! -f "$project" ]; then
               echo "Skipping $rid (no packaging project at $project)"
               continue
             fi
-            echo "Packing native package for $rid"
+
+            echo "Packing native package for $rid from $nativeDir"
             dotnet pack "$project" \
               -c Release \
               -p:NativeAssetsDirectory="$nativeDir" \
