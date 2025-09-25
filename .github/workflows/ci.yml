@@ -27,6 +27,9 @@ jobs:
             library: libvello_ffi.so
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -68,6 +71,9 @@ jobs:
             library: libvello_ffi.dylib
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -105,6 +111,9 @@ jobs:
             library: vello_ffi.dll
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -142,6 +151,9 @@ jobs:
       - native-windows
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
