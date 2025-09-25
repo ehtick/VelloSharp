@@ -185,7 +185,7 @@ public sealed class Scene : IDisposable
                     ClipElementCount = (nuint)span.Length,
                 };
 
-                var status = NativeMethods.vello_scene_push_layer(_handle, in native);
+                var status = NativeMethods.vello_scene_push_layer(_handle, native);
                 NativeHelpers.ThrowOnError(status, "PushLayer failed");
             }
         }
@@ -333,7 +333,7 @@ public sealed class Scene : IDisposable
                         font.Handle,
                         glyphPtr,
                         (nuint)glyphBuffer.Length,
-                        in nativeOptions);
+                        nativeOptions);
 
                     NativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
                 }

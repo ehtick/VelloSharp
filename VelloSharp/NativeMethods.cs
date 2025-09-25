@@ -1,29 +1,35 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace VelloSharp;
 
-internal static class NativeMethods
+internal static partial class NativeMethods
 {
     internal const string LibraryName = "vello_ffi";
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_renderer_create(uint width, uint height);
+    [LibraryImport(LibraryName, EntryPoint = "vello_renderer_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_renderer_create(uint width, uint height);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_renderer_create_with_options(
+    [LibraryImport(LibraryName, EntryPoint = "vello_renderer_create_with_options")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_renderer_create_with_options(
         uint width,
         uint height,
-        in VelloRendererOptions options);
+        VelloRendererOptions options);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_renderer_destroy(IntPtr renderer);
+    [LibraryImport(LibraryName, EntryPoint = "vello_renderer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_renderer_destroy(IntPtr renderer);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern VelloStatus vello_renderer_resize(IntPtr renderer, uint width, uint height);
+    [LibraryImport(LibraryName, EntryPoint = "vello_renderer_resize")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_renderer_resize(IntPtr renderer, uint width, uint height);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern VelloStatus vello_renderer_render(
+    [LibraryImport(LibraryName, EntryPoint = "vello_renderer_render")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_renderer_render(
         IntPtr renderer,
         IntPtr scene,
         VelloRenderParams parameters,
@@ -31,17 +37,21 @@ internal static class NativeMethods
         nuint stride,
         nuint bufferSize);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_scene_create();
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_scene_create();
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_scene_destroy(IntPtr scene);
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_scene_destroy(IntPtr scene);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_scene_reset(IntPtr scene);
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_reset")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_scene_reset(IntPtr scene);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_fill_path(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_fill_path")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_scene_fill_path(
         IntPtr scene,
         VelloFillRule fill,
         VelloAffine transform,
@@ -49,8 +59,9 @@ internal static class NativeMethods
         VelloPathElement* elements,
         nuint elementCount);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_stroke_path(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_stroke_path")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_scene_stroke_path(
         IntPtr scene,
         VelloStrokeStyle style,
         VelloAffine transform,
@@ -58,44 +69,50 @@ internal static class NativeMethods
         VelloPathElement* elements,
         nuint elementCount);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_fill_path_brush(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_fill_path_brush")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_scene_fill_path_brush(
         IntPtr scene,
         VelloFillRule fill,
         VelloAffine transform,
-        in VelloBrush brush,
+        VelloBrush brush,
         VelloAffine* brushTransform,
         VelloPathElement* elements,
         nuint elementCount);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_stroke_path_brush(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_stroke_path_brush")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_scene_stroke_path_brush(
         IntPtr scene,
-        in VelloStrokeStyle style,
+        VelloStrokeStyle style,
         VelloAffine transform,
-        in VelloBrush brush,
+        VelloBrush brush,
         VelloAffine* brushTransform,
         VelloPathElement* elements,
         nuint elementCount);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_push_layer(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_push_layer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_scene_push_layer(
         IntPtr scene,
-        in VelloLayerParams layer);
+        VelloLayerParams layer);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_push_luminance_mask_layer(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_push_luminance_mask_layer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_scene_push_luminance_mask_layer(
         IntPtr scene,
         float alpha,
         VelloAffine transform,
         VelloPathElement* elements,
         nuint elementCount);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_scene_pop_layer(IntPtr scene);
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_pop_layer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_scene_pop_layer(IntPtr scene);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern VelloStatus vello_scene_draw_blurred_rounded_rect(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_blurred_rounded_rect")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_scene_draw_blurred_rounded_rect(
         IntPtr scene,
         VelloAffine transform,
         VelloRect rect,
@@ -103,8 +120,9 @@ internal static class NativeMethods
         double radius,
         double stdDev);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_image_create(
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_image_create(
         VelloRenderFormat format,
         VelloImageAlphaMode alpha,
         uint width,
@@ -112,67 +130,81 @@ internal static class NativeMethods
         IntPtr pixels,
         nuint stride);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_image_destroy(IntPtr image);
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_image_destroy(IntPtr image);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern VelloStatus vello_scene_draw_image(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_image")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_scene_draw_image(
         IntPtr scene,
-        in VelloImageBrushParams brush,
+        VelloImageBrushParams brush,
         VelloAffine transform);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_font_create(
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_font_create(
         IntPtr data,
         nuint length,
         uint index);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_font_destroy(IntPtr font);
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_font_destroy(IntPtr font);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static unsafe extern VelloStatus vello_scene_draw_glyph_run(
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_glyph_run")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_scene_draw_glyph_run(
         IntPtr scene,
         IntPtr font,
         VelloGlyph* glyphs,
         nuint glyphCount,
-        in VelloGlyphRunOptions options);
+        VelloGlyphRunOptions options);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_render_context_create();
+    [LibraryImport(LibraryName, EntryPoint = "vello_render_context_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_render_context_create();
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_render_context_destroy(IntPtr context);
+    [LibraryImport(LibraryName, EntryPoint = "vello_render_context_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_render_context_destroy(IntPtr context);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_render_surface_create(
+    [LibraryImport(LibraryName, EntryPoint = "vello_render_surface_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_render_surface_create(
         IntPtr context,
-        in VelloSurfaceDescriptor descriptor);
+        VelloSurfaceDescriptor descriptor);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_render_surface_destroy(IntPtr surface);
+    [LibraryImport(LibraryName, EntryPoint = "vello_render_surface_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_render_surface_destroy(IntPtr surface);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern VelloStatus vello_render_surface_resize(
+    [LibraryImport(LibraryName, EntryPoint = "vello_render_surface_resize")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_render_surface_resize(
         IntPtr surface,
         uint width,
         uint height);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_surface_renderer_create(
+    [LibraryImport(LibraryName, EntryPoint = "vello_surface_renderer_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_surface_renderer_create(
         IntPtr surface,
-        in VelloRendererOptions options);
+        VelloRendererOptions options);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void vello_surface_renderer_destroy(IntPtr renderer);
+    [LibraryImport(LibraryName, EntryPoint = "vello_surface_renderer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_surface_renderer_destroy(IntPtr renderer);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern VelloStatus vello_surface_renderer_render(
+    [LibraryImport(LibraryName, EntryPoint = "vello_surface_renderer_render")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_surface_renderer_render(
         IntPtr renderer,
         IntPtr surface,
         IntPtr scene,
         VelloRenderParams parameters);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr vello_last_error_message();
+    [LibraryImport(LibraryName, EntryPoint = "vello_last_error_message")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_last_error_message();
 }
