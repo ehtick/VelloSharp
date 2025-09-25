@@ -182,11 +182,9 @@ jobs:
           - target: x86_64-pc-windows-msvc
             rid: win-x64
             artifact-name: native-windows-x64
-            library: vello_ffi.dll
           - target: aarch64-pc-windows-msvc
             rid: win-arm64
             artifact-name: native-windows-arm64
-            library: vello_ffi.dll
     steps:
       - uses: actions/checkout@v4
         with:
@@ -198,20 +196,9 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Build native library
-        run: cargo build -p vello_ffi --target ${{ matrix.target }} --release
-
-      - name: Collect native artifact
+      - name: Build native artifact
         shell: pwsh
-        run: |
-          $outDir = "artifacts\runtimes\${{ matrix.rid }}\native"
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          $library = "${{ matrix.library }}"
-          Copy-Item -Path "target\${{ matrix.target }}\release\$library" -Destination $outDir -Force
-          $pdb = [System.IO.Path]::ChangeExtension("target\${{ matrix.target }}\release\$library", ".pdb")
-          if (Test-Path $pdb) {
-            Copy-Item -Path $pdb -Destination $outDir -Force
-          }
+        run: ./scripts/build-native-windows.ps1 ${{ matrix.target }} release ${{ matrix.rid }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -267,58 +254,14 @@ jobs:
           fi
           ls -R artifacts
 
+      - name: Copy runtimes into projects
+        run: ./scripts/copy-runtimes.sh artifacts/runtimes
+
       - name: Pack native runtime packages
-        run: |
-          set -eo pipefail
-          mkdir -p artifacts/nuget
-          runtime_root="artifacts/runtimes"
-          if [ ! -d "$runtime_root" ]; then
-            echo "No runtimes directory found at $runtime_root"
-            find artifacts -maxdepth 4 -type d
-            exit 1
-          fi
+        run: ./scripts/pack-native-nugets.sh artifacts/runtimes artifacts/nuget
 
-          shopt -s nullglob
-          declare -A seen
-          processed=0
-          for nativeDir in "$runtime_root"/*/native; do
-            if [ ! -d "$nativeDir" ]; then
-              continue
-            fi
-            rid=$(basename "$(dirname "$nativeDir")")
-
-            if [[ -n "${seen[$rid]}" ]]; then
-              continue
-            fi
-            seen[$rid]=1
-
-            project="packaging/VelloSharp.Native.${rid}/VelloSharp.Native.${rid}.csproj"
-            if [ ! -f "$project" ]; then
-              echo "Skipping $rid (no packaging project at $project)"
-              continue
-            fi
-
-            echo "Packing native package for $rid from $nativeDir"
-            dotnet pack "$project" \
-              -c Release \
-              -p:NativeAssetsDirectory="$nativeDir" \
-              -p:PackageOutputPath=$PWD/artifacts/nuget
-            processed=$((processed + 1))
-          done
-
-          if [ $processed -eq 0 ]; then
-            echo "No native runtime directories were processed under $runtime_root."
-            find "$runtime_root" -maxdepth 2 -type d
-            exit 1
-          fi
-
-          if compgen -G "artifacts/nuget/*.nupkg" > /dev/null; then
-            echo "Native packages created:"
-            ls artifacts/nuget
-          else
-            echo "No native packages were produced."
-            exit 1
-          fi
+      - name: List native packages
+        run: ls artifacts/nuget
 
       - name: Upload native NuGet packages
         uses: actions/upload-artifact@v4
@@ -351,21 +294,8 @@ jobs:
       - name: List native NuGet packages
         run: ls -R artifacts/nuget
 
-      - name: Build managed projects
-        run: dotnet build VelloSharp.sln -c Release -p:VelloSkipNativeBuild=true
-
-      - name: Add local native feed
-        run: dotnet nuget add source "${{ github.workspace }}/artifacts/nuget" --name VelloNativeLocal
-
-      - name: Pack VelloSharp
-        run: >
-          dotnet pack VelloSharp/VelloSharp.csproj
-          -c Release
-          -p:VelloSkipNativeBuild=true
-          -p:VelloIncludeNativeAssets=false
-          -p:VelloUseNativePackageDependencies=true
-          -p:VelloRequireAllNativeAssets=false
-          -p:RestoreAdditionalProjectSources=${{ github.workspace }}/artifacts/nuget
+      - name: Pack managed NuGet packages
+        run: ./scripts/pack-managed-nugets.sh artifacts/nuget artifacts/nuget
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
