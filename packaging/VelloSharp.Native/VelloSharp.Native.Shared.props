@@ -14,10 +14,12 @@
   </PropertyGroup>
 
   <ItemGroup Condition="Exists('$(NativeAssetsDirectory)')">
-    <Content Include="$(NativeAssetsDirectory)**/*"
-             Pack="true"
-             PackagePath="runtimes/$(NativeRid)/native/%(RecursiveDir)%(Filename)%(Extension)"
-             Visible="false" />
+    <NativeAsset Include="$(NativeAssetsDirectory)**/*"
+                 Exclude="$(NativeAssetsDirectory)**/" />
+    <None Include="@(NativeAsset)"
+          Pack="true"
+          PackagePath="runtimes/$(NativeRid)/native/%(RecursiveDir)%(Filename)%(Extension)"
+          Visible="false" />
   </ItemGroup>
 
   <Target Name="ValidateNativeAssets" BeforeTargets="Pack">
