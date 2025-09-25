@@ -271,11 +271,6 @@ jobs:
       - name: Build managed projects
         run: dotnet build VelloSharp.sln -c Release -p:VelloSkipNativeBuild=true
 
-      - name: Pack VelloSharp
-        env:
-          VelloNativeAssetsDirectory: ${{ github.workspace }}/artifacts/runtimes
-        run: dotnet pack VelloSharp/VelloSharp.csproj -c Release -p:VelloSkipNativeBuild=true
-
       - name: Pack native runtime packages
         run: |
           set -eo pipefail
@@ -294,6 +289,17 @@ jobs:
               -p:Description="Native Vello runtime for $rid" \
               -p:PackageOutputPath=$PWD/artifacts/nuget
           done
+
+      - name: Add local native feed
+        run: dotnet nuget add source "${{ github.workspace }}/artifacts/nuget" --name VelloNativeLocal
+
+      - name: Pack VelloSharp
+        run: dotnet pack VelloSharp/VelloSharp.csproj -c Release \
+          -p:VelloSkipNativeBuild=true \
+          -p:VelloIncludeNativeAssets=false \
+          -p:VelloUseNativePackageDependencies=true \
+          -p:VelloRequireAllNativeAssets=false \
+          -p:RestoreAdditionalProjectSources=${{ github.workspace }}/artifacts/nuget
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4

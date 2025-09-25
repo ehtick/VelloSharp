@@ -18,13 +18,15 @@
     <VelloNativeAssetsDirectory>$([MSBuild]::EnsureTrailingSlash('$(VelloNativeAssetsDirectory)'))</VelloNativeAssetsDirectory>
     <VelloRequireAllNativeAssets Condition="'$(VelloRequireAllNativeAssets)'==''">true</VelloRequireAllNativeAssets>
     <VelloSkipNativeBuild Condition="'$(VelloSkipNativeBuild)'==''">false</VelloSkipNativeBuild>
+    <VelloIncludeNativeAssets Condition="'$(VelloIncludeNativeAssets)'==''">true</VelloIncludeNativeAssets>
+    <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and Exists('$(VelloNativeAssetsDirectory)')">
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloIncludeNativeAssets)' == 'true' and Exists('$(VelloNativeAssetsDirectory)')">
     <Content Include="$(VelloNativeAssetsDirectory)**/*"
              Pack="true"
              PackagePath="runtimes/%(RecursiveDir)%(Filename)%(Extension)"
@@ -35,7 +37,7 @@
 
   <Target Name="EnsureVelloNativeAssets"
           BeforeTargets="Pack"
-          Condition="'$(IsPackable)' == 'true' and '$(VelloRequireAllNativeAssets)' == 'true'">
+          Condition="'$(IsPackable)' == 'true' and '$(VelloIncludeNativeAssets)' == 'true' and '$(VelloRequireAllNativeAssets)' == 'true'">
     <ItemGroup>
       <_VelloNativeContent Include="@(Content)"
                            Condition="'%(VelloNativeAsset)' == 'true'" />
@@ -43,6 +45,19 @@
     <Error Condition="'@(_VelloNativeContent)' == ''"
            Text="Vello native assets were not found in '$(VelloNativeAssetsDirectory)'. Provide platform builds or set VelloRequireAllNativeAssets=false." />
   </Target>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true'">
+    <PackageReference Include="VelloSharp.Native.linux-x64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.linux-arm64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.osx-x64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.osx-arm64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.ios-arm64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.iossimulator-x64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.android-arm64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.browser-wasm" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.win-x64" Version="$(Version)" />
+    <PackageReference Include="VelloSharp.Native.win-arm64" Version="$(Version)" />
+  </ItemGroup>
 
   <UsingTask TaskName="GetCurrentRid"
              TaskFactory="RoslynCodeTaskFactory"
