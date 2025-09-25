@@ -61,7 +61,6 @@ internal static class NativeLibraryLoader
 
         if (!string.IsNullOrEmpty(AppContext.BaseDirectory))
         {
-            yield return Path.Combine(AppContext.BaseDirectory, fileName);
             if (!string.IsNullOrEmpty(rid))
             {
                 yield return Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", fileName);
@@ -72,6 +71,7 @@ internal static class NativeLibraryLoader
                     yield return Path.Combine(AppContext.BaseDirectory, "runtimes", ridBase, "native", fileName);
                 }
             }
+            yield return Path.Combine(AppContext.BaseDirectory, fileName);
         }
 
         var assemblyLocation = assembly.Location;
@@ -80,7 +80,6 @@ internal static class NativeLibraryLoader
             var assemblyDir = Path.GetDirectoryName(assemblyLocation);
             if (!string.IsNullOrEmpty(assemblyDir))
             {
-                yield return Path.Combine(assemblyDir, fileName);
                 if (!string.IsNullOrEmpty(rid))
                 {
                     yield return Path.Combine(assemblyDir, "runtimes", rid, "native", fileName);
@@ -91,6 +90,7 @@ internal static class NativeLibraryLoader
                         yield return Path.Combine(assemblyDir, "runtimes", ridBase, "native", fileName);
                     }
                 }
+                yield return Path.Combine(assemblyDir, fileName);
             }
         }
 
