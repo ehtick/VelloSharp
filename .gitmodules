@@ -1,3 +1,12 @@
 [submodule "vello"]
 	path = vello
 	url = https://github.com/wieslawsoltes/vello
+[submodule "vello_svg"]
+	path = vello_svg
+	url = https://github.com/linebender/vello_svg.git
+[submodule "velato"]
+	path = velato
+	url = https://github.com/linebender/velato
+[submodule "wgpu"]
+	path = wgpu
+	url = https://github.com/gfx-rs/wgpu

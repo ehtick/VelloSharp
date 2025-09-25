@@ -10,6 +10,9 @@ edition = "2024"
 rust-version = "1.86"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/wieslawsoltes/VelloSharp"
+homepage = "https://github.com/wieslawsoltes/VelloSharp"
+authors = ["VelloSharp Contributors"]
+keywords = ["graphics"]
 
 [workspace.lints]
 rust.keyword_idents_2024 = "forbid"
@@ -102,3 +105,8 @@ proc-macro2 = "1.0.95"
 syn = { version = "2.0.101", features = ["full", "extra-traits"] }
 quote = "1.0.40"
 raw-window-handle = "0.6.2"
+
+[patch.crates-io]
+vello = { path = "vello/vello" }
+vello_svg = { path = "vello_svg" }
+velato = { path = "velato" }
