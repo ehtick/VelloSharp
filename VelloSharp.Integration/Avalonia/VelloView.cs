@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Avalonia.Threading;
 using VelloSharp;
 using VelloSharp.Integration.Rendering;
 
@@ -13,7 +12,6 @@ namespace VelloSharp.Integration.Avalonia;
 
 public class VelloView : Control, IDisposable
 {
-    private readonly DispatcherTimer _timer;
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private RendererOptions _rendererOptions = new();
     private RenderParams _renderParams = new RenderParams(1, 1, RgbaColor.FromBytes(0, 0, 0, 0))
@@ -26,14 +24,13 @@ public class VelloView : Control, IDisposable
     private uint _rendererWidth = 1;
     private uint _rendererHeight = 1;
     private TimeSpan _lastFrameTimestamp = TimeSpan.Zero;
+    private bool _isLoopEnabled = true;
+    private bool _animationFrameRequested;
     private bool _disposed;
 
     public VelloView()
     {
         ClipToBounds = true;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _timer.Tick += OnTimerTick;
-        _timer.Start();
     }
 
     public event Action<VelloRenderFrameContext>? RenderFrame;
@@ -56,29 +53,25 @@ public class VelloView : Control, IDisposable
 
     public bool IsLoopEnabled
     {
-        get => _timer.IsEnabled;
+        get => _isLoopEnabled;
         set
         {
-            if (value == _timer.IsEnabled)
+            if (value == _isLoopEnabled)
             {
                 return;
             }
 
-            if (value)
+            _isLoopEnabled = value;
+
+            if (_isLoopEnabled)
             {
-                _timer.Start();
+                ScheduleAnimationFrame();
             }
             else
             {
-                _timer.Stop();
+                _animationFrameRequested = false;
             }
         }
-    }
-
-    public TimeSpan FrameInterval
-    {
-        get => _timer.Interval;
-        set => _timer.Interval = value > TimeSpan.Zero ? value : TimeSpan.FromMilliseconds(16);
     }
 
     public void RequestRender()
@@ -148,8 +141,8 @@ public class VelloView : Control, IDisposable
             return;
         }
 
-        _timer.Stop();
-        _timer.Tick -= OnTimerTick;
+        _isLoopEnabled = false;
+        _animationFrameRequested = false;
 
         _bitmap?.Dispose();
         _bitmap = null;
@@ -168,6 +161,16 @@ public class VelloView : Control, IDisposable
     {
         base.OnDetachedFromVisualTree(e);
         Dispose();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        RequestRender();
+        if (_isLoopEnabled)
+        {
+            ScheduleAnimationFrame();
+        }
     }
 
     private void RecreateRenderer()
@@ -212,11 +215,33 @@ public class VelloView : Control, IDisposable
             AlphaFormat.Premul);
     }
 
-    private void OnTimerTick(object? sender, EventArgs e)
+    private void OnAnimationFrame(TimeSpan _)
     {
-        if (!_disposed)
+        _animationFrameRequested = false;
+
+        if (_disposed || !_isLoopEnabled)
         {
-            InvalidateVisual();
+            return;
         }
+
+        RequestRender();
+        ScheduleAnimationFrame();
+    }
+
+    private void ScheduleAnimationFrame()
+    {
+        if (_animationFrameRequested || !_isLoopEnabled || _disposed)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        _animationFrameRequested = true;
+        topLevel.RequestAnimationFrame(OnAnimationFrame);
     }
 }

@@ -10,7 +10,6 @@ namespace VelloSharp.Integration.Avalonia;
 
 public class VelloSurfaceView : ContentControl, IDisposable
 {
-    private readonly DispatcherTimer _timer;
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private RendererOptions _rendererOptions = new();
     private RenderParams _renderParams = new RenderParams(1, 1, RgbaColor.FromBytes(0, 0, 0));
@@ -21,6 +20,8 @@ public class VelloSurfaceView : ContentControl, IDisposable
     private uint _surfaceWidth = 1;
     private uint _surfaceHeight = 1;
     private TimeSpan _lastFrameTimestamp = TimeSpan.Zero;
+    private bool _isLoopEnabled = true;
+    private bool _animationFrameRequested;
     private bool _disposed;
     private bool _useFallback;
     private VelloView? _fallback;
@@ -41,9 +42,6 @@ public class VelloSurfaceView : ContentControl, IDisposable
     public VelloSurfaceView()
     {
         ClipToBounds = true;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _timer.Tick += OnTimerTick;
-        _timer.Start();
     }
 
     public event Action<VelloRenderFrameContext>? RenderFrame;
@@ -83,34 +81,28 @@ public class VelloSurfaceView : ContentControl, IDisposable
 
     public bool IsLoopEnabled
     {
-        get => _timer.IsEnabled;
+        get => _isLoopEnabled;
         set
         {
-            if (value)
+            if (_isLoopEnabled == value)
             {
-                _timer.Start();
+                return;
+            }
+
+            _isLoopEnabled = value;
+
+            if (_isLoopEnabled)
+            {
+                ScheduleAnimationFrame();
             }
             else
             {
-                _timer.Stop();
+                _animationFrameRequested = false;
             }
+
             if (_fallback is not null)
             {
                 _fallback.IsLoopEnabled = value;
-            }
-        }
-    }
-
-    public TimeSpan FrameInterval
-    {
-        get => _timer.Interval;
-        set
-        {
-            var interval = value > TimeSpan.Zero ? value : TimeSpan.FromMilliseconds(16);
-            _timer.Interval = interval;
-            if (_fallback is not null)
-            {
-                _fallback.FrameInterval = interval;
             }
         }
     }
@@ -219,6 +211,10 @@ public class VelloSurfaceView : ContentControl, IDisposable
     {
         base.OnAttachedToVisualTree(e);
         RequestRender();
+        if (_isLoopEnabled)
+        {
+            ScheduleAnimationFrame();
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -227,12 +223,34 @@ public class VelloSurfaceView : ContentControl, IDisposable
         Dispose();
     }
 
-    private void OnTimerTick(object? sender, EventArgs e)
+    private void OnAnimationFrame(TimeSpan _)
     {
-        if (!_disposed)
+        _animationFrameRequested = false;
+
+        if (_disposed || !_isLoopEnabled)
         {
-            RequestRender();
+            return;
         }
+
+        RequestRender();
+        ScheduleAnimationFrame();
+    }
+
+    private void ScheduleAnimationFrame()
+    {
+        if (_animationFrameRequested || !_isLoopEnabled || _disposed)
+        {
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        _animationFrameRequested = true;
+        topLevel.RequestAnimationFrame(OnAnimationFrame);
     }
 
     private bool TryEnsureGpu(uint width, uint height)
@@ -335,7 +353,6 @@ public class VelloSurfaceView : ContentControl, IDisposable
                 RenderParameters = _renderParams,
             };
             fallback.IsLoopEnabled = IsLoopEnabled;
-            fallback.FrameInterval = FrameInterval;
             fallback.RenderFrame += OnFallbackRenderFrame;
             _fallback = fallback;
             Content = fallback;
@@ -386,8 +403,8 @@ public class VelloSurfaceView : ContentControl, IDisposable
             return;
         }
 
-        _timer.Stop();
-        _timer.Tick -= OnTimerTick;
+        _isLoopEnabled = false;
+        _animationFrameRequested = false;
 
         DisposeGpuResources();
 
