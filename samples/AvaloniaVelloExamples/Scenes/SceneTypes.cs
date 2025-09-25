@@ -39,16 +39,22 @@ public sealed class ExampleScene
 
 public sealed class SceneCollection
 {
-    public SceneCollection(IReadOnlyList<ExampleScene> scenes, ImageCache images, SimpleText text)
+    public SceneCollection(
+        IReadOnlyList<ExampleScene> scenes,
+        ImageCache images,
+        SimpleText text,
+        IReadOnlyList<IDisposable>? resources)
     {
         Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
         Images = images ?? throw new ArgumentNullException(nameof(images));
         Text = text ?? throw new ArgumentNullException(nameof(text));
+        Resources = resources ?? Array.Empty<IDisposable>();
     }
 
     public IReadOnlyList<ExampleScene> Scenes { get; }
     public ImageCache Images { get; }
     public SimpleText Text { get; }
+    public IReadOnlyList<IDisposable> Resources { get; }
 }
 
 public readonly struct ExampleRenderResult

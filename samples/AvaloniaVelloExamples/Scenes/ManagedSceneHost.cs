@@ -18,8 +18,9 @@ public sealed class ManagedSceneHost : IDisposable
     {
         var images = new ImageCache(assetRoot);
         var text = SimpleText.Create(assetRoot);
-        var scenes = TestScenes.BuildScenes(images, text, assetRoot);
-        var collection = new SceneCollection(scenes, images, text);
+        var resources = new List<IDisposable>();
+        var scenes = TestScenes.BuildScenes(images, text, assetRoot, resources);
+        var collection = new SceneCollection(scenes, images, text, resources);
         return new ManagedSceneHost(collection);
     }
 
@@ -74,6 +75,10 @@ public sealed class ManagedSceneHost : IDisposable
 
         _collection.Images.Dispose();
         _collection.Text.Dispose();
+        foreach (var resource in _collection.Resources)
+        {
+            resource.Dispose();
+        }
         _disposed = true;
     }
 }

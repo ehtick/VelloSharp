@@ -8,11 +8,17 @@ namespace AvaloniaVelloExamples.Scenes;
 
 public static class TestScenes
 {
-    public static IReadOnlyList<ExampleScene> BuildScenes(ImageCache images, SimpleText text, string? assetRoot)
+    public static IReadOnlyList<ExampleScene> BuildScenes(
+        ImageCache images,
+        SimpleText text,
+        string? assetRoot,
+        IList<IDisposable> resources)
     {
         ArgumentNullException.ThrowIfNull(images);
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(resources);
 
-        var tigerScene = TryLoadTigerSvg(assetRoot);
+        var tigerScene = TryLoadTigerSvg(assetRoot, resources);
         var mmark = new MMarkScene();
 
         return new List<ExampleScene>
@@ -51,14 +57,18 @@ public static class TestScenes
         };
     }
 
-    private static ExampleScene SplashWithTiger(SvgScene? svg, SimpleText text)
+    private static ExampleScene SplashWithTiger(VelloSvg? svg, SimpleText text)
         => new("splash_with_tiger", false, (scene, parameters) =>
         {
-            svg?.Render(scene, parameters);
+            if (svg is not null)
+            {
+                svg.Render(scene, parameters.ViewTransform);
+                parameters.Resolution = svg.Size;
+            }
             RenderSplashOverlay(scene, parameters, text);
         });
 
-    private static SvgScene? TryLoadTigerSvg(string? assetRoot)
+    private static VelloSvg? TryLoadTigerSvg(string? assetRoot, IList<IDisposable> resources)
     {
         if (string.IsNullOrWhiteSpace(assetRoot))
         {
@@ -73,7 +83,9 @@ public static class TestScenes
 
         try
         {
-            return SvgScene.FromFile(path);
+            var svg = VelloSvg.LoadFromFile(path);
+            resources.Add(svg);
+            return svg;
         }
         catch
         {
