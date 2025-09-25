@@ -246,12 +246,27 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Normalize native artifact layout
+        run: |
+          set -eo pipefail
+          if [ -d artifacts/artifacts ]; then
+            shopt -s dotglob
+            mv artifacts/artifacts/* artifacts/
+            rmdir artifacts/artifacts
+          fi
+          ls -R artifacts
+
       - name: Pack native runtime packages
         run: |
           set -eo pipefail
           mkdir -p artifacts/nuget
           shopt -s nullglob
-          for dir in artifacts/runtimes/*; do
+          runtime_root="artifacts/runtimes"
+          if [ ! -d "$runtime_root" ]; then
+            echo "No runtimes directory found at $runtime_root"
+            exit 1
+          fi
+          for dir in "$runtime_root"/*; do
             rid=$(basename "$dir")
             nativeDir="$dir/native"
             if [ ! -d "$nativeDir" ]; then
@@ -269,6 +284,14 @@ jobs:
               -p:NativeAssetsDirectory="$nativeDir" \
               -p:PackageOutputPath=$PWD/artifacts/nuget
           done
+
+          if compgen -G "artifacts/nuget/*.nupkg" > /dev/null; then
+            echo "Native packages created:"
+            ls artifacts/nuget
+          else
+            echo "No native packages were produced."
+            exit 1
+          fi
 
       - name: Upload native NuGet packages
         uses: actions/upload-artifact@v4
