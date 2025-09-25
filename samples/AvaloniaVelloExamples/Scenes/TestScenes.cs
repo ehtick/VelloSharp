@@ -8,19 +8,25 @@ namespace AvaloniaVelloExamples.Scenes;
 
 public static class TestScenes
 {
-    public static IReadOnlyList<ExampleScene> BuildScenes(ImageCache images, string? assetRoot)
+    public static IReadOnlyList<ExampleScene> BuildScenes(ImageCache images, SimpleText text, string? assetRoot)
     {
         ArgumentNullException.ThrowIfNull(images);
 
+        var tigerScene = TryLoadTigerSvg(assetRoot);
+        var mmark = new MMarkScene();
+
         return new List<ExampleScene>
         {
+            SplashWithTiger(tigerScene, text),
             FunkyPaths(),
             StrokeStyles(),
             StrokeStylesNonUniform(),
             StrokeStylesSkew(),
+            Emoji(text),
             TrickyStrokes(),
             FillTypes(),
             CardioidAndFriends(),
+            AnimatedText(images, text, assetRoot),
             GradientExtend(),
             TwoPointRadial(),
             BrushTransform(),
@@ -34,16 +40,70 @@ public static class TestScenes
             ClipTest(),
             LongPathDash("longpathdash (butt caps)", LineCap.Butt),
             LongPathDash("longpathdash (round caps)", LineCap.Round),
-            MotionMark(),
+            MotionMark(mmark),
             ManyDrawObjects(),
             BlurredRoundedRect(),
             ImageSampling(images, assetRoot),
             ImageExtendModes("image_extend_modes (bilinear)", images, assetRoot, ImageQuality.Medium),
-            ImageExtendModes("image_extend_modes (nearest)", images, assetRoot, ImageQuality.Low),
+            ImageExtendModes("image_extend_modes (nearest neighbor)", images, assetRoot, ImageQuality.Low),
             LuminanceMask(images, assetRoot),
             ImageLuminanceMask(images, assetRoot),
-            Spinner(),
         };
+    }
+
+    private static ExampleScene SplashWithTiger(SvgScene? svg, SimpleText text)
+        => new("splash_with_tiger", false, (scene, parameters) =>
+        {
+            svg?.Render(scene, parameters);
+            RenderSplashOverlay(scene, parameters, text);
+        });
+
+    private static SvgScene? TryLoadTigerSvg(string? assetRoot)
+    {
+        if (string.IsNullOrWhiteSpace(assetRoot))
+        {
+            return null;
+        }
+
+        var path = Path.Combine(assetRoot, "Ghostscript_Tiger.svg");
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return SvgScene.FromFile(path);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void RenderSplashOverlay(Scene scene, SceneParams parameters, SimpleText text)
+    {
+        var lines = new[]
+        {
+            "Vello test",
+            "  Arrow keys: switch scenes",
+            "  Space: reset transform",
+            "  S: toggle stats",
+            "  V: toggle vsync",
+            "  M: cycle AA method",
+            "  Q, E: rotate",
+        };
+
+        var baseTransform = Matrix3x2.CreateScale(0.11f) * Matrix3x2.CreateTranslation(-90f, -50f);
+        var view = baseTransform * parameters.ViewTransform;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var size = i == 0 ? 60f : 40f;
+            var lineTransform = Matrix3x2.CreateTranslation(100f, 100f + 60f * i);
+            var finalTransform = lineTransform * view;
+            text.Add(scene, size, new RgbaColor(1f, 1f, 1f, 1f), finalTransform, null, lines[i]);
+        }
     }
 
     private static ExampleScene FunkyPaths()
@@ -104,6 +164,19 @@ public static class TestScenes
         {
             var transform = Matrix3x2.CreateSkew(1.0f, 0f) * Matrix3x2.CreateTranslation(120, 120) * parameters.ViewTransform;
             DrawStrokeGrid(scene, transform);
+        });
+
+    private static ExampleScene Emoji(SimpleText text)
+        => new("emoji", true, (scene, parameters) =>
+        {
+            var t = (float)(parameters.Time * 2.0);
+            var textSize = 120f + 20f * MathF.Sin(t);
+
+            var colrTransform = Matrix3x2.CreateTranslation(100f, 250f) * parameters.ViewTransform;
+            text.AddColrEmojiRun(scene, textSize, colrTransform, null, "🎉🤠✅");
+
+            var bitmapTransform = Matrix3x2.CreateTranslation(100f, 500f) * parameters.ViewTransform;
+            text.AddBitmapEmojiRun(scene, textSize, bitmapTransform, null, "🎉🤠✅");
         });
 
     private static void DrawStrokeGrid(Scene scene, Matrix3x2 transform)
@@ -182,6 +255,84 @@ public static class TestScenes
             }
             builder.Close();
             scene.FillPath(builder, FillRule.NonZero, transform, RgbaColor.FromBytes(255, 120, 120));
+        });
+
+    private static ExampleScene AnimatedText(ImageCache images, SimpleText text, string? assetRoot)
+        => new("animated_text", true, (scene, parameters) =>
+        {
+            var view = parameters.ViewTransform;
+
+            var background = CreateRectanglePath(0f, 0f, 1000f, 1000f);
+            scene.FillPath(background, FillRule.NonZero, view, RgbaColor.FromBytes(0x80, 0x80, 0x80));
+
+            var baseText = "\U0001F600hello Vello text!";
+            var textSize = 60f + 40f * MathF.Sin((float)parameters.Time);
+            text.Add(scene, textSize, RgbaColor.FromBytes(0xF0, 0xF0, 0xF0), Matrix3x2.CreateTranslation(110f, 600f) * view, null, baseText);
+
+            var stroke = new StrokeStyle
+            {
+                Width = 1.0,
+                LineJoin = LineJoin.Bevel,
+                StartCap = LineCap.Butt,
+                EndCap = LineCap.Butt,
+                DashPattern = new[] { 1.0, 1.0 },
+            };
+            var skew = Matrix3x2.CreateSkew((float)Math.Tan(20 * Math.PI / 180), 0f);
+            text.AddRun(scene, textSize, RgbaColor.FromBytes(0xFF, 0xFF, 0xFF), Matrix3x2.CreateTranslation(110f, 700f) * view, skew, stroke, baseText);
+
+            var anim = (float)(Math.Sin(parameters.Time) * 0.5 + 0.5);
+            var weight = anim * 700f + 200f;
+            var width = anim * 150f + 50f;
+            var variations = new (string Axis, float Value)[] { ("wght", weight), ("wdth", width) };
+            text.AddVarRun(
+                scene,
+                72f,
+                variations,
+                RgbaColor.FromBytes(0xFF, 0xFF, 0xFF),
+                Matrix3x2.CreateTranslation(110f, 800f) * view,
+                null,
+                GlyphRunStyle.Fill,
+                "And some Vello\ntext with a newline",
+                hint: false);
+
+            var center = new Vector2(500f, 500f);
+            var endpoint = center + new Vector2(
+                400f * (float)Math.Cos(parameters.Time),
+                400f * (float)Math.Sin(parameters.Time));
+            var line = new PathBuilder();
+            line.MoveTo(center.X, center.Y).LineTo(endpoint.X, endpoint.Y);
+            scene.StrokePath(line, new StrokeStyle { Width = 5.0 }, view, RgbaColor.FromBytes(0x80, 0x00, 0x00));
+
+            scene.FillPath(CreateRectanglePath(0f, 0f, 1000f, 1000f), FillRule.NonZero,
+                Matrix3x2.CreateScale(0.2f) * Matrix3x2.CreateTranslation(150f, 150f) * view,
+                RgbaColor.FromBytes(0xFF, 0x00, 0x00));
+
+            var alpha = (float)(Math.Sin(parameters.Time) * 0.5 + 0.5);
+            var clip = CreateRectanglePath(0f, 0f, 1000f, 1000f);
+            scene.PushLayer(clip, new LayerBlend(LayerMix.Normal, LayerCompose.SrcOver), view, alpha);
+            scene.FillPath(CreateRectanglePath(0f, 0f, 1000f, 1000f), FillRule.NonZero,
+                Matrix3x2.CreateScale(0.2f) * Matrix3x2.CreateTranslation(100f, 100f) * view,
+                RgbaColor.FromBytes(0x00, 0x00, 0xFF));
+            scene.FillPath(CreateRectanglePath(0f, 0f, 1000f, 1000f), FillRule.NonZero,
+                Matrix3x2.CreateScale(0.2f) * Matrix3x2.CreateTranslation(200f, 200f) * view,
+                RgbaColor.FromBytes(0x00, 0x80, 0x00));
+            scene.PopLayer();
+
+            scene.FillPath(CreateStarPath(), FillRule.NonZero, Matrix3x2.CreateTranslation(400f, 100f) * view, RgbaColor.FromBytes(0x80, 0x00, 0x80));
+            scene.FillPath(CreateStarPath(), FillRule.EvenOdd, Matrix3x2.CreateTranslation(500f, 100f) * view, RgbaColor.FromBytes(0x80, 0x00, 0x80));
+
+            var alphaValue = (float)((Math.Sin(parameters.Time * 0.5 + 200.0) + 1.0) * 0.5);
+            try
+            {
+                var image = images.GetFromPath("splash-flower.jpg");
+                var brush = new ImageBrush(image) { Alpha = alphaValue };
+                var imageTransform = Matrix3x2.CreateRotation((float)(20 * Math.PI / 180)) * Matrix3x2.CreateTranslation(800f, 50f) * view;
+                scene.DrawImage(brush, imageTransform);
+            }
+            catch (IOException)
+            {
+                // Ignore missing image assets.
+            }
         });
 
     private static ExampleScene GradientExtend()
@@ -431,30 +582,8 @@ public static class TestScenes
             scene.StrokePath(builder, stroke, transform, RgbaColor.FromBytes(255, 220, 120));
         });
 
-    private static ExampleScene MotionMark()
-        => new("mmark", true, (scene, parameters) =>
-        {
-            var transform = parameters.ViewTransform;
-            var rng = new Random(1);
-            var elementCount = Math.Clamp(parameters.Complexity * 1000, 1000, 120_000);
-            var builder = new PathBuilder();
-            for (var i = 0; i < elementCount; i++)
-            {
-                builder.Clear();
-                var x = rng.NextDouble() * 800;
-                var y = rng.NextDouble() * 600;
-                builder.MoveTo(x, y);
-                for (var j = 0; j < 3; j++)
-                {
-                    var nx = rng.NextDouble() * 800;
-                    var ny = rng.NextDouble() * 600;
-                    builder.QuadraticTo((x + nx) / 2, (y + ny) / 2, nx, ny);
-                    x = nx;
-                    y = ny;
-                }
-                scene.StrokePath(builder, new StrokeStyle { Width = 1.5 }, transform, RandomColor(rng, 0.3f));
-            }
-        });
+    private static ExampleScene MotionMark(MMarkScene scene) => new("mmark", false, scene.Render);
+
 
     private static ExampleScene ManyDrawObjects()
         => new("many_draw_objects", false, (scene, parameters) =>
@@ -545,48 +674,212 @@ public static class TestScenes
             scene.PopLayer();
         });
 
-    private static ExampleScene Spinner()
-        => new("spinner", true, (scene, parameters) =>
+    private sealed class MMarkScene
+    {
+        private const int Width = 1600;
+        private const int Height = 900;
+        private const int GridWidth = 80;
+        private const int GridHeight = 40;
+        private static readonly (int X, int Y)[] Offsets = { (-4, 0), (2, 0), (1, -2), (1, 2) };
+        private static readonly RgbaColor[] Colors =
         {
-            var builder = new PathBuilder();
-            var center = new Vector2(400f, 300f);
-            var radius = 220f;
-            var blades = 8;
-            var angle = (float)parameters.Time * 0.8f;
-            for (var i = 0; i < blades; i++)
+            RgbaColor.FromBytes(0x10, 0x10, 0x10),
+            RgbaColor.FromBytes(0x80, 0x80, 0x80),
+            RgbaColor.FromBytes(0xC0, 0xC0, 0xC0),
+            RgbaColor.FromBytes(0x10, 0x10, 0x10),
+            RgbaColor.FromBytes(0x80, 0x80, 0x80),
+            RgbaColor.FromBytes(0xC0, 0xC0, 0xC0),
+            RgbaColor.FromBytes(0xE0, 0x10, 0x40),
+        };
+
+        private readonly List<Element> _elements = new();
+        private readonly Random _random = new(1);
+
+        public void Render(Scene scene, SceneParams parameters)
+        {
+            var complexity = Math.Max(1, parameters.Complexity);
+            var target = complexity < 10 ? (complexity + 1) * 1000 : Math.Min((complexity - 8) * 10000, 120_000);
+            Resize(target);
+
+            var view = parameters.ViewTransform;
+            var path = new PathBuilder();
+
+            for (var i = 0; i < _elements.Count; i++)
             {
-                var theta = angle + i * MathF.Tau / blades;
-                builder.MoveTo(center.X, center.Y);
-                var tip = center + new Vector2(MathF.Cos(theta), MathF.Sin(theta)) * radius;
-                var ctrl = center + new Vector2(MathF.Cos(theta + 0.4f), MathF.Sin(theta + 0.4f)) * (radius * 0.4f);
-                builder.QuadraticTo(ctrl.X, ctrl.Y, tip.X, tip.Y);
-                builder.Close();
+                var element = _elements[i];
+                if (path.Count == 0)
+                {
+                    path.MoveTo(element.Start.X, element.Start.Y);
+                }
+
+                element.AppendTo(path);
+
+                var isLast = i == _elements.Count - 1;
+                if (element.IsSplit || isLast)
+                {
+                    var stroke = new StrokeStyle
+                    {
+                        Width = element.Width,
+                        LineJoin = LineJoin.Bevel,
+                        StartCap = LineCap.Round,
+                        EndCap = LineCap.Round,
+                    };
+                    scene.StrokePath(path, stroke, view, element.Color);
+                    path.Clear();
+                }
+
+                if (_random.NextDouble() > 0.995)
+                {
+                    element.IsSplit = !element.IsSplit;
+                }
+
+                _elements[i] = element;
             }
 
-            var bladeColor = RgbaColor.FromBytes(156, 220, 255, 210);
-            var transform = parameters.ViewTransform;
-            scene.FillPath(builder, FillRule.NonZero, transform, bladeColor);
+            var label = $"mmark test: {target} path elements (up/down to adjust)";
+            parameters.Text.Add(scene, 40f, RgbaColor.FromBytes(0xFF, 0xFF, 0xFF), Matrix3x2.CreateTranslation(100f, 1100f) * view, null, label);
+        }
 
-            var stroke = new StrokeStyle { Width = 4.0, LineJoin = LineJoin.Round };
-            builder.Clear();
-            const int segments = 72;
-            for (var i = 0; i <= segments; i++)
+        private void Resize(int target)
+        {
+            if (_elements.Count > target)
             {
-                var t = i / (float)segments;
-                var theta = t * MathF.Tau;
-                var point = center + new Vector2(MathF.Cos(theta), MathF.Sin(theta)) * radius;
-                if (i == 0)
+                _elements.RemoveRange(target, _elements.Count - target);
+                return;
+            }
+
+            var last = _elements.Count > 0 ? _elements[^1].GridPoint : new GridPoint(GridWidth / 2, GridHeight / 2);
+            while (_elements.Count < target)
+            {
+                var element = Element.CreateRandom(last, _random);
+                _elements.Add(element);
+                last = element.GridPoint;
+            }
+        }
+
+        private enum SegmentType
+        {
+            Line,
+            Quad,
+            Cubic,
+        }
+
+        private struct Element
+        {
+            public SegmentType Type;
+            public Vector2 Start;
+            public Vector2 Control1;
+            public Vector2 Control2;
+            public Vector2 End;
+            public RgbaColor Color;
+            public double Width;
+            public bool IsSplit;
+            public GridPoint GridPoint;
+
+            public void AppendTo(PathBuilder builder)
+            {
+                switch (Type)
                 {
-                    builder.MoveTo(point.X, point.Y);
+                    case SegmentType.Line:
+                        builder.LineTo(End.X, End.Y);
+                        break;
+                    case SegmentType.Quad:
+                        builder.QuadraticTo(Control1.X, Control1.Y, End.X, End.Y);
+                        break;
+                    case SegmentType.Cubic:
+                        builder.CubicTo(Control1.X, Control1.Y, Control2.X, Control2.Y, End.X, End.Y);
+                        break;
+                }
+            }
+
+            public static Element CreateRandom(GridPoint last, Random random)
+            {
+                var next = GridPoint.Next(last, random);
+                SegmentType type;
+                Vector2 start = last.ToCoordinate();
+                Vector2 end = next.ToCoordinate();
+                Vector2 control1 = end;
+                Vector2 control2 = end;
+                GridPoint gridPoint = next;
+
+                var choice = random.Next(4);
+                if (choice < 2)
+                {
+                    type = SegmentType.Line;
+                }
+                else if (choice < 3)
+                {
+                    type = SegmentType.Quad;
+                    gridPoint = GridPoint.Next(next, random);
+                    control1 = next.ToCoordinate();
+                    end = gridPoint.ToCoordinate();
                 }
                 else
                 {
-                    builder.LineTo(point.X, point.Y);
+                    type = SegmentType.Cubic;
+                    control1 = next.ToCoordinate();
+                    var mid = GridPoint.Next(next, random);
+                    control2 = mid.ToCoordinate();
+                    gridPoint = GridPoint.Next(next, random);
+                    end = gridPoint.ToCoordinate();
                 }
+
+                var color = Colors[random.Next(Colors.Length)];
+                var width = Math.Pow(random.NextDouble(), 5) * 20.0 + 1.0;
+                var isSplit = random.Next(2) == 0;
+
+                return new Element
+                {
+                    Type = type,
+                    Start = start,
+                    Control1 = control1,
+                    Control2 = control2,
+                    End = end,
+                    Color = color,
+                    Width = width,
+                    IsSplit = isSplit,
+                    GridPoint = gridPoint,
+                };
             }
-            builder.Close();
-            scene.StrokePath(builder, stroke, transform, RgbaColor.FromBytes(40, 42, 48));
-        });
+        }
+
+        private readonly struct GridPoint
+        {
+            public GridPoint(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public int X { get; }
+            public int Y { get; }
+
+            public static GridPoint Next(GridPoint last, Random random)
+            {
+                var offset = Offsets[random.Next(Offsets.Length)];
+                var x = last.X + offset.X;
+                if (x < 0 || x > GridWidth)
+                {
+                    x -= offset.X * 2;
+                }
+
+                var y = last.Y + offset.Y;
+                if (y < 0 || y > GridHeight)
+                {
+                    y -= offset.Y * 2;
+                }
+
+                return new GridPoint(x, y);
+            }
+
+            public Vector2 ToCoordinate()
+            {
+                var scaleX = Width / (GridWidth + 1f);
+                var scaleY = Height / (GridHeight + 1f);
+                return new Vector2((float)((X + 0.5f) * scaleX), 100f + (float)((Y + 0.5f) * scaleY));
+            }
+        }
+    }
 
     private static RgbaColor RandomColor(Random rng, float alpha)
     {
@@ -594,5 +887,28 @@ public static class TestScenes
         var g = (byte)rng.Next(30, 255);
         var b = (byte)rng.Next(30, 255);
         return new RgbaColor(r / 255f, g / 255f, b / 255f, alpha);
+    }
+
+    private static PathBuilder CreateRectanglePath(float x, float y, float width, float height)
+    {
+        var builder = new PathBuilder();
+        builder.MoveTo(x, y)
+               .LineTo(x + width, y)
+               .LineTo(x + width, y + height)
+               .LineTo(x, y + height)
+               .Close();
+        return builder;
+    }
+
+    private static PathBuilder CreateStarPath()
+    {
+        var builder = new PathBuilder();
+        builder.MoveTo(50, 0)
+               .LineTo(21, 90)
+               .LineTo(98, 35)
+               .LineTo(2, 35)
+               .LineTo(79, 90)
+               .Close();
+        return builder;
     }
 }

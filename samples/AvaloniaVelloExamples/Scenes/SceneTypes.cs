@@ -7,14 +7,16 @@ namespace AvaloniaVelloExamples.Scenes;
 
 public sealed class SceneParams
 {
-    public SceneParams(ImageCache images)
+    public SceneParams(ImageCache images, SimpleText text)
     {
         Images = images ?? throw new ArgumentNullException(nameof(images));
+        Text = text ?? throw new ArgumentNullException(nameof(text));
     }
 
     public double Time { get; set; }
     public bool Interactive { get; set; }
     public ImageCache Images { get; }
+    public SimpleText Text { get; }
     public Vector2? Resolution { get; set; }
     public RgbaColor? BaseColor { get; set; }
     public int Complexity { get; set; }
@@ -37,14 +39,16 @@ public sealed class ExampleScene
 
 public sealed class SceneCollection
 {
-    public SceneCollection(IReadOnlyList<ExampleScene> scenes, ImageCache images)
+    public SceneCollection(IReadOnlyList<ExampleScene> scenes, ImageCache images, SimpleText text)
     {
         Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
         Images = images ?? throw new ArgumentNullException(nameof(images));
+        Text = text ?? throw new ArgumentNullException(nameof(text));
     }
 
     public IReadOnlyList<ExampleScene> Scenes { get; }
     public ImageCache Images { get; }
+    public SimpleText Text { get; }
 }
 
 public readonly struct ExampleRenderResult

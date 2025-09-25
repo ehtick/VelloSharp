@@ -17,8 +17,9 @@ public sealed class ManagedSceneHost : IDisposable
     public static ManagedSceneHost Create(string? assetRoot)
     {
         var images = new ImageCache(assetRoot);
-        var scenes = TestScenes.BuildScenes(images, assetRoot);
-        var collection = new SceneCollection(scenes, images);
+        var text = SimpleText.Create(assetRoot);
+        var scenes = TestScenes.BuildScenes(images, text, assetRoot);
+        var collection = new SceneCollection(scenes, images, text);
         return new ManagedSceneHost(collection);
     }
 
@@ -43,7 +44,7 @@ public sealed class ManagedSceneHost : IDisposable
             throw new ArgumentOutOfRangeException(nameof(index));
         }
 
-        var sceneParams = new SceneParams(_collection.Images)
+        var sceneParams = new SceneParams(_collection.Images, _collection.Text)
         {
             Time = time,
             Interactive = interactive,
@@ -72,6 +73,7 @@ public sealed class ManagedSceneHost : IDisposable
         }
 
         _collection.Images.Dispose();
+        _collection.Text.Dispose();
         _disposed = true;
     }
 }
