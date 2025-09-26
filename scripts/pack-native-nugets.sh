@@ -29,6 +29,11 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
     continue
   fi
 
+  if ! find "${native_dir}" -type f -mindepth 1 -print -quit | grep -q .; then
+    echo "Skipping ${rid}: no native assets found under '${native_dir}'."
+    continue
+  fi
+
   echo "Packing native package for ${rid}"
   dotnet pack "${project}" \
     -c Release \
