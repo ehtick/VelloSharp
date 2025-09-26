@@ -4,12 +4,9 @@ using System.Runtime.InteropServices;
 
 namespace VelloSharp;
 
-internal static partial class WinitNativeMethods
+internal static unsafe partial class WinitNativeMethods
 {
     private const string LibraryName = "winit_ffi";
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal unsafe delegate void WinitEventCallback(nint userData, nint context, ref WinitEvent evt);
 
     [LibraryImport(LibraryName, EntryPoint = "winit_last_error_message")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -17,7 +14,7 @@ internal static partial class WinitNativeMethods
 
     [LibraryImport(LibraryName, EntryPoint = "winit_event_loop_run")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial WinitStatus winit_event_loop_run(ref WinitRunOptions options, WinitEventCallback callback, nint userData);
+    internal static partial WinitStatus winit_event_loop_run(ref WinitRunOptions options, delegate* unmanaged[Cdecl]<nint, nint, WinitEvent*, void> callback, nint userData);
 
     [LibraryImport(LibraryName, EntryPoint = "winit_context_set_control_flow")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
