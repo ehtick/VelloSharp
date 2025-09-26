@@ -10,8 +10,8 @@ use std::{
     vec::Vec,
 };
 
-use peniko::kurbo::Point;
 use peniko::color::Srgb;
+use peniko::kurbo::Point;
 use peniko::{
     Brush, Color, ColorStop, ColorStops, Extend, Gradient, GradientKind, LinearGradientPosition,
     RadialGradientPosition, SweepGradientPosition,

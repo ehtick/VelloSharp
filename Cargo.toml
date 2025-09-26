@@ -5,6 +5,7 @@ members = [
     "kurbo_ffi",
     "peniko_ffi",
     "winit_ffi",
+    "parley_ffi",
 ]
 
 [workspace.package]
@@ -69,6 +70,7 @@ bytemuck = { version = "1.23.0", features = ["derive"] }
 skrifa = { version = "0.36.0", default-features = false, features = ["autohint_shaping"] }
 peniko = { path = "peniko", default-features = false }
 kurbo = { path = "kurbo/kurbo", default-features = false }
+parley = { path = "parley/parley", default-features = false, features = ["system"] }
 futures-intrusive = "0.5.0"
 smallvec = "1.15.1"
 static_assertions = "1.1.0"
@@ -107,6 +109,13 @@ proc-macro2 = "1.0.95"
 syn = { version = "2.0.101", features = ["full", "extra-traits"] }
 quote = "1.0.40"
 raw-window-handle = "0.6.2"
+accesskit = "0.21.0"
+harfrust = { version = "0.2.0", default-features = false }
+hashbrown = "0.15.3"
+fontique = { path = "parley/fontique", default-features = false }
+parley_dev = { path = "parley/parley_dev", default-features = false }
+read-fonts = { version = "0.34.0", default-features = false }
+swash = { version = "0.2.5", default-features = false }
 
 [patch.crates-io]
 vello = { path = "vello/vello" }

@@ -18,12 +18,7 @@ use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{
-        DeviceEvent,
-        ElementState,
-        MouseButton,
-        MouseScrollDelta,
-        StartCause,
-        TouchPhase,
+        DeviceEvent, ElementState, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
         WindowEvent,
     },
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
@@ -830,7 +825,10 @@ where
     f(handle)
 }
 
-fn fill_vello_window_handle(window: &Window, out_handle: &mut VelloWindowHandle) -> Result<(), WinitStatus> {
+fn fill_vello_window_handle(
+    window: &Window,
+    out_handle: &mut VelloWindowHandle,
+) -> Result<(), WinitStatus> {
     let window_handle = match window.window_handle() {
         Ok(handle) => handle,
         Err(err) => {

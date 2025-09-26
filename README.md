@@ -3,22 +3,30 @@
 This repository hosts the managed bindings that expose the [`vello`](https://github.com/linebender/vello)
 renderer to .NET applications. The bindings are layered:
 
-- `vello_ffi` – a Rust `cdylib` that wraps the core Vello renderer behind a C ABI. The crate now pulls in
-  [`vello_svg`](https://github.com/linebender/vello_svg), [`velato`](https://github.com/linebender/velato), and
-  a slimmed-down [`wgpu`](https://github.com/gfx-rs/wgpu) build to offer SVG ingestion, Lottie playback, and
-  GPU swapchain rendering from the same binary.
-- `VelloSharp` – a C# library that provides a safe, idiomatic API over the native exports, including wrappers
-  for SVG scenes (`VelloSvg`), Velato compositions, and the new wgpu surface/device helpers.
-- `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp, and render-path negotiation.
-- `samples/AvaloniaVelloDemo` / `samples/AvaloniaVelloExamples` – Avalonia desktop samples that exercise the
-  bindings in CPU and GPU modes.
+- Native FFI crates:
+  - `vello_ffi` – wraps the renderer, shader, SVG, Velato, and wgpu stacks behind a single C ABI.
+  - `peniko_ffi` – bridges paint/brush data so gradients, images, and style metadata can be inspected or
+    constructed from managed code.
+  - `kurbo_ffi` – exposes the geometry primitives used across the stack (affine transforms, Bézier paths,
+    and bounding-box helpers) without pulling in the full Rust curve library.
+  - `winit_ffi` – forwards windowing, input, and swap-chain negotiation so native event loops can be driven
+    from .NET when desired.
+  - `parley_ffi` – provides rich text layout services, including glyph runs, inline boxes, and style
+    inspection over the [`parley`](https://github.com/linebender/parley) engine.
+- Managed assemblies:
+  - `VelloSharp` – idiomatic C# wrappers for all native exports: the renderer, scenes, wgpu helpers,
+    `KurboPath`/`KurboAffine`, `PenikoBrush`, and the `ParleyFontContext`/`ParleyLayout` rich-text pipeline.
+  - `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp, and render-path negotiation.
+  - `samples/AvaloniaVelloDemo` / `samples/AvaloniaVelloExamples` – Avalonia desktop samples that exercise the
+    bindings in CPU and GPU modes.
 
 ## Building the native library
 
 Install the Rust toolchain (Rust 1.86 or newer) before building the managed projects. The `VelloSharp`
-MSBuild project now drives `cargo build -p vello_ffi` automatically for the active .NET runtime identifier
-and configuration. Running any of the following commands produces the native artifact and copies it to the
-managed output directory under `runtimes/<rid>/native/` (and alongside the binaries for convenience):
+MSBuild project now drives `cargo build` for every required native crate (`vello_ffi`, `kurbo_ffi`,
+`peniko_ffi`, `winit_ffi`, and `parley_ffi`) for the active .NET runtime identifier and configuration.
+Running any of the following commands produces the native artifacts and copies them to the managed output
+directory under `runtimes/<rid>/native/` (and alongside the binaries for convenience):
 
 ```bash
 dotnet build VelloSharp/VelloSharp.csproj
@@ -38,6 +46,11 @@ Rust target is installed (`rustup target add <triple>`). The produced files are 
 | `osx-arm64`| `aarch64-apple-darwin`       | `libvello_ffi.dylib`     |
 | `linux-x64`| `x86_64-unknown-linux-gnu`   | `libvello_ffi.so`        |
 | `linux-arm64`| `aarch64-unknown-linux-gnu`| `libvello_ffi.so`        |
+
+> **Note:** The native crates enable the `std` feature for `kurbo`/`peniko` internally so the FFI layer can
+> build against clean upstream submodules. If you invoke `cargo build` manually for a specific crate, pass
+> the same feature flags (or build through the `VelloSharp` project) to avoid `kurbo requires the \`std\`
+> feature` errors.
 
 ## Packing NuGet packages
 
@@ -166,6 +179,43 @@ surfaceTexture.Dispose();
 All handles are disposable and throw once released, making it easy to integrate with `using` scopes. See the
 Avalonia helpers below for a higher-level example.
 
+### Rich text layout (Parley)
+
+`ParleyFontContext`, `ParleyLayoutContext`, and `ParleyLayout` expose the `parley_ffi` text pipeline. They let you
+register fonts, build styled layouts, and inspect glyph runs without leaving managed code:
+
+```csharp
+using var fontContext = new ParleyFontContext();
+fontContext.RegisterFontsFromPath("/Library/Fonts");
+
+using var layoutContext = new ParleyLayoutContext();
+var defaults = stackalloc ParleyStyleProperty[1] { ParleyStyleProperty.FontSize(18) };
+using var layout = ParleyLayout.Build(
+    layoutContext,
+    fontContext,
+    "Hello, Parley!",
+    scale: 1f,
+    quantize: true,
+    defaultProperties: defaults,
+    spans: ReadOnlySpan<ParleyStyleSpan>.Empty);
+
+layout.BreakAllLines(maxWidth: null);
+for (var lineIndex = 0; lineIndex < layout.LineCount; lineIndex++)
+{
+    var info = layout.GetLineInfo(lineIndex);
+    for (var runIndex = 0; runIndex < layout.GetGlyphRunCount(lineIndex); runIndex++)
+    {
+        foreach (var glyph in layout.GetGlyphs(lineIndex, runIndex))
+        {
+            // Consume glyph id/position/style information here.
+        }
+    }
+}
+```
+
+Locale-aware styling is currently rejected by the native layer (it reports `ParleyStatus.InvalidArgument`) until
+the upstream `parley` crate exposes internationalisation hooks through the C ABI.
+
 ## Brushes and Layers
 
 `Scene.FillPath` and `Scene.StrokePath` accept the `Brush` hierarchy, enabling linear/radial gradients and image brushes in addition to solid colors. Example:
@@ -183,6 +233,30 @@ scene.FillPath(path, FillRule.NonZero, Matrix3x2.Identity, brush);
 ```
 
 Layer management is accessible through `Scene.PushLayer`, `Scene.PushLuminanceMaskLayer`, and `Scene.PopLayer`, giving full control over blend modes and clip groups.
+
+> Tip: When interoperating with native paint data, wrap `PenikoBrush` handles with `Brush.FromPenikoBrush` to
+> reuse gradients or solid fills produced via `peniko_ffi`.
+
+## Geometry helpers (Kurbo)
+
+`KurboPath`, `KurboAffine`, and the rest of the managed geometry types are thin wrappers over `kurbo_ffi`. They
+let you construct Bézier paths, apply affine transforms, and query bounds without pulling the full Rust library
+into your application:
+
+```csharp
+using var path = new KurboPath();
+path.MoveTo(0, 0);
+path.LineTo(128, 64);
+path.CubicTo(256, 64, 256, 256, 128, 256);
+path.Close();
+
+var bounds = path.GetBounds();
+path.ApplyAffine(KurboAffine.FromMatrix3x2(Matrix3x2.CreateRotation(MathF.PI / 4)));
+var elements = path.GetElements();
+```
+
+These helpers surface a managed-friendly representation of the geometry used throughout Vello and Parley without
+introducing additional allocations in the hot path.
 
 ## Images and Glyphs
 

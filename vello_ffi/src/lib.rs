@@ -14,8 +14,8 @@ use std::{
 };
 
 use futures_intrusive::channel::shared::oneshot_channel;
-use kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2};
 use peniko::{
+    kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2},
     BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
 };
@@ -824,7 +824,7 @@ fn resize_surface_if_needed(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kurbo::{Affine, Rect};
+    use peniko::kurbo::{Affine, Rect};
     use std::ptr;
     use vello::peniko::{Color, Fill};
 

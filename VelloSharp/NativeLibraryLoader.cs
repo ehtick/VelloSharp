@@ -17,6 +17,7 @@ internal static class NativeLibraryLoader
         "kurbo_ffi",
         "peniko_ffi",
         "winit_ffi",
+        "parley_ffi",
     };
 
 #pragma warning disable CA2255 // Module initializers limited use warning suppressed intentionally for native resolver registration.

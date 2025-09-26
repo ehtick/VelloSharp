@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace VelloSharp;
 
+#pragma warning disable CS1591
 internal enum VelloStatus
 {
     Success = 0,
@@ -23,6 +24,191 @@ internal enum KurboStatus : int
     Singular = 3,
     OutOfMemory = 4,
 }
+
+internal enum ParleyStatus : int
+{
+    Success = 0,
+    NullPointer = 1,
+    InvalidArgument = 2,
+    OutOfMemory = 3,
+    BufferTooSmall = 4,
+    IndexOutOfBounds = 5,
+    Utf8Error = 6,
+    IoError = 7,
+}
+
+internal enum ParleyStylePropertyKindNative : int
+{
+    FontStack = 0,
+    FontSize = 1,
+    FontWeight = 2,
+    FontStyle = 3,
+    FontWidth = 4,
+    Brush = 5,
+    LineHeight = 6,
+    LetterSpacing = 7,
+    WordSpacing = 8,
+    Locale = 9,
+    Underline = 10,
+    UnderlineOffset = 11,
+    UnderlineSize = 12,
+    UnderlineBrush = 13,
+    Strikethrough = 14,
+    StrikethroughOffset = 15,
+    StrikethroughSize = 16,
+    StrikethroughBrush = 17,
+    OverflowWrap = 18,
+}
+
+internal enum ParleyFontStyleNative : int
+{
+    Normal = 0,
+    Italic = 1,
+    Oblique = 2,
+}
+
+internal enum ParleyLineHeightKindNative : int
+{
+    MetricsRelative = 0,
+    FontSizeRelative = 1,
+    Absolute = 2,
+}
+
+internal enum ParleyOverflowWrapModeNative : int
+{
+    Normal = 0,
+    Anywhere = 1,
+    BreakWord = 2,
+}
+
+internal enum ParleyAlignmentKindNative : int
+{
+    Start = 0,
+    End = 1,
+    Left = 2,
+    Center = 3,
+    Right = 4,
+    Justify = 5,
+}
+
+internal enum ParleyBreakReasonNative : int
+{
+    None = 0,
+    Regular = 1,
+    Explicit = 2,
+    Emergency = 3,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public partial struct ParleyColor
+{
+    public byte R;
+    public byte G;
+    public byte B;
+    public byte A;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyStylePropertyNative
+{
+    public ParleyStylePropertyKindNative Kind;
+    public float ValueF32;
+    public int ValueI32;
+    public byte ValueBool;
+    public ParleyColor Color;
+    public ParleyFontStyleNative FontStyle;
+    public float FontStyleAngle;
+    public ParleyLineHeightKindNative LineHeightKind;
+    public IntPtr StringPtr;
+    public nuint StringLength;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyStyleSpanNative
+{
+    public nuint RangeStart;
+    public nuint RangeEnd;
+    public ParleyStylePropertyNative Property;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyAlignmentOptionsNative
+{
+    public byte AlignWhenOverflowing;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyGlyph
+{
+    public uint Id;
+    public ushort StyleIndex;
+    public ushort Reserved;
+    public float X;
+    public float Y;
+    public float Advance;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyGlyphRunInfoNative
+{
+    public nuint GlyphCount;
+    public ushort StyleIndex;
+    public ulong FontBlobId;
+    public uint FontIndex;
+    public IntPtr FontData;
+    public nuint FontDataLength;
+    public float FontSize;
+    public float Ascent;
+    public float Descent;
+    public float Leading;
+    public float Baseline;
+    public float Offset;
+    public float Advance;
+    public byte IsRtl;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyInlineBoxInfoNative
+{
+    public ulong Id;
+    public float X;
+    public float Y;
+    public float Width;
+    public float Height;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyLineInfoNative
+{
+    public nuint TextStart;
+    public nuint TextEnd;
+    public ParleyBreakReasonNative BreakReason;
+    public float Advance;
+    public float TrailingWhitespace;
+    public float LineHeight;
+    public float Baseline;
+    public float Offset;
+    public float Ascent;
+    public float Descent;
+    public float Leading;
+    public float MinCoord;
+    public float MaxCoord;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ParleyStyleInfoNative
+{
+    public ParleyColor Brush;
+    public byte Underline;
+    public float UnderlineOffset;
+    public float UnderlineSize;
+    public ParleyColor UnderlineBrush;
+    public byte Strikethrough;
+    public float StrikethroughOffset;
+    public float StrikethroughSize;
+    public ParleyColor StrikethroughBrush;
+}
+#pragma warning restore CS1591
 
 public enum PenikoStatus : int
 {

@@ -59,6 +59,16 @@ internal static class NativeHelpers
         Throw(message, status, PenikoNativeMethods.peniko_last_error_message);
     }
 
+    internal static void ThrowOnError(ParleyStatus status, string message)
+    {
+        if (status == ParleyStatus.Success)
+        {
+            return;
+        }
+
+        Throw(message, status, ParleyNativeMethods.parley_last_error_message);
+    }
+
     internal static void ThrowOnError(WinitStatus status, string message)
     {
         if (status == WinitStatus.Success)

@@ -133,6 +133,7 @@ RuntimeIdentifier = rid;
       <_VelloNativeCrate Include="kurbo_ffi" />
       <_VelloNativeCrate Include="peniko_ffi" />
       <_VelloNativeCrate Include="winit_ffi" />
+      <_VelloNativeCrate Include="parley_ffi" />
     </ItemGroup>
 
     <PropertyGroup>
