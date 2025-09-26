@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace VelloSharp;
@@ -8,13 +9,13 @@ public interface IWinitEventHandler
     void HandleEvent(WinitEventLoopContext context, in WinitEventArgs args);
 }
 
-public sealed class WinitEventLoop
+public unsafe sealed class WinitEventLoop
 {
-    private readonly WinitNativeMethods.WinitEventCallback _callback;
+    private readonly delegate* unmanaged[Cdecl]<nint, nint, WinitEvent*, void> _callback;
 
     public WinitEventLoop()
     {
-        _callback = OnNativeEvent;
+        _callback = &OnNativeEvent;
     }
 
     public WinitStatus Run(WinitRunConfiguration configuration, IWinitEventHandler handler)
@@ -44,15 +45,27 @@ public sealed class WinitEventLoop
         }
     }
 
-    private unsafe void OnNativeEvent(nint userData, nint contextPtr, ref WinitEvent evt)
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void OnNativeEvent(nint userData, nint contextPtr, WinitEvent* evtPtr)
     {
+        if (evtPtr is null)
+        {
+            return;
+        }
+
+        if (userData == nint.Zero)
+        {
+            return;
+        }
+
         var gcHandle = GCHandle.FromIntPtr(userData);
-        if (gcHandle.Target is not IWinitEventHandler handler)
+        if (!gcHandle.IsAllocated || gcHandle.Target is not IWinitEventHandler handler)
         {
             return;
         }
 
         var context = new WinitEventLoopContext(contextPtr);
+        ref readonly WinitEvent evt = ref Unsafe.AsRef<WinitEvent>(evtPtr);
         var args = new WinitEventArgs(in evt);
         handler.HandleEvent(context, args);
     }
