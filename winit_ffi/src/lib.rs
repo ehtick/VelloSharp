@@ -10,7 +10,7 @@ use std::{
     panic::{AssertUnwindSafe, catch_unwind},
     ptr::{self, NonNull},
     rc::Rc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
@@ -916,7 +916,7 @@ pub unsafe extern "C" fn winit_context_set_control_flow(
             WinitControlFlow::Wait => ControlFlow::Wait,
             WinitControlFlow::WaitUntil => {
                 let millis = wait_millis.max(0) as u64;
-                ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(millis))
+                ControlFlow::wait_duration(Duration::from_millis(millis))
             }
             WinitControlFlow::Exit => {
                 event_loop.exit();
