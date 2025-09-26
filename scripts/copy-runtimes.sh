@@ -10,7 +10,7 @@ if [[ ! -d "${ARTIFACTS_DIR}" ]]; then
   exit 1
 fi
 
-declare -a TARGETS=("VelloSharp" "VelloSharp.Integration" "samples/AvaloniaVelloExamples" "samples/AvaloniaVelloDemo")
+declare -a TARGETS=("VelloSharp" "VelloSharp.Integration" "samples/AvaloniaVelloExamples" "samples/AvaloniaVelloDemo" "samples/VelloSharp.WithWinit")
 if [[ "$#" -gt 0 ]]; then
   TARGETS=("$@")
 fi
