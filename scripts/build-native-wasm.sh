@@ -5,14 +5,35 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-wasm32-unknown-unknown}
 PROFILE=${2:-release}
 RID=${3:-browser-wasm}
-LIB_NAME=vello_ffi.wasm
+LIBS=(vello_ffi kurbo_ffi peniko_ffi winit_ffi)
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
-echo "Building vello_ffi for ${TARGET} (${PROFILE})"
-cargo build -p vello_ffi --target "${TARGET}" --${PROFILE}
+build_flags=("--target" "${TARGET}")
+if [[ "${PROFILE}" == "release" ]]; then
+  build_flags+=("--release")
+elif [[ "${PROFILE}" != "debug" ]]; then
+  build_flags+=("--profile" "${PROFILE}")
+fi
 
-SRC="${ROOT}/target/${TARGET}/${PROFILE}/${LIB_NAME}"
+for crate in "${LIBS[@]}"; do
+  echo "Building ${crate} for ${TARGET} (${PROFILE})"
+  cargo build -p "${crate}" "${build_flags[@]}"
+done
+
 DEST="${OUT_DIR}/${RID}/native"
 mkdir -p "${DEST}"
-cp "${SRC}" "${DEST}/"
-echo "Copied ${SRC} -> ${DEST}/${LIB_NAME}"
+
+for crate in "${LIBS[@]}"; do
+  LIB_NAME="${crate}.wasm"
+  SRC="${ROOT}/target/${TARGET}/${PROFILE}/${LIB_NAME}"
+  if [[ ! -f "${SRC}" ]]; then
+    LIB_NAME="lib${crate}.a"
+    SRC="${ROOT}/target/${TARGET}/${PROFILE}/${LIB_NAME}"
+  fi
+  if [[ ! -f "${SRC}" ]]; then
+    echo "Native artifact for ${crate} not found (expected .wasm or .a)." >&2
+    exit 1
+  fi
+  cp "${SRC}" "${DEST}/"
+  echo "Copied ${SRC} -> ${DEST}/${LIB_NAME}"
+done

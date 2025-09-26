@@ -4,11 +4,21 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-x86_64-unknown-linux-gnu}
 PROFILE=${2:-release}
-LIB_NAME=libvello_ffi.so
+LIBS=(vello_ffi kurbo_ffi peniko_ffi winit_ffi)
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
-echo "Building vello_ffi for ${TARGET} (${PROFILE})"
-cargo build -p vello_ffi --target "${TARGET}" --${PROFILE}
+build_flags=("--target" "${TARGET}")
+if [[ "${PROFILE}" == "release" ]]; then
+  build_flags+=("--release")
+elif [[ "${PROFILE}" != "debug" ]]; then
+  build_flags+=("--profile" "${PROFILE}")
+fi
+
+for crate in "${LIBS[@]}"; do
+  echo "Building ${crate} for ${TARGET} (${PROFILE})"
+  cargo build -p "${crate}" "${build_flags[@]}"
+
+done
 
 RID=${3:-}
 if [[ -z "${RID}" ]]; then
@@ -19,8 +29,14 @@ if [[ -z "${RID}" ]]; then
   esac
 fi
 
-SRC="${ROOT}/target/${TARGET}/${PROFILE}/${LIB_NAME}"
-DEST="${OUT_DIR}/${RID}/native"
-mkdir -p "${DEST}"
-cp "${SRC}" "${DEST}/"
-echo "Copied ${SRC} -> ${DEST}/${LIB_NAME}"
+for crate in "${LIBS[@]}"; do
+  LIB_NAME="lib${crate}.so"
+  SRC="${ROOT}/target/${TARGET}/${PROFILE}/${LIB_NAME}"
+  if [[ ! -f "${SRC}" ]]; then
+    SRC="${ROOT}/target/${TARGET}/${PROFILE}/${crate}.so"
+  fi
+  DEST="${OUT_DIR}/${RID}/native"
+  mkdir -p "${DEST}"
+  cp "${SRC}" "${DEST}/"
+  echo "Copied ${SRC} -> ${DEST}/${LIB_NAME}"
+done

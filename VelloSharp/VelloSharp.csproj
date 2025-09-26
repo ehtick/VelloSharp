@@ -128,11 +128,19 @@ RuntimeIdentifier = rid;
           DependsOnTargets="EnsureVelloRuntimeIdentifier"
           BeforeTargets="Build"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown' and '$(VelloSkipNativeBuild)' != 'true'">
+    <ItemGroup>
+      <_VelloNativeCrate Include="vello_ffi" />
+      <_VelloNativeCrate Include="kurbo_ffi" />
+      <_VelloNativeCrate Include="peniko_ffi" />
+      <_VelloNativeCrate Include="winit_ffi" />
+    </ItemGroup>
+
     <PropertyGroup>
-      <_VelloNativeFileName Condition="'$(VelloRuntimeIdentifier)' == 'win-x64' or '$(VelloRuntimeIdentifier)' == 'win-arm64' or '$(VelloRuntimeIdentifier)' == 'win'">vello_ffi.dll</_VelloNativeFileName>
-      <_VelloNativeFileName Condition="'$(VelloRuntimeIdentifier)' == 'osx-x64' or '$(VelloRuntimeIdentifier)' == 'osx-arm64' or '$(VelloRuntimeIdentifier)' == 'osx'">libvello_ffi.dylib</_VelloNativeFileName>
-      <_VelloNativeFileName Condition="'$(VelloRuntimeIdentifier)' == 'linux-x64' or '$(VelloRuntimeIdentifier)' == 'linux-arm64' or '$(VelloRuntimeIdentifier)' == 'linux'">libvello_ffi.so</_VelloNativeFileName>
-      <_VelloNativeFileName Condition="'$(_VelloNativeFileName)'==''">libvello_ffi.so</_VelloNativeFileName>
+      <_VelloNativePrefix>lib</_VelloNativePrefix>
+      <_VelloNativePrefix Condition="'$(VelloRuntimeIdentifier)' == 'win-x64' or '$(VelloRuntimeIdentifier)' == 'win-arm64' or '$(VelloRuntimeIdentifier)' == 'win'"></_VelloNativePrefix>
+      <_VelloNativeSuffix>.so</_VelloNativeSuffix>
+      <_VelloNativeSuffix Condition="'$(VelloRuntimeIdentifier)' == 'win-x64' or '$(VelloRuntimeIdentifier)' == 'win-arm64' or '$(VelloRuntimeIdentifier)' == 'win'">.dll</_VelloNativeSuffix>
+      <_VelloNativeSuffix Condition="'$(VelloRuntimeIdentifier)' == 'osx-x64' or '$(VelloRuntimeIdentifier)' == 'osx-arm64' or '$(VelloRuntimeIdentifier)' == 'osx'">.dylib</_VelloNativeSuffix>
 
       <_VelloRustTarget Condition="'$(VelloRuntimeIdentifier)' == 'win-x64'">x86_64-pc-windows-msvc</_VelloRustTarget>
       <_VelloRustTarget Condition="'$(VelloRuntimeIdentifier)' == 'win-arm64'">aarch64-pc-windows-msvc</_VelloRustTarget>
@@ -147,29 +155,42 @@ RuntimeIdentifier = rid;
       <_VelloCargoProfileDir Condition="'$(Configuration)'!='Debug'">release</_VelloCargoProfileDir>
     </PropertyGroup>
 
-    <Exec Command="cargo build -p vello_ffi --target $(_VelloRustTarget) $(_VelloCargoProfileFlag)"
+    <ItemGroup>
+      <_VelloNativeCrate Update="@(_VelloNativeCrate)">
+        <NativeFileName>$(_VelloNativePrefix)%(Identity)$(_VelloNativeSuffix)</NativeFileName>
+      </_VelloNativeCrate>
+    </ItemGroup>
+
+    <Exec Command="cargo build -p %(_VelloNativeCrate.Identity) --target $(_VelloRustTarget) $(_VelloCargoProfileFlag)"
           WorkingDirectory="$(VelloRepositoryRoot)"
           Condition="'$(_VelloRustTarget)' != ''" />
-    <Exec Command="cargo build -p vello_ffi $(_VelloCargoProfileFlag)"
+    <Exec Command="cargo build -p %(_VelloNativeCrate.Identity) $(_VelloCargoProfileFlag)"
           WorkingDirectory="$(VelloRepositoryRoot)"
           Condition="'$(_VelloRustTarget)' == ''" />
 
     <PropertyGroup>
       <_VelloCargoOutputDir Condition="'$(_VelloRustTarget)' == ''">$([System.IO.Path]::Combine('$(VelloRepositoryRoot)', 'target', '$(_VelloCargoProfileDir)'))</_VelloCargoOutputDir>
       <_VelloCargoOutputDir Condition="'$(_VelloRustTarget)' != ''">$([System.IO.Path]::Combine('$(VelloRepositoryRoot)', 'target', '$(_VelloRustTarget)', '$(_VelloCargoProfileDir)'))</_VelloCargoOutputDir>
-      <_VelloCargoOutputPath>$([System.IO.Path]::Combine('$(_VelloCargoOutputDir)', '$(_VelloNativeFileName)'))</_VelloCargoOutputPath>
       <_VelloRuntimeNativeDir>$([System.IO.Path]::Combine('$(OutDir)', 'runtimes', '$(VelloRuntimeIdentifier)', 'native'))</_VelloRuntimeNativeDir>
     </PropertyGroup>
 
-    <Error Condition="!Exists('$(_VelloCargoOutputPath)')"
-           Text="The native library '$(_VelloNativeFileName)' was not produced at '$(_VelloCargoOutputPath)'. Ensure the Rust toolchain for '$(VelloRuntimeIdentifier)' is installed." />
+    <ItemGroup>
+      <_VelloNativeCrate Update="@(_VelloNativeCrate)">
+        <SourcePath>$([System.IO.Path]::Combine('$(_VelloCargoOutputDir)', '%(NativeFileName)'))</SourcePath>
+        <RuntimePath>$([System.IO.Path]::Combine('$(_VelloRuntimeNativeDir)', '%(NativeFileName)'))</RuntimePath>
+        <OutputPath>$([System.IO.Path]::Combine('$(OutDir)', '%(NativeFileName)'))</OutputPath>
+      </_VelloNativeCrate>
+    </ItemGroup>
 
-    <Copy SourceFiles="$(_VelloCargoOutputPath)"
-          DestinationFiles="$(_VelloRuntimeNativeDir)/$(_VelloNativeFileName)"
+    <Error Condition="!Exists('%(_VelloNativeCrate.SourcePath)')"
+           Text="The native library '%(_VelloNativeCrate.NativeFileName)' was not produced at '%(_VelloNativeCrate.SourcePath)'. Ensure the Rust toolchain for '$(VelloRuntimeIdentifier)' is installed." />
+
+    <Copy SourceFiles="%(_VelloNativeCrate.SourcePath)"
+          DestinationFiles="%(_VelloNativeCrate.RuntimePath)"
           SkipUnchangedFiles="true" />
 
-    <Copy SourceFiles="$(_VelloCargoOutputPath)"
-          DestinationFiles="$(OutDir)$(_VelloNativeFileName)"
+    <Copy SourceFiles="%(_VelloNativeCrate.SourcePath)"
+          DestinationFiles="%(_VelloNativeCrate.OutputPath)"
           SkipUnchangedFiles="true" />
   </Target>
 </Project>

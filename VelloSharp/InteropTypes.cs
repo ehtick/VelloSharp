@@ -14,6 +14,239 @@ internal enum VelloStatus
     Unsupported = 6,
 }
 
+
+internal enum KurboStatus : int
+{
+    Success = 0,
+    NullPointer = 1,
+    InvalidArgument = 2,
+    Singular = 3,
+    OutOfMemory = 4,
+}
+
+public enum PenikoStatus : int
+{
+    Success = 0,
+    NullPointer = 1,
+    InvalidArgument = 2,
+    OutOfMemory = 3,
+    Unsupported = 4,
+}
+
+public enum PenikoExtend : int
+{
+    Pad = 0,
+    Repeat = 1,
+    Reflect = 2,
+}
+
+public enum PenikoBrushKind : int
+{
+    Solid = 0,
+    Gradient = 1,
+    Image = 2,
+}
+
+public enum PenikoGradientKind : int
+{
+    Linear = 0,
+    Radial = 1,
+    Sweep = 2,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoPoint
+{
+    public double X;
+    public double Y;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoLinearGradient
+{
+    public PenikoPoint Start;
+    public PenikoPoint End;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoRadialGradient
+{
+    public PenikoPoint StartCenter;
+    public float StartRadius;
+    public PenikoPoint EndCenter;
+    public float EndRadius;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoSweepGradient
+{
+    public PenikoPoint Center;
+    public float StartAngle;
+    public float EndAngle;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoColorStop
+{
+    public float Offset;
+    public VelloColor Color;
+}
+
+public enum WinitStatus : int
+{
+    Success = 0,
+    NullPointer = 1,
+    InvalidArgument = 2,
+    RuntimeError = 3,
+    WindowCreationFailed = 4,
+    CallbackPanicked = 5,
+}
+
+public enum WinitControlFlow : int
+{
+    Poll = 0,
+    Wait = 1,
+    WaitUntil = 2,
+    Exit = 3,
+}
+
+public enum WinitStartCause : int
+{
+    Init = 0,
+    Poll = 1,
+    WaitCancelled = 2,
+    ResumeTimeReached = 3,
+}
+
+public enum WinitEventKind : int
+{
+    NewEvents = 0,
+    Resumed = 1,
+    Suspended = 2,
+    WindowCreated = 3,
+    WindowResized = 4,
+    WindowScaleFactorChanged = 5,
+    WindowCloseRequested = 6,
+    WindowRedrawRequested = 7,
+    WindowDestroyed = 8,
+    AboutToWait = 9,
+    MemoryWarning = 10,
+    Exiting = 11,
+    WindowFocused = 12,
+    WindowFocusLost = 13,
+    CursorMoved = 14,
+    CursorEntered = 15,
+    CursorLeft = 16,
+    MouseInput = 17,
+    MouseWheel = 18,
+    KeyboardInput = 19,
+    ModifiersChanged = 20,
+    Touch = 21,
+}
+
+public enum WinitMouseButton : int
+{
+    Left = 0,
+    Right = 1,
+    Middle = 2,
+    Back = 3,
+    Forward = 4,
+    Other = 5,
+}
+
+public enum WinitElementState : int
+{
+    Released = 0,
+    Pressed = 1,
+}
+
+public enum WinitMouseScrollDeltaKind : int
+{
+    LineDelta = 0,
+    PixelDelta = 1,
+}
+
+public enum WinitKeyLocation : int
+{
+    Standard = 0,
+    Left = 1,
+    Right = 2,
+    Numpad = 3,
+}
+
+public enum WinitTouchPhaseKind : int
+{
+    Started = 0,
+    Moved = 1,
+    Ended = 2,
+    Cancelled = 3,
+}
+
+[Flags]
+public enum WinitModifiers : uint
+{
+    None = 0,
+    Shift = 0b100,
+    Control = 0b100 << 3,
+    Alt = 0b100 << 6,
+    Meta = 0b100 << 9,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WinitWindowDescriptor
+{
+    public uint Width;
+    public uint Height;
+    public uint MinWidth;
+    public uint MinHeight;
+    public uint MaxWidth;
+    public uint MaxHeight;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Resizable;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Decorations;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Transparent;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Visible;
+    public nint Title;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WinitRunOptions
+{
+    [MarshalAs(UnmanagedType.I1)]
+    public bool CreateWindow;
+    public WinitWindowDescriptor Window;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WinitEvent
+{
+    public WinitEventKind Kind;
+    public nint Window;
+    public uint Width;
+    public uint Height;
+    public double ScaleFactor;
+    public WinitStartCause StartCause;
+    public double MouseX;
+    public double MouseY;
+    public double DeltaX;
+    public double DeltaY;
+    public uint Modifiers;
+    public WinitMouseButton MouseButton;
+    public uint MouseButtonValue;
+    public WinitElementState ElementState;
+    public WinitMouseScrollDeltaKind ScrollDeltaKind;
+    public uint KeyCode;
+    public WinitKeyLocation KeyLocation;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Repeat;
+    public ulong TouchId;
+    public WinitTouchPhaseKind TouchPhase;
+}
+
+
 internal enum VelloFillRule : int
 {
     NonZero = 0,
@@ -64,7 +297,7 @@ internal enum VelloRenderFormat : int
     Bgra8 = 1,
 }
 
-internal enum VelloWindowHandleKind : int
+public enum VelloWindowHandleKind : int
 {
     None = 0,
     Win32 = 1,
@@ -179,7 +412,7 @@ internal struct VelloAffine
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloColor
+public struct VelloColor
 {
     public float R;
     public float G;
@@ -395,27 +628,27 @@ internal struct VelloRendererOptions
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloWin32WindowHandle
+public struct VelloWin32WindowHandle
 {
     public IntPtr Hwnd;
     public IntPtr HInstance;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloAppKitWindowHandle
+public struct VelloAppKitWindowHandle
 {
     public IntPtr NsView;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloWaylandWindowHandle
+public struct VelloWaylandWindowHandle
 {
     public IntPtr Surface;
     public IntPtr Display;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloXlibWindowHandle
+public struct VelloXlibWindowHandle
 {
     public ulong Window;
     public IntPtr Display;
@@ -424,7 +657,7 @@ internal struct VelloXlibWindowHandle
 }
 
 [StructLayout(LayoutKind.Explicit)]
-internal struct VelloWindowHandlePayload
+public struct VelloWindowHandlePayload
 {
     [FieldOffset(0)]
     public VelloWin32WindowHandle Win32;
@@ -439,7 +672,7 @@ internal struct VelloWindowHandlePayload
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloWindowHandle
+public struct VelloWindowHandle
 {
     public VelloWindowHandleKind Kind;
     public VelloWindowHandlePayload Payload;

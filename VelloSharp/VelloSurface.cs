@@ -186,6 +186,16 @@ public readonly struct SurfaceHandle
         Kind = VelloWindowHandleKind.Headless,
     });
 
+    public static SurfaceHandle FromVelloHandle(VelloWindowHandle handle)
+    {
+        if (handle.Kind == VelloWindowHandleKind.None)
+        {
+            throw new ArgumentException("Window handle must not be None.", nameof(handle));
+        }
+
+        return new SurfaceHandle(handle);
+    }
+
     public static SurfaceHandle FromWin32(IntPtr hwnd, IntPtr hinstance = default)
     {
         if (hwnd == IntPtr.Zero)

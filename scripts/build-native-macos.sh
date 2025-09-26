@@ -5,8 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-x86_64-apple-darwin}
 PROFILE=${2:-release}
 SDK=${3:-}
-LIB_EXT="dylib"
-LIB_NAME="libvello_ffi.${LIB_EXT}"
+LIBS=(vello_ffi kurbo_ffi peniko_ffi winit_ffi)
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
 if [[ -n "${SDK}" ]]; then
@@ -14,8 +13,17 @@ if [[ -n "${SDK}" ]]; then
   echo "Using SDKROOT=${SDKROOT}"
 fi
 
-echo "Building vello_ffi for ${TARGET} (${PROFILE})"
-cargo build -p vello_ffi --target "${TARGET}" --${PROFILE}
+build_flags=("--target" "${TARGET}")
+if [[ "${PROFILE}" == "release" ]]; then
+  build_flags+=("--release")
+elif [[ "${PROFILE}" != "debug" ]]; then
+  build_flags+=("--profile" "${PROFILE}")
+fi
+
+for crate in "${LIBS[@]}"; do
+  echo "Building ${crate} for ${TARGET} (${PROFILE})"
+  cargo build -p "${crate}" "${build_flags[@]}"
+done
 
 RID=${4:-}
 if [[ -z "${RID}" ]]; then
@@ -29,15 +37,22 @@ if [[ -z "${RID}" ]]; then
 fi
 
 PROFILE_DIR=${PROFILE}
-SRC="${ROOT}/target/${TARGET}/${PROFILE_DIR}/${LIB_NAME}"
-
-if [[ ! -f "${SRC}" && "${TARGET}" == *"apple-ios"* ]]; then
-  # static lib for iOS
-  LIB_NAME="libvello_ffi.a"
+for crate in "${LIBS[@]}"; do
+  LIB_NAME="lib${crate}.dylib"
   SRC="${ROOT}/target/${TARGET}/${PROFILE_DIR}/${LIB_NAME}"
-fi
 
-DEST="${OUT_DIR}/${RID}/native"
-mkdir -p "${DEST}"
-cp "${SRC}" "${DEST}/"
-echo "Copied ${SRC} -> ${DEST}/${LIB_NAME}"
+  if [[ ! -f "${SRC}" && "${TARGET}" == *"apple-ios"* ]]; then
+    LIB_NAME="lib${crate}.a"
+    SRC="${ROOT}/target/${TARGET}/${PROFILE_DIR}/${LIB_NAME}"
+  fi
+
+  if [[ ! -f "${SRC}" ]]; then
+    echo "Native library ${LIB_NAME} not found for crate ${crate}." >&2
+    exit 1
+  fi
+
+  DEST="${OUT_DIR}/${RID}/native"
+  mkdir -p "${DEST}"
+  cp "${SRC}" "${DEST}/"
+  echo "Copied ${SRC} -> ${DEST}/${LIB_NAME}"
+done

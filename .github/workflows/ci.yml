@@ -231,7 +231,7 @@ jobs:
         with:
           pattern: native-*
           path: artifacts
-          merge-multiple: true
+          merge-multiple: false
 
       - name: Collect native runtimes
         run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes

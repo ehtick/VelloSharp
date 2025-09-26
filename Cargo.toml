@@ -2,6 +2,9 @@
 resolver = "2"
 members = [
     "vello_ffi",
+    "kurbo_ffi",
+    "peniko_ffi",
+    "winit_ffi",
 ]
 
 [workspace.package]
@@ -64,8 +67,8 @@ vello_encoding = { version = "0.5.0", path = "vello/vello_encoding" }
 vello_shaders = { version = "0.5.0", path = "vello/vello_shaders" }
 bytemuck = { version = "1.23.0", features = ["derive"] }
 skrifa = { version = "0.36.0", default-features = false, features = ["autohint_shaping"] }
-peniko = { git = "https://github.com/linebender/peniko", rev = "dde968cf406be54d3211fe422bdd066f891ab632", default-features = false }
-kurbo = { version = "0.12.0", default-features = false }
+peniko = { path = "peniko", default-features = false }
+kurbo = { path = "kurbo/kurbo", default-features = false }
 futures-intrusive = "0.5.0"
 smallvec = "1.15.1"
 static_assertions = "1.1.0"
@@ -92,7 +95,6 @@ anyhow = "1.0.98"
 pollster = "0.4.0"
 web-time = "1.1.0"
 wgpu-profiler = "0.24.0"
-winit = "0.30.10"
 scenes = { path = "vello/examples/scenes" }
 svg = "0.18.0"
 criterion = { version = "0.5.1", default-features = false }

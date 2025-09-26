@@ -10,3 +10,12 @@
 [submodule "wgpu"]
 	path = wgpu
 	url = https://github.com/gfx-rs/wgpu
+[submodule "winit"]
+	path = winit
+	url = https://github.com/rust-windowing/winit
+[submodule "kurbo"]
+	path = kurbo
+	url = https://github.com/linebender/kurbo
+[submodule "peniko"]
+	path = peniko
+	url = https://github.com/linebender/peniko

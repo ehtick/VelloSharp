@@ -38,37 +38,45 @@ public sealed class Scene : IDisposable
         ArgumentNullException.ThrowIfNull(brush);
 
         var span = path.AsSpan();
-        if (span.IsEmpty)
-        {
-            throw new ArgumentException("Path must contain at least one element.", nameof(path));
-        }
+        FillPathInternal(span, fillRule, transform, brush, brushTransform);
+    }
 
-        using var marshaler = brush.CreateMarshaler();
+    public void FillPath(
+        PathBuilder path,
+        FillRule fillRule,
+        Matrix3x2 transform,
+        PenikoBrush brush,
+        Matrix3x2? brushTransform = null)
+    {
+        ArgumentNullException.ThrowIfNull(brush);
+        FillPath(path, fillRule, transform, Brush.FromPenikoBrush(brush), brushTransform);
+    }
 
-        unsafe
-        {
-            fixed (VelloPathElement* elementPtr = span)
-            {
-                VelloAffine* brushTransformPtr = null;
-                VelloAffine brushAffine = default;
-                if (brushTransform.HasValue)
-                {
-                    brushAffine = brushTransform.Value.ToNativeAffine();
-                    brushTransformPtr = &brushAffine;
-                }
+    public void FillPath(
+        KurboPath path,
+        FillRule fillRule,
+        Matrix3x2 transform,
+        Brush brush,
+        Matrix3x2? brushTransform = null)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(brush);
 
-                var status = NativeMethods.vello_scene_fill_path_brush(
-                    _handle,
-                    (VelloFillRule)fillRule,
-                    transform.ToNativeAffine(),
-                    marshaler.Brush,
-                    brushTransformPtr,
-                    elementPtr,
-                    (nuint)span.Length);
+        var elements = path.GetElements();
+        var converted = ConvertKurboElements(elements);
+        FillPathInternal(converted, fillRule, transform, brush, brushTransform);
+    }
 
-                NativeHelpers.ThrowOnError(status, "FillPath failed");
-            }
-        }
+    public void FillPath(
+        KurboPath path,
+        FillRule fillRule,
+        Matrix3x2 transform,
+        PenikoBrush brush,
+        Matrix3x2? brushTransform = null)
+    {
+        ArgumentNullException.ThrowIfNull(brush);
+        FillPath(path, fillRule, transform, Brush.FromPenikoBrush(brush), brushTransform);
     }
 
     public void StrokePath(PathBuilder path, StrokeStyle style, Matrix3x2 transform, RgbaColor color) =>
@@ -87,58 +95,46 @@ public sealed class Scene : IDisposable
         ArgumentNullException.ThrowIfNull(brush);
 
         var span = path.AsSpan();
-        if (span.IsEmpty)
-        {
-            throw new ArgumentException("Path must contain at least one element.", nameof(path));
-        }
+        StrokePathInternal(span, style, transform, brush, brushTransform);
+    }
 
-        using var marshaler = brush.CreateMarshaler();
+    public void StrokePath(
+        PathBuilder path,
+        StrokeStyle style,
+        Matrix3x2 transform,
+        PenikoBrush brush,
+        Matrix3x2? brushTransform = null)
+    {
+        ArgumentNullException.ThrowIfNull(brush);
+        StrokePath(path, style, transform, Brush.FromPenikoBrush(brush), brushTransform);
+    }
 
-        unsafe
-        {
-            fixed (VelloPathElement* elementPtr = span)
-            {
-                VelloAffine* brushTransformPtr = null;
-                VelloAffine brushAffine = default;
-                if (brushTransform.HasValue)
-                {
-                    brushAffine = brushTransform.Value.ToNativeAffine();
-                    brushTransformPtr = &brushAffine;
-                }
+    public void StrokePath(
+        KurboPath path,
+        StrokeStyle style,
+        Matrix3x2 transform,
+        Brush brush,
+        Matrix3x2? brushTransform = null)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(style);
+        ArgumentNullException.ThrowIfNull(brush);
 
-                if (style.DashPattern is { Length: > 0 } pattern)
-                {
-                    fixed (double* dashPtr = pattern)
-                    {
-                        var nativeStyle = CreateStrokeStyle(style, (IntPtr)dashPtr, (nuint)pattern.Length);
-                        var status = NativeMethods.vello_scene_stroke_path_brush(
-                            _handle,
-                            nativeStyle,
-                            transform.ToNativeAffine(),
-                            marshaler.Brush,
-                            brushTransformPtr,
-                            elementPtr,
-                            (nuint)span.Length);
+        var elements = path.GetElements();
+        var converted = ConvertKurboElements(elements);
+        StrokePathInternal(converted, style, transform, brush, brushTransform);
+    }
 
-                        NativeHelpers.ThrowOnError(status, "StrokePath failed");
-                    }
-                }
-                else
-                {
-                    var nativeStyle = CreateStrokeStyle(style, IntPtr.Zero, 0);
-                    var status = NativeMethods.vello_scene_stroke_path_brush(
-                        _handle,
-                        nativeStyle,
-                        transform.ToNativeAffine(),
-                        marshaler.Brush,
-                        brushTransformPtr,
-                        elementPtr,
-                        (nuint)span.Length);
-
-                    NativeHelpers.ThrowOnError(status, "StrokePath failed");
-                }
-            }
-        }
+    public void StrokePath(
+        KurboPath path,
+        StrokeStyle style,
+        Matrix3x2 transform,
+        PenikoBrush brush,
+        Matrix3x2? brushTransform = null)
+    {
+        ArgumentNullException.ThrowIfNull(brush);
+        StrokePath(path, style, transform, Brush.FromPenikoBrush(brush), brushTransform);
     }
 
     internal IntPtr Handle
@@ -354,6 +350,133 @@ public sealed class Scene : IDisposable
         {
             NativeMethods.vello_scene_destroy(_handle);
         }
+    }
+
+    private void FillPathInternal(
+        ReadOnlySpan<VelloPathElement> elements,
+        FillRule fillRule,
+        Matrix3x2 transform,
+        Brush brush,
+        Matrix3x2? brushTransform)
+    {
+        if (elements.IsEmpty)
+        {
+            throw new ArgumentException("Path must contain at least one element.", nameof(elements));
+        }
+
+        using var marshaler = brush.CreateMarshaler();
+
+        unsafe
+        {
+            fixed (VelloPathElement* elementPtr = elements)
+            {
+                VelloAffine* brushTransformPtr = null;
+                VelloAffine brushAffine = default;
+                if (brushTransform.HasValue)
+                {
+                    brushAffine = brushTransform.Value.ToNativeAffine();
+                    brushTransformPtr = &brushAffine;
+                }
+
+                var status = NativeMethods.vello_scene_fill_path_brush(
+                    _handle,
+                    (VelloFillRule)fillRule,
+                    transform.ToNativeAffine(),
+                    marshaler.Brush,
+                    brushTransformPtr,
+                    elementPtr,
+                    (nuint)elements.Length);
+
+                NativeHelpers.ThrowOnError(status, "FillPath failed");
+            }
+        }
+    }
+
+    private void StrokePathInternal(
+        ReadOnlySpan<VelloPathElement> elements,
+        StrokeStyle style,
+        Matrix3x2 transform,
+        Brush brush,
+        Matrix3x2? brushTransform)
+    {
+        if (elements.IsEmpty)
+        {
+            throw new ArgumentException("Path must contain at least one element.", nameof(elements));
+        }
+
+        using var marshaler = brush.CreateMarshaler();
+
+        unsafe
+        {
+            fixed (VelloPathElement* elementPtr = elements)
+            {
+                VelloAffine* brushTransformPtr = null;
+                VelloAffine brushAffine = default;
+                if (brushTransform.HasValue)
+                {
+                    brushAffine = brushTransform.Value.ToNativeAffine();
+                    brushTransformPtr = &brushAffine;
+                }
+
+                if (style.DashPattern is { Length: > 0 } pattern)
+                {
+                    fixed (double* dashPtr = pattern)
+                    {
+                        var nativeStyle = CreateStrokeStyle(style, (IntPtr)dashPtr, (nuint)pattern.Length);
+                        var status = NativeMethods.vello_scene_stroke_path_brush(
+                            _handle,
+                            nativeStyle,
+                            transform.ToNativeAffine(),
+                            marshaler.Brush,
+                            brushTransformPtr,
+                            elementPtr,
+                            (nuint)elements.Length);
+
+                        NativeHelpers.ThrowOnError(status, "StrokePath failed");
+                    }
+                }
+                else
+                {
+                    var nativeStyle = CreateStrokeStyle(style, IntPtr.Zero, 0);
+                    var status = NativeMethods.vello_scene_stroke_path_brush(
+                        _handle,
+                        nativeStyle,
+                        transform.ToNativeAffine(),
+                        marshaler.Brush,
+                        brushTransformPtr,
+                        elementPtr,
+                        (nuint)elements.Length);
+
+                    NativeHelpers.ThrowOnError(status, "StrokePath failed");
+                }
+            }
+        }
+    }
+
+    private static VelloPathElement[] ConvertKurboElements(ReadOnlySpan<KurboPathElement> elements)
+    {
+        if (elements.Length == 0)
+        {
+            return Array.Empty<VelloPathElement>();
+        }
+
+        var converted = new VelloPathElement[elements.Length];
+        for (var i = 0; i < elements.Length; i++)
+        {
+            var source = elements[i];
+            converted[i] = new VelloPathElement
+            {
+                Verb = (VelloPathVerb)source.Verb,
+                X0 = source.X0,
+                Y0 = source.Y0,
+                X1 = source.X1,
+                Y1 = source.Y1,
+                X2 = source.X2,
+                Y2 = source.Y2,
+            };
+        }
+
+        return converted;
     }
 
     private static VelloStrokeStyle CreateStrokeStyle(StrokeStyle style, IntPtr dashPtr, nuint dashLength) => new()

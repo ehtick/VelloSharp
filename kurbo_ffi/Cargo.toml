@@ -1,0 +1,20 @@
+[package]
+name = "kurbo_ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C bindings for the kurbo geometry library"
+
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+kurbo = { workspace = true, features = ["std"] }
+
+[features]
+default = []

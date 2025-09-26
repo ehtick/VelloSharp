@@ -1,0 +1,21 @@
+[package]
+name = "winit_ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C bindings for the winit windowing library"
+
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+winit = { version = "0.30.12", features = ["rwh_06"] }
+raw-window-handle = { workspace = true }
+
+[features]
+default = []

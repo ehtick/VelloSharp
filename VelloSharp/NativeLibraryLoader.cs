@@ -11,6 +11,13 @@ internal static class NativeLibraryLoader
 {
     private static readonly object Sync = new();
     private static bool _initialized;
+    private static readonly string[] NativeLibraries =
+    {
+        "vello_ffi",
+        "kurbo_ffi",
+        "peniko_ffi",
+        "winit_ffi",
+    };
 
 #pragma warning disable CA2255 // Module initializers limited use warning suppressed intentionally for native resolver registration.
     [ModuleInitializer]
@@ -38,12 +45,12 @@ internal static class NativeLibraryLoader
 
     private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
-        if (!string.Equals(libraryName, NativeMethods.LibraryName, StringComparison.Ordinal))
+        if (Array.IndexOf(NativeLibraries, libraryName) < 0)
         {
             return IntPtr.Zero;
         }
 
-        foreach (var candidate in EnumerateProbePaths(assembly))
+        foreach (var candidate in EnumerateProbePaths(assembly, libraryName))
         {
             if (!string.IsNullOrWhiteSpace(candidate) && NativeLibrary.TryLoad(candidate, out var handle))
             {
@@ -51,12 +58,13 @@ internal static class NativeLibraryLoader
             }
         }
 
-        return NativeLibrary.Load(libraryName, assembly, searchPath);
+        var fileName = GetLibraryFileName(libraryName);
+        return NativeLibrary.Load(fileName, assembly, searchPath);
     }
 
-    private static IEnumerable<string> EnumerateProbePaths(Assembly assembly)
+    private static IEnumerable<string> EnumerateProbePaths(Assembly assembly, string libraryName)
     {
-        var fileName = GetLibraryFileName();
+        var fileName = GetLibraryFileName(libraryName);
         var rid = RuntimeInformation.RuntimeIdentifier;
 
         if (!string.IsNullOrEmpty(AppContext.BaseDirectory))
@@ -108,18 +116,18 @@ internal static class NativeLibraryLoader
         return dashIndex > 0 ? rid[..dashIndex] : rid;
     }
 
-    private static string GetLibraryFileName()
+    private static string GetLibraryFileName(string libraryName)
     {
         if (OperatingSystem.IsWindows())
         {
-            return "vello_ffi.dll";
+            return $"{libraryName}.dll";
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return "libvello_ffi.dylib";
+            return $"lib{libraryName}.dylib";
         }
 
-        return "libvello_ffi.so";
+        return $"lib{libraryName}.so";
     }
 }

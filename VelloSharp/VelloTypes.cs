@@ -129,6 +129,12 @@ public readonly record struct GradientStop(float Offset, RgbaColor Color)
 public abstract class Brush
 {
     internal abstract BrushMarshaler CreateMarshaler();
+
+    public static Brush FromPenikoBrush(PenikoBrush brush)
+    {
+        ArgumentNullException.ThrowIfNull(brush);
+        return new PenikoBrushAdapter(brush);
+    }
 }
 
 public sealed class SolidColorBrush : Brush
@@ -300,6 +306,117 @@ public sealed class ImageBrush : Brush
         YExtend = (VelloExtendMode)YExtend,
         Quality = (VelloImageQualityMode)Quality,
         Alpha = Alpha,
+    };
+}
+
+public sealed class PenikoBrushAdapter : Brush
+{
+    private readonly PenikoBrush _brush;
+
+    internal PenikoBrushAdapter(PenikoBrush brush)
+    {
+        _brush = brush ?? throw new ArgumentNullException(nameof(brush));
+    }
+
+    public PenikoBrush Brush => _brush;
+
+    internal override BrushMarshaler CreateMarshaler()
+    {
+        return _brush.Kind switch
+        {
+            PenikoBrushKind.Solid => CreateSolidBrush(),
+            PenikoBrushKind.Gradient => CreateGradientBrush(),
+            PenikoBrushKind.Image => throw new NotSupportedException("Image brushes are not supported via Peniko interop yet."),
+            _ => throw new InvalidOperationException($"Unsupported Peniko brush kind: {_brush.Kind}.")
+        };
+    }
+
+    private BrushMarshaler CreateSolidBrush()
+    {
+        var color = _brush.GetSolidColor();
+        var native = new VelloBrush
+        {
+            Kind = VelloBrushKind.Solid,
+            Solid = color,
+        };
+        return new BrushMarshaler(native, null);
+    }
+
+    private BrushMarshaler CreateGradientBrush()
+    {
+        var kind = _brush.GetGradientKind() ?? throw new InvalidOperationException("Peniko gradient kind was not available.");
+        return kind switch
+        {
+            PenikoGradientKind.Linear => CreateLinearGradient(),
+            PenikoGradientKind.Radial => CreateRadialGradient(),
+            PenikoGradientKind.Sweep => throw new NotSupportedException("Sweep gradients are not supported in Vello brushes."),
+            _ => throw new InvalidOperationException($"Unsupported Peniko gradient kind: {kind}.")
+        };
+    }
+
+    private BrushMarshaler CreateLinearGradient()
+    {
+        var info = _brush.GetLinearGradient();
+        var stops = CopyStops(info.Stops);
+        var native = new VelloBrush
+        {
+            Kind = VelloBrushKind.LinearGradient,
+            Linear = new VelloLinearGradient
+            {
+                Start = ToVelloPoint(info.Gradient.Start),
+                End = ToVelloPoint(info.Gradient.End),
+                Extend = (VelloExtendMode)info.Extend,
+                StopCount = (nuint)stops.Length,
+            },
+        };
+        return new BrushMarshaler(native, stops);
+    }
+
+    private BrushMarshaler CreateRadialGradient()
+    {
+        var info = _brush.GetRadialGradient();
+        var stops = CopyStops(info.Stops);
+        var native = new VelloBrush
+        {
+            Kind = VelloBrushKind.RadialGradient,
+            Radial = new VelloRadialGradient
+            {
+                StartCenter = ToVelloPoint(info.Gradient.StartCenter),
+                StartRadius = info.Gradient.StartRadius,
+                EndCenter = ToVelloPoint(info.Gradient.EndCenter),
+                EndRadius = info.Gradient.EndRadius,
+                Extend = (VelloExtendMode)info.Extend,
+                StopCount = (nuint)stops.Length,
+            },
+        };
+        return new BrushMarshaler(native, stops);
+    }
+
+    private static VelloGradientStop[] CopyStops(IReadOnlyList<PenikoColorStop> stops)
+    {
+        if (stops is null || stops.Count == 0)
+        {
+            return Array.Empty<VelloGradientStop>();
+        }
+
+        var result = new VelloGradientStop[stops.Count];
+        for (var i = 0; i < stops.Count; i++)
+        {
+            var stop = stops[i];
+            result[i] = new VelloGradientStop
+            {
+                Offset = stop.Offset,
+                Color = stop.Color,
+            };
+        }
+
+        return result;
+    }
+
+    private static VelloPoint ToVelloPoint(PenikoPoint point) => new()
+    {
+        X = point.X,
+        Y = point.Y,
     };
 }
 

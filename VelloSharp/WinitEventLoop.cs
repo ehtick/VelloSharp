@@ -1,0 +1,305 @@
+using System;
+using System.Runtime.InteropServices;
+
+namespace VelloSharp;
+
+public interface IWinitEventHandler
+{
+    void HandleEvent(WinitEventLoopContext context, in WinitEventArgs args);
+}
+
+public sealed class WinitEventLoop
+{
+    private readonly WinitNativeMethods.WinitEventCallback _callback;
+
+    public WinitEventLoop()
+    {
+        _callback = OnNativeEvent;
+    }
+
+    public WinitStatus Run(WinitRunConfiguration configuration, IWinitEventHandler handler)
+    {
+        if (handler is null)
+        {
+            throw new ArgumentNullException(nameof(handler));
+        }
+
+        var nativeOptions = configuration.ToNative(out var titlePtr);
+        var handle = GCHandle.Alloc(handler);
+        try
+        {
+            return WinitNativeMethods.winit_event_loop_run(ref nativeOptions, _callback, GCHandle.ToIntPtr(handle));
+        }
+        finally
+        {
+            if (titlePtr != nint.Zero)
+            {
+                Marshal.FreeHGlobal(titlePtr);
+            }
+
+            if (handle.IsAllocated)
+            {
+                handle.Free();
+            }
+        }
+    }
+
+    private unsafe void OnNativeEvent(nint userData, nint contextPtr, ref WinitEvent evt)
+    {
+        var gcHandle = GCHandle.FromIntPtr(userData);
+        if (gcHandle.Target is not IWinitEventHandler handler)
+        {
+            return;
+        }
+
+        var context = new WinitEventLoopContext(contextPtr);
+        var args = new WinitEventArgs(in evt);
+        handler.HandleEvent(context, args);
+    }
+}
+
+public readonly struct WinitEventLoopContext
+{
+    private readonly nint _context;
+
+    internal WinitEventLoopContext(nint context)
+    {
+        _context = context;
+    }
+
+    public void SetControlFlow(WinitControlFlow flow, TimeSpan? wait = null)
+    {
+        var millis = wait.HasValue ? (long)Math.Max(0, wait.Value.TotalMilliseconds) : 0;
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_set_control_flow(_context, flow, millis), "winit_context_set_control_flow");
+    }
+
+    public void Exit()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_exit(_context), "winit_context_exit");
+    }
+
+    public bool IsExiting
+    {
+        get
+        {
+            NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_is_exiting(_context, out var exiting), "winit_context_is_exiting");
+            return exiting;
+        }
+    }
+
+    public WinitWindow? GetWindow()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_get_window(_context, out var window), "winit_context_get_window");
+        return window == nint.Zero ? null : new WinitWindow(window);
+    }
+}
+
+public sealed class WinitWindow
+{
+    private readonly nint _handle;
+
+    internal WinitWindow(nint handle)
+    {
+        _handle = handle;
+    }
+
+    public void RequestRedraw()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_request_redraw(_handle), "winit_window_request_redraw");
+    }
+
+    public void PrePresentNotify()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_pre_present_notify(_handle), "winit_window_pre_present_notify");
+    }
+
+    public (uint Width, uint Height) GetSurfaceSize()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_surface_size(_handle, out var width, out var height), "winit_window_surface_size");
+        return (width, height);
+    }
+
+    public double ScaleFactor
+    {
+        get
+        {
+            NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_scale_factor(_handle, out var scale), "winit_window_scale_factor");
+            return scale;
+        }
+    }
+
+    public ulong Id
+    {
+        get
+        {
+            NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_id(_handle, out var id), "winit_window_id");
+            return id;
+        }
+    }
+
+    public void SetTitle(string title)
+    {
+        title ??= string.Empty;
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_title(_handle, title), "winit_window_set_title");
+    }
+
+    public VelloWindowHandle GetVelloWindowHandle()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_get_vello_handle(_handle, out var handle), "winit_window_get_vello_handle");
+        return handle;
+    }
+}
+
+public readonly struct WinitEventArgs
+{
+    internal WinitEventArgs(in WinitEvent evt)
+    {
+        Kind = evt.Kind;
+        StartCause = evt.StartCause;
+        Width = evt.Width;
+        Height = evt.Height;
+        ScaleFactor = evt.ScaleFactor;
+        WindowHandle = evt.Window;
+        MouseX = evt.MouseX;
+        MouseY = evt.MouseY;
+        DeltaX = evt.DeltaX;
+        DeltaY = evt.DeltaY;
+        Modifiers = (WinitModifiers)evt.Modifiers;
+        MouseButton = evt.MouseButton;
+        MouseButtonValue = evt.MouseButtonValue;
+        ElementState = evt.ElementState;
+        ScrollDeltaKind = evt.ScrollDeltaKind;
+        KeyCode = evt.KeyCode;
+        KeyLocation = evt.KeyLocation;
+        Repeat = evt.Repeat;
+        TouchId = evt.TouchId;
+        TouchPhase = evt.TouchPhase;
+    }
+
+    public WinitEventKind Kind { get; }
+
+    public WinitStartCause StartCause { get; }
+
+    public uint Width { get; }
+
+    public uint Height { get; }
+
+    public double ScaleFactor { get; }
+
+    public double MouseX { get; }
+
+    public double MouseY { get; }
+
+    public double DeltaX { get; }
+
+    public double DeltaY { get; }
+
+    public WinitModifiers Modifiers { get; }
+
+    public WinitMouseButton MouseButton { get; }
+
+    public uint MouseButtonValue { get; }
+
+    public WinitElementState ElementState { get; }
+
+    public WinitMouseScrollDeltaKind ScrollDeltaKind { get; }
+
+    public uint KeyCode { get; }
+
+    public WinitKeyLocation KeyLocation { get; }
+
+    public bool Repeat { get; }
+
+    public ulong TouchId { get; }
+
+    public WinitTouchPhaseKind TouchPhase { get; }
+
+    internal nint WindowHandle { get; }
+
+    public WinitWindow? TryGetWindow() => WindowHandle == nint.Zero ? null : new WinitWindow(WindowHandle);
+}
+
+public readonly struct WinitRunConfiguration
+{
+    public WinitRunConfiguration()
+    {
+        CreateWindow = true;
+        Window = WinitWindowOptions.Default;
+    }
+
+    public bool CreateWindow { get; init; }
+
+    public WinitWindowOptions Window { get; init; }
+
+    internal WinitRunOptions ToNative(out nint titlePtr)
+    {
+        var descriptor = Window.ToNative(out titlePtr);
+        return new WinitRunOptions
+        {
+            CreateWindow = CreateWindow,
+            Window = descriptor,
+        };
+    }
+}
+
+public readonly struct WinitWindowOptions
+{
+    public WinitWindowOptions()
+    {
+        Resizable = true;
+        Decorations = true;
+        Transparent = false;
+        Visible = true;
+    }
+
+    public static WinitWindowOptions Default => new();
+
+    public uint? Width { get; init; }
+
+    public uint? Height { get; init; }
+
+    public uint? MinWidth { get; init; }
+
+    public uint? MinHeight { get; init; }
+
+    public uint? MaxWidth { get; init; }
+
+    public uint? MaxHeight { get; init; }
+
+    public bool Resizable { get; init; }
+
+    public bool Decorations { get; init; }
+
+    public bool Transparent { get; init; }
+
+    public bool Visible { get; init; }
+
+    public string? Title { get; init; }
+
+    internal WinitWindowDescriptor ToNative(out nint titlePtr)
+    {
+        titlePtr = nint.Zero;
+        var descriptor = new WinitWindowDescriptor
+        {
+            Width = Width ?? 0,
+            Height = Height ?? 0,
+            MinWidth = MinWidth ?? 0,
+            MinHeight = MinHeight ?? 0,
+            MaxWidth = MaxWidth ?? 0,
+            MaxHeight = MaxHeight ?? 0,
+            Resizable = Resizable,
+            Decorations = Decorations,
+            Transparent = Transparent,
+            Visible = Visible,
+            Title = nint.Zero,
+        };
+
+        if (!string.IsNullOrEmpty(Title))
+        {
+            titlePtr = NativeHelpers.AllocUtf8String(Title);
+            descriptor.Title = titlePtr;
+        }
+
+        return descriptor;
+    }
+}
