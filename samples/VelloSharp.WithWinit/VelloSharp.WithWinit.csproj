@@ -23,6 +23,7 @@
   <ItemGroup>
     <Content Include="../AvaloniaVelloExamples/Assets/vello/**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Assets/vello/%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
     </Content>
   </ItemGroup>
 
