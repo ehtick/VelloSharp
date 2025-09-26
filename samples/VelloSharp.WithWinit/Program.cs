@@ -183,7 +183,8 @@ internal sealed class WinitSampleApp : IWinitEventHandler, IDisposable
 
         var renderParams = new RenderParams(_width, _height, _baseColor)
         {
-            Antialiasing = AntialiasingMode.Msaa8,
+            // The embedded shaders currently ship without MSAA permutations, so clamp AA to area sampling.
+            Antialiasing = AntialiasingMode.Area,
             Format = RenderFormat.Bgra8,
         };
 
