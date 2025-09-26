@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using HarfBuzzSharp;
 using VelloSharp;
 
-namespace AvaloniaVelloExamples.Scenes;
+namespace VelloSharp.Scenes;
 
 public sealed class SimpleText : IDisposable
 {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using VelloSharp;
 
-namespace AvaloniaVelloExamples.Scenes;
+namespace VelloSharp.Scenes;
 
 public sealed class ManagedSceneHost : IDisposable
 {
@@ -25,6 +25,7 @@ public sealed class ManagedSceneHost : IDisposable
     }
 
     public IReadOnlyList<ExampleScene> Scenes => _collection.Scenes;
+    public SimpleText Text => _collection.Text;
 
     public ExampleRenderResult Render(
         int index,

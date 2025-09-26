@@ -15,9 +15,9 @@ use std::{
 
 use futures_intrusive::channel::shared::oneshot_channel;
 use peniko::{
-    kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2},
     BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
+    kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2},
 };
 use raw_window_handle::{
     AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle,
@@ -31,10 +31,12 @@ use vello::{
 };
 use vello_svg::{self, usvg};
 use wgpu::{
-    Adapter, Buffer, CompositeAlphaMode, Device, Dx12Compiler, Features, Instance,
-    InstanceDescriptor, InstanceFlags, Limits, PowerPreference, Queue, RequestAdapterOptions,
-    SurfaceConfiguration, SurfaceError, SurfaceTargetUnsafe, SurfaceTexture, TextureAspect,
-    TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+    util::TextureBlitter,
+    Adapter, Backend, Buffer, CompositeAlphaMode, Device, Dx12Compiler, Features, Instance,
+    InstanceDescriptor, InstanceFlags, Limits, PipelineCache, PowerPreference, Queue,
+    RequestAdapterOptions, SurfaceConfiguration, SurfaceError, SurfaceTargetUnsafe,
+    SurfaceTexture, TextureAspect, TextureFormat, TextureUsages, TextureView,
+    TextureViewDescriptor, TextureViewDimension,
 };
 
 #[cfg(feature = "trace-paths")]
@@ -315,11 +317,21 @@ fn renderer_options_from_ffi(options: &VelloRendererOptions) -> RendererOptions 
     } else {
         NonZeroUsize::new(options.init_threads as usize)
     };
+    let pipeline_cache = if options.pipeline_cache.is_null() {
+        None
+    } else {
+        unsafe {
+            options
+                .pipeline_cache
+                .as_ref()
+                .map(|handle| handle.cache.clone())
+        }
+    };
     RendererOptions {
         use_cpu: options.use_cpu,
         antialiasing_support: support,
         num_init_threads: init_threads,
-        pipeline_cache: None,
+        pipeline_cache,
     }
 }
 
@@ -1480,6 +1492,7 @@ pub struct VelloRendererOptions {
     pub support_msaa8: bool,
     pub support_msaa16: bool,
     pub init_threads: i32,
+    pub pipeline_cache: *mut VelloWgpuPipelineCacheHandle,
 }
 
 #[repr(C)]
@@ -1538,6 +1551,11 @@ struct RenderTarget {
     height: u32,
     padded_bytes_per_row: usize,
     unpadded_bytes_per_row: usize,
+}
+
+struct ProfilerResultsRaw {
+    slices: Box<[VelloGpuProfilerSlice]>,
+    labels: Box<[u8]>,
 }
 
 #[repr(C)]
@@ -1617,6 +1635,61 @@ pub struct VelloWgpuRendererHandle {
     device: Device,
     queue: Queue,
     renderer: Renderer,
+}
+
+#[repr(C)]
+pub struct VelloWgpuPipelineCacheHandle {
+    cache: PipelineCache,
+}
+
+#[repr(C)]
+pub struct VelloGpuProfilerSlice {
+    pub label_offset: usize,
+    pub label_length: usize,
+    pub depth: u32,
+    pub has_time: u8,
+    pub time_start_ms: f64,
+    pub time_end_ms: f64,
+}
+
+#[repr(C)]
+pub struct VelloGpuProfilerResults {
+    pub handle: *mut c_void,
+    pub slices: *const VelloGpuProfilerSlice,
+    pub slice_count: usize,
+    pub labels: *const u8,
+    pub labels_len: usize,
+    pub total_gpu_time_ms: f64,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuBackendType {
+    Noop = 0,
+    Vulkan = 1,
+    Metal = 2,
+    Dx12 = 3,
+    Gl = 4,
+    BrowserWebGpu = 5,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuDeviceType {
+    Other = 0,
+    IntegratedGpu = 1,
+    DiscreteGpu = 2,
+    VirtualGpu = 3,
+    Cpu = 4,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuAdapterInfo {
+    pub vendor: u32,
+    pub device: u32,
+    pub backend: VelloWgpuBackendType,
+    pub device_type: VelloWgpuDeviceType,
 }
 
 #[repr(u32)]
@@ -1731,6 +1804,15 @@ pub struct VelloWgpuTextureViewDescriptor {
     pub mip_level_count: u32,
     pub base_array_layer: u32,
     pub array_layer_count: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuPipelineCacheDescriptor {
+    pub label: *const c_char,
+    pub data: *const u8,
+    pub data_len: usize,
+    pub fallback: bool,
 }
 
 impl RenderTarget {
@@ -1966,7 +2048,8 @@ fn create_render_target(
         format: wgpu::TextureFormat::Rgba8Unorm,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT
             | wgpu::TextureUsages::COPY_SRC
-            | wgpu::TextureUsages::STORAGE_BINDING,
+            | wgpu::TextureUsages::STORAGE_BINDING
+            | wgpu::TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     });
     let view = texture.create_view(&wgpu::TextureViewDescriptor {
@@ -1991,6 +2074,37 @@ fn create_render_target(
         padded_bytes_per_row: padded,
         unpadded_bytes_per_row: unpadded,
     })
+}
+
+fn flatten_profiler_results(
+    results: &[wgpu_profiler::GpuTimerQueryResult],
+    depth: u32,
+    slices: &mut Vec<VelloGpuProfilerSlice>,
+    labels: &mut Vec<u8>,
+) {
+    for result in results {
+        let label_bytes = result.label.as_bytes();
+        let label_offset = labels.len();
+        labels.extend_from_slice(label_bytes);
+        labels.push(0);
+
+        let (has_time, start_ms, end_ms) = if let Some(range) = &result.time {
+            (1, range.start * 1_000.0, range.end * 1_000.0)
+        } else {
+            (0, 0.0, 0.0)
+        };
+
+        slices.push(VelloGpuProfilerSlice {
+            label_offset,
+            label_length: label_bytes.len(),
+            depth,
+            has_time,
+            time_start_ms: start_ms,
+            time_end_ms: end_ms,
+        });
+
+        flatten_profiler_results(&result.nested_queries, depth + 1, slices, labels);
+    }
 }
 
 #[repr(C)]
@@ -2753,6 +2867,72 @@ pub unsafe extern "C" fn vello_wgpu_adapter_destroy(adapter: *mut VelloWgpuAdapt
     }
 }
 
+fn backend_to_ffi(backend: Backend) -> VelloWgpuBackendType {
+    match backend {
+        Backend::Noop => VelloWgpuBackendType::Noop,
+        Backend::Vulkan => VelloWgpuBackendType::Vulkan,
+        Backend::Metal => VelloWgpuBackendType::Metal,
+        Backend::Dx12 => VelloWgpuBackendType::Dx12,
+        Backend::Gl => VelloWgpuBackendType::Gl,
+        Backend::BrowserWebGpu => VelloWgpuBackendType::BrowserWebGpu,
+    }
+}
+
+fn device_type_to_ffi(device_type: wgpu::DeviceType) -> VelloWgpuDeviceType {
+    match device_type {
+        wgpu::DeviceType::Other => VelloWgpuDeviceType::Other,
+        wgpu::DeviceType::IntegratedGpu => VelloWgpuDeviceType::IntegratedGpu,
+        wgpu::DeviceType::DiscreteGpu => VelloWgpuDeviceType::DiscreteGpu,
+        wgpu::DeviceType::VirtualGpu => VelloWgpuDeviceType::VirtualGpu,
+        wgpu::DeviceType::Cpu => VelloWgpuDeviceType::Cpu,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_adapter_get_info(
+    adapter: *mut VelloWgpuAdapterHandle,
+    out_info: *mut VelloWgpuAdapterInfo,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(adapter) = (unsafe { adapter.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    if out_info.is_null() {
+        return VelloStatus::NullPointer;
+    }
+    let info = adapter.adapter.get_info();
+    unsafe {
+        *out_info = VelloWgpuAdapterInfo {
+            vendor: info.vendor,
+            device: info.device,
+            backend: backend_to_ffi(info.backend),
+            device_type: device_type_to_ffi(info.device_type),
+        };
+    }
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_adapter_get_features(
+    adapter: *mut VelloWgpuAdapterHandle,
+    out_features: *mut u64,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(adapter) = (unsafe { adapter.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    if out_features.is_null() {
+        return VelloStatus::NullPointer;
+    }
+    let features = adapter.adapter.features();
+    let bits = features.bits();
+    debug_assert!(bits.0.iter().skip(1).all(|&value| value == 0), "wgpu feature bits exceeded 64-bit FFI surface");
+    unsafe {
+        *out_features = bits.0[0];
+    }
+    VelloStatus::Success
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_wgpu_adapter_request_device(
     adapter: *mut VelloWgpuAdapterHandle,
@@ -2812,6 +2992,27 @@ pub unsafe extern "C" fn vello_wgpu_device_destroy(device: *mut VelloWgpuDeviceH
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_get_features(
+    device: *mut VelloWgpuDeviceHandle,
+    out_features: *mut u64,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    if out_features.is_null() {
+        return VelloStatus::NullPointer;
+    }
+    let features = device.device.features();
+    let bits = features.bits();
+    debug_assert!(bits.0.iter().skip(1).all(|&value| value == 0), "wgpu feature bits exceeded 64-bit FFI surface");
+    unsafe {
+        *out_features = bits.0[0];
+    }
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_wgpu_device_get_queue(
     device: *mut VelloWgpuDeviceHandle,
 ) -> *mut VelloWgpuQueueHandle {
@@ -2823,6 +3024,95 @@ pub unsafe extern "C" fn vello_wgpu_device_get_queue(
     Box::into_raw(Box::new(VelloWgpuQueueHandle {
         queue: device.queue.clone(),
     }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_pipeline_cache(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuPipelineCacheDescriptor,
+) -> *mut VelloWgpuPipelineCacheHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Pipeline cache descriptor is null");
+        return std::ptr::null_mut();
+    };
+    let label = if desc.label.is_null() {
+        None
+    } else {
+        match unsafe { CStr::from_ptr(desc.label) }.to_str() {
+            Ok(value) => Some(value.to_owned()),
+            Err(err) => {
+                set_last_error(format!("Pipeline cache label is not valid UTF-8: {err}"));
+                return std::ptr::null_mut();
+            }
+        }
+    };
+    let data = if desc.data.is_null() || desc.data_len == 0 {
+        None
+    } else {
+        Some(unsafe { slice::from_raw_parts(desc.data, desc.data_len) })
+    };
+    let descriptor = wgpu::PipelineCacheDescriptor {
+        label: label.as_deref(),
+        data,
+        fallback: desc.fallback,
+    };
+    let cache = unsafe { device.device.create_pipeline_cache(&descriptor) };
+    Box::into_raw(Box::new(VelloWgpuPipelineCacheHandle { cache }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_pipeline_cache_destroy(
+    cache: *mut VelloWgpuPipelineCacheHandle,
+) {
+    if !cache.is_null() {
+        unsafe { drop(Box::from_raw(cache)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_pipeline_cache_get_data(
+    cache: *mut VelloWgpuPipelineCacheHandle,
+    out_data: *mut *const u8,
+    out_len: *mut usize,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(cache) = (unsafe { cache.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    if out_data.is_null() || out_len.is_null() {
+        return VelloStatus::NullPointer;
+    }
+    match cache.cache.get_data() {
+        Some(data) => {
+            let boxed = data.into_boxed_slice();
+            let len = boxed.len();
+            let ptr = boxed.as_ptr();
+            std::mem::forget(boxed);
+            unsafe {
+                *out_data = ptr;
+                *out_len = len;
+            }
+        }
+        None => unsafe {
+            *out_data = std::ptr::null();
+            *out_len = 0;
+        },
+    }
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_pipeline_cache_free_data(data: *const u8, len: usize) {
+    if !data.is_null() && len != 0 {
+        unsafe {
+            let _ = Vec::from_raw_parts(data as *mut u8, len, len);
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -3113,6 +3403,173 @@ pub unsafe extern "C" fn vello_wgpu_renderer_render(
     }
 
     VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_render_surface(
+    renderer: *mut VelloWgpuRendererHandle,
+    scene: *const VelloSceneHandle,
+    surface_view: *const VelloWgpuTextureViewHandle,
+    params: VelloRenderParams,
+    surface_format: VelloWgpuTextureFormat,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(scene) = (unsafe { scene.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(surface_view) = (unsafe { surface_view.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    if params.width == 0 || params.height == 0 {
+        return VelloStatus::InvalidArgument;
+    }
+
+    let render_params = RenderParams {
+        base_color: params.base_color.into(),
+        width: params.width,
+        height: params.height,
+        antialiasing_method: params.antialiasing.into(),
+    };
+
+    let target = match create_render_target(&renderer.device, params.width, params.height) {
+        Ok(target) => target,
+        Err(status) => {
+            set_last_error("Failed to create intermediate render target");
+            return status;
+        }
+    };
+
+    if let Err(err) = renderer.renderer.render_to_texture(
+        &renderer.device,
+        &renderer.queue,
+        &scene.inner,
+        &target.view,
+        &render_params,
+    ) {
+        set_last_error(format!("Render failed: {err}"));
+        return VelloStatus::RenderError;
+    }
+
+    let mut encoder = renderer
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("vello_ffi.surface_blit"),
+        });
+
+    let format = texture_format_from_ffi(surface_format);
+    let blitter = TextureBlitter::new(&renderer.device, format);
+    blitter.copy(
+        &renderer.device,
+        &mut encoder,
+        &target.view,
+        &surface_view.view,
+    );
+
+    renderer.queue.submit(std::iter::once(encoder.finish()));
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_profiler_set_enabled(
+    renderer: *mut VelloWgpuRendererHandle,
+    enabled: bool,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    if let Err(err) = renderer
+        .renderer
+        .profiler
+        .change_settings(wgpu_profiler::GpuProfilerSettings {
+            enable_timer_queries: enabled,
+            enable_debug_groups: enabled,
+            ..Default::default()
+        })
+    {
+        set_last_error(format!("Failed to configure GPU profiler: {err}"));
+        return VelloStatus::RenderError;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_profiler_get_results(
+    renderer: *mut VelloWgpuRendererHandle,
+    out_results: *mut VelloGpuProfilerResults,
+) -> VelloStatus {
+    clear_last_error();
+    if out_results.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    let results = match renderer.renderer.profile_result.take() {
+        Some(results) => results,
+        None => {
+            unsafe {
+                *out_results = VelloGpuProfilerResults {
+                    handle: std::ptr::null_mut(),
+                    slices: std::ptr::null(),
+                    slice_count: 0,
+                    labels: std::ptr::null(),
+                    labels_len: 0,
+                    total_gpu_time_ms: 0.0,
+                };
+            }
+            return VelloStatus::Success;
+        }
+    };
+
+    let mut slices = Vec::new();
+    let mut labels = Vec::new();
+    flatten_profiler_results(&results, 0, &mut slices, &mut labels);
+
+    let total_gpu_time_ms = slices
+        .first()
+        .filter(|slice| slice.has_time != 0)
+        .map(|slice| (slice.time_end_ms - slice.time_start_ms).max(0.0))
+        .unwrap_or(0.0);
+
+    let raw = Box::new(ProfilerResultsRaw {
+        slices: slices.into_boxed_slice(),
+        labels: labels.into_boxed_slice(),
+    });
+    let raw_ptr = Box::into_raw(raw);
+
+    unsafe {
+        let raw_ref: &ProfilerResultsRaw = &*raw_ptr;
+        *out_results = VelloGpuProfilerResults {
+            handle: raw_ptr.cast(),
+            slices: raw_ref.slices.as_ptr(),
+            slice_count: raw_ref.slices.len(),
+            labels: raw_ref.labels.as_ptr(),
+            labels_len: raw_ref.labels.len(),
+            total_gpu_time_ms,
+        };
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_profiler_results_free(handle: *mut c_void) {
+    if handle.is_null() {
+        return;
+    }
+    unsafe {
+        drop(Box::from_raw(handle as *mut ProfilerResultsRaw));
+    }
 }
 
 #[unsafe(no_mangle)]

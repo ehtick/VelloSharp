@@ -226,6 +226,14 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_adapter_destroy(IntPtr adapter);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_adapter_get_info")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_adapter_get_info(IntPtr adapter, out WgpuAdapterInfoNative info);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_adapter_get_features")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_adapter_get_features(IntPtr adapter, out ulong features);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_adapter_request_device")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial IntPtr vello_wgpu_adapter_request_device(
@@ -236,9 +244,34 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_device_destroy(IntPtr device);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_get_features")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_device_get_features(IntPtr device, out ulong features);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_get_queue")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr vello_wgpu_device_get_queue(IntPtr device);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_pipeline_cache")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_pipeline_cache(
+        IntPtr device,
+        WgpuPipelineCacheDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_pipeline_cache_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_pipeline_cache_destroy(IntPtr cache);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_pipeline_cache_get_data")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_pipeline_cache_get_data(
+        IntPtr cache,
+        out IntPtr data,
+        out nuint length);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_pipeline_cache_free_data")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_pipeline_cache_free_data(IntPtr data, nuint length);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_queue_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -303,6 +336,31 @@ internal static partial class NativeMethods
         IntPtr scene,
         IntPtr textureView,
         VelloRenderParams parameters);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_render_surface")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_render_surface(
+        IntPtr renderer,
+        IntPtr scene,
+        IntPtr textureView,
+        VelloRenderParams parameters,
+        WgpuTextureFormatNative surfaceFormat);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_profiler_set_enabled")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_profiler_set_enabled(
+        IntPtr renderer,
+        [MarshalAs(UnmanagedType.I1)] bool enabled);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_profiler_get_results")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_profiler_get_results(
+        IntPtr renderer,
+        out VelloGpuProfilerResults results);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_profiler_results_free")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_renderer_profiler_results_free(IntPtr handle);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_glyph_run")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

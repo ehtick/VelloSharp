@@ -11,4 +11,19 @@
     <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../AvaloniaVelloExamples/Scenes/*.cs" Link="Scenes/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp" />
+    <PackageReference Include="SixLabors.ImageSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="../AvaloniaVelloExamples/Assets/vello/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

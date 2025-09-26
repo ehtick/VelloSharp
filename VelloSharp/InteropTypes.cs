@@ -554,6 +554,25 @@ internal enum WgpuTextureFormatNative : uint
     Rgba16Float = 4,
 }
 
+internal enum WgpuBackendTypeNative : uint
+{
+    Noop = 0,
+    Vulkan = 1,
+    Metal = 2,
+    Dx12 = 3,
+    Gl = 4,
+    BrowserWebGpu = 5,
+}
+
+internal enum WgpuDeviceTypeNative : uint
+{
+    Other = 0,
+    IntegratedGpu = 1,
+    DiscreteGpu = 2,
+    VirtualGpu = 3,
+    Cpu = 4,
+}
+
 [StructLayout(LayoutKind.Sequential)]
 internal struct WgpuInstanceDescriptorNative
 {
@@ -577,6 +596,15 @@ internal struct WgpuDeviceDescriptorNative
     public IntPtr Label;
     public ulong RequiredFeatures;
     public WgpuLimitsPresetNative Limits;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuAdapterInfoNative
+{
+    public uint Vendor;
+    public uint Device;
+    public WgpuBackendTypeNative Backend;
+    public WgpuDeviceTypeNative DeviceType;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -606,6 +634,16 @@ internal struct WgpuTextureViewDescriptorNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct WgpuPipelineCacheDescriptorNative
+{
+    public IntPtr Label;
+    public IntPtr Data;
+    public nuint DataLength;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Fallback;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloLayerParams
 {
     public VelloBlendMix Mix;
@@ -628,6 +666,7 @@ internal struct VelloRendererOptions
     [MarshalAs(UnmanagedType.I1)]
     public bool SupportMsaa16;
     public int InitThreads;
+    public IntPtr PipelineCache;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -657,6 +696,28 @@ public struct VelloXlibWindowHandle
     public IntPtr Display;
     public int Screen;
     public ulong VisualId;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloGpuProfilerSlice
+{
+    public nuint LabelOffset;
+    public nuint LabelLength;
+    public uint Depth;
+    public byte HasTime;
+    public double TimeStartMs;
+    public double TimeEndMs;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloGpuProfilerResults
+{
+    public IntPtr Handle;
+    public IntPtr Slices;
+    public nuint SliceCount;
+    public IntPtr Labels;
+    public nuint LabelsLength;
+    public double TotalGpuTimeMs;
 }
 
 [StructLayout(LayoutKind.Explicit)]

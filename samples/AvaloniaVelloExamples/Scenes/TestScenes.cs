@@ -4,7 +4,7 @@ using System.IO;
 using System.Numerics;
 using VelloSharp;
 
-namespace AvaloniaVelloExamples.Scenes;
+namespace VelloSharp.Scenes;
 
 public static class TestScenes
 {
@@ -594,7 +594,7 @@ public static class TestScenes
             scene.StrokePath(builder, stroke, transform, RgbaColor.FromBytes(255, 220, 120));
         });
 
-    private static ExampleScene MotionMark(MMarkScene scene) => new("mmark", false, scene.Render);
+    private static ExampleScene MotionMark(MMarkScene scene) => new("mmark", true, scene.Render);
 
 
     private static ExampleScene ManyDrawObjects()

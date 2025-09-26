@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using VelloSharp;
 
-namespace AvaloniaVelloExamples.Scenes;
+namespace VelloSharp.Scenes;
 
 public sealed class SceneParams
 {

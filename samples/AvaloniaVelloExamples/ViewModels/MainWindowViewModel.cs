@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using AvaloniaVelloExamples.Scenes;
+using VelloSharp.Scenes;
 
 namespace AvaloniaVelloExamples.ViewModels;
 

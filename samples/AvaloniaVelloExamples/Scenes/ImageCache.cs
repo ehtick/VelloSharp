@@ -6,7 +6,7 @@ using VelloSharp;
 using ImageSharpImage = SixLabors.ImageSharp.Image;
 using VelloImage = VelloSharp.Image;
 
-namespace AvaloniaVelloExamples.Scenes;
+namespace VelloSharp.Scenes;
 
 public sealed class ImageCache : IDisposable
 {

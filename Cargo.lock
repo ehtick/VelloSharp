@@ -2453,6 +2453,7 @@ dependencies = [
  "vello",
  "vello_svg",
  "wgpu",
+ "wgpu-profiler",
 ]
 
 [[package]]

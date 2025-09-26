@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace VelloSharp;
 
@@ -12,6 +13,25 @@ public enum WgpuBackend : uint
     Metal = 1u << 2,
     Dx12 = 1u << 3,
     BrowserWebGpu = 1u << 4,
+}
+
+public enum WgpuBackendType
+{
+    Noop = 0,
+    Vulkan = 1,
+    Metal = 2,
+    Dx12 = 3,
+    Gl = 4,
+    BrowserWebGpu = 5,
+}
+
+public enum WgpuDeviceType
+{
+    Other = 0,
+    IntegratedGpu = 1,
+    DiscreteGpu = 2,
+    VirtualGpu = 3,
+    Cpu = 4,
 }
 
 [Flags]
@@ -27,6 +47,8 @@ public enum WgpuFeature : ulong
     TextureCompressionAstc = 1ul << 6,
     IndirectFirstInstance = 1ul << 7,
     MappablePrimaryBuffers = 1ul << 8,
+    ClearTexture = 1ul << 23,
+    PipelineCache = 1ul << 41,
 }
 
 [Flags]
@@ -123,6 +145,36 @@ public readonly struct WgpuDeviceDescriptor
     public WgpuLimitsPreset Limits { get; init; }
 }
 
+public readonly struct WgpuAdapterInfo
+{
+    public WgpuAdapterInfo(uint vendor, uint device, WgpuBackendType backend, WgpuDeviceType deviceType)
+    {
+        Vendor = vendor;
+        Device = device;
+        Backend = backend;
+        DeviceType = deviceType;
+    }
+
+    public uint Vendor { get; }
+    public uint Device { get; }
+    public WgpuBackendType Backend { get; }
+    public WgpuDeviceType DeviceType { get; }
+}
+
+public readonly struct WgpuPipelineCacheDescriptor
+{
+    public WgpuPipelineCacheDescriptor(string? label, ReadOnlyMemory<byte> data, bool fallback)
+    {
+        Label = label;
+        Data = data;
+        Fallback = fallback;
+    }
+
+    public string? Label { get; }
+    public ReadOnlyMemory<byte> Data { get; }
+    public bool Fallback { get; }
+}
+
 public readonly struct WgpuSurfaceConfiguration
 {
     public WgpuTextureUsage Usage { get; init; }
@@ -189,6 +241,24 @@ public sealed class WgpuInstance : IDisposable
             ThrowIfDisposed();
             return _handle;
         }
+    }
+
+    public WgpuAdapterInfo GetInfo()
+    {
+        ThrowIfDisposed();
+        NativeHelpers.ThrowOnError(
+            NativeMethods.vello_wgpu_adapter_get_info(_handle, out var info),
+            "vello_wgpu_adapter_get_info");
+        return new WgpuAdapterInfo(info.Vendor, info.Device, (WgpuBackendType)info.Backend, (WgpuDeviceType)info.DeviceType);
+    }
+
+    public WgpuFeature GetFeatures()
+    {
+        ThrowIfDisposed();
+        NativeHelpers.ThrowOnError(
+            NativeMethods.vello_wgpu_adapter_get_features(_handle, out var features),
+            "vello_wgpu_adapter_get_features");
+        return (WgpuFeature)features;
     }
 
     public WgpuAdapter RequestAdapter(WgpuRequestAdapterOptions? options = null)
@@ -376,6 +446,15 @@ public sealed class WgpuDevice : IDisposable
         }
     }
 
+    public WgpuFeature GetFeatures()
+    {
+        ThrowIfDisposed();
+        NativeHelpers.ThrowOnError(
+            NativeMethods.vello_wgpu_device_get_features(_handle, out var features),
+            "vello_wgpu_device_get_features");
+        return (WgpuFeature)features;
+    }
+
     public WgpuQueue GetQueue()
     {
         ThrowIfDisposed();
@@ -386,6 +465,51 @@ public sealed class WgpuDevice : IDisposable
         }
 
         return new WgpuQueue(handle);
+    }
+
+    public WgpuPipelineCache CreatePipelineCache(WgpuPipelineCacheDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        unsafe
+        {
+            IntPtr labelPtr = IntPtr.Zero;
+            try
+            {
+                var native = new WgpuPipelineCacheDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    Data = IntPtr.Zero,
+                    DataLength = (nuint)descriptor.Data.Length,
+                    Fallback = descriptor.Fallback,
+                };
+
+                if (!string.IsNullOrEmpty(descriptor.Label))
+                {
+                    labelPtr = Marshal.StringToCoTaskMemUTF8(descriptor.Label);
+                    native.Label = labelPtr;
+                }
+
+                var dataSpan = descriptor.Data.Span;
+                fixed (byte* dataPtr = dataSpan)
+                {
+                    native.Data = (IntPtr)dataPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_pipeline_cache(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create pipeline cache.");
+                    }
+
+                    return new WgpuPipelineCache(handle);
+                }
+            }
+            finally
+            {
+                if (labelPtr != IntPtr.Zero)
+                {
+                    Marshal.FreeCoTaskMem(labelPtr);
+                }
+            }
+        }
     }
 
     public void Dispose()
@@ -770,6 +894,76 @@ public sealed class WgpuTextureView : IDisposable
     }
 }
 
+public sealed class WgpuPipelineCache : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuPipelineCache(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public byte[] GetData()
+    {
+        ThrowIfDisposed();
+        NativeHelpers.ThrowOnError(
+            NativeMethods.vello_wgpu_pipeline_cache_get_data(_handle, out var dataPtr, out var length),
+            "vello_wgpu_pipeline_cache_get_data");
+        if (dataPtr == IntPtr.Zero || length == 0)
+        {
+            return Array.Empty<byte>();
+        }
+        var size = checked((int)length);
+        var data = new byte[size];
+        Marshal.Copy(dataPtr, data, 0, size);
+        NativeMethods.vello_wgpu_pipeline_cache_free_data(dataPtr, length);
+        return data;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_pipeline_cache_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuPipelineCache()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_pipeline_cache_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuPipelineCache));
+        }
+    }
+}
+
 public sealed class WgpuRenderer : IDisposable
 {
     private IntPtr _handle;
@@ -819,6 +1013,109 @@ public sealed class WgpuRenderer : IDisposable
         NativeHelpers.ThrowOnError(status, "Failed to render to wgpu texture.");
     }
 
+    public bool SetProfilerEnabled(bool enabled)
+    {
+        ThrowIfDisposed();
+        var status = NativeMethods.vello_wgpu_renderer_profiler_set_enabled(_handle, enabled);
+        if (status == VelloStatus.Unsupported)
+        {
+            return false;
+        }
+
+        NativeHelpers.ThrowOnError(status, "Failed to configure GPU profiler.");
+        return true;
+    }
+
+    public GpuProfilerFrame? TryGetProfilerFrame()
+    {
+        ThrowIfDisposed();
+
+        VelloGpuProfilerResults nativeResults;
+        var status = NativeMethods.vello_wgpu_renderer_profiler_get_results(_handle, out nativeResults);
+        if (status == VelloStatus.Unsupported)
+        {
+            return null;
+        }
+
+        NativeHelpers.ThrowOnError(status, "Failed to retrieve GPU profiler results.");
+
+        if (nativeResults.Handle == IntPtr.Zero || nativeResults.SliceCount == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            var sliceCount = checked((int)nativeResults.SliceCount);
+            var labelLength = checked((int)nativeResults.LabelsLength);
+            var labelBytes = labelLength > 0 ? new byte[labelLength] : Array.Empty<byte>();
+            if (labelLength > 0)
+            {
+                Marshal.Copy(nativeResults.Labels, labelBytes, 0, labelLength);
+            }
+
+            var slices = new GpuProfilerSlice[sliceCount];
+
+            unsafe
+            {
+                var source = (VelloGpuProfilerSlice*)nativeResults.Slices;
+                for (int i = 0; i < sliceCount; i++)
+                {
+                    var slice = source[i];
+                    string label = string.Empty;
+                    if (slice.LabelLength > 0 && labelBytes.Length > 0)
+                    {
+                        var offset = checked((int)slice.LabelOffset);
+                        var length = checked((int)slice.LabelLength);
+                        label = Encoding.UTF8.GetString(labelBytes, offset, length);
+                    }
+
+                    slices[i] = new GpuProfilerSlice(
+                        label,
+                        slice.Depth,
+                        slice.HasTime != 0,
+                        slice.TimeStartMs,
+                        slice.TimeEndMs);
+                }
+            }
+
+            return new GpuProfilerFrame(nativeResults.TotalGpuTimeMs, slices);
+        }
+        finally
+        {
+            NativeMethods.vello_wgpu_renderer_profiler_results_free(nativeResults.Handle);
+        }
+    }
+
+    public void RenderSurface(
+        Scene scene,
+        WgpuTextureView surfaceView,
+        RenderParams parameters,
+        WgpuTextureFormat surfaceFormat)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(surfaceView);
+        ThrowIfDisposed();
+
+        var nativeParams = new VelloRenderParams
+        {
+            Width = parameters.Width,
+            Height = parameters.Height,
+            BaseColor = parameters.BaseColor.ToNative(),
+            Antialiasing = (VelloAaMode)parameters.Antialiasing,
+            Format = (VelloRenderFormat)parameters.Format,
+        };
+
+        var status = NativeMethods.vello_wgpu_renderer_render_surface(
+            _handle,
+            scene.Handle,
+            surfaceView.Handle,
+            nativeParams,
+            (WgpuTextureFormatNative)surfaceFormat);
+
+        NativeHelpers.ThrowOnError(status, "Failed to render to wgpu surface texture.");
+    }
+
     private void ThrowIfDisposed()
     {
         if (_disposed)
@@ -851,4 +1148,35 @@ public sealed class WgpuRenderer : IDisposable
             NativeMethods.vello_wgpu_renderer_destroy(_handle);
         }
     }
+}
+
+public readonly struct GpuProfilerSlice
+{
+    public GpuProfilerSlice(string label, uint depth, bool hasTime, double startMilliseconds, double endMilliseconds)
+    {
+        Label = label;
+        Depth = depth;
+        HasTime = hasTime;
+        StartMilliseconds = startMilliseconds;
+        EndMilliseconds = endMilliseconds;
+    }
+
+    public string Label { get; }
+    public uint Depth { get; }
+    public bool HasTime { get; }
+    public double StartMilliseconds { get; }
+    public double EndMilliseconds { get; }
+    public double DurationMilliseconds => HasTime ? Math.Max(0.0, EndMilliseconds - StartMilliseconds) : 0.0;
+}
+
+public readonly struct GpuProfilerFrame
+{
+    public GpuProfilerFrame(double totalMilliseconds, IReadOnlyList<GpuProfilerSlice> slices)
+    {
+        TotalMilliseconds = totalMilliseconds;
+        Slices = slices;
+    }
+
+    public double TotalMilliseconds { get; }
+    public IReadOnlyList<GpuProfilerSlice> Slices { get; }
 }

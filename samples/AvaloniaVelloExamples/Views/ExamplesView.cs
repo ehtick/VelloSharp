@@ -3,7 +3,7 @@ using System.Numerics;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Media;
-using AvaloniaVelloExamples.Scenes;
+using VelloSharp.Scenes;
 using VelloSharp;
 using VelloSharp.Integration.Avalonia;
 
