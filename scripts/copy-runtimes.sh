@@ -57,10 +57,6 @@ for target in "${TARGETS[@]}"; do
     continue
   fi
 
-  # Keep a project-level copy in case it is useful for packaging.
-  copy_payload "${target_root}/runtimes" true
-  echo "Copied runtimes to '${target_root}/runtimes'"
-
   for configuration in "${CONFIGURATIONS[@]}"; do
     for framework in "${TARGET_FRAMEWORKS[@]}"; do
       output_base="${target_root}/bin/${configuration}/${framework}"
