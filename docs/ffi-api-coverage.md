@@ -8,7 +8,6 @@ This document compares the public C ABI exported by each native FFI crate with t
 - `kurbo_ffi`: 6 native functions are not bound in .NET (`kurbo_bez_path_append`, `kurbo_bez_path_from_elements`, `kurbo_rect_intersect`, `kurbo_rect_is_empty`, `kurbo_rect_union`, `kurbo_vec2_length`).
 - `peniko_ffi`: 100% of exported functions have .NET bindings.
 - `winit_ffi`: 100% of exported functions have .NET bindings.
-- `parley_ffi`: 100% of exported functions have .NET bindings.
 
 > **Note:** The upstream Rust crates (`vello`, `kurbo`, `peniko`, `winit`) expose a much richer API surface than what is currently bridged via FFI. The tables below focus only on functions exported from the `*_ffi` crates and indicate whether a managed binding is present.
 
@@ -113,10 +112,6 @@ Rust crate: `kurbo` (subset exposed here).
 | `kurbo_rect_is_empty` | Yes | No | Missing P/Invoke binding |
 | `kurbo_rect_union` | Yes | No | Missing P/Invoke binding |
 | `kurbo_vec2_length` | Yes | No | Missing P/Invoke binding |
-
-> **Note:** The workspace forces the `std` feature for `kurbo_ffi` so the geometry stack builds cleanly against the
-> upstream submodule. Building via the `VelloSharp` project (or passing `--features std` when invoking `cargo`
-> manually) avoids the "kurbo requires either the `std` or `libm` feature" error without patching the vendored tree.
 
 ### Peniko (brushes) (`peniko_ffi`)
 
@@ -297,38 +292,3 @@ Rust crate: `winit` (subset exposed here).
 | `winit_window_scale_factor` | WinitStatus::NullPointer | `WinitNativeMethods.winit_window_scale_factor` | `VelloSharp.WinitWindow` ▸ `public (uint Width, uint Height) GetSurfaceSize()` ▸ VelloSharp/WinitEventLoop.cs:126 |
 | `winit_window_set_title` | WinitStatus::NullPointer | `WinitNativeMethods.winit_window_set_title` | `VelloSharp.WinitWindow` ▸ `public void SetTitle(string title)` ▸ VelloSharp/WinitEventLoop.cs:143 |
 | `winit_window_surface_size` | WinitStatus::NullPointer | `WinitNativeMethods.winit_window_surface_size` | `VelloSharp.WinitWindow` ▸ `public (uint Width, uint Height) GetSurfaceSize()` ▸ VelloSharp/WinitEventLoop.cs:118 |
-### Parley (text layout) (`parley_ffi`)
-
-Rust crate: `parley` (text layout).
-
-| Function | Exposed via FFI | Exposed via .NET | Notes |
-| --- | --- | --- | --- |
-| `parley_last_error_message` | Yes | Yes |  |
-| `parley_font_context_create` | Yes | Yes |  |
-| `parley_font_context_destroy` | Yes | Yes |  |
-| `parley_font_context_register_fonts_from_path` | Yes | Yes |  |
-| `parley_font_context_register_fonts_from_memory` | Yes | Yes |  |
-| `parley_layout_context_create` | Yes | Yes |  |
-| `parley_layout_context_destroy` | Yes | Yes |  |
-| `parley_layout_build_ranged` | Yes | Yes |  |
-| `parley_layout_destroy` | Yes | Yes |  |
-| `parley_layout_scale` | Yes | Yes |  |
-| `parley_layout_width` | Yes | Yes |  |
-| `parley_layout_full_width` | Yes | Yes |  |
-| `parley_layout_height` | Yes | Yes |  |
-| `parley_layout_is_rtl` | Yes | Yes |  |
-| `parley_layout_break_all_lines` | Yes | Yes |  |
-| `parley_layout_align` | Yes | Yes |  |
-| `parley_layout_line_count` | Yes | Yes |  |
-| `parley_layout_line_get_info` | Yes | Yes |  |
-| `parley_layout_line_get_glyph_run_count` | Yes | Yes |  |
-| `parley_layout_line_get_glyph_run_info` | Yes | Yes |  |
-| `parley_layout_line_copy_glyph_run_glyphs` | Yes | Yes |  |
-| `parley_layout_line_get_inline_box_count` | Yes | Yes |  |
-| `parley_layout_line_get_inline_box_info` | Yes | Yes |  |
-| `parley_layout_style_count` | Yes | Yes |  |
-| `parley_layout_get_style_info` | Yes | Yes |  |
-
-> **Note:** The FFI layer currently rejects the `Locale` style property (`ParleyStatus::InvalidArgument`) until
-> the upstream crate exposes locale resolution through the C ABI. All other style properties and layout APIs are
-> bridged.

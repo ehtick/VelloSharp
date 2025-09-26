@@ -11,11 +11,9 @@ renderer to .NET applications. The bindings are layered:
     and bounding-box helpers) without pulling in the full Rust curve library.
   - `winit_ffi` – forwards windowing, input, and swap-chain negotiation so native event loops can be driven
     from .NET when desired.
-  - `parley_ffi` – provides rich text layout services, including glyph runs, inline boxes, and style
-    inspection over the [`parley`](https://github.com/linebender/parley) engine.
 - Managed assemblies:
   - `VelloSharp` – idiomatic C# wrappers for all native exports: the renderer, scenes, wgpu helpers,
-    `KurboPath`/`KurboAffine`, `PenikoBrush`, and the `ParleyFontContext`/`ParleyLayout` rich-text pipeline.
+    and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
   - `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp, and render-path negotiation.
   - `samples/AvaloniaVelloDemo` / `samples/AvaloniaVelloExamples` – Avalonia desktop samples that exercise the
     bindings in CPU and GPU modes.
@@ -24,7 +22,7 @@ renderer to .NET applications. The bindings are layered:
 
 Install the Rust toolchain (Rust 1.86 or newer) before building the managed projects. The `VelloSharp`
 MSBuild project now drives `cargo build` for every required native crate (`vello_ffi`, `kurbo_ffi`,
-`peniko_ffi`, `winit_ffi`, and `parley_ffi`) for the active .NET runtime identifier and configuration.
+`peniko_ffi`, and `winit_ffi`) for the active .NET runtime identifier and configuration.
 Running any of the following commands produces the native artifacts and copies them to the managed output
 directory under `runtimes/<rid>/native/` (and alongside the binaries for convenience):
 
@@ -179,43 +177,6 @@ surfaceTexture.Dispose();
 All handles are disposable and throw once released, making it easy to integrate with `using` scopes. See the
 Avalonia helpers below for a higher-level example.
 
-### Rich text layout (Parley)
-
-`ParleyFontContext`, `ParleyLayoutContext`, and `ParleyLayout` expose the `parley_ffi` text pipeline. They let you
-register fonts, build styled layouts, and inspect glyph runs without leaving managed code:
-
-```csharp
-using var fontContext = new ParleyFontContext();
-fontContext.RegisterFontsFromPath("/Library/Fonts");
-
-using var layoutContext = new ParleyLayoutContext();
-var defaults = stackalloc ParleyStyleProperty[1] { ParleyStyleProperty.FontSize(18) };
-using var layout = ParleyLayout.Build(
-    layoutContext,
-    fontContext,
-    "Hello, Parley!",
-    scale: 1f,
-    quantize: true,
-    defaultProperties: defaults,
-    spans: ReadOnlySpan<ParleyStyleSpan>.Empty);
-
-layout.BreakAllLines(maxWidth: null);
-for (var lineIndex = 0; lineIndex < layout.LineCount; lineIndex++)
-{
-    var info = layout.GetLineInfo(lineIndex);
-    for (var runIndex = 0; runIndex < layout.GetGlyphRunCount(lineIndex); runIndex++)
-    {
-        foreach (var glyph in layout.GetGlyphs(lineIndex, runIndex))
-        {
-            // Consume glyph id/position/style information here.
-        }
-    }
-}
-```
-
-Locale-aware styling is currently rejected by the native layer (it reports `ParleyStatus.InvalidArgument`) until
-the upstream `parley` crate exposes internationalisation hooks through the C ABI.
-
 ## Brushes and Layers
 
 `Scene.FillPath` and `Scene.StrokePath` accept the `Brush` hierarchy, enabling linear/radial gradients and image brushes in addition to solid colors. Example:
@@ -255,7 +216,7 @@ path.ApplyAffine(KurboAffine.FromMatrix3x2(Matrix3x2.CreateRotation(MathF.PI / 4
 var elements = path.GetElements();
 ```
 
-These helpers surface a managed-friendly representation of the geometry used throughout Vello and Parley without
+These helpers surface a managed-friendly representation of the geometry used throughout Vello without
 introducing additional allocations in the hot path.
 
 ## Images and Glyphs

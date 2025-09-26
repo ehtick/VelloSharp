@@ -19,6 +19,3 @@
 [submodule "peniko"]
 	path = peniko
 	url = https://github.com/linebender/peniko
-[submodule "parley"]
-	path = parley
-	url = https://github.com/linebender/parley
