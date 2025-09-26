@@ -30,20 +30,26 @@ fi
 copy_payload() {
   local destination="$1"
   local delete_flag="${2:-false}"
+  local source_dir="${3:-${ARTIFACTS_DIR}}"
+
+  if [[ ! -d "${source_dir}" ]]; then
+    echo "Skipping copy into '${destination}' (source '${source_dir}' not found)."
+    return
+  fi
 
   mkdir -p "${destination}"
   if command -v rsync >/dev/null 2>&1; then
     if [[ "${delete_flag}" == "true" ]]; then
-      rsync -a --delete "${ARTIFACTS_DIR}/" "${destination}/"
+      rsync -a --delete "${source_dir}/" "${destination}/"
     else
-      rsync -a "${ARTIFACTS_DIR}/" "${destination}/"
+      rsync -a "${source_dir}/" "${destination}/"
     fi
   else
     shopt -s dotglob nullglob
     if [[ "${delete_flag}" == "true" ]]; then
       rm -rf "${destination}"/*
     fi
-    cp -a "${ARTIFACTS_DIR}/"* "${destination}/" 2>/dev/null || true
+    cp -a "${source_dir}/"* "${destination}/" 2>/dev/null || true
     shopt -u dotglob
     shopt -u nullglob
   fi
@@ -69,4 +75,25 @@ for target in "${TARGETS[@]}"; do
       echo "Copied runtimes to '${output_base}/runtimes'"
     done
   done
+done
+
+echo "Synchronizing runtimes into packaging projects"
+for pkg_dir in "${ROOT}"/packaging/VelloSharp.Native.*; do
+  [[ -d "${pkg_dir}" ]] || continue
+  pkg_name="$(basename "${pkg_dir}")"
+  rid="${pkg_name#VelloSharp.Native.}"
+  if [[ -z "${rid}" || "${rid}" == "VelloSharp.Native" ]]; then
+    continue
+  fi
+
+  source_dir="${ARTIFACTS_DIR}/${rid}/native"
+  dest_dir="${pkg_dir}/runtimes/${rid}/native"
+  if [[ ! -d "${source_dir}" ]]; then
+    echo "Skipping packaging '${pkg_name}' (no artifacts for '${rid}')."
+    continue
+  fi
+  copy_payload "${dest_dir}" true "${source_dir}"
+  if [[ -d "${dest_dir}" ]]; then
+    echo "Copied runtimes to '${dest_dir}'"
+  fi
 done

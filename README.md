@@ -71,6 +71,42 @@ packing the managed package you can toggle to native-package dependencies with
 `-p:VelloUseNativePackageDependencies=true`; provide a subset via
 `-p:VelloNativePackageIds="VelloSharp.Native.win-x64;VelloSharp.Native.win-arm64"` when testing locally.
 
+### Native asset NuGet packages
+
+The repository tracks per-RID packaging projects under `packaging/VelloSharp.Native.*`. Each project wraps
+the native runtime built by `cargo` into a standalone NuGet package so downstream applications can reference
+only the assets they need. A typical workflow looks like this:
+
+- Build the native crates for the desired RID(s) (`dotnet build -r osx-arm64 VelloSharp/VelloSharp.csproj`).
+- Run `./scripts/copy-runtimes.sh` to sync the generated artifacts into both sample outputs and each
+  `packaging/VelloSharp.Native.<rid>/runtimes/<rid>/native` directory.
+- Pack the native project you care about (e.g., `dotnet pack packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj`).
+- Reference `VelloSharp.Native.<rid>` from your application or include it as an additional dependency inside a
+  higher-level distribution.
+
+The packaging props also emit fallback copies (for example `osx` alongside `osx-arm64`) so that RID roll-forward
+continues to work when .NET probes `runtimes/<baseRid>/native`. When only managed assets are required, the sample
+projects conditionally reference these packaging projects so the native dylibs land in `bin/<TFM>/runtimes/` without
+custom MSBuild logic.
+
+## Available NuGet packages
+
+- `VelloSharp` – managed bindings that surface the renderer, scene graph, wgpu interop, SVG, and Velato helpers.
+- `VelloSharp.Integration` – auxiliary helpers for Avalonia, SkiaSharp, and host render loops.
+
+### Native runtime packages (`VelloSharp.Native.<rid>`)
+
+- `VelloSharp.Native.android-arm64`
+- `VelloSharp.Native.browser-wasm`
+- `VelloSharp.Native.ios-arm64`
+- `VelloSharp.Native.iossimulator-x64`
+- `VelloSharp.Native.linux-arm64`
+- `VelloSharp.Native.linux-x64`
+- `VelloSharp.Native.osx-arm64`
+- `VelloSharp.Native.osx-x64`
+- `VelloSharp.Native.win-arm64`
+- `VelloSharp.Native.win-x64`
+
 ## Using `VelloSharp`
 
 Reference the `VelloSharp` project from your solution or publish it as a NuGet package.

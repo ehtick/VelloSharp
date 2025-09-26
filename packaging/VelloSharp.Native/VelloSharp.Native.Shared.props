@@ -10,17 +10,38 @@
     <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
     <PackageOutputPath Condition="'$(PackageOutputPath)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'nuget'))</PackageOutputPath>
     <NativeRid Condition="'$(NativeRid)'==''">unknown</NativeRid>
-    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$(MSBuildThisFileDirectory)</NativeAssetsDirectory>
+    <_NativeAssetsLocalRoot>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'runtimes', '$(NativeRid)', 'native'))</_NativeAssetsLocalRoot>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'=='' and Exists('$(_NativeAssetsLocalRoot)')">$(_NativeAssetsLocalRoot)</NativeAssetsDirectory>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'runtimes', '$(NativeRid)', 'native'))</NativeAssetsDirectory>
     <NativeAssetsDirectory>$([MSBuild]::EnsureTrailingSlash('$(NativeAssetsDirectory)'))</NativeAssetsDirectory>
+    <NativeFallbackRid />
+    <NativeFallbackRid Condition="'$(NativeRid)' == 'osx-arm64'">osx</NativeFallbackRid>
+    <NativeFallbackRid Condition="'$(NativeRid)' == 'linux-arm64'">linux</NativeFallbackRid>
+    <NativeFallbackRid Condition="'$(NativeRid)' == 'win-arm64'">win</NativeFallbackRid>
+    <NativeFallbackRid Condition="'$(NativeRid)' == 'ios-arm64'">ios</NativeFallbackRid>
+    <NativeFallbackRid Condition="'$(NativeRid)' == 'iossimulator-x64'">iossimulator</NativeFallbackRid>
   </PropertyGroup>
 
   <ItemGroup Condition="Exists('$(NativeAssetsDirectory)')">
     <NativeAsset Include="$(NativeAssetsDirectory)/**/*"
                  Exclude="$(NativeAssetsDirectory)/**/" />
     <Content Include="@(NativeAsset)"
-          Pack="true"
-          PackagePath="runtimes/$(NativeRid)/native/%(RecursiveDir)%(Filename)%(Extension)"
-          Visible="false" />
+             Pack="true"
+             PackagePath="runtimes/$(NativeRid)/native/%(RecursiveDir)%(Filename)%(Extension)"
+             Visible="false">
+      <TargetPath>runtimes\$(NativeRid)\native\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="@(NativeAsset)"
+             Condition="'$(NativeFallbackRid)' != ''"
+             Pack="true"
+             PackagePath="runtimes/$(NativeFallbackRid)/native/%(RecursiveDir)%(Filename)%(Extension)"
+             Visible="false">
+      <TargetPath>runtimes\$(NativeFallbackRid)\native\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <Target Name="ValidateNativeAssets" BeforeTargets="Pack">
