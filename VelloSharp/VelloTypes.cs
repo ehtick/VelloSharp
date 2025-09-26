@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -126,16 +127,34 @@ public readonly record struct GradientStop(float Offset, RgbaColor Color)
     public RgbaColor Color { get; init; } = Color;
 }
 
-internal readonly struct BrushNativeData
+internal readonly struct BrushNativeData : IDisposable
 {
-    public BrushNativeData(VelloBrush brush, ReadOnlyMemory<VelloGradientStop> stops)
+    private readonly VelloGradientStop[]? _stops;
+    private readonly int _stopCount;
+    private readonly bool _pooled;
+
+    public BrushNativeData(VelloBrush brush, VelloGradientStop[]? stops, int stopCount, bool pooled)
     {
         Brush = brush;
-        Stops = stops;
+        _stops = stops;
+        _stopCount = stopCount;
+        _pooled = pooled;
     }
 
     public VelloBrush Brush { get; }
-    public ReadOnlyMemory<VelloGradientStop> Stops { get; }
+
+    public ReadOnlySpan<VelloGradientStop> Stops =>
+        _stops is { Length: > 0 } array && _stopCount > 0
+            ? array.AsSpan(0, _stopCount)
+            : ReadOnlySpan<VelloGradientStop>.Empty;
+
+    public void Dispose()
+    {
+        if (_pooled && _stops is { })
+        {
+            ArrayPool<VelloGradientStop>.Shared.Return(_stops);
+        }
+    }
 }
 
 public abstract class Brush
@@ -165,7 +184,7 @@ public sealed class SolidColorBrush : Brush
             Radial = default,
             Image = default,
         };
-        return new BrushNativeData(native, ReadOnlyMemory<VelloGradientStop>.Empty);
+        return new BrushNativeData(native, null, 0, pooled: false);
     }
 }
 
@@ -213,7 +232,7 @@ public sealed class LinearGradientBrush : Brush
                 StopCount = (nuint)_stops.Length,
             },
         };
-        return new BrushNativeData(native, _stops);
+        return new BrushNativeData(native, _stops, _stops.Length, pooled: false);
     }
 }
 
@@ -277,7 +296,7 @@ public sealed class RadialGradientBrush : Brush
                 StopCount = (nuint)_stops.Length,
             },
         };
-        return new BrushNativeData(native, _stops);
+        return new BrushNativeData(native, _stops, _stops.Length, pooled: false);
     }
 }
 
@@ -308,7 +327,7 @@ public sealed class ImageBrush : Brush
                 Alpha = Alpha,
             },
         };
-        return new BrushNativeData(native, ReadOnlyMemory<VelloGradientStop>.Empty);
+        return new BrushNativeData(native, null, 0, pooled: false);
     }
 
     internal VelloImageBrushParams ToNative() => new()
@@ -351,7 +370,7 @@ public sealed class PenikoBrushAdapter : Brush
             Kind = VelloBrushKind.Solid,
             Solid = color,
         };
-        return new BrushNativeData(native, ReadOnlyMemory<VelloGradientStop>.Empty);
+        return new BrushNativeData(native, null, 0, pooled: false);
     }
 
     private BrushNativeData CreateGradientBrush()
@@ -369,7 +388,7 @@ public sealed class PenikoBrushAdapter : Brush
     private BrushNativeData CreateLinearGradient()
     {
         var info = _brush.GetLinearGradient();
-        var stops = CopyStops(info.Stops);
+        var stops = RentStops(info.Stops, out var stopCount, out var pooled);
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.LinearGradient,
@@ -378,16 +397,16 @@ public sealed class PenikoBrushAdapter : Brush
                 Start = ToVelloPoint(info.Gradient.Start),
                 End = ToVelloPoint(info.Gradient.End),
                 Extend = (VelloExtendMode)info.Extend,
-                StopCount = (nuint)stops.Length,
+                StopCount = (nuint)stopCount,
             },
         };
-        return new BrushNativeData(native, stops);
+        return new BrushNativeData(native, stops, stopCount, pooled);
     }
 
     private BrushNativeData CreateRadialGradient()
     {
         var info = _brush.GetRadialGradient();
-        var stops = CopyStops(info.Stops);
+        var stops = RentStops(info.Stops, out var stopCount, out var pooled);
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.RadialGradient,
@@ -398,31 +417,36 @@ public sealed class PenikoBrushAdapter : Brush
                 EndCenter = ToVelloPoint(info.Gradient.EndCenter),
                 EndRadius = info.Gradient.EndRadius,
                 Extend = (VelloExtendMode)info.Extend,
-                StopCount = (nuint)stops.Length,
+                StopCount = (nuint)stopCount,
             },
         };
-        return new BrushNativeData(native, stops);
+        return new BrushNativeData(native, stops, stopCount, pooled);
     }
 
-    private static VelloGradientStop[] CopyStops(IReadOnlyList<PenikoColorStop> stops)
+    private static VelloGradientStop[]? RentStops(IReadOnlyList<PenikoColorStop> stops, out int count, out bool pooled)
     {
         if (stops is null || stops.Count == 0)
         {
-            return Array.Empty<VelloGradientStop>();
+            count = 0;
+            pooled = false;
+            return null;
         }
 
-        var result = new VelloGradientStop[stops.Count];
-        for (var i = 0; i < stops.Count; i++)
+        count = stops.Count;
+        var buffer = ArrayPool<VelloGradientStop>.Shared.Rent(count);
+        var span = buffer.AsSpan(0, count);
+        for (var i = 0; i < count; i++)
         {
             var stop = stops[i];
-            result[i] = new VelloGradientStop
+            span[i] = new VelloGradientStop
             {
                 Offset = stop.Offset,
                 Color = stop.Color,
             };
         }
 
-        return result;
+        pooled = true;
+        return buffer;
     }
 
     private static VelloPoint ToVelloPoint(PenikoPoint point) => new()

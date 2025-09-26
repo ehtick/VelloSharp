@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace VelloSharp;
 
@@ -11,22 +13,74 @@ internal static class NativeHelpers
         return ptr == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(ptr);
     }
 
-    internal static nint AllocUtf8String(string text)
+    internal static unsafe nint AllocUtf8String(string text)
     {
-        if (text is null)
+        ArgumentNullException.ThrowIfNull(text);
+
+        var chars = text.AsSpan();
+        var byteCount = Encoding.UTF8.GetByteCount(chars);
+        var length = byteCount + 1;
+        var buffer = NativeMemory.Alloc((nuint)length);
+        try
         {
-            throw new ArgumentNullException(nameof(text));
+            var destination = new Span<byte>(buffer, length);
+            Encoding.UTF8.GetBytes(chars, destination[..byteCount]);
+            destination[byteCount] = 0;
+            return (nint)buffer;
+        }
+        catch
+        {
+            NativeMemory.Free(buffer);
+            throw;
+        }
+    }
+
+    internal static Span<byte> EncodeUtf8NullTerminated(string? text, Span<byte> scratch, ref byte[]? rented)
+    {
+        rented = null;
+        if (string.IsNullOrEmpty(text))
+        {
+            return Span<byte>.Empty;
         }
 
-        var bytes = System.Text.Encoding.UTF8.GetBytes(text);
-        var buffer = Marshal.AllocHGlobal(bytes.Length + 1);
-        if (bytes.Length > 0)
+        var chars = text.AsSpan();
+        var byteCount = Encoding.UTF8.GetByteCount(chars);
+        var required = byteCount + 1;
+        Span<byte> destination;
+
+        if (required <= scratch.Length)
         {
-            Marshal.Copy(bytes, 0, buffer, bytes.Length);
+            destination = scratch[..required];
+        }
+        else
+        {
+            rented = ArrayPool<byte>.Shared.Rent(required);
+            destination = rented.AsSpan(0, required);
         }
 
-        Marshal.WriteByte(buffer, bytes.Length, 0);
-        return buffer;
+        Encoding.UTF8.GetBytes(chars, destination[..byteCount]);
+        destination[byteCount] = 0;
+        return destination;
+    }
+
+    internal static Span<byte> EncodeUtf8(string text, Span<byte> scratch, ref byte[]? rented)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var chars = text.AsSpan();
+        var byteCount = Encoding.UTF8.GetByteCount(chars);
+        if (byteCount <= scratch.Length)
+        {
+            var destination = scratch[..byteCount];
+            Encoding.UTF8.GetBytes(chars, destination);
+            rented = null;
+            return destination;
+        }
+
+        rented = ArrayPool<byte>.Shared.Rent(byteCount);
+        var span = rented.AsSpan(0, byteCount);
+        Encoding.UTF8.GetBytes(chars, span);
+        return span;
     }
 
     internal static void ThrowOnError(VelloStatus status, string message)

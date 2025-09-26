@@ -1,7 +1,7 @@
 using System;
+using System.Buffers;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace VelloSharp;
 
@@ -33,7 +33,20 @@ public sealed class VelloSvg : IDisposable
     public static VelloSvg LoadFromString(string svg, float scale = 1f)
     {
         ArgumentNullException.ThrowIfNull(svg);
-        return LoadFromUtf8(Encoding.UTF8.GetBytes(svg), scale);
+        Span<byte> scratch = stackalloc byte[512];
+        byte[]? rented = null;
+        try
+        {
+            var utf8 = NativeHelpers.EncodeUtf8(svg, scratch, ref rented);
+            return LoadFromUtf8(utf8, scale);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
     }
 
     public static VelloSvg LoadFromUtf8(ReadOnlySpan<byte> utf8, float scale = 1f)

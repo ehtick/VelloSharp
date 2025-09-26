@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -354,28 +355,42 @@ public sealed class WgpuAdapter : IDisposable
             IntPtr device;
             if (descriptor.HasValue)
             {
-                IntPtr labelPtr = IntPtr.Zero;
+                var descriptorValue = descriptor.Value;
+                var native = new WgpuDeviceDescriptorNative
+                {
+                    RequiredFeatures = (ulong)descriptorValue.RequiredFeatures,
+                    Limits = (WgpuLimitsPresetNative)descriptorValue.Limits,
+                    Label = IntPtr.Zero,
+                };
+
+                Span<byte> labelScratch = stackalloc byte[256];
+                byte[]? rented = null;
+                var buffer = stackalloc WgpuDeviceDescriptorNative[1];
                 try
                 {
-                    var native = new WgpuDeviceDescriptorNative
-                    {
-                        RequiredFeatures = (ulong)descriptor.Value.RequiredFeatures,
-                        Limits = (WgpuLimitsPresetNative)descriptor.Value.Limits,
-                    };
-                    if (!string.IsNullOrEmpty(descriptor.Value.Label))
-                    {
-                        labelPtr = Marshal.StringToCoTaskMemUTF8(descriptor.Value.Label);
-                        native.Label = labelPtr;
-                    }
-                    var buffer = stackalloc WgpuDeviceDescriptorNative[1];
                     buffer[0] = native;
-                    device = NativeMethods.vello_wgpu_adapter_request_device(_handle, buffer);
+                    var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptorValue.Label, labelScratch, ref rented);
+
+                    if (!labelSpan.IsEmpty)
+                    {
+                        fixed (byte* labelPtr = labelSpan)
+                        {
+                            buffer[0].Label = (IntPtr)labelPtr;
+                            device = NativeMethods.vello_wgpu_adapter_request_device(_handle, buffer);
+                            buffer[0].Label = IntPtr.Zero;
+                        }
+                    }
+                    else
+                    {
+                        buffer[0].Label = IntPtr.Zero;
+                        device = NativeMethods.vello_wgpu_adapter_request_device(_handle, buffer);
+                    }
                 }
                 finally
                 {
-                    if (labelPtr != IntPtr.Zero)
+                    if (rented is not null)
                     {
-                        Marshal.FreeCoTaskMem(labelPtr);
+                        ArrayPool<byte>.Shared.Return(rented);
                     }
                 }
             }
@@ -472,7 +487,8 @@ public sealed class WgpuDevice : IDisposable
         ThrowIfDisposed();
         unsafe
         {
-            IntPtr labelPtr = IntPtr.Zero;
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rented = null;
             try
             {
                 var native = new WgpuPipelineCacheDescriptorNative
@@ -483,30 +499,44 @@ public sealed class WgpuDevice : IDisposable
                     Fallback = descriptor.Fallback,
                 };
 
-                if (!string.IsNullOrEmpty(descriptor.Label))
-                {
-                    labelPtr = Marshal.StringToCoTaskMemUTF8(descriptor.Label);
-                    native.Label = labelPtr;
-                }
-
                 var dataSpan = descriptor.Data.Span;
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rented);
+
                 fixed (byte* dataPtr = dataSpan)
                 {
                     native.Data = (IntPtr)dataPtr;
-                    var handle = NativeMethods.vello_wgpu_device_create_pipeline_cache(_handle, &native);
-                    if (handle == IntPtr.Zero)
+                    if (!labelSpan.IsEmpty)
                     {
-                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create pipeline cache.");
-                    }
+                        fixed (byte* labelPtr = labelSpan)
+                        {
+                            native.Label = (IntPtr)labelPtr;
+                            var handle = NativeMethods.vello_wgpu_device_create_pipeline_cache(_handle, &native);
+                            native.Label = IntPtr.Zero;
+                            if (handle == IntPtr.Zero)
+                            {
+                                throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create pipeline cache.");
+                            }
 
-                    return new WgpuPipelineCache(handle);
+                            return new WgpuPipelineCache(handle);
+                        }
+                    }
+                    else
+                    {
+                        var handle = NativeMethods.vello_wgpu_device_create_pipeline_cache(_handle, &native);
+                        if (handle == IntPtr.Zero)
+                        {
+                            throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create pipeline cache.");
+                        }
+
+                        return new WgpuPipelineCache(handle);
+                    }
                 }
             }
             finally
             {
-                if (labelPtr != IntPtr.Zero)
+                if (rented is not null)
                 {
-                    Marshal.FreeCoTaskMem(labelPtr);
+                    ArrayPool<byte>.Shared.Return(rented);
                 }
             }
         }
@@ -671,20 +701,36 @@ public sealed class WgpuSurface : IDisposable
                 return;
             }
 
-            var formats = new WgpuTextureFormatNative[count];
+            WgpuTextureFormatNative[]? rented = null;
+            Span<WgpuTextureFormatNative> formatBuffer = count <= 8
+                ? stackalloc WgpuTextureFormatNative[8]
+                : (rented = ArrayPool<WgpuTextureFormatNative>.Shared.Rent(count)).AsSpan();
+
+            var span = formatBuffer[..count];
             if (viewFormats is not null)
             {
                 for (int i = 0; i < count; i++)
                 {
-                    formats[i] = (WgpuTextureFormatNative)viewFormats[i];
+                    span[i] = (WgpuTextureFormatNative)viewFormats[i];
                 }
             }
 
-            fixed (WgpuTextureFormatNative* ptr = formats)
+            try
             {
-                native.ViewFormats = (IntPtr)ptr;
-                var status = NativeMethods.vello_wgpu_surface_configure(_handle, device.Handle, &native);
-                NativeHelpers.ThrowOnError(status, "Failed to configure surface.");
+                fixed (WgpuTextureFormatNative* ptr = span)
+                {
+                    native.ViewFormats = (IntPtr)ptr;
+                    var status = NativeMethods.vello_wgpu_surface_configure(_handle, device.Handle, &native);
+                    NativeHelpers.ThrowOnError(status, "Failed to configure surface.");
+                    native.ViewFormats = IntPtr.Zero;
+                }
+            }
+            finally
+            {
+                if (rented is not null)
+                {
+                    ArrayPool<WgpuTextureFormatNative>.Shared.Return(rented);
+                }
             }
         }
     }
@@ -753,35 +799,47 @@ public sealed class WgpuSurfaceTexture : IDisposable
             IntPtr viewHandle;
             if (descriptor.HasValue)
             {
-                IntPtr labelPtr = IntPtr.Zero;
+                var descriptorValue = descriptor.Value;
+                Span<byte> labelScratch = stackalloc byte[256];
+                byte[]? rented = null;
                 try
                 {
                     var native = new WgpuTextureViewDescriptorNative
                     {
-                        Format = (WgpuTextureFormatNative)descriptor.Value.Format,
-                        Dimension = (uint)descriptor.Value.Dimension,
-                        Aspect = (uint)descriptor.Value.Aspect,
-                        BaseMipLevel = descriptor.Value.BaseMipLevel,
-                        MipLevelCount = descriptor.Value.MipLevelCount ?? 0,
-                        BaseArrayLayer = descriptor.Value.BaseArrayLayer,
-                        ArrayLayerCount = descriptor.Value.ArrayLayerCount ?? 0,
+                        Format = (WgpuTextureFormatNative)descriptorValue.Format,
+                        Dimension = (uint)descriptorValue.Dimension,
+                        Aspect = (uint)descriptorValue.Aspect,
+                        BaseMipLevel = descriptorValue.BaseMipLevel,
+                        MipLevelCount = descriptorValue.MipLevelCount ?? 0,
+                        BaseArrayLayer = descriptorValue.BaseArrayLayer,
+                        ArrayLayerCount = descriptorValue.ArrayLayerCount ?? 0,
                     };
-
-                    if (!string.IsNullOrEmpty(descriptor.Value.Label))
-                    {
-                        labelPtr = Marshal.StringToCoTaskMemUTF8(descriptor.Value.Label);
-                        native.Label = labelPtr;
-                    }
 
                     var buffer = stackalloc WgpuTextureViewDescriptorNative[1];
                     buffer[0] = native;
-                    viewHandle = NativeMethods.vello_wgpu_surface_texture_create_view(_handle, buffer);
+
+                    var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptorValue.Label, labelScratch, ref rented);
+
+                    if (!labelSpan.IsEmpty)
+                    {
+                        fixed (byte* labelPtr = labelSpan)
+                        {
+                            buffer[0].Label = (IntPtr)labelPtr;
+                            viewHandle = NativeMethods.vello_wgpu_surface_texture_create_view(_handle, buffer);
+                            buffer[0].Label = IntPtr.Zero;
+                        }
+                    }
+                    else
+                    {
+                        buffer[0].Label = IntPtr.Zero;
+                        viewHandle = NativeMethods.vello_wgpu_surface_texture_create_view(_handle, buffer);
+                    }
                 }
                 finally
                 {
-                    if (labelPtr != IntPtr.Zero)
+                    if (rented is not null)
                     {
-                        Marshal.FreeCoTaskMem(labelPtr);
+                        ArrayPool<byte>.Shared.Return(rented);
                     }
                 }
             }
@@ -925,7 +983,11 @@ public sealed class WgpuPipelineCache : IDisposable
         }
         var size = checked((int)length);
         var data = new byte[size];
-        Marshal.Copy(dataPtr, data, 0, size);
+        unsafe
+        {
+            var source = new ReadOnlySpan<byte>((void*)dataPtr, size);
+            source.CopyTo(data);
+        }
         NativeMethods.vello_wgpu_pipeline_cache_free_data(dataPtr, length);
         return data;
     }
@@ -1051,7 +1113,11 @@ public sealed class WgpuRenderer : IDisposable
             var labelBytes = labelLength > 0 ? new byte[labelLength] : Array.Empty<byte>();
             if (labelLength > 0)
             {
-                Marshal.Copy(nativeResults.Labels, labelBytes, 0, labelLength);
+                unsafe
+                {
+                    var labelSpan = new ReadOnlySpan<byte>((void*)nativeResults.Labels, labelLength);
+                    labelSpan.CopyTo(labelBytes);
+                }
             }
 
             var slices = new GpuProfilerSlice[sliceCount];

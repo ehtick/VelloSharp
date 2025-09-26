@@ -1,7 +1,7 @@
 using System;
+using System.Buffers;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace VelloSharp;
 
@@ -53,7 +53,20 @@ public sealed class VelatoComposition : IDisposable
     public static VelatoComposition LoadFromString(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
-        return LoadFromUtf8(Encoding.UTF8.GetBytes(json));
+        Span<byte> scratch = stackalloc byte[512];
+        byte[]? rented = null;
+        try
+        {
+            var utf8 = NativeHelpers.EncodeUtf8(json, scratch, ref rented);
+            return LoadFromUtf8(utf8);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
     }
 
     public static VelatoComposition LoadFromUtf8(ReadOnlySpan<byte> utf8)

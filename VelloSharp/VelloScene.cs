@@ -344,8 +344,8 @@ public sealed class Scene : IDisposable
             return;
         }
 
-        var brushData = options.Brush.CreateNative();
-        var stops = brushData.Stops.Span;
+        using var brushData = options.Brush.CreateNative();
+        var stops = brushData.Stops;
 
         var glyphArray = ArrayPool<VelloGlyph>.Shared.Rent(glyphs.Length);
         var glyphSpan = glyphArray.AsSpan(0, glyphs.Length);
@@ -447,8 +447,8 @@ public sealed class Scene : IDisposable
             throw new ArgumentException("Path must contain at least one element.", nameof(elements));
         }
 
-        var brushData = brush.CreateNative();
-        var stops = brushData.Stops.Span;
+        using var brushData = brush.CreateNative();
+        var stops = brushData.Stops;
 
         unsafe
         {
@@ -491,8 +491,8 @@ public sealed class Scene : IDisposable
             throw new ArgumentException("Path must contain at least one element.", nameof(elements));
         }
 
-        var brushData = brush.CreateNative();
-        var stops = brushData.Stops.Span;
+        using var brushData = brush.CreateNative();
+        var stops = brushData.Stops;
 
         unsafe
         {

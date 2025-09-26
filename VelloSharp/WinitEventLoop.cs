@@ -35,7 +35,10 @@ public unsafe sealed class WinitEventLoop
         {
             if (titlePtr != nint.Zero)
             {
-                Marshal.FreeHGlobal(titlePtr);
+                unsafe
+                {
+                    NativeMemory.Free((void*)titlePtr);
+                }
             }
 
             if (handle.IsAllocated)
