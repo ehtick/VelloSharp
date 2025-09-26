@@ -126,9 +126,21 @@ public readonly record struct GradientStop(float Offset, RgbaColor Color)
     public RgbaColor Color { get; init; } = Color;
 }
 
+internal readonly struct BrushNativeData
+{
+    public BrushNativeData(VelloBrush brush, ReadOnlyMemory<VelloGradientStop> stops)
+    {
+        Brush = brush;
+        Stops = stops;
+    }
+
+    public VelloBrush Brush { get; }
+    public ReadOnlyMemory<VelloGradientStop> Stops { get; }
+}
+
 public abstract class Brush
 {
-    internal abstract BrushMarshaler CreateMarshaler();
+    internal abstract BrushNativeData CreateNative();
 
     public static Brush FromPenikoBrush(PenikoBrush brush)
     {
@@ -143,7 +155,7 @@ public sealed class SolidColorBrush : Brush
 
     public RgbaColor Color { get; }
 
-    internal override BrushMarshaler CreateMarshaler()
+    internal override BrushNativeData CreateNative()
     {
         var native = new VelloBrush
         {
@@ -153,7 +165,7 @@ public sealed class SolidColorBrush : Brush
             Radial = default,
             Image = default,
         };
-        return new BrushMarshaler(native, null);
+        return new BrushNativeData(native, ReadOnlyMemory<VelloGradientStop>.Empty);
     }
 }
 
@@ -188,7 +200,7 @@ public sealed class LinearGradientBrush : Brush
     public Vector2 End { get; }
     public ExtendMode Extend { get; }
 
-    internal override BrushMarshaler CreateMarshaler()
+    internal override BrushNativeData CreateNative()
     {
         var native = new VelloBrush
         {
@@ -201,7 +213,7 @@ public sealed class LinearGradientBrush : Brush
                 StopCount = (nuint)_stops.Length,
             },
         };
-        return new BrushMarshaler(native, _stops);
+        return new BrushNativeData(native, _stops);
     }
 }
 
@@ -250,7 +262,7 @@ public sealed class RadialGradientBrush : Brush
     public float EndRadius { get; }
     public ExtendMode Extend { get; }
 
-    internal override BrushMarshaler CreateMarshaler()
+    internal override BrushNativeData CreateNative()
     {
         var native = new VelloBrush
         {
@@ -265,7 +277,7 @@ public sealed class RadialGradientBrush : Brush
                 StopCount = (nuint)_stops.Length,
             },
         };
-        return new BrushMarshaler(native, _stops);
+        return new BrushNativeData(native, _stops);
     }
 }
 
@@ -282,7 +294,7 @@ public sealed class ImageBrush : Brush
     public ImageQuality Quality { get; set; } = ImageQuality.Medium;
     public float Alpha { get; set; } = 1f;
 
-    internal override BrushMarshaler CreateMarshaler()
+    internal override BrushNativeData CreateNative()
     {
         var native = new VelloBrush
         {
@@ -296,7 +308,7 @@ public sealed class ImageBrush : Brush
                 Alpha = Alpha,
             },
         };
-        return new BrushMarshaler(native, null);
+        return new BrushNativeData(native, ReadOnlyMemory<VelloGradientStop>.Empty);
     }
 
     internal VelloImageBrushParams ToNative() => new()
@@ -320,7 +332,7 @@ public sealed class PenikoBrushAdapter : Brush
 
     public PenikoBrush Brush => _brush;
 
-    internal override BrushMarshaler CreateMarshaler()
+    internal override BrushNativeData CreateNative()
     {
         return _brush.Kind switch
         {
@@ -331,7 +343,7 @@ public sealed class PenikoBrushAdapter : Brush
         };
     }
 
-    private BrushMarshaler CreateSolidBrush()
+    private BrushNativeData CreateSolidBrush()
     {
         var color = _brush.GetSolidColor();
         var native = new VelloBrush
@@ -339,10 +351,10 @@ public sealed class PenikoBrushAdapter : Brush
             Kind = VelloBrushKind.Solid,
             Solid = color,
         };
-        return new BrushMarshaler(native, null);
+        return new BrushNativeData(native, ReadOnlyMemory<VelloGradientStop>.Empty);
     }
 
-    private BrushMarshaler CreateGradientBrush()
+    private BrushNativeData CreateGradientBrush()
     {
         var kind = _brush.GetGradientKind() ?? throw new InvalidOperationException("Peniko gradient kind was not available.");
         return kind switch
@@ -354,7 +366,7 @@ public sealed class PenikoBrushAdapter : Brush
         };
     }
 
-    private BrushMarshaler CreateLinearGradient()
+    private BrushNativeData CreateLinearGradient()
     {
         var info = _brush.GetLinearGradient();
         var stops = CopyStops(info.Stops);
@@ -369,10 +381,10 @@ public sealed class PenikoBrushAdapter : Brush
                 StopCount = (nuint)stops.Length,
             },
         };
-        return new BrushMarshaler(native, stops);
+        return new BrushNativeData(native, stops);
     }
 
-    private BrushMarshaler CreateRadialGradient()
+    private BrushNativeData CreateRadialGradient()
     {
         var info = _brush.GetRadialGradient();
         var stops = CopyStops(info.Stops);
@@ -389,7 +401,7 @@ public sealed class PenikoBrushAdapter : Brush
                 StopCount = (nuint)stops.Length,
             },
         };
-        return new BrushMarshaler(native, stops);
+        return new BrushNativeData(native, stops);
     }
 
     private static VelloGradientStop[] CopyStops(IReadOnlyList<PenikoColorStop> stops)
@@ -418,45 +430,6 @@ public sealed class PenikoBrushAdapter : Brush
         X = point.X,
         Y = point.Y,
     };
-}
-
-internal struct BrushMarshaler : IDisposable
-{
-    internal VelloBrush Brush;
-    private GCHandle? _stopsHandle;
-
-    internal BrushMarshaler(VelloBrush brush, VelloGradientStop[]? stops)
-    {
-        Brush = brush;
-        _stopsHandle = null;
-
-        Brush.Linear.Stops = IntPtr.Zero;
-        Brush.Radial.Stops = IntPtr.Zero;
-
-        if (stops is { Length: > 0 })
-        {
-            _stopsHandle = GCHandle.Alloc(stops, GCHandleType.Pinned);
-            var ptr = _stopsHandle.Value.AddrOfPinnedObject();
-            switch (Brush.Kind)
-            {
-                case VelloBrushKind.LinearGradient:
-                    Brush.Linear.Stops = ptr;
-                    break;
-                case VelloBrushKind.RadialGradient:
-                    Brush.Radial.Stops = ptr;
-                    break;
-            }
-        }
-    }
-
-    public void Dispose()
-    {
-        if (_stopsHandle.HasValue)
-        {
-            _stopsHandle.Value.Free();
-            _stopsHandle = null;
-        }
-    }
 }
 
 internal static class NativeConversionExtensions
@@ -619,29 +592,23 @@ public sealed class Image : IDisposable
             throw new ArgumentException("Pixel data is smaller than expected for the provided stride and dimensions.", nameof(pixels));
         }
 
-        var buffer = pixels[..required].ToArray();
-        var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-        try
+        var slice = pixels[..required];
+        unsafe
         {
-            var ptr = handle.AddrOfPinnedObject();
-            var native = NativeMethods.vello_image_create(
-                (VelloRenderFormat)format,
-                (VelloImageAlphaMode)alphaMode,
-                (uint)width,
-                (uint)height,
-                ptr,
-                (nuint)stride);
-            if (native == IntPtr.Zero)
+            fixed (byte* ptr = slice)
             {
-                throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create image.");
-            }
-            return new Image(native);
-        }
-        finally
-        {
-            if (handle.IsAllocated)
-            {
-                handle.Free();
+                var native = NativeMethods.vello_image_create(
+                    (VelloRenderFormat)format,
+                    (VelloImageAlphaMode)alphaMode,
+                    (uint)width,
+                    (uint)height,
+                    (IntPtr)ptr,
+                    (nuint)stride);
+                if (native == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create image.");
+                }
+                return new Image(native);
             }
         }
     }
@@ -688,23 +655,16 @@ public sealed class Font : IDisposable
 
     public static Font Load(ReadOnlySpan<byte> fontData, uint index = 0)
     {
-        var buffer = fontData.ToArray();
-        var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
-        try
+        unsafe
         {
-            var ptr = handle.AddrOfPinnedObject();
-            var native = NativeMethods.vello_font_create(ptr, (nuint)buffer.Length, index);
-            if (native == IntPtr.Zero)
+            fixed (byte* ptr = fontData)
             {
-                throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to load font.");
-            }
-            return new Font(native);
-        }
-        finally
-        {
-            if (handle.IsAllocated)
-            {
-                handle.Free();
+                var native = NativeMethods.vello_font_create((IntPtr)ptr, (nuint)fontData.Length, index);
+                if (native == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to load font.");
+                }
+                return new Font(native);
             }
         }
     }
