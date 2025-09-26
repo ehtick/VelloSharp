@@ -30,6 +30,19 @@ map_candidate_to_rid() {
   esac
 }
 
+declare -a VALID_RIDS=(
+  android-arm64
+  browser-wasm
+  ios-arm64
+  iossimulator-x64
+  linux-arm64
+  linux-x64
+  osx-arm64
+  osx-x64
+  win-arm64
+  win-x64
+)
+
 seen_rids=""
 found=0
 while IFS= read -r native_dir; do
@@ -41,16 +54,22 @@ while IFS= read -r native_dir; do
   fi
 
   rid_dir="$(dirname "${native_dir}")"
-  rid_name="$(basename "${rid_dir}")"
+  rid_name=""
+  search_path="${rid_dir}"
 
-  if [[ "${rid_name}" == "artifacts" || "${rid_name}" == "runtimes" || "${rid_name}" == "native" ]]; then
-    candidate="$(basename "$(dirname "${rid_dir}")")"
-    if [[ -n "${candidate}" ]]; then
-      rid_name="$(map_candidate_to_rid "${candidate}")"
-    fi
-  fi
+  while [[ -n "${search_path}" && "${search_path}" != "/" && "${search_path}" != "." ]]; do
+    component="$(basename "${search_path}")"
+    candidate="$(map_candidate_to_rid "${component}")"
+    for valid in "${VALID_RIDS[@]}"; do
+      if [[ "${candidate}" == "${valid}" ]]; then
+        rid_name="${candidate}"
+        break 2
+      fi
+    done
+    search_path="$(dirname "${search_path}")"
+  done
 
-  if [[ -z "${rid_name}" || "${rid_name}" == "artifacts" || "${rid_name}" == "runtimes" || "${rid_name}" == "native" ]]; then
+  if [[ -z "${rid_name}" ]]; then
     echo "Skipping native directory '${native_dir}' – could not determine runtime identifier." >&2
     continue
   fi
