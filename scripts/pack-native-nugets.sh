@@ -11,17 +11,29 @@ if [[ ! -d "${RUNTIMES_ROOT}" ]]; then
 fi
 
 mkdir -p "${OUTPUT_DIR}"
+OUTPUT_DIR_ABS="$(cd "${OUTPUT_DIR}" && pwd)"
 
 shopt -s nullglob
-declare -A seen
+seen_rids=()
+
+rid_seen() {
+  local rid="$1"
+  for existing in "${seen_rids[@]:-}"; do
+    if [[ "${existing}" == "${rid}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 processed=0
 for native_dir in "${RUNTIMES_ROOT}"/*/native; do
   [[ -d "${native_dir}" ]] || continue
   rid="$(basename "$(dirname "${native_dir}")")"
-  if [[ -n "${seen[${rid}]:-}" ]]; then
+  if rid_seen "${rid}"; then
     continue
   fi
-  seen["${rid}"]=1
+  seen_rids+=("${rid}")
 
   project="${ROOT}/packaging/VelloSharp.Native.${rid}/VelloSharp.Native.${rid}.csproj"
   if [[ ! -f "${project}" ]]; then
@@ -34,11 +46,12 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
     continue
   fi
 
+  native_dir_abs="$(cd "${native_dir}" && pwd)"
   echo "Packing native package for ${rid}"
   dotnet pack "${project}" \
     -c Release \
-    -p:NativeAssetsDirectory="${native_dir}" \
-    -p:PackageOutputPath="${OUTPUT_DIR}"
+    -p:NativeAssetsDirectory="${native_dir_abs}" \
+    -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
   processed=$((processed + 1))
 done
 
@@ -47,7 +60,7 @@ if [[ ${processed} -eq 0 ]]; then
   exit 1
 fi
 
-if compgen -G "${OUTPUT_DIR}"'/*.nupkg' > /dev/null; then
+if compgen -G "${OUTPUT_DIR_ABS}"'/*.nupkg' > /dev/null; then
   echo "Native packages created in '${OUTPUT_DIR}'."
 else
   echo "No native packages were produced." >&2
