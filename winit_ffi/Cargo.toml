@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 workspace = true
 
 [dependencies]
-winit = { version = "0.30.12", features = ["rwh_06"] }
+winit = { version = "0.30.12", features = ["rwh_06", "android-native-activity"] }
 raw-window-handle = { workspace = true }
 
 [features]
