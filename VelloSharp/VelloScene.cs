@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
@@ -23,8 +24,33 @@ public sealed class Scene : IDisposable
         NativeMethods.vello_scene_reset(_handle);
     }
 
-    public void FillPath(PathBuilder path, FillRule fillRule, Matrix3x2 transform, RgbaColor color) =>
-        FillPath(path, fillRule, transform, new SolidColorBrush(color));
+    public void FillPath(PathBuilder path, FillRule fillRule, Matrix3x2 transform, RgbaColor color)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(path);
+
+        var span = path.AsSpan();
+        if (span.IsEmpty)
+        {
+            throw new ArgumentException("Path must contain at least one element.", nameof(path));
+        }
+
+        unsafe
+        {
+            fixed (VelloPathElement* elementPtr = span)
+            {
+                var status = NativeMethods.vello_scene_fill_path(
+                    _handle,
+                    (VelloFillRule)fillRule,
+                    transform.ToNativeAffine(),
+                    color.ToNative(),
+                    elementPtr,
+                    (nuint)span.Length);
+
+                NativeHelpers.ThrowOnError(status, "FillPath failed");
+            }
+        }
+    }
 
     public void FillPath(
         PathBuilder path,
@@ -79,8 +105,54 @@ public sealed class Scene : IDisposable
         FillPath(path, fillRule, transform, Brush.FromPenikoBrush(brush), brushTransform);
     }
 
-    public void StrokePath(PathBuilder path, StrokeStyle style, Matrix3x2 transform, RgbaColor color) =>
-        StrokePath(path, style, transform, new SolidColorBrush(color));
+    public void StrokePath(PathBuilder path, StrokeStyle style, Matrix3x2 transform, RgbaColor color)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(style);
+
+        var span = path.AsSpan();
+        if (span.IsEmpty)
+        {
+            throw new ArgumentException("Path must contain at least one element.", nameof(path));
+        }
+
+        unsafe
+        {
+            fixed (VelloPathElement* elementPtr = span)
+            {
+                if (style.DashPattern is { Length: > 0 } pattern)
+                {
+                    fixed (double* dashPtr = pattern)
+                    {
+                        var nativeStyle = CreateStrokeStyle(style, (IntPtr)dashPtr, (nuint)pattern.Length);
+                        var status = NativeMethods.vello_scene_stroke_path(
+                            _handle,
+                            nativeStyle,
+                            transform.ToNativeAffine(),
+                            color.ToNative(),
+                            elementPtr,
+                            (nuint)span.Length);
+
+                        NativeHelpers.ThrowOnError(status, "StrokePath failed");
+                    }
+                }
+                else
+                {
+                    var nativeStyle = CreateStrokeStyle(style, IntPtr.Zero, 0);
+                    var status = NativeMethods.vello_scene_stroke_path(
+                        _handle,
+                        nativeStyle,
+                        transform.ToNativeAffine(),
+                        color.ToNative(),
+                        elementPtr,
+                        (nuint)span.Length);
+
+                    NativeHelpers.ThrowOnError(status, "StrokePath failed");
+                }
+            }
+        }
+    }
 
     public void StrokePath(
         PathBuilder path,
@@ -272,75 +344,86 @@ public sealed class Scene : IDisposable
             return;
         }
 
-        using var brushMarshaler = options.Brush.CreateMarshaler();
+        var brushData = options.Brush.CreateNative();
+        var stops = brushData.Stops.Span;
 
-        var glyphBuffer = new VelloGlyph[glyphs.Length];
+        var glyphArray = ArrayPool<VelloGlyph>.Shared.Rent(glyphs.Length);
+        var glyphSpan = glyphArray.AsSpan(0, glyphs.Length);
         for (var i = 0; i < glyphs.Length; i++)
         {
-            glyphBuffer[i] = glyphs[i].ToNative();
+            glyphSpan[i] = glyphs[i].ToNative();
         }
-
-        GCHandle dashHandle = default;
-        var nativeOptions = new VelloGlyphRunOptions
-        {
-            Transform = options.Transform.ToNativeAffine(),
-            FontSize = options.FontSize,
-            Hint = options.Hint,
-            Style = (VelloGlyphRunStyle)options.Style,
-            Brush = brushMarshaler.Brush,
-            BrushAlpha = options.BrushAlpha,
-            StrokeStyle = default,
-            GlyphTransform = IntPtr.Zero,
-        };
 
         try
         {
-            if (options.Style == GlyphRunStyle.Stroke)
-            {
-                var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
-                if (stroke.DashPattern is { Length: > 0 } dashPattern)
-                {
-                    dashHandle = GCHandle.Alloc(dashPattern, GCHandleType.Pinned);
-                    nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, dashHandle.AddrOfPinnedObject(), (nuint)dashPattern.Length);
-                }
-                else
-                {
-                    nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, IntPtr.Zero, 0);
-                }
-            }
-
             unsafe
             {
-                fixed (VelloGlyph* glyphPtr = glyphBuffer)
+                fixed (VelloGlyph* glyphPtr = glyphSpan)
+                fixed (VelloGradientStop* stopPtr = stops)
                 {
+                    var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+
+                    var nativeOptions = new VelloGlyphRunOptions
+                    {
+                        Transform = options.Transform.ToNativeAffine(),
+                        FontSize = options.FontSize,
+                        Hint = options.Hint,
+                        Style = (VelloGlyphRunStyle)options.Style,
+                        Brush = nativeBrush,
+                        BrushAlpha = options.BrushAlpha,
+                        StrokeStyle = default,
+                        GlyphTransform = IntPtr.Zero,
+                    };
+
                     VelloAffine glyphTransformValue = default;
                     if (options.GlyphTransform.HasValue)
                     {
                         glyphTransformValue = options.GlyphTransform.Value.ToNativeAffine();
                         nativeOptions.GlyphTransform = (IntPtr)(&glyphTransformValue);
                     }
+
+                    if (options.Style == GlyphRunStyle.Stroke)
+                    {
+                        var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
+                        if (stroke.DashPattern is { Length: > 0 } pattern)
+                        {
+                            fixed (double* dashPtr = pattern)
+                            {
+                                nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
+                                InvokeGlyphRun(
+                                    _handle,
+                                    font.Handle,
+                                    glyphPtr,
+                                    (nuint)glyphSpan.Length,
+                                    ref nativeOptions);
+                            }
+                        }
+                        else
+                        {
+                            nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, IntPtr.Zero, 0);
+                            InvokeGlyphRun(
+                                _handle,
+                                font.Handle,
+                                glyphPtr,
+                                (nuint)glyphSpan.Length,
+                                ref nativeOptions);
+                        }
+                    }
                     else
                     {
-                        nativeOptions.GlyphTransform = IntPtr.Zero;
+                        InvokeGlyphRun(
+                            _handle,
+                            font.Handle,
+                            glyphPtr,
+                            (nuint)glyphSpan.Length,
+                            ref nativeOptions);
                     }
-
-                    var status = NativeMethods.vello_scene_draw_glyph_run(
-                        _handle,
-                        font.Handle,
-                        glyphPtr,
-                        (nuint)glyphBuffer.Length,
-                        nativeOptions);
-
-                    NativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
                 }
             }
         }
         finally
         {
-            if (dashHandle.IsAllocated)
-            {
-                dashHandle.Free();
-            }
+            ArrayPool<VelloGlyph>.Shared.Return(glyphArray, clearArray: false);
         }
     }
 
@@ -364,12 +447,16 @@ public sealed class Scene : IDisposable
             throw new ArgumentException("Path must contain at least one element.", nameof(elements));
         }
 
-        using var marshaler = brush.CreateMarshaler();
+        var brushData = brush.CreateNative();
+        var stops = brushData.Stops.Span;
 
         unsafe
         {
             fixed (VelloPathElement* elementPtr = elements)
+            fixed (VelloGradientStop* stopPtr = stops)
             {
+                var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+
                 VelloAffine* brushTransformPtr = null;
                 VelloAffine brushAffine = default;
                 if (brushTransform.HasValue)
@@ -382,7 +469,7 @@ public sealed class Scene : IDisposable
                     _handle,
                     (VelloFillRule)fillRule,
                     transform.ToNativeAffine(),
-                    marshaler.Brush,
+                    nativeBrush,
                     brushTransformPtr,
                     elementPtr,
                     (nuint)elements.Length);
@@ -404,12 +491,16 @@ public sealed class Scene : IDisposable
             throw new ArgumentException("Path must contain at least one element.", nameof(elements));
         }
 
-        using var marshaler = brush.CreateMarshaler();
+        var brushData = brush.CreateNative();
+        var stops = brushData.Stops.Span;
 
         unsafe
         {
             fixed (VelloPathElement* elementPtr = elements)
+            fixed (VelloGradientStop* stopPtr = stops)
             {
+                var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+
                 VelloAffine* brushTransformPtr = null;
                 VelloAffine brushAffine = default;
                 if (brushTransform.HasValue)
@@ -427,7 +518,7 @@ public sealed class Scene : IDisposable
                             _handle,
                             nativeStyle,
                             transform.ToNativeAffine(),
-                            marshaler.Brush,
+                            nativeBrush,
                             brushTransformPtr,
                             elementPtr,
                             (nuint)elements.Length);
@@ -442,7 +533,7 @@ public sealed class Scene : IDisposable
                         _handle,
                         nativeStyle,
                         transform.ToNativeAffine(),
-                        marshaler.Brush,
+                        nativeBrush,
                         brushTransformPtr,
                         elementPtr,
                         (nuint)elements.Length);
@@ -479,6 +570,23 @@ public sealed class Scene : IDisposable
         return converted;
     }
 
+    private static unsafe void InvokeGlyphRun(
+        IntPtr sceneHandle,
+        IntPtr fontHandle,
+        VelloGlyph* glyphPtr,
+        nuint glyphCount,
+        ref VelloGlyphRunOptions options)
+    {
+        var status = NativeMethods.vello_scene_draw_glyph_run(
+            sceneHandle,
+            fontHandle,
+            glyphPtr,
+            glyphCount,
+            options);
+
+        NativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
+    }
+
     private static VelloStrokeStyle CreateStrokeStyle(StrokeStyle style, IntPtr dashPtr, nuint dashLength) => new()
     {
         Width = style.Width,
@@ -490,6 +598,31 @@ public sealed class Scene : IDisposable
         DashPattern = dashPtr,
         DashLength = dashLength,
     };
+
+    private static unsafe VelloBrush PrepareBrushForInvocation(
+        VelloBrush brush,
+        ReadOnlySpan<VelloGradientStop> stops,
+        VelloGradientStop* stopPtr)
+    {
+        brush.Linear.Stops = IntPtr.Zero;
+        brush.Radial.Stops = IntPtr.Zero;
+
+        if (!stops.IsEmpty && stopPtr is not null)
+        {
+            var ptr = (IntPtr)stopPtr;
+            switch (brush.Kind)
+            {
+                case VelloBrushKind.LinearGradient:
+                    brush.Linear.Stops = ptr;
+                    break;
+                case VelloBrushKind.RadialGradient:
+                    brush.Radial.Stops = ptr;
+                    break;
+            }
+        }
+
+        return brush;
+    }
 
     private void ThrowIfDisposed()
     {
