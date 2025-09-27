@@ -1,0 +1,9 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:avalonia="clr-namespace:VelloSharp.Integration.Avalonia;assembly=VelloSharp.Integration"
+             x:Class="AvaloniaWinitDemo.MainView">
+  <Grid RowDefinitions="Auto,*">
+    <TextBlock Text="Vello surface preview" />
+    <avalonia:VelloSurfaceView Grid.Row="1" x:Name="Surface" />
+  </Grid>
+</UserControl>

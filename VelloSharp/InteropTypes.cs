@@ -103,6 +103,7 @@ public enum WinitStatus : int
     RuntimeError = 3,
     WindowCreationFailed = 4,
     CallbackPanicked = 5,
+    InvalidState = 6,
 }
 
 public enum WinitControlFlow : int

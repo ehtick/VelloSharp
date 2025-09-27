@@ -59,4 +59,52 @@ internal static unsafe partial class WinitNativeMethods
     [LibraryImport(LibraryName, EntryPoint = "winit_window_get_vello_handle")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_get_vello_handle(nint window, out VelloWindowHandle handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_event_loop_wake")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_event_loop_wake();
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_context_create_window")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_context_create_window(nint context, ref WinitWindowDescriptor descriptor, out nint window);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_context_destroy_window")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_context_destroy_window(nint context, nint window);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_inner_size")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_inner_size(nint window, uint width, uint height);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_min_inner_size")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_min_inner_size(nint window, uint width, uint height);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_max_inner_size")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_max_inner_size(nint window, uint width, uint height);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_visible")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_visible(nint window, [MarshalAs(UnmanagedType.I1)] bool visible);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_resizable")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_resizable(nint window, [MarshalAs(UnmanagedType.I1)] bool resizable);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_decorations")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_decorations(nint window, [MarshalAs(UnmanagedType.I1)] bool decorations);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_minimized")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_minimized(nint window, [MarshalAs(UnmanagedType.I1)] bool minimized);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_maximized")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_maximized(nint window, [MarshalAs(UnmanagedType.I1)] bool maximized);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_focus")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_focus(nint window);
 }

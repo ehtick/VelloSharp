@@ -5,11 +5,13 @@
 
 use std::{
     cell::RefCell,
+    collections::HashMap,
     ffi::{CStr, CString, c_char, c_void},
     num::NonZeroIsize,
     panic::{AssertUnwindSafe, catch_unwind},
     ptr::{self, NonNull},
     rc::Rc,
+    sync::{Mutex, OnceLock},
     time::Duration,
 };
 
@@ -21,10 +23,17 @@ use winit::{
         DeviceEvent, ElementState, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
         WindowEvent,
     },
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     keyboard::{KeyLocation, ModifiersState, PhysicalKey},
     window::{Window, WindowAttributes, WindowId},
 };
+
+#[derive(Clone, Copy, Debug)]
+enum UserEvent {
+    Wake,
+}
+
+static EVENT_LOOP_PROXY: OnceLock<Mutex<Option<EventLoopProxy<UserEvent>>>> = OnceLock::new();
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
@@ -38,6 +47,50 @@ fn set_last_error(msg: impl Into<String>) {
     let msg = msg.into();
     let cstr = CString::new(msg).unwrap_or_else(|_| CString::new("invalid error message").unwrap());
     LAST_ERROR.with(|slot| *slot.borrow_mut() = Some(cstr));
+}
+
+fn store_event_loop_proxy(proxy: EventLoopProxy<UserEvent>) {
+    let mutex = EVENT_LOOP_PROXY.get_or_init(|| Mutex::new(None));
+    *mutex.lock().unwrap() = Some(proxy);
+}
+
+fn clear_event_loop_proxy() {
+    if let Some(mutex) = EVENT_LOOP_PROXY.get() {
+        *mutex.lock().unwrap() = None;
+    }
+}
+
+fn with_event_loop_proxy<F>(mut f: F) -> Result<(), WinitStatus>
+where
+    F: FnMut(&EventLoopProxy<UserEvent>) -> Result<(), WinitStatus>,
+{
+    let Some(mutex) = EVENT_LOOP_PROXY.get() else {
+        set_last_error("Event loop proxy is not initialized");
+        return Err(WinitStatus::InvalidState);
+    };
+
+    let guard = mutex.lock().unwrap();
+    let Some(proxy) = guard.as_ref() else {
+        set_last_error("Event loop proxy is not available");
+        return Err(WinitStatus::InvalidState);
+    };
+
+    f(proxy)
+}
+
+struct ProxyRegistration;
+
+impl ProxyRegistration {
+    fn register(proxy: EventLoopProxy<UserEvent>) -> Self {
+        store_event_loop_proxy(proxy);
+        Self
+    }
+}
+
+impl Drop for ProxyRegistration {
+    fn drop(&mut self) {
+        clear_event_loop_proxy();
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -57,6 +110,7 @@ pub enum WinitStatus {
     RuntimeError = 3,
     WindowCreationFailed = 4,
     CallbackPanicked = 5,
+    InvalidState = 6,
 }
 
 #[repr(i32)]
@@ -340,6 +394,7 @@ impl Default for VelloWindowHandle {
     }
 }
 
+#[derive(Clone)]
 struct WindowConfig {
     width: Option<u32>,
     height: Option<u32>,
@@ -435,8 +490,8 @@ impl WinitWindowHandle {
         Self { id, window }
     }
 
-    fn matches(&self, window_id: WindowId) -> bool {
-        self.id == u64::from(window_id)
+    fn id(&self) -> u64 {
+        self.id
     }
 
     fn window(&self) -> &Window {
@@ -449,7 +504,7 @@ struct WinitApplication {
     user_data: *mut c_void,
     create_window: bool,
     window_config: WindowConfig,
-    window_handle: Option<NonNull<WinitWindowHandle>>,
+    windows: HashMap<u64, NonNull<WinitWindowHandle>>,
     shared: Rc<RefCell<SharedState>>,
     modifiers: ModifiersState,
 }
@@ -473,20 +528,14 @@ impl WinitApplication {
             user_data,
             create_window,
             window_config,
-            window_handle: None,
+            windows: HashMap::new(),
             shared,
             modifiers: ModifiersState::empty(),
         }
     }
 
-    fn window_ptr(&self) -> *mut WinitWindowHandleOpaque {
-        self.window_handle
-            .map(|handle| handle.as_ptr().cast::<WinitWindowHandleOpaque>())
-            .unwrap_or(ptr::null_mut())
-    }
-
     fn drop_window_handle(&mut self) {
-        if let Some(handle) = self.window_handle.take() {
+        for handle in self.windows.drain().map(|(_, handle)| handle) {
             unsafe { drop(Box::from_raw(handle.as_ptr())) };
         }
     }
@@ -528,32 +577,41 @@ impl WinitApplication {
         &mut self,
         event_loop: &ActiveEventLoop,
     ) -> Result<NonNull<WinitWindowHandle>, WinitStatus> {
-        if let Some(handle) = self.window_handle {
-            return Ok(handle);
+        if let Some((&_, handle)) = self.windows.iter().next() {
+            return Ok(*handle);
         }
 
-        let mut attributes =
-            WindowAttributes::default().with_title(self.window_config.title.clone());
-        if let (Some(width), Some(height)) = (self.window_config.width, self.window_config.height) {
+        let config = self.window_config.clone();
+        self.create_window_from_config(event_loop, &config)
+    }
+
+    fn create_window_from_config(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        config: &WindowConfig,
+    ) -> Result<NonNull<WinitWindowHandle>, WinitStatus> {
+        let mut attributes = WindowAttributes::default().with_title(config.title.clone());
+        if let (Some(width), Some(height)) = (config.width, config.height) {
             attributes = attributes.with_inner_size(PhysicalSize::new(width, height));
         }
-        if let Some(min_size) = self.window_config.min_size {
+        if let Some(min_size) = config.min_size {
             attributes = attributes.with_min_inner_size(min_size);
         }
-        if let Some(max_size) = self.window_config.max_size {
+        if let Some(max_size) = config.max_size {
             attributes = attributes.with_max_inner_size(max_size);
         }
         attributes = attributes
-            .with_resizable(self.window_config.resizable)
-            .with_decorations(self.window_config.decorations)
-            .with_transparent(self.window_config.transparent)
-            .with_visible(self.window_config.visible);
+            .with_resizable(config.resizable)
+            .with_decorations(config.decorations)
+            .with_transparent(config.transparent)
+            .with_visible(config.visible);
 
         match event_loop.create_window(attributes) {
             Ok(window) => {
                 let handle = Box::into_raw(Box::new(WinitWindowHandle::new(window)));
                 let handle_ptr = unsafe { NonNull::new_unchecked(handle) };
-                self.window_handle = Some(handle_ptr);
+                let key = unsafe { handle_ptr.as_ref().id() };
+                self.windows.insert(key, handle_ptr);
                 Ok(handle_ptr)
             }
             Err(err) => {
@@ -563,20 +621,44 @@ impl WinitApplication {
         }
     }
 
+    fn create_window_with_descriptor(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        descriptor: &WinitWindowDescriptor,
+    ) -> Result<NonNull<WinitWindowHandle>, WinitStatus> {
+        let config = WindowConfig::from_descriptor(descriptor)?;
+        self.create_window_from_config(event_loop, &config)
+    }
+
     fn handle_for_id(&mut self, window_id: WindowId) -> Option<&mut WinitWindowHandle> {
-        let handle = self.window_handle.as_mut()?;
-        unsafe {
-            let handle_ref = handle.as_mut();
-            if handle_ref.matches(window_id) {
-                Some(handle_ref)
-            } else {
-                None
-            }
+        let key = u64::from(window_id);
+        let handle = self.windows.get_mut(&key)?;
+        unsafe { Some(handle.as_mut()) }
+    }
+
+    fn remove_window(&mut self, window_id: WindowId) {
+        let key = u64::from(window_id);
+        if let Some(handle) = self.windows.remove(&key) {
+            unsafe { drop(Box::from_raw(handle.as_ptr())) };
+        }
+    }
+
+    fn first_window_ptr(&self) -> *mut WinitWindowHandleOpaque {
+        self.windows
+            .values()
+            .next()
+            .map(|handle| handle.as_ptr().cast::<WinitWindowHandleOpaque>())
+            .unwrap_or(ptr::null_mut())
+    }
+
+    fn remove_window_by_key(&mut self, key: u64) {
+        if let Some(handle) = self.windows.remove(&key) {
+            unsafe { drop(Box::from_raw(handle.as_ptr())) };
         }
     }
 }
 
-impl ApplicationHandler for WinitApplication {
+impl ApplicationHandler<UserEvent> for WinitApplication {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         let mut event = WinitEvent::new(WinitEventKind::NewEvents);
         event.start_cause = match cause {
@@ -592,11 +674,11 @@ impl ApplicationHandler for WinitApplication {
         let event = WinitEvent::new(WinitEventKind::Resumed);
         self.dispatch_event(event_loop, event);
 
-        if self.create_window && self.window_handle.is_none() {
+        if self.create_window && self.windows.is_empty() {
             if let Ok(handle) = self.ensure_window(event_loop) {
                 let window_handle = unsafe { handle.as_ref() };
                 let mut created = WinitEvent::new(WinitEventKind::WindowCreated);
-                created.window = self.window_ptr();
+                created.window = handle.as_ptr().cast::<WinitWindowHandleOpaque>();
                 let size = window_handle.window().inner_size();
                 created.width = size.width;
                 created.height = size.height;
@@ -620,7 +702,8 @@ impl ApplicationHandler for WinitApplication {
         let Some(handle) = self.handle_for_id(window_id) else {
             return;
         };
-        let window_ptr = (handle as *mut WinitWindowHandle).cast::<WinitWindowHandleOpaque>();
+        let handle_ptr = handle as *mut WinitWindowHandle;
+        let window_ptr = handle_ptr.cast::<WinitWindowHandleOpaque>();
         match event {
             WindowEvent::Resized(size) => {
                 let mut evt = WinitEvent::new(WinitEventKind::WindowResized);
@@ -728,7 +811,7 @@ impl ApplicationHandler for WinitApplication {
                 let mut evt = WinitEvent::new(WinitEventKind::WindowDestroyed);
                 evt.window = window_ptr;
                 self.dispatch_event(event_loop, evt);
-                self.drop_window_handle();
+                self.remove_window(window_id);
             }
             _ => {}
         }
@@ -754,10 +837,11 @@ impl ApplicationHandler for WinitApplication {
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
-        let mut event = WinitEvent::new(WinitEventKind::Exiting);
-        event.window = self.window_ptr();
+        let event = WinitEvent::new(WinitEventKind::Exiting);
         self.dispatch_event(event_loop, event);
     }
+
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: UserEvent) {}
 }
 
 fn map_element_state(state: ElementState) -> WinitElementState {
@@ -976,7 +1060,63 @@ pub unsafe extern "C" fn winit_context_get_window(
     };
     match with_context(ctx, |context| {
         let application = unsafe { context.application()? };
-        *out = application.window_ptr();
+        *out = application.first_window_ptr();
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_context_create_window(
+    ctx: *mut WinitCallbackContextOpaque,
+    descriptor: *const WinitWindowDescriptor,
+    out_window: *mut *mut WinitWindowHandleOpaque,
+) -> WinitStatus {
+    clear_last_error();
+
+    let descriptor_ref = unsafe { descriptor.as_ref() };
+    let Some(out) = (unsafe { out_window.as_mut() }) else {
+        set_last_error("Output pointer is null");
+        return WinitStatus::NullPointer;
+    };
+
+    match with_context(ctx, |context| {
+        let event_loop = unsafe { context.event_loop()? };
+        let application = unsafe { context.application()? };
+        let handle = if let Some(descriptor) = descriptor_ref {
+            application.create_window_with_descriptor(event_loop, descriptor)?
+        } else {
+            application.ensure_window(event_loop)?
+        };
+        *out = handle.as_ptr().cast::<WinitWindowHandleOpaque>();
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_context_destroy_window(
+    ctx: *mut WinitCallbackContextOpaque,
+    window: *mut WinitWindowHandleOpaque,
+) -> WinitStatus {
+    clear_last_error();
+    if window.is_null() {
+        set_last_error("Window pointer is null");
+        return WinitStatus::NullPointer;
+    }
+
+    match with_context(ctx, |context| {
+        let application = unsafe { context.application()? };
+        let handle_ptr = NonNull::new(window.cast::<WinitWindowHandle>()).ok_or_else(|| {
+            set_last_error("Window pointer is null");
+            WinitStatus::NullPointer
+        })?;
+        let key = unsafe { handle_ptr.as_ref().id() };
+        application.remove_window_by_key(key);
         Ok(())
     }) {
         Ok(()) => WinitStatus::Success,
@@ -1068,7 +1208,7 @@ pub unsafe extern "C" fn winit_window_id(
         return WinitStatus::NullPointer;
     };
     match with_window(window, |handle| {
-        *id = handle.id;
+        *id = handle.id();
         Ok(())
     }) {
         Ok(()) => WinitStatus::Success,
@@ -1103,6 +1243,153 @@ pub unsafe extern "C" fn winit_window_set_title(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_inner_size(
+    window: *mut WinitWindowHandleOpaque,
+    width: u32,
+    height: u32,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        let _ = handle
+            .window()
+            .request_inner_size(PhysicalSize::new(width, height));
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_min_inner_size(
+    window: *mut WinitWindowHandleOpaque,
+    width: u32,
+    height: u32,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        let size = if width == 0 || height == 0 {
+            None
+        } else {
+            Some(PhysicalSize::new(width, height))
+        };
+        handle.window().set_min_inner_size(size);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_max_inner_size(
+    window: *mut WinitWindowHandleOpaque,
+    width: u32,
+    height: u32,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        let size = if width == 0 || height == 0 {
+            None
+        } else {
+            Some(PhysicalSize::new(width, height))
+        };
+        handle.window().set_max_inner_size(size);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_visible(
+    window: *mut WinitWindowHandleOpaque,
+    visible: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_visible(visible);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_resizable(
+    window: *mut WinitWindowHandleOpaque,
+    resizable: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_resizable(resizable);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_decorations(
+    window: *mut WinitWindowHandleOpaque,
+    decorations: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_decorations(decorations);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_minimized(
+    window: *mut WinitWindowHandleOpaque,
+    minimized: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_minimized(minimized);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_maximized(
+    window: *mut WinitWindowHandleOpaque,
+    maximized: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_maximized(maximized);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_focus(window: *mut WinitWindowHandleOpaque) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().focus_window();
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn winit_window_get_vello_handle(
     window: *mut WinitWindowHandleOpaque,
     out_handle: *mut VelloWindowHandle,
@@ -1114,6 +1401,22 @@ pub unsafe extern "C" fn winit_window_get_vello_handle(
     };
     match with_window(window, |handle| {
         fill_vello_window_handle(handle.window(), out)
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_event_loop_wake() -> WinitStatus {
+    clear_last_error();
+    match with_event_loop_proxy(|proxy| {
+        proxy
+            .send_event(UserEvent::Wake)
+            .map_err(|err| {
+                set_last_error(format!("Failed to signal event loop: {err}"));
+                WinitStatus::InvalidState
+            })
     }) {
         Ok(()) => WinitStatus::Success,
         Err(status) => status,
@@ -1138,13 +1441,16 @@ pub unsafe extern "C" fn winit_event_loop_run(
         Err(status) => return status,
     };
 
-    let event_loop = match EventLoop::new() {
+    let event_loop = match EventLoop::with_user_event().build() {
         Ok(loop_) => loop_,
         Err(err) => {
             set_last_error(format!("Failed to create event loop: {err}"));
             return WinitStatus::RuntimeError;
         }
     };
+
+    let proxy = event_loop.create_proxy();
+    let _proxy_guard = ProxyRegistration::register(proxy);
 
     let shared = Rc::new(RefCell::new(SharedState::default()));
     let mut app = WinitApplication::new(

@@ -83,6 +83,8 @@ public readonly struct WinitEventLoopContext
         _context = context;
     }
 
+    internal nint Handle => _context;
+
     public void SetControlFlow(WinitControlFlow flow, TimeSpan? wait = null)
     {
         var millis = wait.HasValue ? (long)Math.Max(0, wait.Value.TotalMilliseconds) : 0;
@@ -163,6 +165,51 @@ public sealed class WinitWindow
     {
         NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_get_vello_handle(_handle, out var handle), "winit_window_get_vello_handle");
         return handle;
+    }
+
+    public void SetInnerSize(uint width, uint height)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_inner_size(_handle, width, height), "winit_window_set_inner_size");
+    }
+
+    public void SetMinInnerSize(uint width, uint height)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_min_inner_size(_handle, width, height), "winit_window_set_min_inner_size");
+    }
+
+    public void SetMaxInnerSize(uint width, uint height)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_max_inner_size(_handle, width, height), "winit_window_set_max_inner_size");
+    }
+
+    public void SetVisible(bool visible)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_visible(_handle, visible), "winit_window_set_visible");
+    }
+
+    public void SetResizable(bool resizable)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_resizable(_handle, resizable), "winit_window_set_resizable");
+    }
+
+    public void SetDecorations(bool decorations)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_decorations(_handle, decorations), "winit_window_set_decorations");
+    }
+
+    public void SetMinimized(bool minimized)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_minimized(_handle, minimized), "winit_window_set_minimized");
+    }
+
+    public void SetMaximized(bool maximized)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_maximized(_handle, maximized), "winit_window_set_maximized");
+    }
+
+    public void Focus()
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_focus(_handle), "winit_window_focus");
     }
 }
 

@@ -1,0 +1,12 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:AvaloniaWinitDemo"
+        x:Class="AvaloniaWinitDemo.MainWindow"
+        Width="800"
+        Height="600"
+        Title="Avalonia Winit Demo">
+  <StackPanel Margin="16">
+    <TextBlock Text="Avalonia on Winit backend" FontSize="24" Margin="0,0,0,12" />
+    <local:MainView />
+  </StackPanel>
+</Window>
