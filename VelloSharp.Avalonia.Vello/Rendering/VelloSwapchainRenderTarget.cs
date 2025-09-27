@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Platform;
 using Avalonia.Rendering;
+using Avalonia.Threading;
 using Avalonia.Winit;
 using VelloSharp;
 
@@ -32,6 +33,12 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
     private WgpuInstance? _currentInstance;
     private WgpuAdapter? _currentAdapter;
     private WgpuDevice? _currentDevice;
+    private bool _surfaceCreationPending;
+    private SurfaceDescriptor _pendingSurfaceDescriptor;
+    private bool _hasPendingSurfaceDescriptor;
+    private WgpuInstance? _pendingSurfaceInstance;
+    private Exception? _surfaceCreationError;
+    private long _surfaceCreationRequestId;
 
     public VelloSwapchainRenderTarget(
         VelloGraphicsDevice graphicsDevice,
@@ -141,25 +148,55 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
 
         var surfaceHandle = _surfaceProvider.CreateSurfaceHandle();
 
+        var descriptor = new SurfaceDescriptor
+        {
+            Width = width,
+            Height = height,
+            PresentMode = _presentMode,
+            Handle = surfaceHandle,
+        };
+
+        if (OperatingSystem.IsMacOS() && _surfaceCreationPending)
+        {
+            if (PendingSurfaceMatches(resources.Instance, descriptor))
+            {
+                return false;
+            }
+        }
+
         if (!_surfaceHandle.HasValue ||
             !_surfaceHandle.Value.Equals(surfaceHandle) ||
             !ReferenceEquals(_currentInstance, resources.Instance))
         {
-            DisposeSurface_NoLock();
-
-            var descriptor = new SurfaceDescriptor
+            if (OperatingSystem.IsMacOS())
             {
-                Width = width,
-                Height = height,
-                PresentMode = _presentMode,
-                Handle = surfaceHandle,
-            };
+                DisposeSurface_NoLock();
+                ScheduleSurfaceCreation(resources.Instance, descriptor);
+                return false;
+            }
+
+            DisposeSurface_NoLock();
 
             _wgpuSurface = WgpuSurface.Create(resources.Instance, descriptor);
             _surfaceHandle = surfaceHandle;
             _currentInstance = resources.Instance;
             _currentAdapter = resources.Adapter;
             _currentDevice = resources.Device;
+            _surfaceConfigured = false;
+            _surfaceFormat = default;
+            _requiresSurfaceBlit = false;
+            _surfaceConfiguration = default;
+        }
+
+        if (_surfaceCreationPending)
+        {
+            return false;
+        }
+
+        if (_surfaceCreationError is Exception creationError)
+        {
+            _surfaceCreationError = null;
+            throw new InvalidOperationException("Failed to create wgpu surface.", creationError);
         }
 
         if (!ReferenceEquals(_currentAdapter, resources.Adapter) ||
@@ -260,6 +297,83 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
         _ => true,
     };
 
+    private bool PendingSurfaceMatches(WgpuInstance instance, in SurfaceDescriptor descriptor)
+    {
+        if (!_hasPendingSurfaceDescriptor)
+        {
+            return false;
+        }
+
+        return ReferenceEquals(_pendingSurfaceInstance, instance)
+            && _pendingSurfaceDescriptor.Width == descriptor.Width
+            && _pendingSurfaceDescriptor.Height == descriptor.Height
+            && _pendingSurfaceDescriptor.PresentMode == descriptor.PresentMode
+            && _pendingSurfaceDescriptor.Handle.Equals(descriptor.Handle);
+    }
+
+    private void ScheduleSurfaceCreation(WgpuInstance instance, SurfaceDescriptor descriptor)
+    {
+        _surfaceCreationPending = true;
+        _surfaceCreationError = null;
+        _hasPendingSurfaceDescriptor = true;
+        _pendingSurfaceDescriptor = descriptor;
+        _pendingSurfaceInstance = instance;
+        var requestId = ++_surfaceCreationRequestId;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            WgpuSurface? createdSurface = null;
+            Exception? error = null;
+
+            try
+            {
+                createdSurface = WgpuSurface.Create(instance, descriptor);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            lock (_syncRoot)
+            {
+                if (_disposed || requestId != _surfaceCreationRequestId)
+                {
+                    createdSurface?.Dispose();
+                    return;
+                }
+
+                if (error is null && createdSurface is not null)
+                {
+                    _wgpuSurface = createdSurface;
+                    _surfaceHandle = descriptor.Handle;
+                    _currentInstance = instance;
+                    _currentAdapter = null;
+                    _currentDevice = null;
+                    _surfaceConfigured = false;
+                    _surfaceFormat = default;
+                    _requiresSurfaceBlit = false;
+                    _surfaceConfiguration = default;
+                }
+                else
+                {
+                    createdSurface?.Dispose();
+                    _surfaceCreationError = error;
+                }
+
+                _surfaceCreationPending = false;
+                _hasPendingSurfaceDescriptor = false;
+                _pendingSurfaceInstance = null;
+            }
+
+            if (error is not null)
+            {
+                Debug.WriteLine($"[Vello] Failed to create wgpu surface: {error}");
+            }
+
+            _surfaceProvider.RequestRedraw();
+        });
+    }
+
     private void DisposeSurface_NoLock()
     {
         _wgpuSurface?.Dispose();
@@ -269,6 +383,14 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
         _currentInstance = null;
         _currentAdapter = null;
         _currentDevice = null;
+        _surfaceCreationPending = false;
+        _hasPendingSurfaceDescriptor = false;
+        _pendingSurfaceInstance = null;
+        _surfaceCreationError = null;
+        _surfaceConfiguration = default;
+        _surfaceFormat = default;
+        _requiresSurfaceBlit = false;
+        _surfaceCreationRequestId++;
     }
 
     private static PixelSize ClampSize(PixelSize size)
