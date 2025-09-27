@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Platform;
+using Avalonia.Utilities;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Geometry;
 
@@ -20,11 +23,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private bool _disposed;
     private readonly Stack<Matrix> _transformStack = new();
     private readonly Stack<LayerEntry> _layerStack = new();
+    private readonly List<IDisposable> _deferredDisposables = new();
     private int _clipDepth;
     private int _opacityDepth;
     private int _layerDepth;
     private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
+    private static readonly PropertyInfo? s_imageBrushBitmapProperty =
+        typeof(IImageBrushSource).GetProperty("Bitmap", BindingFlags.Instance | BindingFlags.NonPublic);
 
     public VelloDrawingContextImpl(Scene scene, PixelSize targetSize, VelloPlatformOptions options, Action<VelloDrawingContextImpl> onCompleted)
     {
@@ -54,7 +60,19 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         }
 
         _disposed = true;
-        _onCompleted(this);
+        try
+        {
+            _onCompleted(this);
+        }
+        finally
+        {
+            foreach (var disposable in _deferredDisposables)
+            {
+                disposable.Dispose();
+            }
+
+            _deferredDisposables.Clear();
+        }
     }
 
     public void Clear(Color color)
@@ -109,7 +127,9 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             return;
         }
 
-        if (!TryCreateStroke(pen, out var style, out var strokeBrush, out var brushTransform))
+        var bounds = new Rect(new Point(Math.Min(p1.X, p2.X), Math.Min(p1.Y, p2.Y)), new Point(Math.Max(p1.X, p2.X), Math.Max(p1.Y, p2.Y)));
+
+        if (!TryCreateStroke(pen, bounds, out var style, out var strokeBrush, out var brushTransform))
         {
             return;
         }
@@ -131,12 +151,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var fillRule = ToVelloFillRule(velloGeometry.EffectiveFillRule);
         var transform = ToMatrix3x2(Transform);
 
-        if (brush is not null && TryCreateBrush(brush, out var velloBrush, out var brushTransform))
+        var bounds = velloGeometry.Bounds;
+
+        if (brush is not null && TryCreateBrush(brush, bounds, out var velloBrush, out var brushTransform))
         {
             _scene.FillPath(pathBuilder, fillRule, transform, velloBrush, brushTransform);
         }
 
-        if (pen is not null && TryCreateStroke(pen, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
+        if (pen is not null && TryCreateStroke(pen, bounds, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
         {
             _scene.StrokePath(pathBuilder, strokeStyle, transform, strokeBrush, strokeBrushTransform);
         }
@@ -152,12 +174,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var builder = new PathBuilder();
         builder.AddRoundedRectangle(rect);
 
-        if (brush is not null && TryCreateBrush(brush, out var velloBrush, out var brushTransform))
+        var bounds = rect.Rect;
+
+        if (brush is not null && TryCreateBrush(brush, bounds, out var velloBrush, out var brushTransform))
         {
             _scene.FillPath(builder, VelloSharp.FillRule.NonZero, ToMatrix3x2(Transform), velloBrush, brushTransform);
         }
 
-        if (pen is not null && TryCreateStroke(pen, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
+        if (pen is not null && TryCreateStroke(pen, bounds, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
         {
             _scene.StrokePath(builder, strokeStyle, ToMatrix3x2(Transform), strokeBrush, strokeBrushTransform);
         }
@@ -178,12 +202,12 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var builder = new PathBuilder();
         builder.AddEllipse(rect);
 
-        if (brush is not null && TryCreateBrush(brush, out var velloBrush, out var brushTransform))
+        if (brush is not null && TryCreateBrush(brush, rect, out var velloBrush, out var brushTransform))
         {
             _scene.FillPath(builder, VelloSharp.FillRule.NonZero, ToMatrix3x2(Transform), velloBrush, brushTransform);
         }
 
-        if (pen is not null && TryCreateStroke(pen, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
+        if (pen is not null && TryCreateStroke(pen, rect, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
         {
             _scene.StrokePath(builder, strokeStyle, ToMatrix3x2(Transform), strokeBrush, strokeBrushTransform);
         }
@@ -198,7 +222,9 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             throw new NotSupportedException("Glyph run implementation is not compatible with the Vello renderer.");
         }
 
-        if (foreground is null || !TryCreateBrush(foreground, out var velloBrush, out _))
+        var bounds = glyphRun.Bounds;
+
+        if (foreground is null || !TryCreateBrush(foreground, bounds, out var velloBrush, out _))
         {
             return;
         }
@@ -426,7 +452,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         return builder;
     }
 
-    private bool TryCreateBrush(IBrush brush, out VelloSharp.Brush velloBrush, out Matrix3x2? brushTransform)
+    private bool TryCreateBrush(IBrush brush, Rect? targetBounds, out VelloSharp.Brush velloBrush, out Matrix3x2? brushTransform)
     {
         brushTransform = null;
 
@@ -435,24 +461,22 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             case ISolidColorBrush solid:
                 velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(solid.Color, solid.Opacity));
                 return true;
-            case IGradientBrush gradient when gradient.GradientStops is { Count: > 0 } stops:
-                var fallbackStop = stops[stops.Count - 1];
-                var effectiveOpacity = gradient.Opacity * (fallbackStop.Color.A / 255.0);
-                var opaqueColor = Color.FromArgb(255, fallbackStop.Color.R, fallbackStop.Color.G, fallbackStop.Color.B);
-                velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(opaqueColor, effectiveOpacity));
-                return true;
+            case IGradientBrush gradient when gradient.GradientStops is { Count: > 0 }:
+                return TryCreateGradientBrush(gradient, targetBounds, out velloBrush, out brushTransform);
+            case IImageBrush imageBrush:
+                return TryCreateImageBrush(imageBrush, targetBounds, out velloBrush, out brushTransform);
         }
 
         velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(Colors.Transparent, 0));
         return false;
     }
 
-    private bool TryCreateStroke(IPen pen, out StrokeStyle strokeStyle, out VelloSharp.Brush strokeBrush, out Matrix3x2? brushTransform)
+    private bool TryCreateStroke(IPen pen, Rect? targetBounds, out StrokeStyle strokeStyle, out VelloSharp.Brush strokeBrush, out Matrix3x2? brushTransform)
     {
         brushTransform = null;
         strokeBrush = null!;
 
-        if (pen.Brush is null || !TryCreateBrush(pen.Brush, out var fillBrush, out var transform))
+        if (pen.Brush is null || !TryCreateBrush(pen.Brush, targetBounds, out var fillBrush, out var transform))
         {
             strokeStyle = default!;
             return false;
@@ -551,11 +575,11 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     }
 
     private static VelloSharp.FillRule ToVelloFillRule(global::Avalonia.Media.FillRule fillRule)
-    {
-        return fillRule == global::Avalonia.Media.FillRule.EvenOdd
-            ? VelloSharp.FillRule.EvenOdd
-            : VelloSharp.FillRule.NonZero;
-    }
+        {
+            return fillRule == global::Avalonia.Media.FillRule.EvenOdd
+                ? VelloSharp.FillRule.EvenOdd
+                : VelloSharp.FillRule.NonZero;
+        }
 
     private readonly struct LayerEntry
     {
@@ -566,4 +590,305 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         public static LayerEntry Scene() => new(true);
         public static LayerEntry Noop() => new(false);
     }
+
+    private bool TryCreateGradientBrush(IGradientBrush gradient, Rect? boundsHint, out VelloSharp.Brush brush, out Matrix3x2? transform)
+    {
+        var bounds = ResolveBounds(boundsHint);
+
+        var stops = CreateGradientStops(gradient);
+        if (stops.Length == 0)
+        {
+            brush = new VelloSharp.SolidColorBrush(ToRgbaColor(Colors.Transparent, 0));
+            transform = null;
+            return false;
+        }
+
+        var extend = ToExtendMode(gradient.SpreadMethod);
+
+        switch (gradient)
+        {
+            case ILinearGradientBrush linear:
+            {
+                var start = linear.StartPoint.ToPixels(bounds);
+                var end = linear.EndPoint.ToPixels(bounds);
+
+                if (MathUtilities.IsZero(end.X - start.X) && MathUtilities.IsZero(end.Y - start.Y))
+                {
+                    brush = new VelloSharp.SolidColorBrush(stops[^1].Color);
+                    transform = null;
+                    return true;
+                }
+
+                brush = new VelloSharp.LinearGradientBrush(ToVector2(start), ToVector2(end), stops, extend);
+                var matrix = ComposeBrushTransform(bounds, linear.Transform, linear.TransformOrigin);
+                transform = ToMatrix3x2Nullable(matrix);
+                return true;
+            }
+
+            case IRadialGradientBrush radial:
+            {
+                var centerPoint = radial.Center.ToPixels(bounds);
+                var originPoint = radial.GradientOrigin.ToPixels(bounds);
+                var radiusX = radial.RadiusX.ToValue(bounds.Width);
+                var radiusY = radial.RadiusY.ToValue(bounds.Height);
+
+                if (MathUtilities.IsZero(radiusX) || MathUtilities.IsZero(radiusY))
+                {
+                    brush = new VelloSharp.SolidColorBrush(stops[^1].Color);
+                    transform = null;
+                    return true;
+                }
+
+                var startCenter = ToVector2(originPoint);
+                var endCenter = ToVector2(centerPoint);
+                var startRadius = 0f;
+                var endRadius = (float)radiusX;
+
+                Matrix? transformMatrix = null;
+
+                if (!MathUtilities.IsZero(radiusY - radiusX))
+                {
+                    var translateToCenter = Matrix.CreateTranslation(-centerPoint.X, -centerPoint.Y);
+                    var scale = Matrix.CreateScale(1, radiusY / radiusX);
+                    var translateBack = Matrix.CreateTranslation(centerPoint.X, centerPoint.Y);
+                    transformMatrix = translateToCenter * scale * translateBack;
+                }
+
+                var extra = ComposeBrushTransform(bounds, radial.Transform, radial.TransformOrigin);
+                if (extra is { })
+                {
+                    transformMatrix = transformMatrix.HasValue ? transformMatrix.Value * extra.Value : extra;
+                }
+
+                transform = ToMatrix3x2Nullable(transformMatrix);
+                brush = new VelloSharp.RadialGradientBrush(startCenter, startRadius, endCenter, endRadius, stops, extend);
+                return true;
+            }
+        }
+
+        brush = new VelloSharp.SolidColorBrush(stops[^1].Color);
+        transform = null;
+        return true;
+    }
+
+    private bool TryCreateImageBrush(IImageBrush brush, Rect? boundsHint, out VelloSharp.Brush velloBrush, out Matrix3x2? brushTransform)
+    {
+        velloBrush = null!;
+        brushTransform = null;
+
+        using var bitmapRef = TryGetBitmapReference(brush.Source);
+        if (bitmapRef.BitmapImpl is not VelloBitmapImpl bitmap)
+        {
+            return false;
+        }
+
+        if (brush.SourceRect != RelativeRect.Fill || brush.DestinationRect != RelativeRect.Fill)
+        {
+            return false;
+        }
+
+        var bounds = ResolveBounds(boundsHint);
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return false;
+        }
+
+        var image = bitmap.CreateVelloImage();
+        _deferredDisposables.Add(image);
+
+        var (extendX, extendY) = ToExtendModes(brush.TileMode);
+        var imageBrush = new VelloSharp.ImageBrush(image)
+        {
+            Alpha = (float)brush.Opacity,
+            Quality = ImageQuality.Medium,
+            XExtend = extendX,
+            YExtend = extendY,
+        };
+
+        var imageSize = new Size(bitmap.PixelSize.Width, bitmap.PixelSize.Height);
+        if (imageSize.Width <= 0 || imageSize.Height <= 0)
+        {
+            velloBrush = imageBrush;
+            return true;
+        }
+
+        double scaleX = bounds.Width / imageSize.Width;
+        double scaleY = bounds.Height / imageSize.Height;
+
+        switch (brush.Stretch)
+        {
+            case Stretch.None:
+                scaleX = scaleY = 1;
+                break;
+            case Stretch.Uniform:
+                scaleX = scaleY = Math.Min(scaleX, scaleY);
+                break;
+            case Stretch.UniformToFill:
+                scaleX = scaleY = Math.Max(scaleX, scaleY);
+                break;
+            case Stretch.Fill:
+            default:
+                break;
+        }
+
+        var scaledWidth = imageSize.Width * scaleX;
+        var scaledHeight = imageSize.Height * scaleY;
+
+        double offsetX = bounds.X;
+        double offsetY = bounds.Y;
+
+        switch (brush.AlignmentX)
+        {
+            case AlignmentX.Center:
+                offsetX += (bounds.Width - scaledWidth) / 2;
+                break;
+            case AlignmentX.Right:
+                offsetX += bounds.Width - scaledWidth;
+                break;
+        }
+
+        switch (brush.AlignmentY)
+        {
+            case AlignmentY.Center:
+                offsetY += (bounds.Height - scaledHeight) / 2;
+                break;
+            case AlignmentY.Bottom:
+                offsetY += bounds.Height - scaledHeight;
+                break;
+        }
+
+        var matrix = Matrix.CreateScale(scaleX, scaleY) * Matrix.CreateTranslation(offsetX, offsetY);
+
+        var extra = ComposeBrushTransform(bounds, brush.Transform, brush.TransformOrigin);
+        if (extra is { })
+        {
+            matrix = matrix * extra.Value;
+        }
+
+        brushTransform = ToMatrix3x2(matrix);
+        velloBrush = imageBrush;
+        return true;
+    }
+
+    private static BitmapReference TryGetBitmapReference(IImageBrushSource? source)
+    {
+        if (source is null || s_imageBrushBitmapProperty is null)
+        {
+            return BitmapReference.Empty;
+        }
+
+        object? referenceObject;
+
+        try
+        {
+            referenceObject = s_imageBrushBitmapProperty.GetValue(source);
+        }
+        catch
+        {
+            return BitmapReference.Empty;
+        }
+
+        if (referenceObject is null)
+        {
+            return BitmapReference.Empty;
+        }
+
+        IDisposable? disposable = referenceObject as IDisposable;
+        IBitmapImpl? bitmapImpl = null;
+
+        var itemProperty = referenceObject.GetType().GetProperty("Item", BindingFlags.Instance | BindingFlags.Public);
+        if (itemProperty is not null)
+        {
+            try
+            {
+                bitmapImpl = itemProperty.GetValue(referenceObject) as IBitmapImpl;
+            }
+            catch
+            {
+                bitmapImpl = null;
+            }
+        }
+
+        return new BitmapReference(disposable, bitmapImpl);
+    }
+
+    private readonly struct BitmapReference : IDisposable
+    {
+        private readonly IDisposable? _reference;
+
+        public BitmapReference(IDisposable? reference, IBitmapImpl? bitmapImpl)
+        {
+            _reference = reference;
+            BitmapImpl = bitmapImpl;
+        }
+
+        public IBitmapImpl? BitmapImpl { get; }
+
+        public void Dispose()
+        {
+            _reference?.Dispose();
+        }
+
+        public static BitmapReference Empty => new(null, null);
+    }
+
+    private Rect ResolveBounds(Rect? bounds)
+    {
+        if (bounds is { } value && value.Width > 0 && value.Height > 0)
+        {
+            return value;
+        }
+
+        return new Rect(0, 0, Math.Max(1d, _targetSize.Width), Math.Max(1d, _targetSize.Height));
+    }
+
+    private static VelloSharp.GradientStop[] CreateGradientStops(IGradientBrush gradient)
+    {
+        var stops = gradient.GradientStops;
+        var result = new VelloSharp.GradientStop[stops.Count];
+        var opacity = gradient.Opacity;
+
+        for (var i = 0; i < stops.Count; i++)
+        {
+            var stop = stops[i];
+            var color = ToRgbaColor(stop.Color, opacity);
+            result[i] = new VelloSharp.GradientStop((float)Math.Clamp(stop.Offset, 0, 1), color);
+        }
+
+        return result;
+    }
+
+    private static ExtendMode ToExtendMode(GradientSpreadMethod spreadMethod) => spreadMethod switch
+    {
+        GradientSpreadMethod.Reflect => ExtendMode.Reflect,
+        GradientSpreadMethod.Repeat => ExtendMode.Repeat,
+        _ => ExtendMode.Pad,
+    };
+
+    private static (ExtendMode X, ExtendMode Y) ToExtendModes(TileMode mode) => mode switch
+    {
+        TileMode.FlipX => (ExtendMode.Reflect, ExtendMode.Pad),
+        TileMode.FlipY => (ExtendMode.Pad, ExtendMode.Reflect),
+        TileMode.FlipXY => (ExtendMode.Reflect, ExtendMode.Reflect),
+        TileMode.Tile => (ExtendMode.Repeat, ExtendMode.Repeat),
+        _ => (ExtendMode.Pad, ExtendMode.Pad),
+    };
+
+    private static Vector2 ToVector2(Point point) => new((float)point.X, (float)point.Y);
+
+    private static Matrix? ComposeBrushTransform(Rect bounds, ITransform? transform, RelativePoint origin)
+    {
+        if (transform is null)
+        {
+            return null;
+        }
+
+        var originPoint = origin.ToPixels(bounds);
+        var translateToOrigin = Matrix.CreateTranslation(-originPoint.X, -originPoint.Y);
+        var translateBack = Matrix.CreateTranslation(originPoint.X, originPoint.Y);
+        var matrix = transform.Value;
+        return translateToOrigin * matrix * translateBack;
+    }
+
+    private static Matrix3x2? ToMatrix3x2Nullable(Matrix? matrix) => matrix.HasValue ? ToMatrix3x2(matrix.Value) : (Matrix3x2?)null;
 }
