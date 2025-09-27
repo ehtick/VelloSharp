@@ -727,7 +727,7 @@ public readonly record struct RenderParams(
     uint Width,
     uint Height,
     RgbaColor BaseColor,
-    AntialiasingMode Antialiasing = AntialiasingMode.Msaa8,
+    AntialiasingMode Antialiasing = AntialiasingMode.Area,
     RenderFormat Format = RenderFormat.Rgba8)
 {
     public uint Width { get; init; } = Width;

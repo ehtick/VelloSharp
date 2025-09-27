@@ -12,22 +12,19 @@ internal sealed class VelloPlatformRenderInterfaceContext : IPlatformRenderInter
 {
     private readonly VelloGraphicsDevice _graphicsDevice;
     private readonly VelloPlatformOptions _options;
-    private readonly IPlatformRenderInterfaceContext _fallback;
-    private bool _disposed;
-
     public VelloPlatformRenderInterfaceContext(
         VelloGraphicsDevice graphicsDevice,
-        VelloPlatformOptions options,
-        IPlatformRenderInterfaceContext fallback)
+        VelloPlatformOptions options)
     {
         _graphicsDevice = graphicsDevice ?? throw new ArgumentNullException(nameof(graphicsDevice));
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _fallback = fallback ?? throw new ArgumentNullException(nameof(fallback));
     }
 
-    public bool IsLost => _fallback.IsLost;
+    public bool IsLost => false;
 
-    public IReadOnlyDictionary<Type, object> PublicFeatures => _fallback.PublicFeatures;
+    public IReadOnlyDictionary<Type, object> PublicFeatures => s_emptyFeatures;
+
+    private static readonly IReadOnlyDictionary<Type, object> s_emptyFeatures = new Dictionary<Type, object>();
 
     public IRenderTarget CreateRenderTarget(IEnumerable<object> surfaces)
     {
@@ -42,27 +39,20 @@ internal sealed class VelloPlatformRenderInterfaceContext : IPlatformRenderInter
             return new VelloSwapchainRenderTarget(_graphicsDevice, _options, surfaceProvider);
         }
 
-        return _fallback.CreateRenderTarget(surfaces);
+        throw new NotSupportedException("Unsupported surface type for the Vello backend.");
     }
 
     public IDrawingContextLayerImpl CreateOffscreenRenderTarget(PixelSize pixelSize, double scaling)
     {
-        return _fallback.CreateOffscreenRenderTarget(pixelSize, scaling);
+        throw new NotSupportedException("Offscreen render targets are not supported by the Vello backend yet.");
     }
 
     public object? TryGetFeature(Type featureType)
     {
-        return (_fallback as IOptionalFeatureProvider)?.TryGetFeature(featureType);
+        return null;
     }
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _fallback.Dispose();
-        _disposed = true;
     }
 }

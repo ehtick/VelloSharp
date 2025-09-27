@@ -17,7 +17,10 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Desktop" />
-    <PackageReference Include="Avalonia.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf"
+                      Link="Assets/Fonts/Roboto-Regular.ttf" />
   </ItemGroup>
 </Project>

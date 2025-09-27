@@ -38,11 +38,7 @@ internal static class VelloPlatform
 
             if (locator.GetService<IFontManagerImpl>() is null)
             {
-                var fontManager = CreateSkiaService<IFontManagerImpl>("Avalonia.Skia.FontManagerImpl, Avalonia.Skia");
-                if (fontManager is not null)
-                {
-                    locator.Bind<IFontManagerImpl>().ToConstant(fontManager);
-                }
+                locator.Bind<IFontManagerImpl>().ToConstant(new VelloFontManagerImpl());
             }
 
             if (locator.GetService<ITextShaperImpl>() is null)
@@ -61,21 +57,4 @@ internal static class VelloPlatform
 
     public static VelloGraphicsDevice GraphicsDevice =>
         s_device ?? throw new InvalidOperationException("Vello platform has not been initialized.");
-
-    private static TService? CreateSkiaService<TService>(string typeName)
-        where TService : class
-    {
-        var type = Type.GetType(typeName, throwOnError: false);
-        if (type is null)
-        {
-            return null;
-        }
-
-        if (!typeof(TService).IsAssignableFrom(type))
-        {
-            return null;
-        }
-
-        return (TService?)Activator.CreateInstance(type, nonPublic: true);
-    }
 }

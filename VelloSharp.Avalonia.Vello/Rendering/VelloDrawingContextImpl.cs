@@ -30,10 +30,9 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _onCompleted = onCompleted ?? throw new ArgumentNullException(nameof(onCompleted));
         Transform = Matrix.Identity;
-        var resolvedAa = options.ResolveAntialiasing(options.Antialiasing);
         RenderParams = new RenderParams((uint)Math.Max(1, targetSize.Width), (uint)Math.Max(1, targetSize.Height), options.ClearColor)
         {
-            Antialiasing = resolvedAa,
+            Antialiasing = AntialiasingMode.Area,
             Format = RenderFormat.Bgra8,
         };
     }

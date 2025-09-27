@@ -20,6 +20,7 @@ internal sealed class VelloGraphicsDevice : IDisposable
         {
             ThrowIfDisposed();
 
+
             if (_renderer is null || !OptionsEqual(_options, options))
             {
                 Recreate(options);

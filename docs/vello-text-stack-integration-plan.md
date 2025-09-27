@@ -1,9 +1,9 @@
 # Vello Text & Imaging Stack Integration Plan
 
 ## Context
-- Current Avalonia Vello backend still depends on Skia (fonts/shaping) and ImageSharp (bitmap IO).
-- Goal: consume the native Rust text/imaging crates used by Vello (`peniko`, `skrifa`, `swash`, `fontique`, `harfrust`, `parley`) via dedicated FFI bindings, eliminating Skia/ImageSharp dependencies.
-- Result: a managed pipeline that loads fonts, shapes glyphs, builds outlines, and rasterizes images entirely through the Vello/Parley ecosystem.
+- The Avalonia Vello backend has shed its Skia/ImageSharp fallbacks; geometry, text shaping, and bitmap IO now flow through the Vello/Parley native stack.
+- Remaining work focuses on polishing the FFI surface, broadening feature coverage, and validating the end-to-end pipeline across platforms.
+- Goal: maintain a managed pipeline that loads fonts, shapes glyphs, builds outlines, and rasterizes images entirely through the Vello/Parley ecosystem.
 
 ## Milestones Overview
 1. **Workspace Preparation** – vendor Rust crates, align Cargo workspace, document prerequisites.
@@ -38,11 +38,11 @@
 - [x] Define error propagation strategy (status codes, last-error strings) consistent with existing bindings.
 - [x] Document expected lifetime management and threading requirements.
 
-#### Current Avalonia dependencies to replace *(Catalogued)*
-- Fonts & shaping fall back to Skia services via `VelloSharp.Avalonia.Vello/VelloPlatform.cs:39-55`, binding `IFontManagerImpl`/`ITextShaperImpl` from `Avalonia.Skia` and keeping the `Avalonia.Skia` package reference alive in `VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj:21`.
-- `VelloSharp.Avalonia.Vello/Rendering/VelloPlatformRenderInterface.cs:22-120` routes virtually every geometry, glyph-run, and bitmap API through `Avalonia.Skia.PlatformRenderInterface`, so creation of glyph runs, glyph outline geometry, and all bitmap load/save/resize paths remain Skia-dependent.
-- Font streaming relies on `IGlyphTypeface2.TryGetStream` (`VelloSharp.Avalonia.Vello/Rendering/VelloFontManager.cs:20-33`), which today is serviced by Skia glyph typefaces; new bindings must offer equivalent font data access.
-- Bitmap IO, resizing, and encode/decode still run through SixLabors ImageSharp (`VelloSharp.Avalonia.Vello/Rendering/VelloBitmapImpl.cs:8-199`), including PNG serialization, resampling, and load-from-stream helpers.
+#### Avalonia dependencies replaced *(Completed)*
+- [x] Fonts & shaping now resolved via `VelloGlyphTypeface`/`VelloTextShaper`, eliminating the prior `Avalonia.Skia` bindings in `VelloPlatform`.
+- [x] `VelloPlatformRenderInterface` constructs all geometries, glyph runs, and bitmap operations through the native Vello abstractions without Skia fallbacks.
+- [x] Font streaming flows through the Vello font manager helpers, providing typeface data directly from the FFI layer.
+- [x] Bitmap load/save/resize paths delegate to the new Peniko-backed native exports, removing the ImageSharp dependency for the Vello backend.
 
 #### FFI/API mapping *(Draft)*
 | Avalonia touchpoint | Replacement surface | Rust provider | Notes |
@@ -88,8 +88,9 @@
 
 ### 5. Renderer Integration
 - [x] Replace Skia glyph run creation in `VelloPlatformRenderInterface` with Vello-native glyph runs and geometry building.
-- [ ] Update drawing context to use native bitmap and font abstractions exclusively.
-- [ ] Remove or gate existing Skia/ImageSharp dependencies in project files and DI setup.
+- [x] Update drawing context to use native bitmap and font abstractions exclusively.
+- [x] Remove or gate existing Skia/ImageSharp dependencies in project files and DI setup for the Vello backend (other samples still carry their own dependencies).
+- [x] Align default antialiasing with available shader permutations (fallback to Area until MSAA shaders are packaged).
 - [ ] Update docs/readme to reflect the new dependency stack.
 
 #### Fallback usage audit *(In Progress)*
@@ -98,7 +99,7 @@
 - [x] Provide `VelloGeometryGroupImpl` and `VelloCombinedGeometryImpl` pathways so grouping/boolean ops no longer call into the fallback.
 - [x] Replace bitmap load/save/resize methods once the Peniko-backed image exports are in place.
 - [x] Supply a Vello-backed region implementation so `CreateRegion` no longer defers to Skia.
-- [ ] Remove the fallback render interface instance after all methods are wired to native implementations (keeping it only as optional diagnostic fallback).
+- [x] Remove the fallback render interface instance after all methods are wired to native implementations (keeping it only as optional diagnostic fallback).
 
 ### 6. Validation & Cleanup
 - [ ] Run cross-platform builds and samples (`dotnet build`, `dotnet run` on macOS, Windows, Linux).

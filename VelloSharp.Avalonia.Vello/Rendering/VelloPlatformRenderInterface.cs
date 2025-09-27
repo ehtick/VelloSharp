@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -14,17 +15,15 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
 {
     private readonly VelloGraphicsDevice _graphicsDevice;
     private readonly VelloPlatformOptions _options;
-    private readonly IPlatformRenderInterface _fallback;
 
     public VelloPlatformRenderInterface(VelloGraphicsDevice graphicsDevice, VelloPlatformOptions options)
     {
         _graphicsDevice = graphicsDevice ?? throw new ArgumentNullException(nameof(graphicsDevice));
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _fallback = CreateFallbackInterface();
-        DefaultPixelFormat = _fallback.DefaultPixelFormat;
-        DefaultAlphaFormat = _fallback.DefaultAlphaFormat;
-        SupportsIndividualRoundRects = _fallback.SupportsIndividualRoundRects;
-        SupportsRegions = _fallback.SupportsRegions;
+        DefaultPixelFormat = PixelFormat.Rgba8888;
+        DefaultAlphaFormat = AlphaFormat.Unpremul;
+        SupportsIndividualRoundRects = true;
+        SupportsRegions = true;
     }
 
     public bool SupportsIndividualRoundRects { get; }
@@ -37,11 +36,11 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
 
     public IPlatformRenderInterfaceContext CreateBackendContext(IPlatformGraphicsContext? graphicsContext)
     {
-        var fallbackContext = _fallback.CreateBackendContext(graphicsContext);
-        return new VelloPlatformRenderInterfaceContext(_graphicsDevice, _options, fallbackContext);
+        return new VelloPlatformRenderInterfaceContext(_graphicsDevice, _options);
     }
 
-    public bool IsSupportedBitmapPixelFormat(PixelFormat format) => _fallback.IsSupportedBitmapPixelFormat(format);
+    public bool IsSupportedBitmapPixelFormat(PixelFormat format) =>
+        format == PixelFormat.Rgba8888 || format == PixelFormat.Bgra8888;
 
     public IPlatformRenderInterfaceRegion CreateRegion() => new VelloRegionImpl();
 
@@ -70,7 +69,7 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
 
         if (glyphRun.GlyphTypeface is null)
         {
-            return _fallback.BuildGlyphRunGeometry(glyphRun);
+            return new VelloPathGeometryImpl(new VelloPathData());
         }
 
         var glyphInfos = glyphRun.GlyphInfos;
@@ -90,7 +89,7 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
             var glyphInfo = glyphInfos[i];
             if (!VelloFontManager.TryGetGlyphOutline(font, (ushort)glyphInfo.GlyphIndex, glyphRun.FontRenderingEmSize, out var outline))
             {
-                return _fallback.BuildGlyphRunGeometry(glyphRun);
+                return new VelloPathGeometryImpl(new VelloPathData());
             }
 
             if (outline.Commands.Length == 0)
@@ -109,39 +108,108 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
     }
 
     public IRenderTargetBitmapImpl CreateRenderTargetBitmap(PixelSize size, Vector dpi) =>
-        _fallback.CreateRenderTargetBitmap(size, dpi);
+        throw new NotSupportedException("RenderTargetBitmap is not supported by the Vello backend yet.");
 
-    public IWriteableBitmapImpl CreateWriteableBitmap(PixelSize size, Vector dpi, PixelFormat format, AlphaFormat alphaFormat) =>
-        _fallback.CreateWriteableBitmap(size, dpi, format, alphaFormat);
+    public IWriteableBitmapImpl CreateWriteableBitmap(PixelSize size, Vector dpi, PixelFormat format, AlphaFormat alphaFormat)
+    {
+        EnsureSupportedPixelFormat(format);
+        return VelloBitmapImpl.Create(size, dpi, format, alphaFormat);
+    }
 
-    public IBitmapImpl LoadBitmap(string fileName) => _fallback.LoadBitmap(fileName);
+    public IBitmapImpl LoadBitmap(string fileName) => VelloBitmapImpl.Load(fileName);
 
-    public IBitmapImpl LoadBitmap(Stream stream) => _fallback.LoadBitmap(stream);
+    public IBitmapImpl LoadBitmap(Stream stream)
+    {
+        if (stream is null)
+        {
+            throw new ArgumentNullException(nameof(stream));
+        }
 
-    public IWriteableBitmapImpl LoadWriteableBitmapToWidth(Stream stream, int width, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality) =>
-        _fallback.LoadWriteableBitmapToWidth(stream, width, interpolationMode);
+        return VelloBitmapImpl.Load(stream);
+    }
 
-    public IWriteableBitmapImpl LoadWriteableBitmapToHeight(Stream stream, int height, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality) =>
-        _fallback.LoadWriteableBitmapToHeight(stream, height, interpolationMode);
+    public IWriteableBitmapImpl LoadWriteableBitmapToWidth(Stream stream, int width, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality)
+    {
+        if (stream is null)
+        {
+            throw new ArgumentNullException(nameof(stream));
+        }
 
-    public IWriteableBitmapImpl LoadWriteableBitmap(string fileName) => _fallback.LoadWriteableBitmap(fileName);
+        if (width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
 
-    public IWriteableBitmapImpl LoadWriteableBitmap(Stream stream) => _fallback.LoadWriteableBitmap(stream);
+        var bitmap = VelloBitmapImpl.Load(stream);
+        var aspect = (double)bitmap.PixelSize.Height / Math.Max(1, bitmap.PixelSize.Width);
+        var targetSize = new PixelSize(width, Math.Max(1, (int)Math.Round(width * aspect)));
+        var resized = bitmap.Resize(targetSize, interpolationMode);
+        bitmap.Dispose();
+        return resized;
+    }
 
-    public IBitmapImpl LoadBitmap(PixelFormat format, AlphaFormat alphaFormat, IntPtr data, PixelSize size, Vector dpi, int stride) =>
-        _fallback.LoadBitmap(format, alphaFormat, data, size, dpi, stride);
+    public IWriteableBitmapImpl LoadWriteableBitmapToHeight(Stream stream, int height, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality)
+    {
+        if (stream is null)
+        {
+            throw new ArgumentNullException(nameof(stream));
+        }
 
-    public IBitmapImpl LoadBitmapToWidth(Stream stream, int width, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality) =>
-        _fallback.LoadBitmapToWidth(stream, width, interpolationMode);
+        if (height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height));
+        }
 
-    public IBitmapImpl LoadBitmapToHeight(Stream stream, int height, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality) =>
-        _fallback.LoadBitmapToHeight(stream, height, interpolationMode);
+        var bitmap = VelloBitmapImpl.Load(stream);
+        var aspect = (double)bitmap.PixelSize.Width / Math.Max(1, bitmap.PixelSize.Height);
+        var targetSize = new PixelSize(Math.Max(1, (int)Math.Round(height * aspect)), height);
+        var resized = bitmap.Resize(targetSize, interpolationMode);
+        bitmap.Dispose();
+        return resized;
+    }
 
-    public IBitmapImpl ResizeBitmap(IBitmapImpl bitmapImpl, PixelSize destinationSize, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality) =>
-        _fallback.ResizeBitmap(bitmapImpl, destinationSize, interpolationMode);
+    public IWriteableBitmapImpl LoadWriteableBitmap(string fileName) => VelloBitmapImpl.Load(fileName);
+
+    public IWriteableBitmapImpl LoadWriteableBitmap(Stream stream)
+    {
+        if (stream is null)
+        {
+            throw new ArgumentNullException(nameof(stream));
+        }
+
+        return VelloBitmapImpl.Load(stream);
+    }
+
+    public IBitmapImpl LoadBitmap(PixelFormat format, AlphaFormat alphaFormat, IntPtr data, PixelSize size, Vector dpi, int stride)
+    {
+        EnsureSupportedPixelFormat(format);
+        var length = stride * size.Height;
+        var buffer = new byte[length];
+        System.Runtime.InteropServices.Marshal.Copy(data, buffer, 0, length);
+        return VelloBitmapImpl.FromPixels(buffer, size, dpi, format, alphaFormat);
+    }
+
+    public IBitmapImpl LoadBitmapToWidth(Stream stream, int width, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality)
+        => (IBitmapImpl)LoadWriteableBitmapToWidth(stream, width, interpolationMode);
+
+    public IBitmapImpl LoadBitmapToHeight(Stream stream, int height, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality)
+        => (IBitmapImpl)LoadWriteableBitmapToHeight(stream, height, interpolationMode);
+
+    public IBitmapImpl ResizeBitmap(IBitmapImpl bitmapImpl, PixelSize destinationSize, BitmapInterpolationMode interpolationMode = BitmapInterpolationMode.HighQuality)
+        => bitmapImpl is VelloBitmapImpl velloBitmap
+            ? velloBitmap.Resize(destinationSize, interpolationMode)
+            : throw new NotSupportedException("Bitmap implementation is not compatible with the Vello backend.");
 
     public IGlyphRunImpl CreateGlyphRun(IGlyphTypeface glyphTypeface, double fontRenderingEmSize, IReadOnlyList<GlyphInfo> glyphInfos, Point baselineOrigin) =>
         new VelloGlyphRunImpl(glyphTypeface, fontRenderingEmSize, glyphInfos, baselineOrigin);
+
+    private static void EnsureSupportedPixelFormat(PixelFormat format)
+    {
+        if (format != PixelFormat.Rgba8888 && format != PixelFormat.Bgra8888)
+        {
+            throw new NotSupportedException($"Pixel format {format} is not supported by the Vello backend.");
+        }
+    }
 
     private static void AppendGlyphOutline(VelloPathData target, VelloPathElement[] commands, double offsetX, double offsetY)
     {
@@ -178,25 +246,4 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
         }
     }
 
-    private static IPlatformRenderInterface CreateFallbackInterface()
-    {
-        var type = Type.GetType("Avalonia.Skia.PlatformRenderInterface, Avalonia.Skia", throwOnError: true);
-        if (type is null)
-        {
-            throw new InvalidOperationException("Unable to load Avalonia.Skia.PlatformRenderInterface.");
-        }
-
-        var instance = Activator.CreateInstance(
-            type,
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
-            binder: null,
-            args: new object?[] { null },
-            culture: null);
-        if (instance is null)
-        {
-            throw new InvalidOperationException("Failed to create fallback render interface instance.");
-        }
-
-        return (IPlatformRenderInterface)instance;
-    }
 }

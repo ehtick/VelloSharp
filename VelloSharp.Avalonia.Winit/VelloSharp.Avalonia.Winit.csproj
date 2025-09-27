@@ -15,6 +15,5 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Desktop" />
   </ItemGroup>
 </Project>
