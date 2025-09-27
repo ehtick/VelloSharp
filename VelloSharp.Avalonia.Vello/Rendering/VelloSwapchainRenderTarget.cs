@@ -242,10 +242,12 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
         var format = _requiresSurfaceBlit
             ? RenderFormat.Rgba8
             : DetermineRenderFormat(_surfaceFormat);
+        var antialiasing = _options.ResolveAntialiasing(renderParams.Antialiasing);
 
         return renderParams with
         {
             Format = format,
+            Antialiasing = antialiasing,
         };
     }
 

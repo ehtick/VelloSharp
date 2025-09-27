@@ -405,6 +405,14 @@ internal struct VelloPathElement
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloGlyphOutlineData
+{
+    public IntPtr Commands;
+    public nuint CommandCount;
+    public VelloRect Bounds;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloAffine
 {
     public double M11;
@@ -487,6 +495,34 @@ internal struct VelloStrokeStyle
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloGlyphMetricsNative
+{
+    public float Advance;
+    public float XBearing;
+    public float YBearing;
+    public float Width;
+    public float Height;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloShapedGlyphNative
+{
+    public uint GlyphId;
+    public uint Cluster;
+    public float XAdvance;
+    public float XOffset;
+    public float YOffset;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloShapedRunNative
+{
+    public IntPtr Glyphs;
+    public nuint GlyphCount;
+    public float Advance;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloRenderParams
 {
     public uint Width;
@@ -503,6 +539,23 @@ internal struct VelloRect
     public double Y;
     public double Width;
     public double Height;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloImageInfoNative
+{
+    public uint Width;
+    public uint Height;
+    public VelloRenderFormat Format;
+    public VelloImageAlphaMode Alpha;
+    public nuint Stride;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloBlobDataNative
+{
+    public IntPtr Data;
+    public nuint Length;
 }
 
 [StructLayout(LayoutKind.Sequential)]

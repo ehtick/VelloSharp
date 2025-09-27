@@ -17,7 +17,7 @@ internal sealed class VelloStreamGeometryImpl : VelloGeometryImplBase, IStreamGe
     {
     }
 
-    private VelloStreamGeometryImpl(VelloPathData data, FillRule fillRule)
+    private VelloStreamGeometryImpl(VelloPathData data, global::Avalonia.Media.FillRule fillRule)
         : base(data, fillRule)
     {
     }
@@ -40,7 +40,9 @@ internal sealed class VelloStreamGeometryImpl : VelloGeometryImplBase, IStreamGe
         var data = new VelloPathData();
         data.Append(builder.AsSpan());
         ReplaceData(data);
-        SetFillRule(fillRule == AvaloniaFillRule.EvenOdd ? VelloSharp.FillRule.EvenOdd : VelloSharp.FillRule.NonZero);
+        SetFillRule(fillRule == AvaloniaFillRule.EvenOdd
+            ? global::Avalonia.Media.FillRule.EvenOdd
+            : global::Avalonia.Media.FillRule.NonZero);
         _open = false;
     }
 

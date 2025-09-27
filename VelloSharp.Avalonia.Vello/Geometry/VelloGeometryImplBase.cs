@@ -8,7 +8,7 @@ namespace VelloSharp.Avalonia.Vello;
 
 internal abstract class VelloGeometryImplBase : IGeometryImpl
 {
-    protected VelloGeometryImplBase(VelloPathData data, FillRule fillRule = FillRule.NonZero)
+    protected VelloGeometryImplBase(VelloPathData data, global::Avalonia.Media.FillRule fillRule = global::Avalonia.Media.FillRule.NonZero)
     {
         Data = data ?? throw new ArgumentNullException(nameof(data));
         FillRule = fillRule;
@@ -16,16 +16,16 @@ internal abstract class VelloGeometryImplBase : IGeometryImpl
 
     protected VelloPathData Data { get; private set; }
 
-    protected FillRule FillRule { get; private set; }
+    protected global::Avalonia.Media.FillRule FillRule { get; private set; }
 
-    internal FillRule EffectiveFillRule => FillRule;
+    internal global::Avalonia.Media.FillRule EffectiveFillRule => FillRule;
 
     protected void ReplaceData(VelloPathData data)
     {
         Data = data ?? throw new ArgumentNullException(nameof(data));
     }
 
-    protected void SetFillRule(FillRule fillRule)
+    protected void SetFillRule(global::Avalonia.Media.FillRule fillRule)
     {
         FillRule = fillRule;
     }

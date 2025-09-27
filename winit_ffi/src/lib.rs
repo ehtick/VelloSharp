@@ -1411,12 +1411,10 @@ pub unsafe extern "C" fn winit_window_get_vello_handle(
 pub unsafe extern "C" fn winit_event_loop_wake() -> WinitStatus {
     clear_last_error();
     match with_event_loop_proxy(|proxy| {
-        proxy
-            .send_event(UserEvent::Wake)
-            .map_err(|err| {
-                set_last_error(format!("Failed to signal event loop: {err}"));
-                WinitStatus::InvalidState
-            })
+        proxy.send_event(UserEvent::Wake).map_err(|err| {
+            set_last_error(format!("Failed to signal event loop: {err}"));
+            WinitStatus::InvalidState
+        })
     }) {
         Ok(()) => WinitStatus::Success,
         Err(status) => status,

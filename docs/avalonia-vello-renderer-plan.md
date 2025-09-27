@@ -85,3 +85,4 @@
 - How to map Avalonia's drawing primitives most efficiently onto Vello? Initial version may need to limit features (e.g., text, effects).
 - Resource caching (glyphs, images) may require follow-up work; initial approach can stub or fallback to CPU paths.
 - Consider multi-threaded rendering and frame pacing improvements in subsequent iterations.
+- MSAA currently falls back to area sampling unless the renderer options explicitly enable the corresponding shader support.

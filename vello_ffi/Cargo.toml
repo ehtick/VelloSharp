@@ -23,6 +23,12 @@ futures-intrusive = { workspace = true }
 raw-window-handle = { workspace = true }
 vello_svg = { version = "0.7.1", default-features = false }
 velato = { version = "0.6.0" }
+parley = { workspace = true, default-features = false, features = ["std"] }
+fontique = { workspace = true, default-features = false, features = ["std"] }
+skrifa = { workspace = true, default-features = false, features = ["std"] }
+swash = { workspace = true, default-features = false, features = ["std", "scale"] }
+harfrust = { workspace = true }
+png = "0.17"
 
 [features]
 default = []

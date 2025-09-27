@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Platform;
+using VelloSharp.Avalonia.Vello.Geometry;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
@@ -42,25 +43,70 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
 
     public bool IsSupportedBitmapPixelFormat(PixelFormat format) => _fallback.IsSupportedBitmapPixelFormat(format);
 
-    public IPlatformRenderInterfaceRegion CreateRegion() => _fallback.CreateRegion();
+    public IPlatformRenderInterfaceRegion CreateRegion() => new VelloRegionImpl();
 
-    public IGeometryImpl CreateEllipseGeometry(Rect rect) => _fallback.CreateEllipseGeometry(rect);
+    public IGeometryImpl CreateEllipseGeometry(Rect rect) => new VelloEllipseGeometryImpl(rect);
 
-    public IGeometryImpl CreateLineGeometry(Point p1, Point p2) => _fallback.CreateLineGeometry(p1, p2);
+    public IGeometryImpl CreateLineGeometry(Point p1, Point p2) => new VelloLineGeometryImpl(p1, p2);
 
-    public IGeometryImpl CreateRectangleGeometry(Rect rect) => _fallback.CreateRectangleGeometry(rect);
+    public IGeometryImpl CreateRectangleGeometry(Rect rect) => new VelloRectangleGeometryImpl(rect);
 
-    public IStreamGeometryImpl CreateStreamGeometry() => _fallback.CreateStreamGeometry();
+    public IStreamGeometryImpl CreateStreamGeometry() => new VelloStreamGeometryImpl();
 
     global::Avalonia.Platform.IGeometryImpl global::Avalonia.Platform.IPlatformRenderInterface.CreateGeometryGroup(global::Avalonia.Media.FillRule fillRule, System.Collections.Generic.IReadOnlyList<global::Avalonia.Platform.IGeometryImpl> children)
     {
-        return _fallback.CreateGeometryGroup(fillRule, children);
+        return new VelloGeometryGroupImpl(fillRule, children);
     }
 
     public IGeometryImpl CreateCombinedGeometry(GeometryCombineMode combineMode, IGeometryImpl g1, IGeometryImpl g2) =>
-        _fallback.CreateCombinedGeometry(combineMode, g1, g2);
+        new VelloCombinedGeometryImpl(combineMode, g1, g2);
 
-    public IGeometryImpl BuildGlyphRunGeometry(GlyphRun glyphRun) => _fallback.BuildGlyphRunGeometry(glyphRun);
+    public IGeometryImpl BuildGlyphRunGeometry(GlyphRun glyphRun)
+    {
+        if (glyphRun is null)
+        {
+            throw new ArgumentNullException(nameof(glyphRun));
+        }
+
+        if (glyphRun.GlyphTypeface is null)
+        {
+            return _fallback.BuildGlyphRunGeometry(glyphRun);
+        }
+
+        var glyphInfos = glyphRun.GlyphInfos;
+        if (glyphInfos.Count == 0)
+        {
+            return new VelloPathGeometryImpl(new VelloPathData());
+        }
+
+        var font = VelloFontManager.GetFont(glyphRun.GlyphTypeface);
+        var aggregate = new VelloPathData();
+
+        var baseline = glyphRun.BaselineOrigin;
+        var currentX = 0.0;
+
+        for (var i = 0; i < glyphInfos.Count; i++)
+        {
+            var glyphInfo = glyphInfos[i];
+            if (!VelloFontManager.TryGetGlyphOutline(font, (ushort)glyphInfo.GlyphIndex, glyphRun.FontRenderingEmSize, out var outline))
+            {
+                return _fallback.BuildGlyphRunGeometry(glyphRun);
+            }
+
+            if (outline.Commands.Length == 0)
+            {
+                continue;
+            }
+
+            var offsetX = baseline.X + currentX + glyphInfo.GlyphOffset.X;
+            var offsetY = baseline.Y + glyphInfo.GlyphOffset.Y;
+            AppendGlyphOutline(aggregate, outline.Commands, offsetX, offsetY);
+
+            currentX += glyphInfo.GlyphAdvance;
+        }
+
+        return new VelloPathGeometryImpl(aggregate);
+    }
 
     public IRenderTargetBitmapImpl CreateRenderTargetBitmap(PixelSize size, Vector dpi) =>
         _fallback.CreateRenderTargetBitmap(size, dpi);
@@ -95,7 +141,42 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
         _fallback.ResizeBitmap(bitmapImpl, destinationSize, interpolationMode);
 
     public IGlyphRunImpl CreateGlyphRun(IGlyphTypeface glyphTypeface, double fontRenderingEmSize, IReadOnlyList<GlyphInfo> glyphInfos, Point baselineOrigin) =>
-        _fallback.CreateGlyphRun(glyphTypeface, fontRenderingEmSize, glyphInfos, baselineOrigin);
+        new VelloGlyphRunImpl(glyphTypeface, fontRenderingEmSize, glyphInfos, baselineOrigin);
+
+    private static void AppendGlyphOutline(VelloPathData target, VelloPathElement[] commands, double offsetX, double offsetY)
+    {
+        foreach (var command in commands)
+        {
+            switch (command.Verb)
+            {
+                case VelloPathVerb.MoveTo:
+                    target.MoveTo(command.X0 + offsetX, command.Y0 + offsetY);
+                    break;
+                case VelloPathVerb.LineTo:
+                    target.LineTo(command.X0 + offsetX, command.Y0 + offsetY);
+                    break;
+                case VelloPathVerb.QuadTo:
+                    target.QuadraticTo(
+                        command.X0 + offsetX,
+                        command.Y0 + offsetY,
+                        command.X1 + offsetX,
+                        command.Y1 + offsetY);
+                    break;
+                case VelloPathVerb.CubicTo:
+                    target.CubicTo(
+                        command.X0 + offsetX,
+                        command.Y0 + offsetY,
+                        command.X1 + offsetX,
+                        command.Y1 + offsetY,
+                        command.X2 + offsetX,
+                        command.Y2 + offsetY);
+                    break;
+                case VelloPathVerb.Close:
+                    target.Close();
+                    break;
+            }
+        }
+    }
 
     private static IPlatformRenderInterface CreateFallbackInterface()
     {

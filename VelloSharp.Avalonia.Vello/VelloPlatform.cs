@@ -36,7 +36,6 @@ internal static class VelloPlatform
 
             locator.Bind<IPlatformRenderInterface>().ToConstant(s_renderInterface);
 
-            // We rely on the Skia font and text shaping stack for now.
             if (locator.GetService<IFontManagerImpl>() is null)
             {
                 var fontManager = CreateSkiaService<IFontManagerImpl>("Avalonia.Skia.FontManagerImpl, Avalonia.Skia");
@@ -48,11 +47,7 @@ internal static class VelloPlatform
 
             if (locator.GetService<ITextShaperImpl>() is null)
             {
-                var textShaper = CreateSkiaService<ITextShaperImpl>("Avalonia.Skia.TextShaperImpl, Avalonia.Skia");
-                if (textShaper is not null)
-                {
-                    locator.Bind<ITextShaperImpl>().ToConstant(textShaper);
-                }
+                locator.Bind<ITextShaperImpl>().ToConstant(new VelloTextShaper());
             }
 
             if (locator.GetService<Compositor>() is null)

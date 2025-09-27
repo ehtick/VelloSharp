@@ -19,3 +19,18 @@
 [submodule "peniko"]
 	path = peniko
 	url = https://github.com/linebender/peniko
+[submodule "extern/peniko"]
+	path = extern/peniko
+	url = https://github.com/linebender/peniko.git
+[submodule "extern/parley"]
+	path = extern/parley
+	url = https://github.com/linebender/parley.git
+[submodule "extern/fontations"]
+	path = extern/fontations
+	url = https://github.com/googlefonts/fontations.git
+[submodule "extern/swash"]
+	path = extern/swash
+	url = https://github.com/dfrg/swash.git
+[submodule "extern/harfbuzz_rs"]
+	path = extern/harfbuzz_rs
+	url = https://github.com/manuel-rhdt/harfbuzz_rs.git

@@ -30,9 +30,10 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _onCompleted = onCompleted ?? throw new ArgumentNullException(nameof(onCompleted));
         Transform = Matrix.Identity;
+        var resolvedAa = options.ResolveAntialiasing(options.Antialiasing);
         RenderParams = new RenderParams((uint)Math.Max(1, targetSize.Width), (uint)Math.Max(1, targetSize.Height), options.ClearColor)
         {
-            Antialiasing = options.Antialiasing,
+            Antialiasing = resolvedAa,
             Format = RenderFormat.Bgra8,
         };
     }
@@ -65,12 +66,38 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     public void DrawBitmap(IBitmapImpl source, double opacity, Rect sourceRect, Rect destRect)
     {
-        throw new NotSupportedException("Bitmap drawing is not implemented in the limited Vello context.");
+        EnsureNotDisposed();
+
+        if (source is not VelloBitmapImpl bitmap)
+        {
+            throw new NotSupportedException("The provided bitmap implementation is not compatible with the Vello renderer.");
+        }
+
+        if (sourceRect.Width <= 0 || sourceRect.Height <= 0 || destRect.Width <= 0 || destRect.Height <= 0)
+        {
+            return;
+        }
+
+        using var image = bitmap.CreateVelloImage();
+        var brush = new ImageBrush(image)
+        {
+            Alpha = (float)opacity,
+        };
+
+        var scaleX = destRect.Width / sourceRect.Width;
+        var scaleY = destRect.Height / sourceRect.Height;
+
+        var transform = Matrix3x2.CreateTranslation((float)(-sourceRect.X), (float)(-sourceRect.Y))
+                         * Matrix3x2.CreateScale((float)scaleX, (float)scaleY)
+                         * Matrix3x2.CreateTranslation((float)destRect.X, (float)destRect.Y)
+                         * ToMatrix3x2(Transform);
+
+        _scene.DrawImage(brush, transform);
     }
 
     public void DrawBitmap(IBitmapImpl source, IBrush opacityMask, Rect opacityMaskRect, Rect destRect)
     {
-        throw new NotSupportedException("Bitmap drawing with opacity mask is not implemented.");
+        throw new NotSupportedException("Bitmap drawing with opacity masks is not supported by the Vello renderer yet.");
     }
 
     public void DrawLine(IPen? pen, Point p1, Point p2)
@@ -162,7 +189,41 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     public void DrawGlyphRun(IBrush? foreground, IGlyphRunImpl glyphRun)
     {
-        throw new NotSupportedException("Glyph drawing is not implemented in the limited Vello context.");
+        EnsureNotDisposed();
+
+        if (glyphRun is not VelloGlyphRunImpl velloGlyphRun)
+        {
+            throw new NotSupportedException("Glyph run implementation is not compatible with the Vello renderer.");
+        }
+
+        if (foreground is null || !TryCreateBrush(foreground, out var velloBrush, out _))
+        {
+            return;
+        }
+
+        var font = VelloFontManager.GetFont(velloGlyphRun.GlyphTypeface);
+        var glyphs = velloGlyphRun.GlyphsSpan;
+        if (glyphs.IsEmpty)
+        {
+            return;
+        }
+
+        var transform = Matrix3x2.CreateTranslation(
+                (float)velloGlyphRun.BaselineOrigin.X,
+                (float)velloGlyphRun.BaselineOrigin.Y)
+            * ToMatrix3x2(Transform);
+
+        var options = new GlyphRunOptions
+        {
+            FontSize = (float)velloGlyphRun.FontRenderingEmSize,
+            Brush = velloBrush,
+            Transform = transform,
+            BrushAlpha = 1f,
+            Hint = false,
+            Style = GlyphRunStyle.Fill,
+        };
+
+        _scene.DrawGlyphRun(font, glyphs, options);
     }
 
     public IDrawingContextLayerImpl CreateLayer(PixelSize size)
@@ -334,6 +395,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         return new RgbaColor(r, g, b, alpha);
     }
 
+    private void EnsureNotDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(VelloDrawingContextImpl));
+        }
+    }
+
     private static LineCap ConvertLineCap(PenLineCap cap)
     {
         return cap switch
@@ -365,8 +434,10 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             (float)matrix.M32);
     }
 
-    private static VelloSharp.FillRule ToVelloFillRule(FillRule fillRule)
+    private static VelloSharp.FillRule ToVelloFillRule(global::Avalonia.Media.FillRule fillRule)
     {
-        return fillRule == FillRule.EvenOdd ? VelloSharp.FillRule.EvenOdd : VelloSharp.FillRule.NonZero;
+        return fillRule == global::Avalonia.Media.FillRule.EvenOdd
+            ? VelloSharp.FillRule.EvenOdd
+            : VelloSharp.FillRule.NonZero;
     }
 }

@@ -8,7 +8,7 @@ namespace VelloSharp.Avalonia.Vello;
 
 internal sealed class VelloGeometryGroupImpl : VelloGeometryImplBase
 {
-    public VelloGeometryGroupImpl(FillRule fillRule, IReadOnlyList<IGeometryImpl> children)
+    public VelloGeometryGroupImpl(global::Avalonia.Media.FillRule fillRule, IReadOnlyList<IGeometryImpl> children)
         : base(CreateData(children), fillRule)
     {
         Children = children;

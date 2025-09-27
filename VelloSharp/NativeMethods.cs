@@ -134,12 +134,44 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_image_destroy(IntPtr image);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_decode_png")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_image_decode_png(byte* data, nuint length, out IntPtr image);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_encode_png")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_image_encode_png(IntPtr image, byte compression, out IntPtr blob);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_get_info")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_image_get_info(IntPtr image, out VelloImageInfoNative info);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_map_pixels")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_image_map_pixels(IntPtr image, out IntPtr pixels, out nuint length);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_unmap_pixels")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_image_unmap_pixels(IntPtr image);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_resize")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_image_resize(IntPtr image, uint width, uint height, VelloImageQualityMode mode, out IntPtr resizedImage);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_scene_draw_image")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_scene_draw_image(
         IntPtr scene,
         VelloImageBrushParams brush,
         VelloAffine transform);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_blob_get_data")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_blob_get_data(IntPtr blob, out VelloBlobDataNative data);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_blob_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_blob_destroy(IntPtr blob);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_font_create")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -151,6 +183,46 @@ internal static partial class NativeMethods
     [LibraryImport(LibraryName, EntryPoint = "vello_font_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_font_destroy(IntPtr font);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_glyph_metrics")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_glyph_metrics(
+        IntPtr font,
+        ushort glyphId,
+        float fontSize,
+        out VelloGlyphMetricsNative metrics);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_glyph_outline")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_glyph_outline(
+        IntPtr font,
+        ushort glyphId,
+        float fontSize,
+        float tolerance,
+        out IntPtr outlineHandle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_glyph_outline_get_data")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_glyph_outline_get_data(IntPtr outlineHandle, out VelloGlyphOutlineData data);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_glyph_outline_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_glyph_outline_destroy(IntPtr outlineHandle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_text_shape_utf16")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_text_shape_utf16(
+        IntPtr font,
+        ushort* text,
+        nuint length,
+        float fontSize,
+        int isRtl,
+        out VelloShapedRunNative run,
+        out IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_text_shape_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_text_shape_destroy(IntPtr handle);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_svg_load_from_memory")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

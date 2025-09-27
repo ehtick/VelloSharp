@@ -66,13 +66,14 @@ vello = { version = "0.5.0", path = "vello/vello" }
 vello_encoding = { version = "0.5.0", path = "vello/vello_encoding" }
 vello_shaders = { version = "0.5.0", path = "vello/vello_shaders" }
 bytemuck = { version = "1.23.0", features = ["derive"] }
-skrifa = { version = "0.36.0", default-features = false, features = ["autohint_shaping"] }
-peniko = { path = "peniko", default-features = false }
+skrifa = { path = "extern/fontations/skrifa", default-features = false, features = ["autohint_shaping"] }
+peniko = { path = "extern/peniko", default-features = false }
 kurbo = { path = "kurbo/kurbo", default-features = false }
 futures-intrusive = "0.5.0"
 smallvec = "1.15.1"
 static_assertions = "1.1.0"
 thiserror = "2.0.12"
+core_maths = "0.1"
 oxipng = { version = "9.1.5", default-features = false }
 png = "0.17.16"
 rayon = { version = "1.10.0" }
@@ -111,9 +112,23 @@ accesskit = "0.21.0"
 harfrust = { version = "0.2.0", default-features = false }
 hashbrown = "0.15.3"
 read-fonts = { version = "0.34.0", default-features = false }
-swash = { version = "0.2.5", default-features = false }
+swash = { path = "extern/swash", default-features = false }
+fontique = { path = "extern/parley/fontique", default-features = false }
+parley = { path = "extern/parley/parley", default-features = false }
+parley_dev = { path = "extern/parley/parley_dev", default-features = false }
+font-test-data = { path = "extern/fontations/font-test-data" }
+font-types = { path = "extern/fontations/font-types" }
+write-fonts = { path = "extern/fontations/write-fonts" }
+shared-brotli-patch-decoder = { path = "extern/fontations/shared-brotli-patch-decoder", default-features = false }
+incremental-font-transfer = { path = "extern/fontations/incremental-font-transfer" }
+klippa = { path = "extern/fontations/klippa" }
 
 [patch.crates-io]
 vello = { path = "vello/vello" }
 vello_svg = { path = "vello_svg" }
 velato = { path = "velato" }
+peniko = { path = "extern/peniko" }
+skrifa = { path = "extern/fontations/skrifa" }
+swash = { path = "extern/swash" }
+parley = { path = "extern/parley/parley" }
+fontique = { path = "extern/parley/fontique" }
