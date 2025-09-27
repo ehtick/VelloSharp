@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Avalonia;
@@ -352,8 +353,47 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             throw new InvalidOperationException("Native window handle is not available.");
         }
 
-        var handle = _window.GetVelloWindowHandle();
-        return SurfaceHandle.FromVelloHandle(handle);
+        if (_dispatcher.CurrentThreadIsLoopThread)
+        {
+            var loopHandle = _window.GetVelloWindowHandle();
+            return SurfaceHandle.FromVelloHandle(loopHandle);
+        }
+
+        VelloWindowHandle? result = null;
+        Exception? capturedException = null;
+
+        using (var completion = new ManualResetEventSlim(false))
+        {
+            _dispatcher.Post(context =>
+            {
+                try
+                {
+                    result = _window.GetVelloWindowHandle();
+                }
+                catch (Exception ex)
+                {
+                    capturedException = ex;
+                }
+                finally
+                {
+                    completion.Set();
+                }
+            });
+
+            completion.Wait();
+        }
+
+        if (capturedException is not null)
+        {
+            ExceptionDispatchInfo.Capture(capturedException).Throw();
+        }
+
+        if (!result.HasValue)
+        {
+            throw new InvalidOperationException("Failed to acquire a native window handle for the Vello surface.");
+        }
+
+        return SurfaceHandle.FromVelloHandle(result.Value);
     }
 
     PixelSize IVelloWinitSurfaceProvider.SurfacePixelSize => _surfaceSize;
