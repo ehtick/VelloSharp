@@ -63,6 +63,7 @@ public static class TestScenes
             if (svg is not null)
             {
                 svg.Render(scene, parameters.ViewTransform);
+                parameters.Resolution = svg.Size;
             }
             RenderSplashOverlay(scene, parameters, text);
         });
@@ -92,6 +93,19 @@ public static class TestScenes
         }
     }
 
+    private static Matrix3x2 CreateSkewFactor(float skewX, float skewY)
+        => new(1f, skewY, skewX, 1f, 0f, 0f);
+
+    private static Matrix3x2 Compose(params Matrix3x2[] transforms)
+    {
+        var result = Matrix3x2.Identity;
+        foreach (var transform in transforms)
+        {
+            result = Matrix3x2.Multiply(transform, result);
+        }
+        return result;
+    }
+
     private static void RenderSplashOverlay(Scene scene, SceneParams parameters, SimpleText text)
     {
         var lines = new[]
@@ -105,14 +119,14 @@ public static class TestScenes
             "  Q, E: rotate",
         };
 
-        var baseTransform = Matrix3x2.CreateTranslation(-90f, -50f) * Matrix3x2.CreateScale(0.11f);
-        var view = Matrix3x2.Multiply(baseTransform, parameters.ViewTransform);
+        var baseTransform = Compose(Matrix3x2.CreateScale(0.11f), Matrix3x2.CreateTranslation(-90f, -50f));
+        var view = Compose(baseTransform, parameters.ViewTransform);
 
         for (var i = 0; i < lines.Length; i++)
         {
             var size = i == 0 ? 60f : 40f;
             var lineTransform = Matrix3x2.CreateTranslation(100f, 100f + 60f * i);
-            var finalTransform = Matrix3x2.Multiply(lineTransform, view);
+            var finalTransform = Compose(lineTransform, view);
             text.Add(scene, size, new RgbaColor(1f, 1f, 1f, 1f), finalTransform, null, lines[i]);
         }
     }
@@ -170,21 +184,11 @@ public static class TestScenes
         => StrokeStyles("stroke_styles (non-uniform scale)", Matrix3x2.CreateScale(1.2f, 0.7f));
 
     private static ExampleScene StrokeStylesSkew()
-        => StrokeStyles("stroke_styles (skew)", Matrix3x2.CreateSkew(1f, 0f));
+        => StrokeStyles("stroke_styles (skew)", CreateSkewFactor(1f, 0f));
 
     private static ExampleScene StrokeStyles(string name, Matrix3x2 strokeTransform)
         => new(name, false, (scene, parameters) =>
         {
-            static Matrix3x2 Combine(params Matrix3x2[] matrices)
-            {
-                var result = Matrix3x2.Identity;
-                foreach (var matrix in matrices)
-                {
-                    result = Matrix3x2.Multiply(result, matrix);
-                }
-                return result;
-            }
-
             static Matrix3x2 ApplyView(Matrix3x2 transform, Matrix3x2 view)
                 => Matrix3x2.Multiply(transform, view);
 
@@ -226,10 +230,10 @@ public static class TestScenes
             var joinStyles = new[] { LineJoin.Bevel, LineJoin.Miter, LineJoin.Round };
             var miterLimits = new[] { 4.0, 6.0, 0.1, 10.0 };
 
-            var capsBase = Combine(Matrix3x2.CreateTranslation(60f, 40f), Matrix3x2.CreateScale(2f));
-            var dashedBase = Combine(Matrix3x2.CreateTranslation(450f, 0f), capsBase);
-            var joinBase = Combine(Matrix3x2.CreateTranslation(550f, 0f), dashedBase);
-            var miterBase = Combine(Matrix3x2.CreateTranslation(500f, 0f), joinBase);
+            var capsBase = Compose(Matrix3x2.CreateTranslation(60f, 40f), Matrix3x2.CreateScale(2f));
+            var dashedBase = Compose(Matrix3x2.CreateTranslation(450f, 0f), capsBase);
+            var joinBase = Compose(Matrix3x2.CreateTranslation(550f, 0f), dashedBase);
+            var miterBase = Compose(Matrix3x2.CreateTranslation(500f, 0f), joinBase);
 
             float y = 0f;
             float yMax = 0f;
@@ -237,13 +241,13 @@ public static class TestScenes
 
             void DrawLabel(string text, Matrix3x2 sectionTransform, float offset)
             {
-                var labelTransform = Combine(Matrix3x2.CreateTranslation(0f, offset), sectionTransform);
+                var labelTransform = Compose(Matrix3x2.CreateTranslation(0f, offset), sectionTransform);
                 parameters.Text.Add(scene, 12f, RgbaColor.FromBytes(255, 255, 255), ApplyView(labelTransform, view), null, text);
             }
 
             Matrix3x2 BuildStrokeTransform(Matrix3x2 sectionTransform, float offset)
             {
-                var local = Combine(Matrix3x2.CreateTranslation(0f, offset), sectionTransform, strokeTransform);
+                var local = Compose(Matrix3x2.CreateTranslation(0f, offset), sectionTransform, strokeTransform);
                 return ApplyView(local, view);
             }
 
@@ -553,7 +557,7 @@ public static class TestScenes
                     ty += (cellSize - height * scale) * 0.5;
                 }
 
-                var transform = Matrix3x2.CreateScale((float)scale) * Matrix3x2.CreateTranslation((float)tx, (float)ty);
+                var transform = Matrix3x2.Multiply(Matrix3x2.CreateScale((float)scale), Matrix3x2.CreateTranslation((float)tx, (float)ty));
                 return (transform, scale);
             }
         });
@@ -603,36 +607,36 @@ public static class TestScenes
             {
                 var column = i % 2;
                 var row = i / 2;
-                var blockTransform = Matrix3x2.CreateTranslation(column * 306f, row * 340f) * baseTransform;
+                var blockTransform = Matrix3x2.Multiply(baseTransform, Matrix3x2.CreateTranslation(column * 306f, row * 340f));
 
-                parameters.Text.Add(scene, 24f, white, blockTransform * view, null, rules[i].Label);
+                parameters.Text.Add(scene, 24f, white, Matrix3x2.Multiply(blockTransform, view), null, rules[i].Label);
 
-                var fillBase = Matrix3x2.CreateTranslation(0f, 5f) * blockTransform * scale;
-                scene.FillPath(rect, FillRule.NonZero, fillBase * view, gray);
+                var fillBase = Matrix3x2.Multiply(Matrix3x2.Multiply(scale, blockTransform), Matrix3x2.CreateTranslation(0f, 5f));
+                scene.FillPath(rect, FillRule.NonZero, Matrix3x2.Multiply(fillBase, view), gray);
 
-                var primary = Matrix3x2.CreateTranslation(0f, 10f) * fillBase;
-                scene.FillPath(rules[i].Path, rules[i].Rule, primary * view, yellow);
+                var primary = Matrix3x2.Multiply(fillBase, Matrix3x2.CreateTranslation(0f, 10f));
+                scene.FillPath(rules[i].Path, rules[i].Rule, Matrix3x2.Multiply(primary, view), yellow);
             }
 
-            var blendBase = Matrix3x2.CreateTranslation(700f, 0f) * baseTransform;
+            var blendBase = Matrix3x2.Multiply(baseTransform, Matrix3x2.CreateTranslation(700f, 0f));
             for (var i = 0; i < rules.Length; i++)
             {
                 var column = i % 2;
                 var row = i / 2;
-                var blockTransform = Matrix3x2.CreateTranslation(column * 306f, row * 340f) * blendBase;
+                var blockTransform = Matrix3x2.Multiply(blendBase, Matrix3x2.CreateTranslation(column * 306f, row * 340f));
 
-                parameters.Text.Add(scene, 24f, white, blockTransform * view, null, rules[i].Label);
+                parameters.Text.Add(scene, 24f, white, Matrix3x2.Multiply(blockTransform, view), null, rules[i].Label);
 
-                var fillBase = Matrix3x2.CreateTranslation(0f, 5f) * blockTransform * scale;
-                scene.FillPath(rect, FillRule.NonZero, fillBase * view, gray);
+                var fillBase = Matrix3x2.Multiply(Matrix3x2.Multiply(scale, blockTransform), Matrix3x2.CreateTranslation(0f, 5f));
+                scene.FillPath(rect, FillRule.NonZero, Matrix3x2.Multiply(fillBase, view), gray);
 
-                var translated = Matrix3x2.CreateTranslation(0f, 10f) * fillBase;
-                var rotatedA = Matrix3x2.CreateRotation(0.06f) * translated;
-                var rotatedB = Matrix3x2.CreateRotation(-0.06f) * translated;
+                var translated = Matrix3x2.Multiply(fillBase, Matrix3x2.CreateTranslation(0f, 10f));
+                var rotatedA = Matrix3x2.Multiply(Matrix3x2.CreateRotation(0.06f), translated);
+                var rotatedB = Matrix3x2.Multiply(Matrix3x2.CreateRotation(-0.06f), translated);
 
-                scene.FillPath(rules[i].Path, rules[i].Rule, translated * view, yellow);
-                scene.FillPath(rules[i].Path, rules[i].Rule, rotatedA * view, overlayA);
-                scene.FillPath(rules[i].Path, rules[i].Rule, rotatedB * view, overlayB);
+                scene.FillPath(rules[i].Path, rules[i].Rule, Matrix3x2.Multiply(translated, view), yellow);
+                scene.FillPath(rules[i].Path, rules[i].Rule, Matrix3x2.Multiply(rotatedA, view), overlayA);
+                scene.FillPath(rules[i].Path, rules[i].Rule, Matrix3x2.Multiply(rotatedB, view), overlayB);
             }
         });
 
