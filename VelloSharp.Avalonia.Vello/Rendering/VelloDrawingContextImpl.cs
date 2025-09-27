@@ -19,9 +19,12 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private readonly VelloPlatformOptions _options;
     private bool _disposed;
     private readonly Stack<Matrix> _transformStack = new();
+    private readonly Stack<LayerEntry> _layerStack = new();
     private int _clipDepth;
     private int _opacityDepth;
     private int _layerDepth;
+    private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
+    private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
 
     public VelloDrawingContextImpl(Scene scene, PixelSize targetSize, VelloPlatformOptions options, Action<VelloDrawingContextImpl> onCompleted)
     {
@@ -233,51 +236,118 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     public void PushClip(Rect clip)
     {
         _clipDepth++;
+
+        if (clip.Width <= 0 || clip.Height <= 0)
+        {
+        _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var builder = new PathBuilder();
+        builder.AddRectangle(clip);
+        PushSceneLayer(builder, 1f, s_clipLayerBlend, ToMatrix3x2(Transform));
     }
 
     public void PushClip(RoundedRect clip)
     {
         _clipDepth++;
+
+        if (clip.Rect.Width <= 0 || clip.Rect.Height <= 0)
+        {
+        _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var builder = new PathBuilder();
+        builder.AddRoundedRectangle(clip);
+        PushSceneLayer(builder, 1f, s_clipLayerBlend, ToMatrix3x2(Transform));
     }
 
     public void PushClip(IPlatformRenderInterfaceRegion region)
     {
         _clipDepth++;
+
+        if (region is not VelloRegionImpl velloRegion || velloRegion.IsEmpty)
+        {
+        _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var builder = new PathBuilder();
+        foreach (var rect in velloRegion.Rects)
+        {
+            var width = rect.Right - rect.Left;
+            var height = rect.Bottom - rect.Top;
+            if (width <= 0 || height <= 0)
+            {
+                continue;
+            }
+
+            builder.AddRectangle(new Rect(rect.Left, rect.Top, width, height));
+        }
+
+        if (builder.Count == 0)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        PushSceneLayer(builder, 1f, s_clipLayerBlend, Matrix3x2.Identity);
     }
 
     public void PopClip()
     {
-        if (_clipDepth > 0)
-        {
-            _clipDepth--;
-        }
+        PopLayer(ref _clipDepth);
     }
 
     public void PushLayer(Rect bounds)
     {
         _layerDepth++;
-        throw new NotSupportedException("Layers are not supported in the limited Vello context.");
+
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var builder = new PathBuilder();
+        builder.AddRectangle(bounds);
+        PushSceneLayer(builder, 1f, s_defaultLayerBlend, ToMatrix3x2(Transform));
     }
 
     public void PopLayer()
     {
-        if (_layerDepth > 0)
-        {
-            _layerDepth--;
-        }
+        PopLayer(ref _layerDepth);
     }
 
     public void PushOpacity(double opacity, Rect? bounds)
     {
         _opacityDepth++;
+
+        var alpha = (float)Math.Clamp(opacity, 0.0, 1.0);
+        if (alpha <= 0f)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var pathBounds = bounds ?? new Rect(0, 0, Math.Max(1, _targetSize.Width), Math.Max(1, _targetSize.Height));
+        if (pathBounds.Width <= 0 || pathBounds.Height <= 0)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var builder = new PathBuilder();
+        builder.AddRectangle(pathBounds);
+
+        var transform = bounds.HasValue ? ToMatrix3x2(Transform) : Matrix3x2.Identity;
+        PushSceneLayer(builder, alpha, s_defaultLayerBlend, transform);
     }
 
     public void PopOpacity()
     {
-        if (_opacityDepth > 0)
-        {
-            _opacityDepth--;
-        }
+        PopLayer(ref _opacityDepth);
     }
 
     public void PushOpacityMask(IBrush mask, Rect bounds)
@@ -292,14 +362,26 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     public void PushGeometryClip(IGeometryImpl clip)
     {
         _clipDepth++;
+
+        if (clip is not VelloGeometryImplBase geometry)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var builder = BuildPath(geometry);
+        if (builder.Count == 0)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        PushSceneLayer(builder, 1f, s_clipLayerBlend, ToMatrix3x2(Transform));
     }
 
     public void PopGeometryClip()
     {
-        if (_clipDepth > 0)
-        {
-            _clipDepth--;
-        }
+        PopLayer(ref _clipDepth);
     }
 
     public void PushRenderOptions(RenderOptions renderOptions)
@@ -347,13 +429,21 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private bool TryCreateBrush(IBrush brush, out VelloSharp.Brush velloBrush, out Matrix3x2? brushTransform)
     {
         brushTransform = null;
-        if (brush is ISolidColorBrush solid)
+
+        switch (brush)
         {
-            velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(solid.Color, solid.Opacity));
-            return true;
+            case ISolidColorBrush solid:
+                velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(solid.Color, solid.Opacity));
+                return true;
+            case IGradientBrush gradient when gradient.GradientStops is { Count: > 0 } stops:
+                var fallbackStop = stops[stops.Count - 1];
+                var effectiveOpacity = gradient.Opacity * (fallbackStop.Color.A / 255.0);
+                var opaqueColor = Color.FromArgb(255, fallbackStop.Color.R, fallbackStop.Color.G, fallbackStop.Color.B);
+                velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(opaqueColor, effectiveOpacity));
+                return true;
         }
 
-        velloBrush = null!;
+        velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(Colors.Transparent, 0));
         return false;
     }
 
@@ -392,6 +482,33 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var g = (float)(color.G / 255.0);
         var b = (float)(color.B / 255.0);
         return new RgbaColor(r, g, b, alpha);
+    }
+
+    private void PushSceneLayer(PathBuilder path, float alpha, LayerBlend blend, Matrix3x2 transform)
+    {
+        var span = path.AsSpan();
+        if (span.IsEmpty)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        _scene.PushLayer(path, blend, transform, alpha);
+        _layerStack.Push(LayerEntry.Scene());
+    }
+
+    private void PopLayer(ref int counter)
+    {
+        if (counter > 0)
+        {
+            counter--;
+        }
+
+        var entry = _layerStack.Pop();
+        if (entry.HasLayer)
+        {
+            _scene.PopLayer();
+        }
     }
 
     private void EnsureNotDisposed()
@@ -438,5 +555,15 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         return fillRule == global::Avalonia.Media.FillRule.EvenOdd
             ? VelloSharp.FillRule.EvenOdd
             : VelloSharp.FillRule.NonZero;
+    }
+
+    private readonly struct LayerEntry
+    {
+        private LayerEntry(bool hasLayer) => HasLayer = hasLayer;
+
+        public bool HasLayer { get; }
+
+        public static LayerEntry Scene() => new(true);
+        public static LayerEntry Noop() => new(false);
     }
 }

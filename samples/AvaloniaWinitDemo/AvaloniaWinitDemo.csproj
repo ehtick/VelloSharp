@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
-    <ProjectReference Include="../../VelloSharp.Integration/VelloSharp.Integration.csproj" />
     <ProjectReference Include="../../VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
     <ProjectReference Include="../../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj"

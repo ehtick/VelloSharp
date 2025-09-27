@@ -1,9 +1,83 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:avalonia="clr-namespace:VelloSharp.Integration.Avalonia;assembly=VelloSharp.Integration"
              x:Class="AvaloniaWinitDemo.MainView">
   <Grid RowDefinitions="Auto,*">
-    <TextBlock Text="Vello surface preview" />
-    <avalonia:VelloSurfaceView Grid.Row="1" x:Name="Surface" />
+    <StackPanel Orientation="Horizontal"
+                Margin="0,0,0,12"
+                Spacing="12">
+      <TextBlock Text="Sample content rendered by the Vello compositor"
+                 FontSize="18"
+                 FontWeight="SemiBold" />
+      <Border Padding="6"
+              CornerRadius="4"
+              Background="#3344AA66">
+        <TextBlock Text="GPU"
+                   FontSize="16" />
+      </Border>
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            CornerRadius="8"
+            Background="#1f4d7a"
+            Padding="16">
+      <Grid ColumnDefinitions="*,*"
+            RowDefinitions="*,*">
+        <Border Background="#ffffff33"
+                Margin="0,0,12,12"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Live metrics"
+                       FontSize="16"
+                       FontWeight="SemiBold" />
+            <ProgressBar Minimum="0"
+                         Maximum="100"
+                         Value="72" />
+            <ProgressBar Minimum="0"
+                         Maximum="100"
+                         Value="55" />
+            <ProgressBar Minimum="0"
+                         Maximum="100"
+                         Value="92" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+                Background="#ffffff11"
+                Margin="12,0,0,12"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Vector shapes" FontSize="16" FontWeight="SemiBold" />
+            <Canvas Width="180" Height="140">
+              <Ellipse Width="120" Height="120"
+                       Canvas.Left="0"
+                       Canvas.Top="0"
+                       Fill="#55ffdd88"
+                       Stroke="#fff"
+                       StrokeThickness="2" />
+              <Polygon Points="40,120 160,120 100,20"
+                       Fill="#55ffffff"
+                       Stroke="#fff"
+                       StrokeThickness="2" />
+            </Canvas>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1"
+                Grid.ColumnSpan="2"
+                Background="#ffffff22"
+                Margin="0,12,0,0"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="12">
+            <Button Content="Refresh" Width="120" />
+            <Button Content="Settings" Width="120" />
+            <ToggleSwitch Content="Loop animation" IsChecked="True" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
   </Grid>
 </UserControl>
