@@ -25,7 +25,11 @@ public sealed class VelloPlatformOptions
     /// <summary>
     /// Gets or sets the renderer configuration passed to <see cref="Renderer"/> creation.
     /// </summary>
-    public RendererOptions RendererOptions { get; set; } = new();
+    public RendererOptions RendererOptions { get; set; } = new RendererOptions(
+        useCpu: false,
+        supportArea: true,
+        supportMsaa8: false,
+        supportMsaa16: false);
 
     /// <summary>
     /// Gets or sets the preferred presentation mode for swapchain surfaces.
