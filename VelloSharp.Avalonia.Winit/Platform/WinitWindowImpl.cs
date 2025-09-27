@@ -27,6 +27,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private WinitWindow? _window;
     private nint _nativeHandle;
     private PlatformHandle? _platformHandle;
+    private VelloWindowHandle _cachedVelloHandle;
+    private volatile bool _hasCachedVelloHandle;
     private Size _clientSize = new Size(1, 1);
     private PixelSize _surfaceSize = new PixelSize(1, 1);
     private double _renderScaling = 1.0;
@@ -357,7 +359,13 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         if (_dispatcher.CurrentThreadIsLoopThread)
         {
             var loopHandle = _window.GetVelloWindowHandle();
+            CacheVelloHandle(loopHandle);
             return SurfaceHandle.FromVelloHandle(loopHandle);
+        }
+
+        if (_hasCachedVelloHandle && _cachedVelloHandle.Kind != VelloWindowHandleKind.None)
+        {
+            return SurfaceHandle.FromVelloHandle(_cachedVelloHandle);
         }
 
         VelloWindowHandle? result = null;
@@ -369,7 +377,18 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             {
                 try
                 {
-                    result = _window.GetVelloWindowHandle();
+                    var loopWindow = _window;
+                    if (loopWindow is null)
+                    {
+                        capturedException = new InvalidOperationException("Native window handle is not available.");
+                        return;
+                    }
+
+                    result = loopWindow.GetVelloWindowHandle();
+                    if (result.HasValue)
+                    {
+                        CacheVelloHandle(result.Value);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -531,6 +550,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         _nativeHandle = nint.Zero;
         _window = null;
         _platformHandle = null;
+        _cachedVelloHandle = default;
+        Volatile.Write(ref _hasCachedVelloHandle, false);
         _isClosing = false;
         WinitWindowZOrderTracker.Unregister(this);
         Closed?.Invoke();
@@ -592,7 +613,19 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         }
 
         var velloHandle = _window.GetVelloWindowHandle();
+        CacheVelloHandle(velloHandle);
         _platformHandle = CreatePlatformHandle(in velloHandle);
+    }
+
+    private void CacheVelloHandle(VelloWindowHandle handle)
+    {
+        if (handle.Kind == VelloWindowHandleKind.None)
+        {
+            return;
+        }
+
+        _cachedVelloHandle = handle;
+        Volatile.Write(ref _hasCachedVelloHandle, true);
     }
 
     private static PlatformHandle CreatePlatformHandle(in VelloWindowHandle handle)
