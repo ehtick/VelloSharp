@@ -16,6 +16,7 @@ namespace Avalonia.Winit;
 
 internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurface, IVelloWinitSurfaceProvider
 {
+    private static readonly PlatformHandle s_nullPlatformHandle = new PlatformHandle(IntPtr.Zero, "Winit");
     private readonly WinitDispatcher _dispatcher;
     private readonly object _stateLock = new();
     private readonly object[] _surfaces;
@@ -88,7 +89,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public Action<PixelPoint>? PositionChanged { get; set; }
 
-    public IScreenImpl? Screen => _screenManager;
+    public IScreenImpl Screen => _screenManager;
 
     public void Activate()
     {
@@ -262,7 +263,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public double DesktopScaling => _desktopScaling;
 
-    public IPlatformHandle? Handle => _platformHandle;
+    public IPlatformHandle Handle => _platformHandle ?? s_nullPlatformHandle;
 
     public Size ClientSize => _clientSize;
 
