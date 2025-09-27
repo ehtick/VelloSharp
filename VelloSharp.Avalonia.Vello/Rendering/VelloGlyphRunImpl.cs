@@ -12,7 +12,6 @@ internal sealed class VelloGlyphRunImpl : IGlyphRunImpl
 {
     private readonly Glyph[] _glyphs;
     private readonly IReadOnlyList<GlyphInfo> _glyphInfos;
-    private bool _disposed;
 
     public VelloGlyphRunImpl(IGlyphTypeface glyphTypeface, double fontRenderingEmSize, IReadOnlyList<GlyphInfo> glyphInfos, Point baselineOrigin)
     {
@@ -39,7 +38,7 @@ internal sealed class VelloGlyphRunImpl : IGlyphRunImpl
 
     public void Dispose()
     {
-        _disposed = true;
+        // No unmanaged resources to release yet.
     }
 
     public IReadOnlyList<float> GetIntersections(float lowerLimit, float upperLimit)
