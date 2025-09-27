@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -86,7 +87,11 @@ internal abstract class VelloGeometryImplBase : IGeometryImpl
         return false;
     }
 
-    public virtual bool TryGetSegment(double startDistance, double stopDistance, bool startOnBeginFigure, out IGeometryImpl? segmentGeometry)
+    public virtual bool TryGetSegment(
+        double startDistance,
+        double stopDistance,
+        bool startOnBeginFigure,
+        [NotNullWhen(true)] out IGeometryImpl? segmentGeometry)
     {
         segmentGeometry = null;
         return false;
