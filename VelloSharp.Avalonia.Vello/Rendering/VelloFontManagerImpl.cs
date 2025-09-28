@@ -18,6 +18,7 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
     private readonly byte[] _embeddedFontData;
     private string? _defaultFamilyName;
     private string[]? _installedFamilies;
+    private HashSet<string>? _installedFamilyLookup;
 
     public VelloFontManagerImpl()
     {
@@ -65,7 +66,9 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             {
                 if (status != VelloStatus.Success || array.Count == 0 || array.Items == IntPtr.Zero)
                 {
-                    return _installedFamilies = new[] { GetDefaultFontFamilyName() };
+                    var fallback = new[] { GetDefaultFontFamilyName() };
+                    _installedFamilyLookup = new HashSet<string>(fallback, StringComparer.OrdinalIgnoreCase);
+                    return _installedFamilies = fallback;
                 }
 
                 var count = checked((int)array.Count);
@@ -82,6 +85,7 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
 
                 Array.Sort(names, StringComparer.OrdinalIgnoreCase);
                 _installedFamilies = names;
+                _installedFamilyLookup = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
                 return names;
             }
             finally
@@ -145,6 +149,11 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
         [NotNullWhen(true)] out IGlyphTypeface? glyphTypeface)
     {
         glyphTypeface = null;
+
+        if (!IsFamilyInstalled(familyName))
+        {
+            familyName = GetDefaultFontFamilyName();
+        }
 
         var status = NativeMethods.vello_parley_load_typeface(
             familyName,
@@ -246,6 +255,24 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
         var data = new byte[length];
         Marshal.Copy(info.Data, data, 0, length);
         return data;
+    }
+
+    private bool IsFamilyInstalled(string familyName)
+    {
+        if (string.IsNullOrWhiteSpace(familyName))
+        {
+            return false;
+        }
+
+        var lookup = _installedFamilyLookup;
+
+        if (lookup is null)
+        {
+            GetInstalledFontFamilyNames();
+            lookup = _installedFamilyLookup;
+        }
+
+        return lookup is not null && lookup.Contains(familyName);
     }
 
     private static float ToFontWeightValue(FontWeight weight)
