@@ -223,8 +223,9 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             _surfaceConfiguration.Height != height ||
             _surfaceConfiguration.PresentMode != _presentMode)
         {
-            _surfaceFormat = _wgpuSurface.GetPreferredFormat(resources.Adapter);
-            _requiresSurfaceBlit = RequiresSurfaceBlit(_surfaceFormat);
+            var preferredFormat = _wgpuSurface.GetPreferredFormat(resources.Adapter);
+            _surfaceFormat = NormalizeSurfaceFormat(preferredFormat);
+            _requiresSurfaceBlit = RequiresSurfaceBlit(preferredFormat);
             _surfaceConfiguration = new WgpuSurfaceConfiguration
             {
                 Usage = WgpuTextureUsage.RenderAttachment,
@@ -299,8 +300,15 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 
     private static bool RequiresSurfaceBlit(WgpuTextureFormat format) => format switch
     {
-        WgpuTextureFormat.Rgba8Unorm or WgpuTextureFormat.Rgba8UnormSrgb => false,
+        WgpuTextureFormat.Rgba8Unorm => false,
         _ => true,
+    };
+
+    private static WgpuTextureFormat NormalizeSurfaceFormat(WgpuTextureFormat format) => format switch
+    {
+        WgpuTextureFormat.Rgba8UnormSrgb => WgpuTextureFormat.Rgba8Unorm,
+        WgpuTextureFormat.Bgra8UnormSrgb => WgpuTextureFormat.Bgra8Unorm,
+        _ => format,
     };
 
     private bool PendingSurfaceMatches(WgpuInstance instance, in SurfaceDescriptor descriptor)
