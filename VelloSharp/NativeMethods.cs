@@ -489,4 +489,68 @@ internal static partial class NativeMethods
     [LibraryImport(LibraryName, EntryPoint = "vello_last_error_message")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr vello_last_error_message();
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_string_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_string_destroy(IntPtr ptr);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_parley_font_handle_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_parley_font_handle_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_parley_string_array_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_parley_string_array_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_parley_get_default_family")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_parley_get_default_family();
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_parley_get_family_names")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_parley_get_family_names(
+        out IntPtr handle,
+        out VelloStringArrayNative array);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_parley_match_character", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_parley_match_character(
+        uint codepoint,
+        float weight,
+        float stretch,
+        int style,
+        string? familyName,
+        string? locale,
+        out IntPtr handle,
+        out VelloParleyFontInfoNative info);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_parley_load_typeface", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_parley_load_typeface(
+        string familyName,
+        float weight,
+        float stretch,
+        int style,
+        out IntPtr handle,
+        out VelloParleyFontInfoNative info);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_glyph_index")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_glyph_index(
+        IntPtr font,
+        uint codepoint,
+        out ushort glyph);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_glyph_count")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_glyph_count(
+        IntPtr font,
+        out uint count);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_metrics")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_metrics(
+        IntPtr font,
+        float fontSize,
+        out VelloFontMetricsNative metrics);
 }

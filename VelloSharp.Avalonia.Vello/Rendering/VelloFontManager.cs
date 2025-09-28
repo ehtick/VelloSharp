@@ -50,7 +50,7 @@ internal static class VelloFontManager
                 }
             }
 
-            throw new NotSupportedException("Glyph typeface does not expose a font stream compatible with Vello.");
+            throw new NotSupportedException($"Glyph typeface '{typeface.FamilyName}' does not expose a font stream compatible with Vello.");
         });
     }
 

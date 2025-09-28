@@ -507,6 +507,43 @@ internal struct VelloGlyphMetricsNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloFontMetricsNative
+{
+    public ushort UnitsPerEm;
+    public ushort GlyphCount;
+    public float Ascent;
+    public float Descent;
+    public float Leading;
+    public float UnderlinePosition;
+    public float UnderlineThickness;
+    public float StrikeoutPosition;
+    public float StrikeoutThickness;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool IsMonospace;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloParleyFontInfoNative
+{
+    public IntPtr FamilyName;
+    public IntPtr Data;
+    public nuint Length;
+    public uint Index;
+    public float Weight;
+    public float Stretch;
+    public int Style;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool IsMonospace;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloStringArrayNative
+{
+    public IntPtr Items;
+    public nuint Count;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloShapedGlyphNative
 {
     public uint GlyphId;

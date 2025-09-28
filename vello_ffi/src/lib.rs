@@ -12,13 +12,20 @@ use std::{
     num::{NonZeroIsize, NonZeroUsize},
     ptr::NonNull,
     slice,
+    sync::Mutex,
 };
 
+use fontique::{
+    Attributes as FontiqueAttributes, FontStyle as FontiqueStyle, FontWeight as FontiqueWeight,
+    FontWidth as FontiqueWidth, GenericFamily as FontiqueGenericFamily,
+};
 use futures_intrusive::channel::shared::oneshot_channel;
 use harfrust::{
     Direction as HrDirection, FontRef as HrFontRef, ShaperData as HrShaperData,
     UnicodeBuffer as HrUnicodeBuffer,
 };
+use once_cell::sync::Lazy;
+use parley::FontContext;
 use peniko::{
     BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
@@ -31,9 +38,10 @@ use raw_window_handle::{
     XlibDisplayHandle, XlibWindowHandle,
 };
 use skrifa::{
-    FontRef, GlyphId as SkrifaGlyphId, instance::Size as SkrifaSize,
+    FontRef, GlyphId as SkrifaGlyphId, MetadataProvider, instance::Size as SkrifaSize,
     metrics::GlyphMetrics as SkrifaGlyphMetrics, prelude::LocationRef as SkrifaLocationRef,
 };
+use skrifa::raw::TableProvider;
 use swash::{
     FontRef as SwashFontRef, GlyphId as SwashGlyphId,
     scale::{ScaleContext, outline::Outline},
@@ -80,6 +88,8 @@ pub enum VelloStatus {
 thread_local! {
     static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
 }
+
+static PARLEY_FONT_CONTEXT: Lazy<Mutex<FontContext>> = Lazy::new(|| Mutex::new(FontContext::new()));
 
 fn clear_last_error() {
     LAST_ERROR.with(|slot| slot.borrow_mut().take());
@@ -234,6 +244,286 @@ pub extern "C" fn vello_text_stack_probe(result: *mut VelloTextStackProbe) -> Ve
             swash_cache_entries: 16,
             skrifa_test_gid: glyph_value,
         };
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_string_destroy(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe { drop(CString::from_raw(ptr)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_parley_font_handle_destroy(handle: *mut VelloParleyFontHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_parley_string_array_destroy(handle: *mut VelloStringArrayHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_parley_get_default_family() -> *mut c_char {
+    let mut ctx = PARLEY_FONT_CONTEXT.lock().unwrap();
+    let collection = &mut ctx.collection;
+
+    let first_family = {
+        let mut families = collection.generic_families(FontiqueGenericFamily::SansSerif);
+        families.next()
+    };
+
+    if let Some(id) = first_family {
+        if let Some(name) = collection.family_name(id) {
+            if let Ok(cstr) = CString::new(name) {
+                return cstr.into_raw();
+            }
+        }
+    }
+
+    CString::new("sans-serif").unwrap().into_raw()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_parley_get_family_names(
+    out_handle: *mut *mut VelloStringArrayHandle,
+    out_array: *mut VelloStringArray,
+) -> VelloStatus {
+    if out_handle.is_null() || out_array.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let mut ctx = PARLEY_FONT_CONTEXT.lock().unwrap();
+    let collection = &mut ctx.collection;
+
+    let mut strings = Vec::new();
+    for name in collection.family_names() {
+        if let Ok(cstr) = CString::new(name) {
+            strings.push(cstr);
+        }
+    }
+
+    let mut pointers = Vec::with_capacity(strings.len());
+    for s in &strings {
+        pointers.push(s.as_ptr());
+    }
+
+    let handle = Box::new(VelloStringArrayHandle { _strings: strings, pointers });
+    let array = VelloStringArray {
+        items: handle.pointers.as_ptr(),
+        count: handle.pointers.len(),
+    };
+
+    unsafe {
+        *out_array = array;
+        *out_handle = Box::into_raw(handle);
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_parley_match_character(
+    codepoint: u32,
+    weight: f32,
+    stretch: f32,
+    style: i32,
+    family_name: *const c_char,
+    _locale: *const c_char,
+    out_handle: *mut *mut VelloParleyFontHandle,
+    out_info: *mut VelloParleyFontInfo,
+) -> VelloStatus {
+    if out_handle.is_null() || out_info.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+        *out_info = VelloParleyFontInfo {
+            family_name: std::ptr::null(),
+            data: std::ptr::null(),
+            length: 0,
+            index: 0,
+            weight: 0.0,
+            stretch: 1.0,
+            style: 0,
+            is_monospace: false,
+        };
+    }
+
+    let family = if family_name.is_null() {
+        None
+    } else {
+        match unsafe { CStr::from_ptr(family_name) }.to_str() {
+            Ok(value) if !value.is_empty() => Some(value.to_owned()),
+            _ => None,
+        }
+    };
+
+    let attrs = FontiqueAttributes::new(
+        fontique_width_from_ratio(stretch),
+        fontique_style_from_i32(style),
+        fontique_weight_from_value(weight),
+    );
+
+    let mut matched: Option<MatchedFont> = None;
+
+    let mut ctx = PARLEY_FONT_CONTEXT.lock().unwrap();
+    {
+        let FontContext { collection, source_cache } = &mut *ctx;
+        let mut query = collection.query(source_cache);
+
+        let mut families = Vec::new();
+        if let Some(ref name) = family {
+            families.push(fontique::QueryFamily::Named(name));
+        }
+        families.push(fontique::QueryFamily::Generic(FontiqueGenericFamily::SansSerif));
+        families.push(fontique::QueryFamily::Generic(FontiqueGenericFamily::Emoji));
+        query.set_families(families);
+        query.set_attributes(attrs);
+
+        query.matches_with(|font| {
+            let font_data = font.blob.as_ref();
+            if let Ok(font_ref) = FontRef::from_index(font_data, font.index) {
+                if font_ref.charmap().map(codepoint).is_some() {
+                    matched = Some(MatchedFont {
+                        blob: font.blob.clone(),
+                        index: font.index,
+                        family_id: font.family.0,
+                        width: attrs.width,
+                        style: attrs.style,
+                        weight: attrs.weight,
+                    });
+                    return fontique::QueryStatus::Stop;
+                }
+            }
+            fontique::QueryStatus::Continue
+        });
+    }
+
+    let Some(matched) = matched else {
+        return VelloStatus::Unsupported;
+    };
+
+    let family_name = ctx
+        .collection
+        .family_name(matched.family_id)
+        .unwrap_or("unknown");
+
+    let handle_ptr = match create_parley_font_handle(
+        family_name,
+        matched.width,
+        matched.style,
+        matched.weight,
+        matched.blob,
+        matched.index,
+    ) {
+        Ok(handle) => handle,
+        Err(status) => return status,
+    };
+
+    unsafe {
+        *out_handle = handle_ptr;
+        *out_info = (*handle_ptr).info;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_parley_load_typeface(
+    family_name: *const c_char,
+    weight: f32,
+    stretch: f32,
+    style: i32,
+    out_handle: *mut *mut VelloParleyFontHandle,
+    out_info: *mut VelloParleyFontInfo,
+) -> VelloStatus {
+    if family_name.is_null() || out_handle.is_null() || out_info.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+        *out_info = VelloParleyFontInfo {
+            family_name: std::ptr::null(),
+            data: std::ptr::null(),
+            length: 0,
+            index: 0,
+            weight: 0.0,
+            stretch: 1.0,
+            style: 0,
+            is_monospace: false,
+        };
+    }
+
+    let family = match unsafe { CStr::from_ptr(family_name) }.to_str() {
+        Ok(name) if !name.is_empty() => name.to_owned(),
+        _ => {
+            set_last_error("Invalid family name");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let attrs = FontiqueAttributes::new(
+        fontique_width_from_ratio(stretch),
+        fontique_style_from_i32(style),
+        fontique_weight_from_value(weight),
+    );
+
+    let mut ctx = PARLEY_FONT_CONTEXT.lock().unwrap();
+
+    let family_info = match ctx.collection.family_by_name(&family) {
+        Some(info) => info,
+        None => return VelloStatus::Unsupported,
+    };
+
+    let mut font_index = family_info.match_index(attrs.width, attrs.style, attrs.weight, true);
+    if font_index.is_none() {
+        font_index = Some(family_info.default_font_index());
+    }
+    let Some(font_index) = font_index else {
+        return VelloStatus::Unsupported;
+    };
+
+    let font = match family_info.fonts().get(font_index) {
+        Some(font) => font.clone(),
+        None => {
+            set_last_error("Font index out of range");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let blob = match font.load(Some(&mut ctx.source_cache)) {
+        Some(blob) => blob,
+        None => {
+            set_last_error("Failed to load font data");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let handle_ptr = match create_parley_font_handle(
+        &family,
+        attrs.width,
+        attrs.style,
+        attrs.weight,
+        blob,
+        font.index(),
+    ) {
+        Ok(handle) => handle,
+        Err(status) => return status,
+    };
+
+    unsafe {
+        *out_handle = handle_ptr;
+        *out_info = (*handle_ptr).info;
     }
 
     VelloStatus::Success
@@ -1901,6 +2191,133 @@ pub struct VelloGlyphMetrics {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
+pub struct VelloFontMetricsData {
+    pub units_per_em: u16,
+    pub glyph_count: u16,
+    pub ascent: f32,
+    pub descent: f32,
+    pub leading: f32,
+    pub underline_position: f32,
+    pub underline_thickness: f32,
+    pub strikeout_position: f32,
+    pub strikeout_thickness: f32,
+    pub is_monospace: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloParleyFontInfo {
+    pub family_name: *const c_char,
+    pub data: *const u8,
+    pub length: usize,
+    pub index: u32,
+    pub weight: f32,
+    pub stretch: f32,
+    pub style: i32,
+    pub is_monospace: bool,
+}
+
+pub struct VelloParleyFontHandle {
+    info: VelloParleyFontInfo,
+    data: Vec<u8>,
+    name: CString,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloStringArray {
+    pub items: *const *const c_char,
+    pub count: usize,
+}
+
+pub struct VelloStringArrayHandle {
+    _strings: Vec<CString>,
+    pointers: Vec<*const c_char>,
+}
+
+struct MatchedFont {
+    blob: Blob<u8>,
+    index: u32,
+    family_id: fontique::FamilyId,
+    width: FontiqueWidth,
+    style: FontiqueStyle,
+    weight: FontiqueWeight,
+}
+
+fn fontique_style_from_i32(style: i32) -> FontiqueStyle {
+    match style {
+        1 => FontiqueStyle::Italic,
+        2 => FontiqueStyle::Oblique(None),
+        _ => FontiqueStyle::Normal,
+    }
+}
+
+fn fontique_style_to_i32(style: &FontiqueStyle) -> i32 {
+    match style {
+        FontiqueStyle::Normal => 0,
+        FontiqueStyle::Italic => 1,
+        FontiqueStyle::Oblique(_) => 2,
+    }
+}
+
+fn fontique_width_from_ratio(ratio: f32) -> FontiqueWidth {
+    let ratio = if ratio.is_finite() && ratio > 0.0 { ratio } else { 1.0 };
+    FontiqueWidth::from_ratio(ratio)
+}
+
+fn fontique_weight_from_value(weight: f32) -> FontiqueWeight {
+    let clamped = weight.clamp(1.0, 1000.0);
+    FontiqueWeight::new(clamped)
+}
+
+fn create_parley_font_handle(
+    family_name: &str,
+    width: FontiqueWidth,
+    style: FontiqueStyle,
+    weight: FontiqueWeight,
+    blob: Blob<u8>,
+    index: u32,
+) -> Result<*mut VelloParleyFontHandle, VelloStatus> {
+    let data = blob.as_ref();
+    let mut data_vec = Vec::with_capacity(data.len());
+    data_vec.extend_from_slice(data);
+
+    let font_ref = FontRef::from_index(&data_vec, index).map_err(|err| {
+        set_last_error(format!("Failed to read font: {err}"));
+        VelloStatus::InvalidArgument
+    })?;
+
+    let metrics = skrifa::metrics::Metrics::new(&font_ref, SkrifaSize::new(1.0), SkrifaLocationRef::default());
+
+    let name = CString::new(family_name).map_err(|_| {
+        set_last_error("Font family name contains interior null byte");
+        VelloStatus::InvalidArgument
+    })?;
+
+    let mut handle = Box::new(VelloParleyFontHandle {
+        info: VelloParleyFontInfo {
+            family_name: std::ptr::null(),
+            data: std::ptr::null(),
+            length: 0,
+            index,
+            weight: weight.value(),
+            stretch: width.ratio(),
+            style: fontique_style_to_i32(&style),
+            is_monospace: metrics.is_monospace,
+        },
+        data: data_vec,
+        name,
+    });
+
+    handle.info.family_name = handle.name.as_ptr();
+    handle.info.data = handle.data.as_ptr();
+    handle.info.length = handle.data.len();
+
+    Ok(Box::into_raw(handle))
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct VelloShapedGlyph {
     pub glyph_id: u32,
     pub cluster: u32,
@@ -3224,6 +3641,118 @@ pub unsafe extern "C" fn vello_font_destroy(font: *mut VelloFontHandle) {
     if !font.is_null() {
         unsafe { drop(Box::from_raw(font)) };
     }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_glyph_index(
+    font: *const VelloFontHandle,
+    codepoint: u32,
+    out_glyph: *mut u16,
+) -> VelloStatus {
+    if font.is_null() || out_glyph.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let charmap = font_ref.charmap();
+    let glyph = charmap
+        .map(codepoint)
+        .map(|gid| gid.to_u32() as u16)
+        .unwrap_or(0);
+
+    unsafe {
+        *out_glyph = glyph;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_glyph_count(
+    font: *const VelloFontHandle,
+    out_count: *mut u32,
+) -> VelloStatus {
+    if font.is_null() || out_count.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let count = font_ref
+        .maxp()
+        .ok()
+        .map(|maxp| maxp.num_glyphs() as u32)
+        .unwrap_or(0);
+
+    unsafe {
+        *out_count = count;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_metrics(
+    font: *const VelloFontHandle,
+    font_size: f32,
+    out_metrics: *mut VelloFontMetricsData,
+) -> VelloStatus {
+    if font.is_null() || out_metrics.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let size = SkrifaSize::new(font_size.max(0.0));
+    let metrics = skrifa::metrics::Metrics::new(&font_ref, size, SkrifaLocationRef::default());
+
+    let underline = metrics.underline.unwrap_or_default();
+    let strikeout = metrics.strikeout.unwrap_or_default();
+
+    unsafe {
+        *out_metrics = VelloFontMetricsData {
+            units_per_em: metrics.units_per_em,
+            glyph_count: metrics.glyph_count,
+            ascent: metrics.ascent,
+            descent: metrics.descent,
+            leading: metrics.leading,
+            underline_position: underline.offset,
+            underline_thickness: underline.thickness,
+            strikeout_position: strikeout.offset,
+            strikeout_thickness: strikeout.thickness,
+            is_monospace: metrics.is_monospace,
+        };
+    }
+
+    VelloStatus::Success
 }
 
 #[unsafe(no_mangle)]

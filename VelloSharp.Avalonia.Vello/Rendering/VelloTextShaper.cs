@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
@@ -43,6 +45,7 @@ internal sealed class VelloTextShaper : ITextShaperImpl
                     var shapedBuffer = new ShapedBuffer(text, glyphCount, typeface, options.FontRenderingEmSize, options.BidiLevel);
                     var glyphSpan = new ReadOnlySpan<VelloShapedGlyphNative>((void*)run.Glyphs, glyphCount);
 
+
                     for (var i = 0; i < glyphCount; i++)
                     {
                         ref readonly var glyph = ref glyphSpan[i];
@@ -64,18 +67,39 @@ internal sealed class VelloTextShaper : ITextShaperImpl
     private static ShapedBuffer ShapeWithFallback(ReadOnlyMemory<char> text, TextShaperOptions options)
     {
         var span = text.Span;
-        var glyphCount = span.Length;
-        var shapedBuffer = new ShapedBuffer(text, glyphCount, options.Typeface, options.FontRenderingEmSize, options.BidiLevel);
+        var isRightToLeft = (options.BidiLevel & 1) != 0;
+
+        var entries = new List<GlyphInfo>(span.Length);
         var designEm = options.Typeface.Metrics.DesignEmHeight;
         var scale = designEm != 0 ? options.FontRenderingEmSize / designEm : 1.0;
+        var letterSpacing = options.LetterSpacing;
 
-        for (var i = 0; i < glyphCount; i++)
+        var runeEnumerator = span.EnumerateRunes();
+        var cluster = 0;
+
+        foreach (var rune in runeEnumerator)
         {
-            var codepoint = span[i];
-            var glyphIndex = options.Typeface.GetGlyph(codepoint);
-            var cluster = i;
-            var advance = options.Typeface.GetGlyphAdvance(glyphIndex) * scale;
-            shapedBuffer[i] = new GlyphInfo(glyphIndex, cluster, advance + options.LetterSpacing, Vector.Zero);
+            var glyphIndex = options.Typeface.GetGlyph((uint)rune.Value);
+            var advance = options.Typeface.GetGlyphAdvance(glyphIndex) * scale + letterSpacing;
+            entries.Add(new GlyphInfo(glyphIndex, cluster, advance, Vector.Zero));
+            cluster += rune.Utf16SequenceLength;
+        }
+
+        if (entries.Count == 0)
+        {
+            return new ShapedBuffer(text, 0, options.Typeface, options.FontRenderingEmSize, options.BidiLevel);
+        }
+
+        var shapedBuffer = new ShapedBuffer(text, entries.Count, options.Typeface, options.FontRenderingEmSize, options.BidiLevel);
+
+        if (isRightToLeft)
+        {
+            entries.Reverse();
+        }
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            shapedBuffer[i] = entries[i];
         }
 
         return shapedBuffer;
