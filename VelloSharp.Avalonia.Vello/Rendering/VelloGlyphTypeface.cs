@@ -7,12 +7,16 @@ namespace VelloSharp.Avalonia.Vello.Rendering;
 
 internal sealed class VelloGlyphTypeface : IGlyphTypeface
 {
+    internal const float FauxItalicSkew = -0.3f;
+    internal const double FauxBoldStrokeScale = 1.0 / 24.0;
+
     private readonly byte[] _fontData;
     private readonly Font _font;
     private readonly uint _fontIndex;
     private readonly FontMetrics _metrics;
     private readonly int _glyphCount;
     private readonly float _designFontSize;
+    private readonly FontSimulations _simulations;
     private bool _disposed;
 
     public VelloGlyphTypeface(
@@ -21,7 +25,8 @@ internal sealed class VelloGlyphTypeface : IGlyphTypeface
         FontWeight weight,
         FontStretch stretch,
         byte[] fontData,
-        uint fontIndex = 0)
+        uint fontIndex = 0,
+        FontSimulations simulations = FontSimulations.None)
     {
         FamilyName = familyName ?? throw new ArgumentNullException(nameof(familyName));
         Style = style;
@@ -32,6 +37,7 @@ internal sealed class VelloGlyphTypeface : IGlyphTypeface
         _fontData = (byte[])fontData.Clone();
         _fontIndex = fontIndex;
         _font = Font.Load(_fontData, fontIndex);
+        _simulations = simulations;
 
         (_metrics, _glyphCount, _designFontSize) = LoadMetrics();
     }
@@ -46,7 +52,7 @@ internal sealed class VelloGlyphTypeface : IGlyphTypeface
 
     public int GlyphCount => _glyphCount;
 
-    public FontSimulations FontSimulations => FontSimulations.None;
+    public FontSimulations FontSimulations => _simulations;
 
     public FontMetrics Metrics => _metrics;
 

@@ -243,6 +243,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             return;
         }
 
+        var simulations = (velloGlyphRun.GlyphTypeface as VelloGlyphTypeface)?.FontSimulations ?? FontSimulations.None;
+
         var transform = Matrix3x2.CreateTranslation(
                 (float)velloGlyphRun.BaselineOrigin.X,
                 (float)velloGlyphRun.BaselineOrigin.Y)
@@ -258,7 +260,39 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             Style = GlyphRunStyle.Fill,
         };
 
+        if (simulations.HasFlag(FontSimulations.Oblique))
+        {
+            var skew = Matrix3x2.CreateSkew(VelloGlyphTypeface.FauxItalicSkew, 0);
+            options.GlyphTransform = options.GlyphTransform.HasValue
+                ? options.GlyphTransform.Value * skew
+                : skew;
+        }
+
         _scene.DrawGlyphRun(font, glyphs, options);
+
+        if (simulations.HasFlag(FontSimulations.Bold))
+        {
+            var strokeWidth = Math.Max(1f, options.FontSize * (float)VelloGlyphTypeface.FauxBoldStrokeScale);
+            var strokeOptions = new GlyphRunOptions
+            {
+                FontSize = options.FontSize,
+                Brush = options.Brush,
+                BrushAlpha = options.BrushAlpha,
+                Transform = options.Transform,
+                GlyphTransform = options.GlyphTransform,
+                Hint = options.Hint,
+                Style = GlyphRunStyle.Stroke,
+                Stroke = new StrokeStyle
+                {
+                    Width = strokeWidth,
+                    StartCap = LineCap.Butt,
+                    EndCap = LineCap.Butt,
+                    LineJoin = LineJoin.Miter,
+                },
+            };
+
+            _scene.DrawGlyphRun(font, glyphs, strokeOptions);
+        }
     }
 
     public IDrawingContextLayerImpl CreateLayer(PixelSize size)

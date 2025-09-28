@@ -50,6 +50,16 @@ internal sealed class VelloTextShaper : ITextShaperImpl
                     {
                         ref readonly var glyph = ref glyphSpan[i];
                         var advance = glyph.XAdvance + options.LetterSpacing;
+                        if (advance <= 0)
+                        {
+                            var designAdvance = options.Typeface.GetGlyphAdvance((ushort)glyph.GlyphId);
+                            var designEm = options.Typeface.Metrics.DesignEmHeight;
+                            if (designAdvance > 0 && designEm != 0)
+                            {
+                                var scale = options.FontRenderingEmSize / designEm;
+                                advance = designAdvance * scale + options.LetterSpacing;
+                            }
+                        }
                         var offset = new Vector(glyph.XOffset, -glyph.YOffset);
                         shapedBuffer[i] = new GlyphInfo((ushort)glyph.GlyphId, (int)glyph.Cluster, advance, offset);
                     }

@@ -150,6 +150,8 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
     {
         glyphTypeface = null;
 
+        var requestedFamily = familyName;
+
         if (!IsFamilyInstalled(familyName))
         {
             familyName = GetDefaultFontFamilyName();
@@ -170,7 +172,8 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
                 NativeMethods.vello_parley_font_handle_destroy(handle);
             }
 
-            return TryCreateEmbeddedGlyphTypeface(familyName, style, weight, stretch, out glyphTypeface);
+            var fallbackSimulations = ComputeSimulations(style, weight, FontStyle.Normal, FontWeight.Normal);
+            return TryCreateEmbeddedGlyphTypeface(requestedFamily, style, weight, stretch, fallbackSimulations, out glyphTypeface);
         }
 
         try
@@ -178,17 +181,35 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             var data = CopyFontData(info);
             if (data.Length == 0)
             {
-                return TryCreateEmbeddedGlyphTypeface(familyName, style, weight, stretch, out glyphTypeface);
+                var fallbackSimulations = ComputeSimulations(style, weight, FontStyle.Normal, FontWeight.Normal);
+                return TryCreateEmbeddedGlyphTypeface(requestedFamily, style, weight, stretch, fallbackSimulations, out glyphTypeface);
             }
 
             var resolvedFamily = Marshal.PtrToStringUTF8(info.FamilyName) ?? familyName;
+            var resolvedStyle = FromFontStyleValue(info.Style);
+            var resolvedWeight = FromFontWeightValue(info.Weight);
+            var resolvedStretch = FromStretchRatio(info.Stretch);
+
+            var simulations = ComputeSimulations(style, weight, resolvedStyle, resolvedWeight);
+
+            if (simulations.HasFlag(FontSimulations.Oblique))
+            {
+                resolvedStyle = style;
+            }
+
+            if (simulations.HasFlag(FontSimulations.Bold))
+            {
+                resolvedWeight = weight;
+            }
+
             glyphTypeface = new VelloGlyphTypeface(
                 resolvedFamily,
-                FromFontStyleValue(info.Style),
-                FromFontWeightValue(info.Weight),
-                FromStretchRatio(info.Stretch),
+                resolvedStyle,
+                resolvedWeight,
+                resolvedStretch,
                 data,
-                info.Index);
+                info.Index,
+                simulations);
             return true;
         }
         finally
@@ -218,15 +239,22 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             return false;
         }
 
-        glyphTypeface = new VelloGlyphTypeface(EmbeddedFamilyName, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal, fontData);
+        glyphTypeface = new VelloGlyphTypeface(
+            EmbeddedFamilyName,
+            fontSimulations.HasFlag(FontSimulations.Oblique) ? FontStyle.Italic : FontStyle.Normal,
+            fontSimulations.HasFlag(FontSimulations.Bold) ? FontWeight.Bold : FontWeight.Normal,
+            FontStretch.Normal,
+            fontData,
+            simulations: fontSimulations);
         return true;
     }
 
     private bool TryCreateEmbeddedGlyphTypeface(
-        string familyName,
+        string requestedFamily,
         FontStyle style,
         FontWeight weight,
         FontStretch stretch,
+        FontSimulations simulations,
         [NotNullWhen(true)] out IGlyphTypeface? glyphTypeface)
     {
         if (_embeddedFontData.Length == 0)
@@ -235,7 +263,15 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             return false;
         }
 
-        glyphTypeface = new VelloGlyphTypeface(familyName, style, weight, stretch, _embeddedFontData);
+        var familyName = string.IsNullOrWhiteSpace(requestedFamily) ? EmbeddedFamilyName : requestedFamily;
+
+        glyphTypeface = new VelloGlyphTypeface(
+            familyName,
+            style,
+            weight,
+            stretch,
+            _embeddedFontData,
+            simulations: simulations);
         return true;
     }
 
@@ -273,6 +309,23 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
         }
 
         return lookup is not null && lookup.Contains(familyName);
+    }
+
+    private static FontSimulations ComputeSimulations(FontStyle requestedStyle, FontWeight requestedWeight, FontStyle resolvedStyle, FontWeight resolvedWeight)
+    {
+        var simulations = FontSimulations.None;
+
+        if (requestedStyle != FontStyle.Normal && resolvedStyle != requestedStyle)
+        {
+            simulations |= FontSimulations.Oblique;
+        }
+
+        if ((int)requestedWeight >= 600 && (int)resolvedWeight < (int)requestedWeight)
+        {
+            simulations |= FontSimulations.Bold;
+        }
+
+        return simulations;
     }
 
     private static float ToFontWeightValue(FontWeight weight)

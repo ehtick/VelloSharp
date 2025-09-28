@@ -65,6 +65,8 @@ internal sealed class VelloGlyphRunImpl : IGlyphRunImpl
         double maxX = double.NegativeInfinity;
         double maxY = double.NegativeInfinity;
 
+        var simulations = (GlyphTypeface as VelloGlyphTypeface)?.FontSimulations ?? FontSimulations.None;
+
         for (var i = 0; i < glyphInfos.Count; i++)
         {
             var glyph = glyphInfos[i];
@@ -144,6 +146,25 @@ internal sealed class VelloGlyphRunImpl : IGlyphRunImpl
             minY = baselineOrigin.Y;
             maxX = baselineOrigin.X + currentX;
             maxY = baselineOrigin.Y + FontRenderingEmSize;
+        }
+
+        if (simulations != FontSimulations.None)
+        {
+            if (simulations.HasFlag(FontSimulations.Oblique))
+            {
+                var skewExtent = Math.Abs(VelloGlyphTypeface.FauxItalicSkew) * FontRenderingEmSize;
+                minX -= skewExtent;
+                maxX += skewExtent;
+            }
+
+            if (simulations.HasFlag(FontSimulations.Bold))
+            {
+                var strokeExtent = Math.Max(1.0, FontRenderingEmSize * VelloGlyphTypeface.FauxBoldStrokeScale) * 0.5;
+                minX -= strokeExtent;
+                maxX += strokeExtent;
+                minY -= strokeExtent;
+                maxY += strokeExtent;
+            }
         }
 
         bounds = new Rect(new Point(minX, minY), new Point(maxX, maxY));
