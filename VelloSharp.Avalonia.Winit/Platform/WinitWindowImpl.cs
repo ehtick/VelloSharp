@@ -28,7 +28,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private nint _nativeHandle;
     private PlatformHandle? _platformHandle;
     private VelloWindowHandle _cachedVelloHandle;
-    private volatile bool _hasCachedVelloHandle;
+    private bool _hasCachedVelloHandle;
     private Size _clientSize = new Size(1, 1);
     private PixelSize _surfaceSize = new PixelSize(1, 1);
     private double _renderScaling = 1.0;
@@ -363,7 +363,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             return SurfaceHandle.FromVelloHandle(loopHandle);
         }
 
-        if (_hasCachedVelloHandle && _cachedVelloHandle.Kind != VelloWindowHandleKind.None)
+        if (Volatile.Read(ref _hasCachedVelloHandle) && _cachedVelloHandle.Kind != VelloWindowHandleKind.None)
         {
             return SurfaceHandle.FromVelloHandle(_cachedVelloHandle);
         }
@@ -779,7 +779,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         _mouseDevice?.ProcessRawEvent(args);
     }
 
-    internal void OnKeyboardInput(uint keyCode, WinitElementState state, WinitModifiers modifiers, WinitKeyLocation location, bool repeat)
+    internal void OnKeyboardInput(uint keyCode, WinitElementState state, WinitModifiers modifiers, WinitKeyLocation location, bool repeat, string? text)
     {
         var mods = ConvertModifiers(modifiers);
         var root = _inputRoot;
@@ -788,10 +788,11 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             return;
         }
 
+        var keyboardDevice = _keyboardDevice ?? throw new InvalidOperationException("Keyboard device is not available.");
         var physical = (PhysicalKey)keyCode;
         var key = physical.ToQwertyKey();
         var args = new RawKeyEventArgs(
-            _keyboardDevice,
+            keyboardDevice,
             (ulong)Now,
             root,
             state == WinitElementState.Pressed ? RawKeyEventType.KeyDown : RawKeyEventType.KeyUp,
@@ -804,7 +805,18 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         };
 
         Input?.Invoke(args);
-        _keyboardDevice?.ProcessRawEvent(args);
+        keyboardDevice.ProcessRawEvent(args);
+
+        if (state == WinitElementState.Pressed && !string.IsNullOrEmpty(text))
+        {
+            var textArgs = new RawTextInputEventArgs(
+                keyboardDevice,
+                (ulong)Now,
+                root,
+                text!);
+            Input?.Invoke(textArgs);
+            keyboardDevice.ProcessRawEvent(textArgs);
+        }
     }
 
     internal void OnModifiersChanged(WinitModifiers modifiers)
@@ -814,6 +826,29 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     internal void OnTouch(WinitEventArgs args)
     {
+    }
+
+    internal void OnTextInput(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        var root = _inputRoot;
+        if (root is null)
+        {
+            return;
+        }
+
+        var keyboardDevice = _keyboardDevice ?? throw new InvalidOperationException("Keyboard device is not available.");
+        var textArgs = new RawTextInputEventArgs(
+            keyboardDevice,
+            (ulong)Now,
+            root,
+            text);
+        Input?.Invoke(textArgs);
+        keyboardDevice.ProcessRawEvent(textArgs);
     }
 
     private RawPointerEventArgs? CreatePointerEvent(RawPointerEventType type, Point position, RawInputModifiers modifiers)

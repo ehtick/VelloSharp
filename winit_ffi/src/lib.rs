@@ -15,12 +15,15 @@ use std::{
     time::Duration,
 };
 
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+use copypasta::{ClipboardContext, ClipboardProvider};
+
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{
-        DeviceEvent, ElementState, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
+        DeviceEvent, ElementState, Ime, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
         WindowEvent,
     },
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
@@ -93,6 +96,179 @@ impl Drop for ProxyRegistration {
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+struct ClipboardState {
+    context: Option<ClipboardContext>,
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+impl ClipboardState {
+    fn ensure_context(&mut self) -> Result<&mut ClipboardContext, String> {
+        if self.context.is_none() {
+            let context = ClipboardContext::new().map_err(|err| err.to_string())?;
+            self.context = Some(context);
+        }
+
+        // SAFETY: context is guaranteed to be `Some` above.
+        Ok(self
+            .context
+            .as_mut()
+            .expect("clipboard context should be initialized"))
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+fn clipboard_state() -> &'static Mutex<ClipboardState> {
+    static CLIPBOARD: OnceLock<Mutex<ClipboardState>> = OnceLock::new();
+    CLIPBOARD.get_or_init(|| Mutex::new(ClipboardState { context: None }))
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+fn with_clipboard<T, F>(f: F) -> Result<T, WinitStatus>
+where
+    F: FnOnce(&mut ClipboardContext) -> Result<T, String>,
+{
+    let mutex = clipboard_state();
+    let mut guard = match mutex.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            set_last_error("Clipboard mutex poisoned");
+            return Err(WinitStatus::RuntimeError);
+        }
+    };
+
+    let context = match guard.ensure_context() {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            set_last_error(format!("Clipboard unavailable: {err}"));
+            return Err(WinitStatus::RuntimeError);
+        }
+    };
+
+    match f(context) {
+        Ok(value) => Ok(value),
+        Err(err) => {
+            set_last_error(format!("Clipboard error: {err}"));
+            Err(WinitStatus::RuntimeError)
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+#[unsafe(no_mangle)]
+pub extern "C" fn winit_clipboard_is_available() -> bool {
+    let mutex = clipboard_state();
+    match mutex.lock() {
+        Ok(mut guard) => guard.ensure_context().is_ok(),
+        Err(_) => false,
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+#[unsafe(no_mangle)]
+pub extern "C" fn winit_clipboard_is_available() -> bool {
+    false
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_clipboard_set_text(text: *const c_char) -> WinitStatus {
+    clear_last_error();
+
+    let contents = if text.is_null() {
+        String::new()
+    } else {
+        unsafe { CStr::from_ptr(text) }
+            .to_string_lossy()
+            .into_owned()
+    };
+
+    match with_clipboard(|ctx| {
+        ctx.set_contents(contents.clone())
+            .map_err(|err| err.to_string())
+    }) {
+        Ok(_) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_clipboard_set_text(text: *const c_char) -> WinitStatus {
+    let _ = text;
+    set_last_error("Clipboard is not supported on this platform");
+    WinitStatus::InvalidState
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_clipboard_get_text(out_text: *mut *mut c_char) -> WinitStatus {
+    clear_last_error();
+
+    if out_text.is_null() {
+        set_last_error("out_text must not be null");
+        return WinitStatus::NullPointer;
+    }
+
+    let result = with_clipboard(|ctx| ctx.get_contents().map_err(|err| err.to_string()));
+    match result {
+        Ok(text) => {
+            let ptr = if text.is_empty() {
+                ptr::null_mut()
+            } else {
+                match CString::new(text) {
+                    Ok(cstr) => cstr.into_raw(),
+                    Err(_) => {
+                        set_last_error("Clipboard contents contain interior null bytes");
+                        return WinitStatus::RuntimeError;
+                    }
+                }
+            };
+
+            unsafe {
+                *out_text = ptr;
+            }
+            WinitStatus::Success
+        }
+        Err(status) => {
+            unsafe {
+                *out_text = ptr::null_mut();
+            }
+            status
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_clipboard_get_text(out_text: *mut *mut c_char) -> WinitStatus {
+    if !out_text.is_null() {
+        unsafe {
+            *out_text = ptr::null_mut();
+        }
+    }
+    set_last_error("Clipboard is not supported on this platform");
+    WinitStatus::InvalidState
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_clipboard_free_text(text: *mut c_char) {
+    if text.is_null() {
+        return;
+    }
+
+    unsafe {
+        let _ = CString::from_raw(text);
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_clipboard_free_text(text: *mut c_char) {
+    let _ = text;
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn winit_last_error_message() -> *const c_char {
     LAST_ERROR.with(|slot| match slot.borrow().as_ref() {
@@ -156,6 +332,7 @@ pub enum WinitEventKind {
     KeyboardInput = 19,
     ModifiersChanged = 20,
     Touch = 21,
+    TextInput = 22,
 }
 
 #[repr(i32)]
@@ -252,7 +429,7 @@ impl Default for WinitRunOptions {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct WinitEvent {
     pub kind: WinitEventKind,
     pub window: *mut WinitWindowHandleOpaque,
@@ -274,6 +451,7 @@ pub struct WinitEvent {
     pub repeat: bool,
     pub touch_id: u64,
     pub touch_phase: WinitTouchPhaseKind,
+    pub text: *mut c_char,
 }
 
 impl Default for WinitEvent {
@@ -299,6 +477,7 @@ impl Default for WinitEvent {
             repeat: false,
             touch_id: 0,
             touch_phase: WinitTouchPhaseKind::Started,
+            text: ptr::null_mut(),
         }
     }
 }
@@ -308,6 +487,17 @@ impl WinitEvent {
         Self {
             kind,
             ..Self::default()
+        }
+    }
+}
+
+impl Drop for WinitEvent {
+    fn drop(&mut self) {
+        if !self.text.is_null() {
+            unsafe {
+                drop(CString::from_raw(self.text));
+            }
+            self.text = ptr::null_mut();
         }
     }
 }
@@ -778,12 +968,32 @@ impl ApplicationHandler<UserEvent> for WinitApplication {
                 if let PhysicalKey::Code(code) = event.physical_key {
                     evt.key_code = code as u32;
                 }
+                if let Some(text) = event.text.as_ref() {
+                    if !text.is_empty() {
+                        if let Ok(cstr) = CString::new(text.as_str()) {
+                            evt.text = cstr.into_raw();
+                        }
+                    }
+                }
                 self.dispatch_event(event_loop, evt);
             }
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.modifiers = modifiers.state();
                 let mut evt = WinitEvent::new(WinitEventKind::ModifiersChanged);
                 evt.window = window_ptr;
+                evt.modifiers = self.modifiers.bits();
+                self.dispatch_event(event_loop, evt);
+            }
+            WindowEvent::Ime(Ime::Commit(text)) => {
+                if text.is_empty() {
+                    return;
+                }
+
+                let mut evt = WinitEvent::new(WinitEventKind::TextInput);
+                evt.window = window_ptr;
+                if let Ok(cstr) = CString::new(text.as_str()) {
+                    evt.text = cstr.into_raw();
+                }
                 evt.modifiers = self.modifiers.bits();
                 self.dispatch_event(event_loop, evt);
             }

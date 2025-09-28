@@ -250,10 +250,16 @@ internal sealed class WinitDispatcher : IControlledDispatcherImpl, IWinitEventHa
                 window.OnMouseWheel(args.DeltaX, args.DeltaY, args.ScrollDeltaKind, args.Modifiers);
                 break;
             case WinitEventKind.KeyboardInput:
-                window.OnKeyboardInput(args.KeyCode, args.ElementState, args.Modifiers, args.KeyLocation, args.Repeat);
+                window.OnKeyboardInput(args.KeyCode, args.ElementState, args.Modifiers, args.KeyLocation, args.Repeat, args.Text);
                 break;
             case WinitEventKind.ModifiersChanged:
                 window.OnModifiersChanged(args.Modifiers);
+                break;
+            case WinitEventKind.TextInput:
+                if (!string.IsNullOrEmpty(args.Text))
+                {
+                    window.OnTextInput(args.Text);
+                }
                 break;
             case WinitEventKind.Touch:
                 window.OnTouch(args);

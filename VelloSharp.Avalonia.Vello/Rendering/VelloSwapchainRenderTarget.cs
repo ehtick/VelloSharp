@@ -9,7 +9,7 @@ using VelloSharp;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
-internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
+internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 {
     private readonly VelloGraphicsDevice _graphicsDevice;
     private readonly VelloPlatformOptions _options;
@@ -57,11 +57,12 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
 
     public IDrawingContextImpl CreateDrawingContext(bool useScaledDrawing)
     {
-        return CreateDrawingContext(useScaledDrawing, out _);
+        var pixelSize = ClampSize(_surfaceProvider.SurfacePixelSize);
+        return CreateDrawingContext(pixelSize, out _);
     }
 
     public IDrawingContextImpl CreateDrawingContext(
-        bool useScaledDrawing,
+        PixelSize expectedPixelSize,
         out RenderTargetDrawingContextProperties properties)
     {
         lock (_syncRoot)
@@ -72,7 +73,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
             }
         }
 
-        var clampedSize = ClampSize(_surfaceProvider.SurfacePixelSize);
+        var clampedSize = ResolvePixelSize(expectedPixelSize);
         var scene = new Scene();
         scene.Reset();
 
@@ -391,6 +392,16 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTargetWithProperties
         _surfaceFormat = default;
         _requiresSurfaceBlit = false;
         _surfaceCreationRequestId++;
+    }
+
+    private PixelSize ResolvePixelSize(PixelSize expected)
+    {
+        if (expected.Width > 0 && expected.Height > 0)
+        {
+            return ClampSize(expected);
+        }
+
+        return ClampSize(_surfaceProvider.SurfacePixelSize);
     }
 
     private static PixelSize ClampSize(PixelSize size)

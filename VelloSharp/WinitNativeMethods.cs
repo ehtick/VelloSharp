@@ -107,4 +107,21 @@ internal static unsafe partial class WinitNativeMethods
     [LibraryImport(LibraryName, EntryPoint = "winit_window_focus")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_focus(nint window);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_clipboard_is_available")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [return: MarshalAs(UnmanagedType.I1)]
+    internal static partial bool winit_clipboard_is_available();
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_clipboard_set_text")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_clipboard_set_text(nint text);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_clipboard_get_text")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_clipboard_get_text(out nint text);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_clipboard_free_text")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void winit_clipboard_free_text(nint text);
 }

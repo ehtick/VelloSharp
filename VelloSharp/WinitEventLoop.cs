@@ -237,6 +237,7 @@ public readonly struct WinitEventArgs
         Repeat = evt.Repeat;
         TouchId = evt.TouchId;
         TouchPhase = evt.TouchPhase;
+        Text = evt.Text == nint.Zero ? null : Marshal.PtrToStringUTF8(evt.Text);
     }
 
     public WinitEventKind Kind { get; }
@@ -276,6 +277,8 @@ public readonly struct WinitEventArgs
     public ulong TouchId { get; }
 
     public WinitTouchPhaseKind TouchPhase { get; }
+
+    public string? Text { get; }
 
     internal nint WindowHandle { get; }
 

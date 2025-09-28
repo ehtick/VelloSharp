@@ -146,6 +146,7 @@ public enum WinitEventKind : int
     KeyboardInput = 19,
     ModifiersChanged = 20,
     Touch = 21,
+    TextInput = 22,
 }
 
 public enum WinitMouseButton : int
@@ -248,6 +249,7 @@ internal struct WinitEvent
     public bool Repeat;
     public ulong TouchId;
     public WinitTouchPhaseKind TouchPhase;
+    public nint Text;
 }
 
 
