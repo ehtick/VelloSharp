@@ -27,17 +27,24 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private int _clipDepth;
     private int _opacityDepth;
     private int _layerDepth;
+    private bool _skipInitialClip;
     private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
     private static readonly PropertyInfo? s_imageBrushBitmapProperty =
         typeof(IImageBrushSource).GetProperty("Bitmap", BindingFlags.Instance | BindingFlags.NonPublic);
 
-    public VelloDrawingContextImpl(Scene scene, PixelSize targetSize, VelloPlatformOptions options, Action<VelloDrawingContextImpl> onCompleted)
+    public VelloDrawingContextImpl(
+        Scene scene,
+        PixelSize targetSize,
+        VelloPlatformOptions options,
+        Action<VelloDrawingContextImpl> onCompleted,
+        bool skipInitialClip = false)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _targetSize = targetSize;
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _onCompleted = onCompleted ?? throw new ArgumentNullException(nameof(onCompleted));
+        _skipInitialClip = skipInitialClip;
         Transform = Matrix.Identity;
         RenderParams = new RenderParams((uint)Math.Max(1, targetSize.Width), (uint)Math.Max(1, targetSize.Height), options.ClearColor)
         {
@@ -263,9 +270,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     {
         _clipDepth++;
 
+        if (TrySkipClip())
+        {
+            return;
+        }
+
         if (clip.Width <= 0 || clip.Height <= 0)
         {
-        _layerStack.Push(LayerEntry.Noop());
+            _layerStack.Push(LayerEntry.Noop());
             return;
         }
 
@@ -278,9 +290,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     {
         _clipDepth++;
 
+        if (TrySkipClip())
+        {
+            return;
+        }
+
         if (clip.Rect.Width <= 0 || clip.Rect.Height <= 0)
         {
-        _layerStack.Push(LayerEntry.Noop());
+            _layerStack.Push(LayerEntry.Noop());
             return;
         }
 
@@ -293,9 +310,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     {
         _clipDepth++;
 
+        if (TrySkipClip())
+        {
+            return;
+        }
+
         if (region is not VelloRegionImpl velloRegion || velloRegion.IsEmpty)
         {
-        _layerStack.Push(LayerEntry.Noop());
+            _layerStack.Push(LayerEntry.Noop());
             return;
         }
 
@@ -388,6 +410,11 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     public void PushGeometryClip(IGeometryImpl clip)
     {
         _clipDepth++;
+
+        if (TrySkipClip())
+        {
+            return;
+        }
 
         if (clip is not VelloGeometryImplBase geometry)
         {
@@ -541,6 +568,18 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         {
             throw new ObjectDisposedException(nameof(VelloDrawingContextImpl));
         }
+    }
+
+    private bool TrySkipClip()
+    {
+        if (_skipInitialClip && _clipDepth == 1)
+        {
+            _skipInitialClip = false;
+            _layerStack.Push(LayerEntry.Noop());
+            return true;
+        }
+
+        return false;
     }
 
     private static LineCap ConvertLineCap(PenLineCap cap)

@@ -73,42 +73,13 @@ internal sealed class VelloRegionImpl : IPlatformRenderInterfaceRegion
     public bool Intersects(LtrbRect rect)
     {
         EnsureNotDisposed();
-        if (_rects.Count == 0)
-        {
-            return false;
-        }
-
-        var target = ToPixelRect(rect);
-        foreach (var existing in _rects)
-        {
-            if (RectanglesIntersect(existing, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return _rects.Count > 0;
     }
 
     public bool Contains(Point pt)
     {
         EnsureNotDisposed();
-        if (_rects.Count == 0)
-        {
-            return false;
-        }
-
-        var x = (int)Math.Floor(pt.X);
-        var y = (int)Math.Floor(pt.Y);
-        foreach (var rect in _rects)
-        {
-            if (x >= rect.Left && x < rect.Right && y >= rect.Top && y < rect.Bottom)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return _rects.Count > 0;
     }
 
     private static LtrbPixelRect ToPixelRect(LtrbRect rect)

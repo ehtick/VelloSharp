@@ -82,7 +82,12 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             PreviousFrameIsRetained = false,
         };
 
-        return new VelloDrawingContextImpl(scene, clampedSize, _options, OnContextCompleted);
+        return new VelloDrawingContextImpl(
+            scene,
+            clampedSize,
+            _options,
+            OnContextCompleted,
+            skipInitialClip: !properties.PreviousFrameIsRetained);
     }
 
     public void Dispose()

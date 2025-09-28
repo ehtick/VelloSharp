@@ -34,6 +34,16 @@ internal static class VelloPlatform
 
             var locator = AvaloniaLocator.CurrentMutable;
 
+            var compositionOptions = locator.GetService<CompositionOptions>();
+            if (compositionOptions is null)
+            {
+                compositionOptions = new CompositionOptions();
+                locator.Bind<CompositionOptions>().ToConstant(compositionOptions);
+            }
+
+            compositionOptions.UseRegionDirtyRectClipping = true;
+            compositionOptions.UseSaveLayerRootClip ??= false;
+
             locator.Bind<IPlatformRenderInterface>().ToConstant(s_renderInterface);
 
             if (locator.GetService<IFontManagerImpl>() is null)
