@@ -71,14 +71,15 @@ internal sealed class VelloGlyphRunImpl : IGlyphRunImpl
             var offset = glyph.GlyphOffset;
 
             var x = currentX + offset.X;
-            var y = offset.Y;
+            var offsetY = offset.Y;
+            var y = -offsetY;
 
             glyphs[i] = new Glyph(glyph.GlyphIndex, (float)x, (float)y);
 
             if (VelloFontManager.TryGetGlyphMetrics(font, (ushort)glyph.GlyphIndex, FontRenderingEmSize, out var velloMetrics))
             {
                 var left = baselineOrigin.X + x + velloMetrics.XBearing;
-                var top = baselineOrigin.Y + y - velloMetrics.YBearing;
+                var top = baselineOrigin.Y + offsetY - velloMetrics.YBearing;
                 var right = left + velloMetrics.Width;
                 var bottom = top + velloMetrics.Height;
 
@@ -109,7 +110,7 @@ internal sealed class VelloGlyphRunImpl : IGlyphRunImpl
                     : 1.0;
 
                 var left = baselineOrigin.X + x + metrics.XBearing * scale;
-                var top = baselineOrigin.Y + y - metrics.YBearing * scale;
+                var top = baselineOrigin.Y + offsetY - metrics.YBearing * scale;
                 var right = left + metrics.Width * scale;
                 var bottom = top + metrics.Height * scale;
 

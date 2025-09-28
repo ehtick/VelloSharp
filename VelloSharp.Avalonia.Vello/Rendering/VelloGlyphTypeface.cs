@@ -181,7 +181,7 @@ internal sealed class VelloGlyphTypeface : IGlyphTypeface
             DesignEmHeight = unchecked((short)unitsPerEm),
             IsFixedPitch = native.IsMonospace,
             Ascent = -Round(native.Ascent),
-            Descent = Round(native.Descent),
+            Descent = -Round(native.Descent),
             LineGap = Round(native.Leading),
             UnderlinePosition = -Round(native.UnderlinePosition),
             UnderlineThickness = Round(native.UnderlineThickness),
