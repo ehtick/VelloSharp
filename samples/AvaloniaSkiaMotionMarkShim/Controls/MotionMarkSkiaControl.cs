@@ -5,19 +5,27 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Rendering.SceneGraph;
+using Avalonia.Skia;
 using AvaloniaSkiaMotionMarkShim.Scenes;
-using SKCanvas = VelloSkia::SkiaSharp.SKCanvas;
-using SKColor = VelloSkia::SkiaSharp.SKColor;
-using SKColors = VelloSkia::SkiaSharp.SKColors;
-using SKRect = VelloSkia::SkiaSharp.SKRect;
-using SKSurface = VelloSkia::SkiaSharp.SKSurface;
-using SKImageInfo = VelloSkia::SkiaSharp.SKImageInfo;
-using SKColorType = VelloSkia::SkiaSharp.SKColorType;
-using SKAlphaType = VelloSkia::SkiaSharp.SKAlphaType;
+using VelloCanvas = VelloSkia::SkiaSharp.SKCanvas;
+using VelloColor = VelloSkia::SkiaSharp.SKColor;
+using VelloColors = VelloSkia::SkiaSharp.SKColors;
+using VelloRect = VelloSkia::SkiaSharp.SKRect;
+using VelloSurface = VelloSkia::SkiaSharp.SKSurface;
+using VelloImageInfo = VelloSkia::SkiaSharp.SKImageInfo;
+using VelloColorType = VelloSkia::SkiaSharp.SKColorType;
+using VelloAlphaType = VelloSkia::SkiaSharp.SKAlphaType;
+using SkiaGRContext = global::SkiaSharp.GRContext;
+using SkiaSurface = global::SkiaSharp.SKSurface;
+using SkiaImageInfo = global::SkiaSharp.SKImageInfo;
+using SkiaColorType = global::SkiaSharp.SKColorType;
+using SkiaAlphaType = global::SkiaSharp.SKAlphaType;
+using SkiaRect = global::SkiaSharp.SKRect;
 using VelloSharp;
 using VelloSharp.Integration.Rendering;
+using VelloSharp.Integration.Skia;
 
 namespace AvaloniaSkiaMotionMarkShim.Controls;
 
@@ -44,12 +52,16 @@ public sealed class MotionMarkSkiaControl : Control
     {
         Format = RenderFormat.Bgra8,
     };
-    private WriteableBitmap? _bitmap;
     private uint _rendererWidth = 1;
     private uint _rendererHeight = 1;
-    private SKSurface? _surface;
-    private uint _surfaceWidth = 1;
-    private uint _surfaceHeight = 1;
+    private VelloSurface? _velloSurface;
+    private uint _velloSurfaceWidth = 1;
+    private uint _velloSurfaceHeight = 1;
+    private SkiaSurface? _skiaSurface;
+    private int _skiaSurfaceWidth;
+    private int _skiaSurfaceHeight;
+    private IntPtr _skiaSurfaceGrContextHandle;
+    private int _currentComplexity = MinComplexity;
     private bool _disposed;
 
     static MotionMarkSkiaControl()
@@ -100,9 +112,13 @@ public sealed class MotionMarkSkiaControl : Control
         {
             ScheduleAnimationFrame();
         }
-        else if (change.Property == ComplexityProperty && !IsAnimationEnabled)
+        else if (change.Property == ComplexityProperty)
         {
-            InvalidateVisual();
+            _currentComplexity = change.GetNewValue<int>();
+            if (!IsAnimationEnabled)
+            {
+                InvalidateVisual();
+            }
         }
     }
 
@@ -122,45 +138,7 @@ public sealed class MotionMarkSkiaControl : Control
             return;
         }
 
-        var now = _stopwatch.Elapsed;
-        var delta = _lastFrameTimestamp == TimeSpan.Zero ? TimeSpan.Zero : now - _lastFrameTimestamp;
-        _lastFrameTimestamp = now;
-
-        var scaling = VisualRoot?.RenderScaling ?? 1.0;
-        var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * scaling));
-        var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * scaling));
-
-        EnsureRenderer((uint)pixelWidth, (uint)pixelHeight);
-        EnsureSurface((uint)pixelWidth, (uint)pixelHeight);
-        EnsureBitmap(pixelWidth, pixelHeight, scaling);
-
-        if (_renderer is not null && _surface is not null && _bitmap is not null)
-        {
-            var canvas = _surface.Canvas;
-            canvas.Clear(SKColors.Transparent);
-            canvas.Save();
-            canvas.Scale((float)scaling);
-            RenderSkia(canvas, width, height, Complexity);
-            canvas.Restore();
-
-            using var frame = _bitmap.Lock();
-            var descriptor = new RenderTargetDescriptor(
-                (uint)frame.Size.Width,
-                (uint)frame.Size.Height,
-                RenderFormat.Bgra8,
-                frame.RowBytes);
-
-            unsafe
-            {
-                var span = new Span<byte>((void*)frame.Address, descriptor.RequiredBufferSize);
-                VelloRenderPath.Render(_renderer, _surface.Scene, span, _renderParams, descriptor);
-            }
-
-            var sourceRect = new Rect(0, 0, _bitmap.PixelSize.Width, _bitmap.PixelSize.Height);
-            context.DrawImage(_bitmap, sourceRect, Bounds);
-        }
-
-        FrameRendered?.Invoke(this, new FrameRenderedEventArgs(delta.TotalMilliseconds));
+        context.Custom(new VelloDrawOperation(new Rect(Bounds.Size), this));
 
         if (IsAnimationEnabled)
         {
@@ -168,11 +146,11 @@ public sealed class MotionMarkSkiaControl : Control
         }
     }
 
-    private void RenderSkia(SKCanvas canvas, double width, double height, int complexity)
+    private void RenderScene(VelloCanvas canvas, double width, double height, int complexity)
     {
         canvas.Save();
-        canvas.ClipRect(new SKRect(0, 0, (float)width, (float)height));
-        canvas.Clear(new SKColor(0x12, 0x12, 0x14));
+        canvas.ClipRect(new VelloRect(0, 0, (float)width, (float)height));
+        canvas.Clear(new VelloColor(0x12, 0x12, 0x14));
 
         const float sceneWidth = 1600f;
         const float sceneHeight = 1200f;
@@ -194,7 +172,7 @@ public sealed class MotionMarkSkiaControl : Control
         canvas.Restore();
     }
 
-    private void EnsureRenderer(uint width, uint height)
+    private void EnsureRenderer(uint width, uint height, RenderFormat format = RenderFormat.Bgra8)
     {
         if (_renderer is null)
         {
@@ -213,40 +191,148 @@ public sealed class MotionMarkSkiaControl : Control
         {
             Width = width,
             Height = height,
-            Format = RenderFormat.Bgra8,
+            Format = format,
         };
     }
 
-    private void EnsureSurface(uint width, uint height)
+    private void EnsureVelloSurface(uint width, uint height)
     {
-        if (_surface is not null && _surfaceWidth == width && _surfaceHeight == height)
+        if (_velloSurface is not null && _velloSurfaceWidth == width && _velloSurfaceHeight == height)
         {
             return;
         }
 
-        _surface?.Dispose();
-        var info = new SKImageInfo((int)width, (int)height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        _surface = SKSurface.Create(info);
-        _surfaceWidth = width;
-        _surfaceHeight = height;
+        _velloSurface?.Dispose();
+        var info = new VelloImageInfo((int)width, (int)height, VelloColorType.Bgra8888, VelloAlphaType.Premul);
+        _velloSurface = VelloSurface.Create(info);
+        _velloSurfaceWidth = width;
+        _velloSurfaceHeight = height;
     }
 
-    private void EnsureBitmap(int width, int height, double scaling)
+    private void EnsureSkiaSurface(SkiaGRContext? grContext, int width, int height)
     {
-        if (_bitmap is not null &&
-            _bitmap.PixelSize.Width == width &&
-            _bitmap.PixelSize.Height == height)
+        if (width <= 0 || height <= 0)
+        {
+            DisposeSkiaSurface();
+            return;
+        }
+
+        var contextHandle = grContext?.Handle ?? IntPtr.Zero;
+        if (_skiaSurface is not null &&
+            _skiaSurfaceWidth == width &&
+            _skiaSurfaceHeight == height &&
+            _skiaSurfaceGrContextHandle == contextHandle)
         {
             return;
         }
 
-        _bitmap?.Dispose();
-        var dpi = 96.0 * scaling;
-        _bitmap = new WriteableBitmap(
-            new PixelSize(width, height),
-            new Vector(dpi, dpi),
-            PixelFormat.Bgra8888,
-            AlphaFormat.Premul);
+        DisposeSkiaSurface();
+
+        var info = new SkiaImageInfo(width, height, SkiaColorType.Bgra8888, SkiaAlphaType.Premul);
+        _skiaSurface = grContext is null
+            ? SkiaSurface.Create(info)
+            : SkiaSurface.Create(grContext, false, info);
+
+        _skiaSurfaceWidth = width;
+        _skiaSurfaceHeight = height;
+        _skiaSurfaceGrContextHandle = contextHandle;
+    }
+
+    private void DisposeSkiaSurface()
+    {
+        _skiaSurface?.Dispose();
+        _skiaSurface = null;
+        _skiaSurfaceWidth = 0;
+        _skiaSurfaceHeight = 0;
+        _skiaSurfaceGrContextHandle = IntPtr.Zero;
+    }
+
+    private sealed class VelloDrawOperation : ICustomDrawOperation
+    {
+        private readonly Rect _bounds;
+        private readonly MotionMarkSkiaControl _owner;
+
+        public VelloDrawOperation(Rect bounds, MotionMarkSkiaControl owner)
+        {
+            _bounds = bounds;
+            _owner = owner;
+        }
+
+        public Rect Bounds => _bounds;
+
+        public void Dispose()
+        {
+        }
+
+        public bool HitTest(Point p) => _bounds.Contains(p);
+
+        public bool Equals(ICustomDrawOperation? other) => ReferenceEquals(this, other);
+
+        public void Render(ImmediateDrawingContext context)
+        {
+            if (!context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var feature) || feature is null)
+            {
+                return;
+            }
+
+            using var lease = feature.Lease();
+            if (lease?.SkSurface is null)
+            {
+                return;
+            }
+
+            var owner = _owner;
+            var bounds = _bounds;
+            var width = bounds.Width;
+            var height = bounds.Height;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            var scaling = owner.VisualRoot?.RenderScaling ?? 1.0;
+            var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * scaling));
+            var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * scaling));
+            const RenderFormat format = RenderFormat.Bgra8;
+
+            owner.EnsureRenderer((uint)pixelWidth, (uint)pixelHeight, format);
+            owner.EnsureVelloSurface((uint)pixelWidth, (uint)pixelHeight);
+            owner.EnsureSkiaSurface(lease.GrContext, pixelWidth, pixelHeight);
+
+            var renderer = owner._renderer;
+            var velloSurface = owner._velloSurface;
+            var skiaSurface = owner._skiaSurface;
+            if (renderer is null || velloSurface is null || skiaSurface is null)
+            {
+                return;
+            }
+
+            var deltaMs = owner.BeginFrame();
+
+            var canvas = velloSurface.Canvas;
+            canvas.Clear(VelloColors.Transparent);
+            canvas.Save();
+            canvas.Scale((float)scaling);
+            owner.RenderScene(canvas, width, height, owner._currentComplexity);
+            canvas.Restore();
+
+            SkiaRenderBridge.Render(skiaSurface, renderer, velloSurface.Scene, owner._renderParams);
+            skiaSurface.Canvas.Flush();
+
+            var targetCanvas = lease.SkCanvas;
+            var clipRect = new SkiaRect(
+                (float)(bounds.X * scaling),
+                (float)(bounds.Y * scaling),
+                (float)((bounds.X + bounds.Width) * scaling),
+                (float)((bounds.Y + bounds.Height) * scaling));
+
+            targetCanvas.Save();
+            targetCanvas.ClipRect(clipRect);
+            targetCanvas.DrawSurface(skiaSurface, clipRect.Left, clipRect.Top);
+            targetCanvas.Restore();
+
+            owner.OnFrameRendered(deltaMs);
+        }
     }
 
     private void ScheduleAnimationFrame()
@@ -281,18 +367,30 @@ public sealed class MotionMarkSkiaControl : Control
 
     private void DisposeResources()
     {
-        _bitmap?.Dispose();
-        _bitmap = null;
-
-        _surface?.Dispose();
-        _surface = null;
-        _surfaceWidth = 1;
-        _surfaceHeight = 1;
+        _velloSurface?.Dispose();
+        _velloSurface = null;
+        _velloSurfaceWidth = 1;
+        _velloSurfaceHeight = 1;
 
         _renderer?.Dispose();
         _renderer = null;
         _rendererWidth = 1;
         _rendererHeight = 1;
+
+        DisposeSkiaSurface();
+    }
+
+    private double BeginFrame()
+    {
+        var now = _stopwatch.Elapsed;
+        var delta = _lastFrameTimestamp == TimeSpan.Zero ? 0.0 : (now - _lastFrameTimestamp).TotalMilliseconds;
+        _lastFrameTimestamp = now;
+        return delta;
+    }
+
+    private void OnFrameRendered(double deltaMilliseconds)
+    {
+        FrameRendered?.Invoke(this, new FrameRenderedEventArgs(deltaMilliseconds));
     }
 
 }
