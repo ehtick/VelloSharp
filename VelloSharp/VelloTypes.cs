@@ -531,6 +531,15 @@ public readonly struct LayerBlend
     public LayerCompose Compose { get; }
 }
 
+public readonly record struct GlyphMetrics(float Advance, float XBearing, float YBearing, float Width, float Height)
+{
+    public float Advance { get; init; } = Advance;
+    public float XBearing { get; init; } = XBearing;
+    public float YBearing { get; init; } = YBearing;
+    public float Width { get; init; } = Width;
+    public float Height { get; init; } = Height;
+}
+
 public readonly struct Glyph
 {
     public Glyph(uint id, float x, float y)
@@ -691,6 +700,25 @@ public sealed class Font : IDisposable
                 return new Font(native);
             }
         }
+    }
+
+    public bool TryGetGlyphIndex(uint codePoint, out ushort glyphId)
+    {
+        var status = NativeMethods.vello_font_get_glyph_index(Handle, codePoint, out glyphId);
+        return status == VelloStatus.Success;
+    }
+
+    public bool TryGetGlyphMetrics(ushort glyphId, float fontSize, out GlyphMetrics metrics)
+    {
+        var status = NativeMethods.vello_font_get_glyph_metrics(Handle, glyphId, fontSize, out var native);
+        if (status != VelloStatus.Success)
+        {
+            metrics = default;
+            return false;
+        }
+
+        metrics = new GlyphMetrics(native.Advance, native.XBearing, native.YBearing, native.Width, native.Height);
+        return true;
     }
 
     public void Dispose()
