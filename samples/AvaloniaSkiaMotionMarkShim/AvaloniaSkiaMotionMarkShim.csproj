@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>AvaloniaSkiaMotionMarkShim</AssemblyName>
+    <RootNamespace>AvaloniaSkiaMotionMarkShim</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\VelloSharp.Skia\VelloSharp.Skia.csproj">
+      <Aliases>VelloSkia</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\VelloSharp.Integration\VelloSharp.Integration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="SkiaSharp" ExcludeAssets="compile;runtime" />
+    <PackageReference Update="SkiaSharp.NativeAssets.Linux" ExcludeAssets="compile;runtime" />
+    <PackageReference Update="SkiaSharp.NativeAssets.macOS" ExcludeAssets="compile;runtime" />
+    <PackageReference Update="SkiaSharp.NativeAssets.Win32" ExcludeAssets="compile;runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Remove="SkiaSharp" />
+    <Reference Remove="SkiaSharp.Views.Avalonia" />
+    <Reference Remove="SkiaSharp.SkiaPaths" />
+  </ItemGroup>
+</Project>
