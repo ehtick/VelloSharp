@@ -34,3 +34,6 @@
 [submodule "extern/harfbuzz_rs"]
 	path = extern/harfbuzz_rs
 	url = https://github.com/manuel-rhdt/harfbuzz_rs.git
+[submodule "extern/Avalonia"]
+	path = extern/Avalonia
+	url = https://github.com/wieslawsoltes/Avalonia.git
