@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Avalonia.Media;
 using VelloSharp;
+using AvaloniaGlyphMetrics = Avalonia.Media.GlyphMetrics;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
@@ -137,7 +138,7 @@ internal sealed class VelloGlyphTypeface : IGlyphTypeface
         return advances;
     }
 
-    public bool TryGetGlyphMetrics(ushort glyph, out GlyphMetrics metrics)
+    public bool TryGetGlyphMetrics(ushort glyph, out AvaloniaGlyphMetrics metrics)
     {
         ThrowIfDisposed();
 
@@ -147,7 +148,7 @@ internal sealed class VelloGlyphTypeface : IGlyphTypeface
             return false;
         }
 
-        metrics = new GlyphMetrics
+        metrics = new AvaloniaGlyphMetrics
         {
             XBearing = (int)MathF.Round(native.XBearing),
             YBearing = (int)MathF.Round(native.YBearing),
