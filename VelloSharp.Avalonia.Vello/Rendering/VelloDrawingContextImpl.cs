@@ -30,6 +30,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private bool _skipInitialClip;
     private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
+    private static readonly global::Avalonia.Vector s_intermediateDpi = new(96, 96);
     private static readonly PropertyInfo? s_imageBrushBitmapProperty =
         typeof(IImageBrushSource).GetProperty("Bitmap", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -526,6 +527,18 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                 return TryCreateGradientBrush(gradient, targetBounds, out velloBrush, out brushTransform);
             case IImageBrush imageBrush:
                 return TryCreateImageBrush(imageBrush, targetBounds, out velloBrush, out brushTransform);
+            case ISceneBrush sceneBrush:
+            {
+                using var content = sceneBrush.CreateContent();
+                if (content is null)
+                {
+                    break;
+                }
+
+                return TryCreateSceneBrush(content, targetBounds, out velloBrush, out brushTransform);
+            }
+            case ISceneBrushContent sceneBrushContent:
+                return TryCreateSceneBrush(sceneBrushContent, targetBounds, out velloBrush, out brushTransform);
         }
 
         velloBrush = new VelloSharp.SolidColorBrush(ToRgbaColor(Colors.Transparent, 0));
@@ -755,7 +768,38 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             return false;
         }
 
-        if (brush.SourceRect != RelativeRect.Fill || brush.DestinationRect != RelativeRect.Fill)
+        var bounds = ResolveBounds(boundsHint);
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return false;
+        }
+
+        var bitmapSize = bitmap.PixelSize.ToSizeWithDpi(bitmap.Dpi);
+        if (bitmapSize.Width <= 0 || bitmapSize.Height <= 0)
+        {
+            return false;
+        }
+
+        return TryCreateTileBrush(
+            brush,
+            bitmapSize,
+            bounds,
+            calc => RenderTileBitmap(calc, bitmap),
+            out velloBrush,
+            out brushTransform);
+    }
+
+    private bool TryCreateSceneBrush(
+        ISceneBrushContent content,
+        Rect? boundsHint,
+        out VelloSharp.Brush velloBrush,
+        out Matrix3x2? brushTransform)
+    {
+        velloBrush = null!;
+        brushTransform = null;
+
+        var tileBrush = content.Brush;
+        if (tileBrush is null)
         {
             return false;
         }
@@ -766,82 +810,292 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             return false;
         }
 
-        var image = bitmap.CreateVelloImage();
+        var contentSize = content.Rect.Size;
+        if (contentSize.Width <= 0 || contentSize.Height <= 0)
+        {
+            return false;
+        }
+
+        return TryCreateTileBrush(
+            tileBrush,
+            contentSize,
+            bounds,
+            calc => RenderTileSceneContent(calc, content),
+            out velloBrush,
+            out brushTransform);
+    }
+
+    private bool TryCreateTileBrush(
+        ITileBrush tileBrush,
+        Size contentSize,
+        Rect targetBounds,
+        Func<TileBrushInfo, Image?> imageFactory,
+        out VelloSharp.Brush velloBrush,
+        out Matrix3x2? brushTransform)
+    {
+        velloBrush = null!;
+        brushTransform = null;
+
+        if (contentSize.Width <= 0 || contentSize.Height <= 0)
+        {
+            return false;
+        }
+
+        var tileInfo = CreateTileBrushInfo(tileBrush, contentSize, targetBounds.Size);
+
+        if (tileInfo.IntermediateSize.Width <= 0 || tileInfo.IntermediateSize.Height <= 0)
+        {
+            return false;
+        }
+
+        var image = imageFactory(tileInfo);
+        if (image is null)
+        {
+            return false;
+        }
+
         _deferredDisposables.Add(image);
 
-        var (extendX, extendY) = ToExtendModes(brush.TileMode);
+        var (extendX, extendY) = ToExtendModes(tileBrush.TileMode);
+        var opacity = (float)Math.Clamp(tileBrush.Opacity, 0.0, 1.0);
         var imageBrush = new VelloSharp.ImageBrush(image)
         {
-            Alpha = (float)brush.Opacity,
-            Quality = ImageQuality.Medium,
+            Alpha = opacity,
+            Quality = ImageQuality.High,
             XExtend = extendX,
             YExtend = extendY,
         };
 
-        var imageSize = new Size(bitmap.PixelSize.Width, bitmap.PixelSize.Height);
-        if (imageSize.Width <= 0 || imageSize.Height <= 0)
-        {
-            velloBrush = imageBrush;
-            return true;
-        }
-
-        double scaleX = bounds.Width / imageSize.Width;
-        double scaleY = bounds.Height / imageSize.Height;
-
-        switch (brush.Stretch)
-        {
-            case Stretch.None:
-                scaleX = scaleY = 1;
-                break;
-            case Stretch.Uniform:
-                scaleX = scaleY = Math.Min(scaleX, scaleY);
-                break;
-            case Stretch.UniformToFill:
-                scaleX = scaleY = Math.Max(scaleX, scaleY);
-                break;
-            case Stretch.Fill:
-            default:
-                break;
-        }
-
-        var scaledWidth = imageSize.Width * scaleX;
-        var scaledHeight = imageSize.Height * scaleY;
-
-        double offsetX = bounds.X;
-        double offsetY = bounds.Y;
-
-        switch (brush.AlignmentX)
-        {
-            case AlignmentX.Center:
-                offsetX += (bounds.Width - scaledWidth) / 2;
-                break;
-            case AlignmentX.Right:
-                offsetX += bounds.Width - scaledWidth;
-                break;
-        }
-
-        switch (brush.AlignmentY)
-        {
-            case AlignmentY.Center:
-                offsetY += (bounds.Height - scaledHeight) / 2;
-                break;
-            case AlignmentY.Bottom:
-                offsetY += bounds.Height - scaledHeight;
-                break;
-        }
-
-        var matrix = Matrix.CreateScale(scaleX, scaleY) * Matrix.CreateTranslation(offsetX, offsetY);
-
-        var extra = ComposeBrushTransform(bounds, brush.Transform, brush.TransformOrigin);
-        if (extra is { })
-        {
-            matrix = matrix * extra.Value;
-        }
-
+        var matrix = ComputeTileBrushTransform(tileInfo, tileBrush, targetBounds);
         brushTransform = ToMatrix3x2(matrix);
         velloBrush = imageBrush;
         return true;
     }
+
+    private Image? RenderTileBitmap(TileBrushInfo tileInfo, VelloBitmapImpl bitmap)
+    {
+        var intermediatePixelSize = PixelSize.FromSizeWithDpi(tileInfo.IntermediateSize, s_intermediateDpi);
+        if (intermediatePixelSize.Width <= 0 || intermediatePixelSize.Height <= 0)
+        {
+            return null;
+        }
+
+        var sourceRect = new Rect(bitmap.PixelSize.ToSizeWithDpi(new global::Avalonia.Vector(96, 96)));
+        var targetRect = new Rect(bitmap.PixelSize.ToSizeWithDpi(s_intermediateDpi));
+
+        return RenderToImage(intermediatePixelSize, context =>
+        {
+            context.Clear(Colors.Transparent);
+            context.PushClip(tileInfo.IntermediateClip);
+
+            var originalTransform = context.Transform;
+            context.Transform = tileInfo.IntermediateTransform;
+
+            context.DrawBitmap(bitmap, 1.0, sourceRect, targetRect);
+
+            context.Transform = originalTransform;
+            context.PopClip();
+        });
+    }
+
+    private Image? RenderTileSceneContent(TileBrushInfo tileInfo, ISceneBrushContent content)
+    {
+        var intermediatePixelSize = PixelSize.FromSizeWithDpi(tileInfo.IntermediateSize, s_intermediateDpi);
+        if (intermediatePixelSize.Width <= 0 || intermediatePixelSize.Height <= 0)
+        {
+            return null;
+        }
+
+        var rect = content.Rect;
+        var contentTransform = rect.TopLeft == default
+            ? (Matrix?)null
+            : Matrix.CreateTranslation(-rect.X, -rect.Y);
+
+        return RenderToImage(intermediatePixelSize, context =>
+        {
+            context.Clear(Colors.Transparent);
+            context.PushClip(tileInfo.IntermediateClip);
+
+            var originalTransform = context.Transform;
+            context.Transform = tileInfo.IntermediateTransform;
+
+            content.Render(context, contentTransform);
+
+            context.Transform = originalTransform;
+            context.PopClip();
+        });
+    }
+
+    private Image? RenderToImage(PixelSize pixelSize, Action<VelloDrawingContextImpl> render)
+    {
+        if (pixelSize.Width <= 0 || pixelSize.Height <= 0)
+        {
+            return null;
+        }
+
+        using var scene = new Scene();
+        RenderParams? renderParams = null;
+
+        using (var context = new VelloDrawingContextImpl(
+                   scene,
+                   pixelSize,
+                   _options,
+                   ctx => renderParams = ctx.RenderParams,
+                   skipInitialClip: true))
+        {
+            render(context);
+        }
+
+        if (renderParams is null)
+        {
+            return null;
+        }
+
+        var parameters = renderParams.Value with
+        {
+            BaseColor = RgbaColor.FromBytes(0, 0, 0, 0),
+            Format = RenderFormat.Rgba8,
+        };
+
+        if (parameters.Width == 0 || parameters.Height == 0)
+        {
+            return null;
+        }
+
+        var stride = checked((int)parameters.Width * 4);
+        var buffer = new byte[checked((int)parameters.Height * stride)];
+
+        var rendererOptions = CreateOffscreenRendererOptions();
+        using var renderer = new Renderer(parameters.Width, parameters.Height, rendererOptions);
+        renderer.Render(scene, parameters, buffer, stride);
+
+        return Image.FromPixels(
+            buffer,
+            (int)parameters.Width,
+            (int)parameters.Height,
+            RenderFormat.Rgba8,
+            ImageAlphaMode.Straight,
+            stride);
+    }
+
+    private RendererOptions CreateOffscreenRendererOptions()
+    {
+        var options = _options.RendererOptions;
+        return new RendererOptions(
+            useCpu: true,
+            supportArea: options.SupportArea,
+            supportMsaa8: options.SupportMsaa8,
+            supportMsaa16: options.SupportMsaa16,
+            initThreads: options.InitThreads,
+            pipelineCache: options.PipelineCache);
+    }
+
+    private static Matrix ComputeTileBrushTransform(TileBrushInfo tileInfo, ITileBrush tileBrush, Rect targetBounds)
+    {
+        var matrix = Matrix.Identity;
+
+        if (tileBrush.TileMode != TileMode.None)
+        {
+            matrix *= Matrix.CreateTranslation(-tileInfo.DestinationRect.X, -tileInfo.DestinationRect.Y);
+        }
+
+        var dpiScale = Matrix.CreateScale(96.0 / s_intermediateDpi.X, 96.0 / s_intermediateDpi.Y);
+        matrix *= dpiScale;
+
+        if (tileBrush.Transform is { })
+        {
+            var origin = tileBrush.TransformOrigin.ToPixels(targetBounds);
+            var translateToOrigin = Matrix.CreateTranslation(-origin.X, -origin.Y);
+            var translateBack = Matrix.CreateTranslation(origin.X, origin.Y);
+            var transformMatrix = translateToOrigin * tileBrush.Transform.Value * translateBack;
+            matrix *= transformMatrix;
+        }
+
+        if (tileBrush.DestinationRect.Unit == RelativeUnit.Relative)
+        {
+            matrix *= Matrix.CreateTranslation(targetBounds.X, targetBounds.Y);
+        }
+
+        return matrix;
+    }
+
+    private static TileBrushInfo CreateTileBrushInfo(ITileBrush tileBrush, Size contentSize, Size targetSize)
+    {
+        var sourceRect = tileBrush.SourceRect.ToPixels(contentSize);
+        var destinationRect = tileBrush.DestinationRect.ToPixels(targetSize);
+
+        var scale = tileBrush.Stretch.CalculateScaling(destinationRect.Size, sourceRect.Size);
+        var scaledSourceSize = new Size(sourceRect.Width * scale.X, sourceRect.Height * scale.Y);
+        var translate = CalculateTranslate(tileBrush.AlignmentX, tileBrush.AlignmentY, scaledSourceSize, destinationRect.Size);
+
+        var intermediateSize = tileBrush.TileMode == TileMode.None ? targetSize : destinationRect.Size;
+        var intermediateTransform = CalculateIntermediateTransform(tileBrush.TileMode, sourceRect, destinationRect, scale, translate, out var drawRect);
+
+        return new TileBrushInfo(sourceRect, destinationRect, intermediateSize, drawRect, intermediateTransform);
+    }
+
+    private static global::Avalonia.Vector CalculateTranslate(AlignmentX alignmentX, AlignmentY alignmentY, Size sourceSize, Size destinationSize)
+    {
+        var x = 0.0;
+        var y = 0.0;
+
+        switch (alignmentX)
+        {
+            case AlignmentX.Center:
+                x += (destinationSize.Width - sourceSize.Width) / 2;
+                break;
+            case AlignmentX.Right:
+                x += destinationSize.Width - sourceSize.Width;
+                break;
+        }
+
+        switch (alignmentY)
+        {
+            case AlignmentY.Center:
+                y += (destinationSize.Height - sourceSize.Height) / 2;
+                break;
+            case AlignmentY.Bottom:
+                y += destinationSize.Height - sourceSize.Height;
+                break;
+        }
+
+        return new global::Avalonia.Vector(x, y);
+    }
+
+    private static Matrix CalculateIntermediateTransform(
+        TileMode tileMode,
+        Rect sourceRect,
+        Rect destinationRect,
+        global::Avalonia.Vector scale,
+        global::Avalonia.Vector translate,
+        out Rect drawRect)
+    {
+        var transform = Matrix.CreateTranslation(-sourceRect.X, -sourceRect.Y)
+                        * Matrix.CreateScale(scale.X, scale.Y)
+                        * Matrix.CreateTranslation(translate.X, translate.Y);
+
+        Rect rect;
+
+        if (tileMode == TileMode.None)
+        {
+            rect = destinationRect;
+            transform *= Matrix.CreateTranslation(destinationRect.X, destinationRect.Y);
+        }
+        else
+        {
+            rect = new Rect(destinationRect.Size);
+        }
+
+        drawRect = rect;
+        return transform;
+    }
+
+    private readonly record struct TileBrushInfo(
+        Rect SourceRect,
+        Rect DestinationRect,
+        Size IntermediateSize,
+        Rect IntermediateClip,
+        Matrix IntermediateTransform);
 
     private static BitmapReference TryGetBitmapReference(IImageBrushSource? source)
     {
