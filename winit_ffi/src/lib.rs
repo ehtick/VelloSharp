@@ -23,11 +23,11 @@ use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{
-        DeviceEvent, ElementState, Ime, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
-        WindowEvent,
+        DeviceEvent, ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, StartCause,
+        TouchPhase, WindowEvent,
     },
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
-    keyboard::{KeyLocation, ModifiersState, PhysicalKey},
+    keyboard::{Key, KeyCode, KeyLocation, ModifiersState, NamedKey, PhysicalKey},
     window::{Window, WindowAttributes, WindowId},
 };
 
@@ -763,6 +763,36 @@ impl WinitApplication {
         event_loop.exit();
     }
 
+    fn update_modifiers_from_key_event(&mut self, key_event: &KeyEvent) -> ModifiersState {
+        let mut modifiers = self.modifiers;
+
+        let is_pressed = key_event.state == ElementState::Pressed;
+
+        if let PhysicalKey::Code(code) = key_event.physical_key {
+            match code {
+                KeyCode::ShiftLeft | KeyCode::ShiftRight => {
+                    modifiers.set(ModifiersState::SHIFT, is_pressed);
+                }
+                KeyCode::ControlLeft | KeyCode::ControlRight => {
+                    modifiers.set(ModifiersState::CONTROL, is_pressed);
+                }
+                KeyCode::AltLeft | KeyCode::AltRight => {
+                    modifiers.set(ModifiersState::ALT, is_pressed);
+                }
+                _ => {}
+            }
+        }
+
+        if matches!(key_event.logical_key, Key::Named(NamedKey::Meta)) {
+            // winit still exposes the meta modifier via the deprecated SUPER alias.
+            #[allow(deprecated)]
+            modifiers.set(ModifiersState::SUPER, is_pressed);
+        }
+
+        self.modifiers = modifiers;
+        modifiers
+    }
+
     fn ensure_window(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -962,7 +992,8 @@ impl ApplicationHandler<UserEvent> for WinitApplication {
                 let mut evt = WinitEvent::new(WinitEventKind::KeyboardInput);
                 evt.window = window_ptr;
                 evt.element_state = map_element_state(event.state);
-                evt.modifiers = self.modifiers.bits();
+                let modifiers_state = self.update_modifiers_from_key_event(&event);
+                evt.modifiers = modifiers_state.bits();
                 evt.repeat = event.repeat;
                 evt.key_location = map_key_location(event.location);
                 if let PhysicalKey::Code(code) = event.physical_key {
