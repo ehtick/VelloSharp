@@ -519,23 +519,41 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
         _isClosing = true;
 
+        void DestroyCore(WinitEventLoopContext ctx)
+        {
+            NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_destroy_window(ctx.Handle, handle), "winit_context_destroy_window");
+            CompleteDestroy();
+        }
+
         if (context.HasValue)
         {
-            NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_destroy_window(context.Value.Handle, handle), "winit_context_destroy_window");
-            CompleteDestroy();
+            DestroyCore(context.Value);
+            return;
         }
-        else
+
+        if (_dispatcher.CurrentThreadIsLoopThread)
         {
-            using var completion = new ManualResetEventSlim(false);
             _dispatcher.Post(ctx =>
             {
-                NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_destroy_window(ctx.Handle, handle), "winit_context_destroy_window");
-                completion.Set();
+                DestroyCore(ctx);
             });
-
-            completion.Wait();
-            CompleteDestroy();
+            return;
         }
+
+        using var completion = new ManualResetEventSlim(false);
+        _dispatcher.Post(ctx =>
+        {
+            try
+            {
+                DestroyCore(ctx);
+            }
+            finally
+            {
+                completion.Set();
+            }
+        });
+
+        completion.Wait();
     }
 
     private void CompleteDestroy()
