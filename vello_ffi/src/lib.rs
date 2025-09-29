@@ -720,6 +720,18 @@ fn gradient_from_radial(radial: &VelloRadialGradient) -> Result<Gradient, VelloS
     Ok(gradient)
 }
 
+fn gradient_from_sweep(sweep: &VelloSweepGradient) -> Result<Gradient, VelloStatus> {
+    let stops = unsafe { slice_from_raw(sweep.stops, sweep.stop_count)? };
+    let mut gradient = Gradient::new_sweep(
+        (sweep.center.x, sweep.center.y),
+        sweep.start_angle,
+        sweep.end_angle,
+    );
+    gradient.extend = sweep.extend.into();
+    gradient.stops = convert_gradient_stops(stops)?;
+    Ok(gradient)
+}
+
 fn image_brush_from_params(params: &VelloImageBrushParams) -> Result<ImageBrush, VelloStatus> {
     let Some(handle) = (unsafe { params.image.as_ref() }) else {
         return Err(VelloStatus::NullPointer);
@@ -737,6 +749,7 @@ fn brush_from_ffi(brush: &VelloBrush) -> Result<Brush, VelloStatus> {
         VelloBrushKind::Solid => Ok(Brush::Solid(brush.solid.into())),
         VelloBrushKind::LinearGradient => Ok(Brush::Gradient(gradient_from_linear(&brush.linear)?)),
         VelloBrushKind::RadialGradient => Ok(Brush::Gradient(gradient_from_radial(&brush.radial)?)),
+        VelloBrushKind::SweepGradient => Ok(Brush::Gradient(gradient_from_sweep(&brush.sweep)?)),
         VelloBrushKind::Image => Ok(Brush::Image(image_brush_from_params(&brush.image)?)),
     }
 }
@@ -1854,7 +1867,8 @@ pub enum VelloBrushKind {
     Solid = 0,
     LinearGradient = 1,
     RadialGradient = 2,
-    Image = 3,
+    SweepGradient = 3,
+    Image = 4,
 }
 
 #[repr(C)]
@@ -1914,6 +1928,30 @@ impl Default for VelloRadialGradient {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+pub struct VelloSweepGradient {
+    pub center: VelloPoint,
+    pub start_angle: f32,
+    pub end_angle: f32,
+    pub extend: VelloExtendMode,
+    pub stops: *const VelloGradientStop,
+    pub stop_count: usize,
+}
+
+impl Default for VelloSweepGradient {
+    fn default() -> Self {
+        Self {
+            center: VelloPoint { x: 0.0, y: 0.0 },
+            start_angle: 0.0,
+            end_angle: 0.0,
+            extend: VelloExtendMode::Pad,
+            stops: std::ptr::null(),
+            stop_count: 0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct VelloImageBrushParams {
     pub image: *const VelloImageHandle,
     pub x_extend: VelloExtendMode,
@@ -1941,6 +1979,7 @@ pub struct VelloBrush {
     pub solid: VelloColor,
     pub linear: VelloLinearGradient,
     pub radial: VelloRadialGradient,
+    pub sweep: VelloSweepGradient,
     pub image: VelloImageBrushParams,
 }
 
@@ -1956,6 +1995,7 @@ impl Default for VelloBrush {
             },
             linear: VelloLinearGradient::default(),
             radial: VelloRadialGradient::default(),
+            sweep: VelloSweepGradient::default(),
             image: VelloImageBrushParams::default(),
         }
     }

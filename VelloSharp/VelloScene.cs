@@ -606,6 +606,7 @@ public sealed class Scene : IDisposable
     {
         brush.Linear.Stops = IntPtr.Zero;
         brush.Radial.Stops = IntPtr.Zero;
+        brush.Sweep.Stops = IntPtr.Zero;
 
         if (!stops.IsEmpty && stopPtr is not null)
         {
@@ -617,6 +618,9 @@ public sealed class Scene : IDisposable
                     break;
                 case VelloBrushKind.RadialGradient:
                     brush.Radial.Stops = ptr;
+                    break;
+                case VelloBrushKind.SweepGradient:
+                    brush.Sweep.Stops = ptr;
                     break;
             }
         }

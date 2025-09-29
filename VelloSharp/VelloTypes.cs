@@ -182,6 +182,7 @@ public sealed class SolidColorBrush : Brush
             Solid = Color.ToNative(),
             Linear = default,
             Radial = default,
+            Sweep = default,
             Image = default,
         };
         return new BrushNativeData(native, null, 0, pooled: false);
@@ -231,6 +232,9 @@ public sealed class LinearGradientBrush : Brush
                 Extend = (VelloExtendMode)Extend,
                 StopCount = (nuint)_stops.Length,
             },
+            Radial = default,
+            Sweep = default,
+            Image = default,
         };
         return new BrushNativeData(native, _stops, _stops.Length, pooled: false);
     }
@@ -295,6 +299,72 @@ public sealed class RadialGradientBrush : Brush
                 Extend = (VelloExtendMode)Extend,
                 StopCount = (nuint)_stops.Length,
             },
+            Linear = default,
+            Sweep = default,
+            Image = default,
+        };
+        return new BrushNativeData(native, _stops, _stops.Length, pooled: false);
+    }
+}
+
+public sealed class SweepGradientBrush : Brush
+{
+    private readonly VelloGradientStop[] _stops;
+
+    public SweepGradientBrush(
+        Vector2 center,
+        float startAngle,
+        float endAngle,
+        IReadOnlyList<GradientStop> stops,
+        ExtendMode extend = ExtendMode.Pad)
+    {
+        ArgumentNullException.ThrowIfNull(stops);
+        if (stops.Count == 0)
+        {
+            throw new ArgumentException("At least one gradient stop is required.", nameof(stops));
+        }
+        if (!float.IsFinite(startAngle) || !float.IsFinite(endAngle))
+        {
+            throw new ArgumentException("Sweep gradient angles must be finite values.");
+        }
+
+        Center = center;
+        StartAngle = startAngle;
+        EndAngle = endAngle;
+        Extend = extend;
+        _stops = new VelloGradientStop[stops.Count];
+        for (var i = 0; i < stops.Count; i++)
+        {
+            var stop = stops[i];
+            _stops[i] = new VelloGradientStop
+            {
+                Offset = stop.Offset,
+                Color = stop.Color.ToNative(),
+            };
+        }
+    }
+
+    public Vector2 Center { get; }
+    public float StartAngle { get; }
+    public float EndAngle { get; }
+    public ExtendMode Extend { get; }
+
+    internal override BrushNativeData CreateNative()
+    {
+        var native = new VelloBrush
+        {
+            Kind = VelloBrushKind.SweepGradient,
+            Linear = default,
+            Radial = default,
+            Sweep = new VelloSweepGradient
+            {
+                Center = Center.ToNativePoint(),
+                StartAngle = StartAngle,
+                EndAngle = EndAngle,
+                Extend = (VelloExtendMode)Extend,
+                StopCount = (nuint)_stops.Length,
+            },
+            Image = default,
         };
         return new BrushNativeData(native, _stops, _stops.Length, pooled: false);
     }
@@ -318,6 +388,9 @@ public sealed class ImageBrush : Brush
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.Image,
+            Linear = default,
+            Radial = default,
+            Sweep = default,
             Image = new VelloImageBrushParams
             {
                 Image = Image.Handle,
@@ -380,7 +453,7 @@ public sealed class PenikoBrushAdapter : Brush
         {
             PenikoGradientKind.Linear => CreateLinearGradient(),
             PenikoGradientKind.Radial => CreateRadialGradient(),
-            PenikoGradientKind.Sweep => throw new NotSupportedException("Sweep gradients are not supported in Vello brushes."),
+            PenikoGradientKind.Sweep => CreateSweepGradient(),
             _ => throw new InvalidOperationException($"Unsupported Peniko gradient kind: {kind}.")
         };
     }
@@ -399,6 +472,9 @@ public sealed class PenikoBrushAdapter : Brush
                 Extend = (VelloExtendMode)info.Extend,
                 StopCount = (nuint)stopCount,
             },
+            Radial = default,
+            Sweep = default,
+            Image = default,
         };
         return new BrushNativeData(native, stops, stopCount, pooled);
     }
@@ -419,6 +495,31 @@ public sealed class PenikoBrushAdapter : Brush
                 Extend = (VelloExtendMode)info.Extend,
                 StopCount = (nuint)stopCount,
             },
+            Linear = default,
+            Sweep = default,
+            Image = default,
+        };
+        return new BrushNativeData(native, stops, stopCount, pooled);
+    }
+
+    private BrushNativeData CreateSweepGradient()
+    {
+        var info = _brush.GetSweepGradient();
+        var stops = RentStops(info.Stops, out var stopCount, out var pooled);
+        var native = new VelloBrush
+        {
+            Kind = VelloBrushKind.SweepGradient,
+            Linear = default,
+            Radial = default,
+            Sweep = new VelloSweepGradient
+            {
+                Center = ToVelloPoint(info.Gradient.Center),
+                StartAngle = info.Gradient.StartAngle,
+                EndAngle = info.Gradient.EndAngle,
+                Extend = (VelloExtendMode)info.Extend,
+                StopCount = (nuint)stopCount,
+            },
+            Image = default,
         };
         return new BrushNativeData(native, stops, stopCount, pooled);
     }

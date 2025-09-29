@@ -338,7 +338,8 @@ internal enum VelloBrushKind : int
     Solid = 0,
     LinearGradient = 1,
     RadialGradient = 2,
-    Image = 3,
+    SweepGradient = 3,
+    Image = 4,
 }
 
 internal enum VelloBlendMix : int
@@ -441,7 +442,7 @@ internal struct VelloGradientStop
     public VelloColor Color;
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
 internal struct VelloLinearGradient
 {
     public VelloPoint Start;
@@ -451,7 +452,7 @@ internal struct VelloLinearGradient
     public nuint StopCount;
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
 internal struct VelloRadialGradient
 {
     public VelloPoint StartCenter;
@@ -463,7 +464,18 @@ internal struct VelloRadialGradient
     public nuint StopCount;
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
+internal struct VelloSweepGradient
+{
+    public VelloPoint Center;
+    public float StartAngle;
+    public float EndAngle;
+    public VelloExtendMode Extend;
+    public IntPtr Stops;
+    public nuint StopCount;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
 internal struct VelloImageBrushParams
 {
     public IntPtr Image;
@@ -473,17 +485,18 @@ internal struct VelloImageBrushParams
     public float Alpha;
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
 internal struct VelloBrush
 {
     public VelloBrushKind Kind;
     public VelloColor Solid;
     public VelloLinearGradient Linear;
     public VelloRadialGradient Radial;
+    public VelloSweepGradient Sweep;
     public VelloImageBrushParams Image;
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
 internal struct VelloStrokeStyle
 {
     public double Width;
@@ -852,7 +865,7 @@ internal struct VelloGlyph
     public float Y;
 }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
 internal struct VelloGlyphRunOptions
 {
     public VelloAffine Transform;
