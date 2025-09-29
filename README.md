@@ -1,10 +1,12 @@
 # VelloSharp .NET bindings
 
 This repository hosts the managed bindings that expose the [`vello`](https://github.com/linebender/vello)
-renderer to .NET applications. The bindings are layered:
+renderer to .NET applications. The codebase is split into native FFI crates, managed bindings, integration
+helpers, and sample applications:
 
 - Native FFI crates:
-  - `vello_ffi` – wraps the renderer, shader, SVG, Velato, and wgpu stacks behind a single C ABI.
+  - `vello_ffi` – wraps the renderer, shader, SVG, Velato/Lottie, text, and wgpu stacks behind a single C ABI,
+    including surface/swapchain helpers for GPU presentation.
   - `peniko_ffi` – bridges paint/brush data so gradients, images, and style metadata can be inspected or
     constructed from managed code.
   - `kurbo_ffi` – exposes the geometry primitives used across the stack (affine transforms, Bézier paths,
@@ -12,11 +14,40 @@ renderer to .NET applications. The bindings are layered:
   - `winit_ffi` – forwards windowing, input, and swap-chain negotiation so native event loops can be driven
     from .NET when desired.
 - Managed assemblies:
-  - `VelloSharp` – idiomatic C# wrappers for all native exports: the renderer, scenes, wgpu helpers,
-    and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
-  - `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp, and render-path negotiation.
-  - `samples/AvaloniaVelloDemo` / `samples/AvaloniaVelloExamples` – Avalonia desktop samples that exercise the
-    bindings in CPU and GPU modes.
+  - `VelloSharp` – idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
+    the wgpu device helpers, and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
+  - `VelloSharp.Skia` – a Skia-inspired helper layer that maps `SKCanvas`/`SKPath`-style APIs onto Vello
+    primitives for easier porting of existing SkiaSharp code.
+  - `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp interop, and render-path negotiation.
+  - `VelloSharp.Avalonia.Winit` – Avalonia host glue that drives the winit-based surface renderer through the
+    managed bindings.
+  - `VelloSharp.Avalonia.Vello` – Avalonia platform abstractions that adapt Vello surfaces and inputs into
+    application-friendly controls.
+- Samples:
+  - `samples/AvaloniaVelloDemo` – minimal Avalonia desktop host covering CPU and GPU render paths.
+  - `samples/AvaloniaVelloExamples` – expanded scene catalogue with renderer option toggles and surface fallbacks.
+  - `samples/AvaloniaSkiaMotionMark` – a side-by-side Skia/Vello motion-mark visualiser built on the integration
+    layer.
+
+## Project status
+
+- **FFI crates** – `vello_ffi`, `peniko_ffi`, and `winit_ffi` now expose 100% of their exported functions to
+  .NET. `kurbo_ffi` is feature-complete for the bindings in this repository, with only six geometry helpers
+  intentionally left unbound (see `docs/ffi-api-coverage.md`). Native builds are validated across Windows, macOS,
+  Linux, Android, iOS, and WebAssembly RIDs, and they share the same `cargo` feature flags as upstream Vello.
+- **Managed bindings** – `VelloSharp` surfaces the full renderer, scene graph, surface contexts, glyph and
+  image helpers, SVG/Velato decoders, and the wgpu device/surface management APIs. Disposable wrappers and span
+  validators guard the native lifetimes, and the `RendererOptions`/`RenderParams` mirrors keep behaviour in sync
+  with the Rust implementation.
+- **Integration libraries** – `VelloSharp.Integration` supplies the Avalonia `VelloView`, the `SkiaRenderBridge`
+  for direct `SKSurface` rendering, and CPU/GPU render-path abstractions. `VelloSharp.Avalonia.*` layers add the
+  winit event loop bridge plus the platform abstraction that produces swapchain-backed Avalonia controls.
+- **Samples and tooling** – the Avalonia demos ship with automated runtime asset copying, configurable frame
+  pacing, and software/GPU fallbacks. `STATUS.md` and the plans under `docs/` track the remaining backlog for
+  surface handles, validation, and additional platform glue.
+- **Packaging** – `dotnet pack` produces the aggregate `VelloSharp` NuGet in addition to
+  `VelloSharp.Native.<rid>` runtime packages. Helper scripts in `scripts/` collect, copy, and repackage the
+  native artifacts for CI and local workflows.
 
 ## Building the native library
 
@@ -91,8 +122,12 @@ custom MSBuild logic.
 
 ## Available NuGet packages
 
-- `VelloSharp` – managed bindings that surface the renderer, scene graph, wgpu interop, SVG, and Velato helpers.
-- `VelloSharp.Integration` – auxiliary helpers for Avalonia, SkiaSharp, and host render loops.
+- `VelloSharp` – managed bindings that surface the renderer, scene graph, wgpu interop, SVG, Velato, and surface
+  helpers.
+- `VelloSharp.Skia` – Skia-inspired drawing primitives built on top of the Vello renderer.
+- `VelloSharp.Integration` – auxiliary helpers for Avalonia, SkiaSharp interop, and host render loops.
+- `VelloSharp.Avalonia.Winit` – Avalonia-facing abstractions for driving the winit surface renderer.
+- `VelloSharp.Avalonia.Vello` – Avalonia platform integration that wires Vello surfaces into desktop applications.
 
 ### Native runtime packages (`VelloSharp.Native.<rid>`)
 
@@ -404,3 +439,13 @@ available to packaging steps.
 - `velato`: submodule that powers the Lottie/After Effects pipeline.
 - `vello_svg`: submodule responsible for SVG parsing.
 - `wgpu`: vendored subset of wgpu used by the FFI for portable GPU access.
+
+## License
+
+The entire repository—including the managed bindings, native FFI crates, integrations, and samples—is distributed
+under the GNU Affero General Public License v3.0. NuGet packages produced via `dotnet pack` ship with the same AGPLv3
+license text (`LICENSE`) so the published artifacts match the source tree.
+
+To honour upstream obligations, the packages also embed the MIT/Apache-2.0 notices from the Linebender components the
+FFI layer depends on (`vello`, `kurbo`, `peniko`, `wgpu`, etc.). Vendored submodules retain their original licenses—
+refer to each directory for the exact terms.
