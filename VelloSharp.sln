@@ -43,6 +43,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Avalonia.Vello",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaSkiaMotionMark", "samples\AvaloniaSkiaMotionMark\AvaloniaSkiaMotionMark.csproj", "{9977DD22-B079-40DA-BBC6-D41E75B2369C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Skia", "VelloSharp.Skia\VelloSharp.Skia.csproj", "{3F6047E9-C733-463E-8EDF-75D2931A3429}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -269,6 +271,18 @@ Global
 		{9977DD22-B079-40DA-BBC6-D41E75B2369C}.Release|x64.Build.0 = Release|Any CPU
 		{9977DD22-B079-40DA-BBC6-D41E75B2369C}.Release|x86.ActiveCfg = Release|Any CPU
 		{9977DD22-B079-40DA-BBC6-D41E75B2369C}.Release|x86.Build.0 = Release|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Debug|x64.Build.0 = Debug|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Debug|x86.Build.0 = Debug|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Release|x64.ActiveCfg = Release|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Release|x64.Build.0 = Release|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Release|x86.ActiveCfg = Release|Any CPU
+		{3F6047E9-C733-463E-8EDF-75D2931A3429}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
