@@ -730,51 +730,209 @@ public static class TestScenes
     private static ExampleScene GradientExtend()
         => new("gradient_extend", false, (scene, parameters) =>
         {
-            var transform = parameters.ViewTransform;
-            var builder = new PathBuilder();
-            builder.MoveTo(100, 100).LineTo(540, 100).LineTo(540, 360).LineTo(100, 360).Close();
-            var gradient = new LinearGradientBrush(new Vector2(100, 100), new Vector2(540, 360), new[]
+            var view = parameters.ViewTransform;
+            const float width = 300f;
+            const float height = 300f;
+            var rect = CreateRectanglePath(0f, 0f, width, height);
+            var stops = new[]
             {
-                new GradientStop(0f, RgbaColor.FromBytes(255, 80, 120)),
-                new GradientStop(1f, RgbaColor.FromBytes(80, 180, 255)),
-            }, ExtendMode.Reflect);
-            scene.FillPath(builder, FillRule.NonZero, transform, gradient);
+                new GradientStop(0f, RgbaColor.FromBytes(255, 0, 0)),
+                new GradientStop(0.5f, RgbaColor.FromBytes(0, 255, 0)),
+                new GradientStop(1f, RgbaColor.FromBytes(0, 0, 255)),
+            };
+
+            var extendModes = new[] { ExtendMode.Pad, ExtendMode.Repeat, ExtendMode.Reflect };
+            for (var column = 0; column < extendModes.Length; column++)
+            {
+                var extend = extendModes[column];
+                for (var row = 0; row < 3; row++)
+                {
+                    Brush brush = row switch
+                    {
+                        0 => new LinearGradientBrush(
+                                new Vector2(width * 0.35f, height * 0.5f),
+                                new Vector2(width * 0.65f, height * 0.5f),
+                                stops,
+                                extend),
+                        1 => new RadialGradientBrush(
+                                new Vector2(width * 0.5f, height * 0.5f),
+                                width * 0.25f * 0.25f,
+                                new Vector2(width * 0.5f, height * 0.5f),
+                                width * 0.25f,
+                                stops,
+                                extend),
+                        2 => new SweepGradientBrush(
+                                new Vector2(width * 0.5f, height * 0.5f),
+                                DegreesToRadians(30f),
+                                DegreesToRadians(150f),
+                                stops,
+                                extend),
+                        _ => throw new InvalidOperationException("Unsupported gradient kind index."),
+                    };
+
+                    var tileTransform = Matrix3x2.CreateTranslation(
+                        column * 350f + 50f,
+                        row * 350f + 100f) * view;
+                    scene.FillPath(rect, FillRule.NonZero, tileTransform, brush);
+                }
+            }
+
+            var labels = new[] { "Pad", "Repeat", "Reflect" };
+            for (var i = 0; i < labels.Length; i++)
+            {
+                var labelTransform = Matrix3x2.CreateTranslation(i * 350f + 50f, 70f) * view;
+                parameters.Text.Add(scene, 32f, RgbaColor.FromBytes(255, 255, 255), labelTransform, null, labels[i]);
+            }
+
+            parameters.Resolution = new Vector2(1200f, 1200f);
         });
 
     private static ExampleScene TwoPointRadial()
         => new("two_point_radial", false, (scene, parameters) =>
         {
-            var transform = parameters.ViewTransform;
-            var gradient = new RadialGradientBrush(
-                new Vector2(220, 200),
-                40,
-                new Vector2(360, 260),
-                220,
-                new[]
+            var view = parameters.ViewTransform;
+            const float width = 400f;
+            const float height = 200f;
+            var rect = CreateRectanglePath(0f, 0f, width, height);
+            var stops = new[]
+            {
+                new GradientStop(0f, RgbaColor.FromBytes(255, 0, 0)),
+                new GradientStop(0.5f, RgbaColor.FromBytes(255, 255, 0)),
+                new GradientStop(1f, RgbaColor.FromBytes(6, 85, 186)),
+            };
+            var extendModes = new[] { ExtendMode.Pad, ExtendMode.Repeat, ExtendMode.Reflect };
+            var outline = new StrokeStyle
+            {
+                Width = 1f,
+                LineJoin = LineJoin.Miter,
+                StartCap = LineCap.Butt,
+                EndCap = LineCap.Butt,
+            };
+
+            void DrawCase(
+                double x0,
+                double y0,
+                float r0,
+                double x1,
+                double y1,
+                float r1,
+                float offsetX,
+                float offsetY,
+                ExtendMode extend)
+            {
+                var tileTransform = Matrix3x2.CreateTranslation(offsetX, offsetY) * view;
+                scene.FillPath(rect, FillRule.NonZero, tileTransform, RgbaColor.FromBytes(255, 255, 255));
+                var gradient = new RadialGradientBrush(
+                    new Vector2((float)x0, (float)y0),
+                    r0,
+                    new Vector2((float)x1, (float)y1),
+                    r1,
+                    stops,
+                    extend);
+                scene.FillPath(rect, FillRule.NonZero, tileTransform, gradient);
+
+                if (r0 > 0f)
                 {
-                    new GradientStop(0f, RgbaColor.FromBytes(255, 255, 255)),
-                    new GradientStop(1f, RgbaColor.FromBytes(40, 40, 60)),
-                },
-                ExtendMode.Reflect);
-            var builder = new PathBuilder();
-            builder.MoveTo(60, 80).LineTo(540, 120).LineTo(500, 420).LineTo(40, 380).Close();
-            scene.FillPath(builder, FillRule.NonZero, transform, gradient);
+                    var r0Stroke = Math.Max(0f, r0 - 1f);
+                    if (r0Stroke > 0f)
+                    {
+                        var ellipse = CreateEllipsePath((float)x0, (float)y0, r0Stroke, r0Stroke);
+                        scene.StrokePath(ellipse, outline, tileTransform, RgbaColor.FromBytes(0, 0, 0));
+                    }
+                }
+
+                if (r1 > 0f)
+                {
+                    var r1Stroke = Math.Max(0f, r1 - 1f);
+                    if (r1Stroke > 0f)
+                    {
+                        var ellipse = CreateEllipsePath((float)x1, (float)y1, r1Stroke, r1Stroke);
+                        scene.StrokePath(ellipse, outline, tileTransform, RgbaColor.FromBytes(0, 0, 0));
+                    }
+                }
+            }
+
+            for (var i = 0; i < extendModes.Length; i++)
+            {
+                var extend = extendModes[i];
+                DrawCase(140.0, 100.0, 20f, 280.0, 100.0, 50f, (float)(i * 420.0 + 20.0), 20f, extend);
+            }
+
+            for (var i = 0; i < extendModes.Length; i++)
+            {
+                var extend = extendModes[i];
+                DrawCase(280.0, 100.0, 50f, 140.0, 100.0, 20f, (float)(i * 420.0 + 20.0), 240f, extend);
+            }
+
+            for (var i = 0; i < extendModes.Length; i++)
+            {
+                var extend = extendModes[i];
+                DrawCase(140.0, 100.0, 50f, 280.0, 100.0, 50f, (float)(i * 420.0 + 20.0), 460f, extend);
+            }
+
+            for (var i = 0; i < extendModes.Length; i++)
+            {
+                var extend = extendModes[i];
+                DrawCase(140.0, 125.0, 20f, 190.0, 100.0, 95f, (float)(i * 420.0 + 20.0), 680f, extend);
+            }
+
+            for (var i = 0; i < extendModes.Length; i++)
+            {
+                var extend = extendModes[i];
+                var p0 = new Vector2(140f, 125f);
+                var p1 = new Vector2(190f, 100f);
+                var direction = p0 - p1;
+                if (direction.LengthSquared() > 0f)
+                {
+                    direction = Vector2.Normalize(direction) * (96f - 20f);
+                }
+                else
+                {
+                    direction = Vector2.Zero;
+                }
+                var shifted = p1 + direction;
+                DrawCase(shifted.X, shifted.Y, 20f, 190.0, 100.0, 96f, (float)(i * 420.0 + 20.0), 900f, extend);
+            }
         });
 
     private static ExampleScene BrushTransform()
         => new("brush_transform", true, (scene, parameters) =>
         {
-            var baseTransform = Matrix3x2.CreateTranslation(120, 120) * parameters.ViewTransform;
-            var gradient = new LinearGradientBrush(new Vector2(0, 0), new Vector2(400, 0), new[]
+            var view = parameters.ViewTransform;
+            var time = (float)parameters.Time;
+            var stops = new[]
             {
-                new GradientStop(0f, RgbaColor.FromBytes(255, 200, 80)),
-                new GradientStop(1f, RgbaColor.FromBytes(80, 120, 255)),
-            });
-            var builder = new PathBuilder();
-            builder.MoveTo(0, 0).LineTo(400, 0).LineTo(400, 200).LineTo(0, 200).Close();
-            var angle = (float)(parameters.Time * 0.5);
-            var brushTransform = Matrix3x2.CreateRotation(angle, new Vector2(200, 100));
-            scene.FillPath(builder, FillRule.NonZero, baseTransform, gradient, brushTransform);
+                new GradientStop(0f, RgbaColor.FromBytes(255, 0, 0)),
+                new GradientStop(0.5f, RgbaColor.FromBytes(0, 255, 0)),
+                new GradientStop(1f, RgbaColor.FromBytes(0, 0, 255)),
+            };
+
+            var radial = new RadialGradientBrush(
+                new Vector2(200f, 200f),
+                0f,
+                new Vector2(200f, 200f),
+                80f,
+                stops);
+            var radialRect = CreateRectanglePath(100f, 100f, 200f, 200f);
+            var radialTransform = Matrix3x2.CreateScale(2f, 1f) * Matrix3x2.CreateRotation(DegreesToRadians(25f));
+            scene.FillPath(radialRect, FillRule.NonZero, radialTransform * view, radial);
+
+            var linear = new LinearGradientBrush(new Vector2(0f, 0f), new Vector2(0f, 200f), stops);
+            var linearRect = CreateRectanglePath(0f, 0f, 400f, 200f);
+            var brushRotation = Matrix3x2.CreateRotation(time, new Vector2(200f, 100f));
+
+            var fillTransform = Matrix3x2.CreateTranslation(200f, 600f) * view;
+            scene.FillPath(linearRect, FillRule.NonZero, fillTransform, linear, brushRotation);
+
+            var stroke = new StrokeStyle
+            {
+                Width = 40f,
+                LineJoin = LineJoin.Miter,
+                StartCap = LineCap.Butt,
+                EndCap = LineCap.Butt,
+            };
+            var strokeTransform = Matrix3x2.CreateTranslation(800f, 600f) * view;
+            scene.StrokePath(linearRect, stroke, strokeTransform, linear, brushRotation);
         });
 
     private static ExampleScene BlendGrid()
@@ -1303,12 +1461,37 @@ public static class TestScenes
         }
     }
 
+    private static float DegreesToRadians(float degrees) => degrees * (MathF.PI / 180f);
+
     private static RgbaColor RandomColor(Random rng, float alpha)
     {
         var r = (byte)rng.Next(30, 255);
         var g = (byte)rng.Next(30, 255);
         var b = (byte)rng.Next(30, 255);
         return new RgbaColor(r / 255f, g / 255f, b / 255f, alpha);
+    }
+
+    private static PathBuilder CreateEllipsePath(float centerX, float centerY, float radiusX, float radiusY)
+    {
+        if (radiusX <= 0f || radiusY <= 0f)
+        {
+            var builder = new PathBuilder();
+            builder.MoveTo(centerX, centerY).Close();
+            return builder;
+        }
+
+        const float Kappa = 0.552284749831f;
+        var ox = radiusX * Kappa;
+        var oy = radiusY * Kappa;
+
+        var builderEllipse = new PathBuilder();
+        builderEllipse.MoveTo(centerX + radiusX, centerY)
+            .CubicTo(centerX + radiusX, centerY + oy, centerX + ox, centerY + radiusY, centerX, centerY + radiusY)
+            .CubicTo(centerX - ox, centerY + radiusY, centerX - radiusX, centerY + oy, centerX - radiusX, centerY)
+            .CubicTo(centerX - radiusX, centerY - oy, centerX - ox, centerY - radiusY, centerX, centerY - radiusY)
+            .CubicTo(centerX + ox, centerY - radiusY, centerX + radiusX, centerY - oy, centerX + radiusX, centerY)
+            .Close();
+        return builderEllipse;
     }
 
     private static PathBuilder CreateRectanglePath(float x, float y, float width, float height)
