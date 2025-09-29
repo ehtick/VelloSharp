@@ -257,6 +257,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         _surfaceProvider.PrePresent();
 
         WgpuSurfaceTexture? surfaceTexture = null;
+        var framePresented = false;
         try
         {
             surfaceTexture = _wgpuSurface.AcquireNextTexture();
@@ -274,10 +275,15 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             }
 
             surfaceTexture.Present();
+            framePresented = true;
         }
         finally
         {
             surfaceTexture?.Dispose();
+            if (framePresented)
+            {
+                _surfaceProvider.RequestRedraw();
+            }
         }
     }
 
