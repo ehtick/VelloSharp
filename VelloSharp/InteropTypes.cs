@@ -226,7 +226,7 @@ internal struct WinitRunOptions
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct WinitEvent
+internal unsafe struct WinitEvent
 {
     public WinitEventKind Kind;
     public nint Window;
@@ -244,8 +244,7 @@ internal struct WinitEvent
     public WinitElementState ElementState;
     public WinitMouseScrollDeltaKind ScrollDeltaKind;
     public uint KeyCode;
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-    public byte[] KeyCodeName;
+    public fixed byte KeyCodeName[64];
     public WinitKeyLocation KeyLocation;
     [MarshalAs(UnmanagedType.I1)]
     public bool Repeat;
@@ -569,11 +568,72 @@ internal struct VelloShapedGlyphNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloOpenTypeFeatureNative
+{
+    public uint Tag;
+    public uint Value;
+    public uint Start;
+    public uint End;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloVariationAxisValueNative
+{
+    public uint Tag;
+    public float Value;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct VelloTextShapeOptionsNative
+{
+    public float FontSize;
+    public int Direction;
+    public uint ScriptTag;
+    public byte* Language;
+    public nuint LanguageLength;
+    public VelloOpenTypeFeatureNative* Features;
+    public nuint FeatureCount;
+    public VelloVariationAxisValueNative* VariationAxes;
+    public nuint VariationAxisCount;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloScriptSegmentNative
+{
+    public uint Start;
+    public uint Length;
+    public uint ScriptTag;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloScriptSegmentArrayNative
+{
+    public IntPtr Segments;
+    public nuint Count;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloShapedRunNative
 {
     public IntPtr Glyphs;
     public nuint GlyphCount;
     public float Advance;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloVariationAxisNative
+{
+    public uint Tag;
+    public float MinValue;
+    public float DefaultValue;
+    public float MaxValue;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloVariationAxisArrayNative
+{
+    public IntPtr Axes;
+    public nuint Count;
 }
 
 [StructLayout(LayoutKind.Sequential)]

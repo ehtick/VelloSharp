@@ -2368,6 +2368,36 @@ pub struct VelloShapedGlyph {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
+pub struct VelloOpenTypeFeature {
+    pub tag: u32,
+    pub value: u32,
+    pub start: u32,
+    pub end: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloVariationAxisValue {
+    pub tag: u32,
+    pub value: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloTextShapeOptions {
+    pub font_size: f32,
+    pub direction: i32,
+    pub script_tag: u32,
+    pub language: *const u8,
+    pub language_length: usize,
+    pub features: *const VelloOpenTypeFeature,
+    pub feature_count: usize,
+    pub variation_axes: *const VelloVariationAxisValue,
+    pub variation_axis_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct VelloShapedRun {
     pub glyphs: *const VelloShapedGlyph,
     pub glyph_count: usize,
@@ -2377,6 +2407,45 @@ pub struct VelloShapedRun {
 #[allow(dead_code)]
 pub struct VelloShapedRunHandle {
     glyphs: Box<[VelloShapedGlyph]>,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloScriptSegment {
+    pub start: u32,
+    pub length: u32,
+    pub script_tag: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloScriptSegmentArray {
+    pub segments: *const VelloScriptSegment,
+    pub count: usize,
+}
+
+pub struct VelloScriptSegmentHandle {
+    segments: Box<[VelloScriptSegment]>,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloVariationAxis {
+    pub tag: u32,
+    pub min_value: f32,
+    pub default_value: f32,
+    pub max_value: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloVariationAxisArray {
+    pub axes: *const VelloVariationAxis,
+    pub count: usize,
+}
+
+pub struct VelloVariationAxisHandle {
+    axes: Box<[VelloVariationAxis]>,
 }
 
 #[repr(C)]
@@ -3852,6 +3921,34 @@ pub unsafe extern "C" fn vello_font_get_glyph_metrics(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_variation_axes(
+    _font: *const VelloFontHandle,
+    out_handle: *mut *mut VelloVariationAxisHandle,
+    out_array: *mut VelloVariationAxisArray,
+) -> VelloStatus {
+    if out_handle.is_null() || out_array.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+        *out_array = VelloVariationAxisArray {
+            axes: std::ptr::null(),
+            count: 0,
+        };
+    }
+
+    VelloStatus::Unsupported
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_variation_axes_destroy(handle: *mut VelloVariationAxisHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_font_get_glyph_outline(
     font: *const VelloFontHandle,
     glyph_id: u16,
@@ -3957,14 +4054,30 @@ pub unsafe extern "C" fn vello_text_shape_utf16(
     font: *const VelloFontHandle,
     text: *const u16,
     length: usize,
-    font_size: f32,
-    direction: i32,
+    options: *const VelloTextShapeOptions,
     out_run: *mut VelloShapedRun,
     out_handle: *mut *mut VelloShapedRunHandle,
 ) -> VelloStatus {
     if font.is_null() || text.is_null() || out_run.is_null() || out_handle.is_null() {
         return VelloStatus::NullPointer;
     }
+
+    if options.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let options = unsafe { &*options };
+    let font_size = options.font_size;
+    let direction = options.direction;
+
+    // Currently unused advanced options; kept to avoid warnings until implemented.
+    let _ = options.script_tag;
+    let _ = options.language;
+    let _ = options.language_length;
+    let _ = options.features;
+    let _ = options.feature_count;
+    let _ = options.variation_axes;
+    let _ = options.variation_axis_count;
 
     let slice = unsafe { slice::from_raw_parts(text, length) };
     let text_owned = String::from_utf16_lossy(slice);
@@ -4040,7 +4153,40 @@ pub unsafe extern "C" fn vello_text_shape_utf16(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_text_segment_utf16(
+    text: *const u16,
+    length: usize,
+    out_handle: *mut *mut VelloScriptSegmentHandle,
+    out_array: *mut VelloScriptSegmentArray,
+) -> VelloStatus {
+    if out_handle.is_null() || out_array.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+        *out_array = VelloScriptSegmentArray {
+            segments: std::ptr::null(),
+            count: 0,
+        };
+    }
+
+    if text.is_null() || length == 0 {
+        return VelloStatus::Success;
+    }
+
+    VelloStatus::Unsupported
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_text_shape_destroy(handle: *mut VelloShapedRunHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_text_segments_destroy(handle: *mut VelloScriptSegmentHandle) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle)) };
     }

@@ -215,10 +215,32 @@ internal static partial class NativeMethods
         IntPtr font,
         ushort* text,
         nuint length,
-        float fontSize,
-        int isRtl,
+        VelloTextShapeOptionsNative* options,
         out VelloShapedRunNative run,
         out IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_text_segment_utf16")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_text_segment_utf16(
+        ushort* text,
+        nuint length,
+        out IntPtr handle,
+        out VelloScriptSegmentArrayNative array);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_text_segments_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_text_segments_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_variation_axes")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_variation_axes(
+        IntPtr font,
+        out IntPtr handle,
+        out VelloVariationAxisArrayNative array);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_variation_axes_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_font_variation_axes_destroy(IntPtr handle);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_text_shape_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

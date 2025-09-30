@@ -29,6 +29,12 @@ public readonly record struct ParleyFontInfo(
     VelloFontStyle Style,
     bool IsMonospace);
 
+public readonly record struct ParleyVariationAxis(
+    string Tag,
+    float MinValue,
+    float DefaultValue,
+    float MaxValue);
+
 public sealed class ParleyFontService
 {
     private readonly object _sync = new();
@@ -55,11 +61,7 @@ public sealed class ParleyFontService
             {
                 _defaultFamily = ptr != IntPtr.Zero
                     ? Marshal.PtrToStringUTF8(ptr)
-                    : null;
-                if (string.IsNullOrWhiteSpace(_defaultFamily))
-                {
-                    _defaultFamily = "Roboto";
-                }
+                    : "Roboto";
             }
             finally
             {
@@ -200,6 +202,66 @@ public sealed class ParleyFontService
         }
     }
 
+    public IReadOnlyList<ParleyVariationAxis> GetVariationAxes(ParleyFontInfo fontInfo)
+    {
+        if (fontInfo.FontData.Length == 0)
+        {
+            return Array.Empty<ParleyVariationAxis>();
+        }
+
+        try
+        {
+            using var font = Font.Load(fontInfo.FontData, fontInfo.FaceIndex);
+            var status = NativeMethods.vello_font_get_variation_axes(font.Handle, out var handle, out var array);
+
+            if (status != VelloStatus.Success || array.Count == 0 || array.Axes == IntPtr.Zero)
+            {
+                if (handle != IntPtr.Zero)
+                {
+                    NativeMethods.vello_font_variation_axes_destroy(handle);
+                }
+
+                return Array.Empty<ParleyVariationAxis>();
+            }
+
+            try
+            {
+                unsafe
+                {
+                    var span = new ReadOnlySpan<VelloVariationAxisNative>((void*)array.Axes, checked((int)array.Count));
+                    if (span.Length == 0)
+                    {
+                        return Array.Empty<ParleyVariationAxis>();
+                    }
+
+                    var result = new ParleyVariationAxis[span.Length];
+                    for (var i = 0; i < span.Length; i++)
+                    {
+                        var axis = span[i];
+                        result[i] = new ParleyVariationAxis(
+                            DecodeTag(axis.Tag),
+                            axis.MinValue,
+                            axis.DefaultValue,
+                            axis.MaxValue);
+                    }
+
+                    return result;
+                }
+            }
+            finally
+            {
+                if (handle != IntPtr.Zero)
+                {
+                    NativeMethods.vello_font_variation_axes_destroy(handle);
+                }
+            }
+        }
+        catch
+        {
+            return Array.Empty<ParleyVariationAxis>();
+        }
+    }
+
     private static ParleyFontInfo CopyFontData(VelloParleyFontInfoNative native)
     {
         var resolvedFamily = Marshal.PtrToStringUTF8(native.FamilyName) ?? string.Empty;
@@ -224,5 +286,15 @@ public sealed class ParleyFontService
         var managed = new byte[checked((int)length)];
         Marshal.Copy(source, managed, 0, managed.Length);
         return managed;
+    }
+
+    private static string DecodeTag(uint tag)
+    {
+        Span<char> buffer = stackalloc char[4];
+        buffer[0] = (char)((tag >> 24) & 0xFF);
+        buffer[1] = (char)((tag >> 16) & 0xFF);
+        buffer[2] = (char)((tag >> 8) & 0xFF);
+        buffer[3] = (char)(tag & 0xFF);
+        return new string(buffer);
     }
 }

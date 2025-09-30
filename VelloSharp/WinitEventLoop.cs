@@ -216,7 +216,9 @@ public sealed class WinitWindow
 
 public readonly struct WinitEventArgs
 {
-    internal WinitEventArgs(in WinitEvent evt)
+    private const int KeyCodeNameCapacity = 64;
+
+    internal unsafe WinitEventArgs(in WinitEvent evt)
     {
         Kind = evt.Kind;
         StartCause = evt.StartCause;
@@ -234,7 +236,12 @@ public readonly struct WinitEventArgs
         ElementState = evt.ElementState;
         ScrollDeltaKind = evt.ScrollDeltaKind;
         KeyCode = evt.KeyCode;
-        KeyCodeName = DecodeUtf8String(evt.KeyCodeName);
+        string? keyCodeName;
+        fixed (byte* keyCodeNamePtr = evt.KeyCodeName)
+        {
+            keyCodeName = DecodeUtf8String(keyCodeNamePtr, KeyCodeNameCapacity);
+        }
+        KeyCodeName = keyCodeName;
         KeyLocation = evt.KeyLocation;
         Repeat = evt.Repeat;
         TouchId = evt.TouchId;
@@ -288,22 +295,20 @@ public readonly struct WinitEventArgs
 
     public WinitWindow? TryGetWindow() => WindowHandle == nint.Zero ? null : new WinitWindow(WindowHandle);
 
-    private static string? DecodeUtf8String(byte[]? bytes)
+    private static unsafe string? DecodeUtf8String(byte* bytes, int capacity)
     {
-        if (bytes is null || bytes.Length == 0)
+        if (bytes == null || capacity == 0)
         {
             return null;
         }
 
-        var terminator = Array.IndexOf(bytes, (byte)0);
-        var length = terminator switch
+        var length = 0;
+        while (length < capacity && bytes[length] != 0)
         {
-            < 0 => bytes.Length,
-            0 => 0,
-            _ => terminator,
-        };
+            length++;
+        }
 
-        return length == 0 ? null : Encoding.UTF8.GetString(bytes, 0, length);
+        return length == 0 ? null : Encoding.UTF8.GetString(new ReadOnlySpan<byte>(bytes, length));
     }
 }
 

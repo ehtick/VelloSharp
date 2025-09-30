@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace VelloSharp.Text;
 
@@ -43,7 +44,8 @@ public readonly record struct VelloTextShaperOptions(
     float LetterSpacing = 0f,
     IReadOnlyList<VelloOpenTypeFeature>? Features = null,
     IReadOnlyList<VelloVariationAxisValue>? VariationAxes = null,
-    bool EnableScriptSegmentation = true)
+    bool EnableScriptSegmentation = true,
+    CultureInfo? Culture = null)
 {
     public static VelloTextShaperOptions CreateDefault(float fontSize, bool isRightToLeft, float letterSpacing = 0f)
         => new(fontSize, isRightToLeft, letterSpacing);
