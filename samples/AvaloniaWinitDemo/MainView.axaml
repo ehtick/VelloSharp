@@ -9,7 +9,10 @@
     <TabItem Header="Dashboard">
       <views:DashboardPage />
     </TabItem>
-  <TabItem Header="API Lease">
+    <TabItem Header="Velato">
+      <views:VelatoPage />
+    </TabItem>
+    <TabItem Header="API Lease">
       <views:LeaseDemoPage />
     </TabItem>
   </TabControl>

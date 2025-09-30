@@ -21,6 +21,7 @@
     <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../../VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
     <ProjectReference Include="../../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="../../VelloSharp.Integration/VelloSharp.Integration.csproj" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj"
                       ReferenceOutputAssembly="false"
                       Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/osx-arm64/native')" />
@@ -39,5 +40,9 @@
     <ProjectReference Include="../../packaging/VelloSharp.Native.win-arm64/VelloSharp.Native.win-arm64.csproj"
                       ReferenceOutputAssembly="false"
                       Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/win-arm64/native')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/Lottie/CirclePulse.json" />
   </ItemGroup>
 </Project>
