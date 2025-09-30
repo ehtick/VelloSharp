@@ -1,4 +1,6 @@
 using System;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Platform;
@@ -117,12 +119,13 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
                 }
 
                 var resources = _graphicsDevice.Acquire(_options.RendererOptions);
+                var surfaceCallbacks = context.TakeWgpuSurfaceRenderCallbacks();
                 if (!EnsureSurface(resources, context.RenderParams))
                 {
                     return;
                 }
 
-                RenderScene(resources, context.Scene, context.RenderParams);
+                RenderScene(resources, context.Scene, context.RenderParams, surfaceCallbacks);
             }
         }
         catch (Exception ex)
@@ -248,7 +251,8 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
     private void RenderScene(
         (WgpuInstance Instance, WgpuAdapter Adapter, WgpuDevice Device, WgpuQueue Queue, WgpuRenderer Renderer) resources,
         Scene scene,
-        RenderParams renderParams)
+        RenderParams renderParams,
+        IReadOnlyList<Action<WgpuSurfaceRenderContext>>? surfaceCallbacks)
     {
         if (_wgpuSurface is null)
         {
@@ -264,6 +268,28 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             using var textureView = surfaceTexture.CreateView();
 
             var adjustedParams = AdjustRenderParams(renderParams);
+
+            if (surfaceCallbacks is { Count: > 0 })
+            {
+                var callbackContext = new WgpuSurfaceRenderContext(
+                    resources.Device,
+                    resources.Queue,
+                    textureView,
+                    adjustedParams,
+                    _surfaceFormat);
+
+                foreach (var callback in surfaceCallbacks)
+                {
+                    try
+                    {
+                        callback(callbackContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[Vello] WGPU surface callback failed: {ex}");
+                    }
+                }
+            }
 
             if (_requiresSurfaceBlit)
             {

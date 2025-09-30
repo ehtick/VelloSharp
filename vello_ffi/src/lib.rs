@@ -11,7 +11,7 @@ use std::{
     io::Cursor,
     mem,
     mem::ManuallyDrop,
-    num::{NonZeroIsize, NonZeroU64, NonZeroUsize},
+        num::{NonZeroIsize, NonZeroU64, NonZeroUsize},
     ptr::NonNull,
     slice,
     sync::Mutex,
@@ -2571,17 +2571,21 @@ pub struct VelloWgpuTextureHandle {
 #[repr(C)]
 pub struct VelloWgpuCommandEncoderHandle {
     encoder: Option<wgpu::CommandEncoder>,
+    pass_active: bool,
 }
 
 #[repr(C)]
 pub struct VelloWgpuCommandBufferHandle {
-    buffer: wgpu::CommandBuffer,
+    buffer: Option<wgpu::CommandBuffer>,
 }
 
 #[allow(dead_code)]
 struct VelloWgpuRenderPassInner {
-    pass: ManuallyDrop<wgpu::RenderPass<'static>>,
+    pass: *mut ManuallyDrop<wgpu::RenderPass<'static>>,
     encoder: *mut VelloWgpuCommandEncoderHandle,
+    color_views: Vec<&'static wgpu::TextureView>,
+    resolve_views: Vec<Option<&'static wgpu::TextureView>>,
+    depth_stencil_view: Option<&'static wgpu::TextureView>,
 }
 
 #[repr(C)]
@@ -2682,6 +2686,7 @@ pub enum VelloWgpuTextureFormat {
     Bgra8Unorm = 2,
     Bgra8UnormSrgb = 3,
     Rgba16Float = 4,
+    R8Uint = 5,
 }
 
 #[repr(C)]
@@ -3118,6 +3123,37 @@ pub struct VelloWgpuRenderPassDescriptor {
     pub color_attachment_count: usize,
     pub color_attachments: *const VelloWgpuRenderPassColorAttachment,
     pub depth_stencil: *const VelloWgpuRenderPassDepthStencilAttachment,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct VelloWgpuOrigin3d {
+    pub x: u32,
+    pub y: u32,
+    pub z: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuImageCopyTexture {
+    pub texture: *const VelloWgpuTextureHandle,
+    pub mip_level: u32,
+    pub origin: VelloWgpuOrigin3d,
+    pub aspect: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuTextureDataLayout {
+    pub offset: u64,
+    pub bytes_per_row: u32,
+    pub rows_per_image: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuCommandBufferDescriptor {
+    pub label: *const c_char,
 }
 
 #[repr(C)]
@@ -4734,6 +4770,7 @@ fn texture_format_from_ffi(format: VelloWgpuTextureFormat) -> TextureFormat {
         VelloWgpuTextureFormat::Bgra8Unorm => TextureFormat::Bgra8Unorm,
         VelloWgpuTextureFormat::Bgra8UnormSrgb => TextureFormat::Bgra8UnormSrgb,
         VelloWgpuTextureFormat::Rgba16Float => TextureFormat::Rgba16Float,
+        VelloWgpuTextureFormat::R8Uint => TextureFormat::R8Uint,
     }
 }
 
@@ -4863,6 +4900,7 @@ fn texture_format_to_ffi(format: TextureFormat) -> Option<VelloWgpuTextureFormat
         TextureFormat::Bgra8Unorm => Some(VelloWgpuTextureFormat::Bgra8Unorm),
         TextureFormat::Bgra8UnormSrgb => Some(VelloWgpuTextureFormat::Bgra8UnormSrgb),
         TextureFormat::Rgba16Float => Some(VelloWgpuTextureFormat::Rgba16Float),
+        TextureFormat::R8Uint => Some(VelloWgpuTextureFormat::R8Uint),
         _ => None,
     }
 }
@@ -6367,6 +6405,605 @@ pub unsafe extern "C" fn vello_wgpu_render_pipeline_destroy(
     if !pipeline.is_null() {
         unsafe { drop(Box::from_raw(pipeline)) };
     }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_command_encoder(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuCommandEncoderDescriptor,
+) -> *mut VelloWgpuCommandEncoderHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+
+    let label_storage = if let Some(desc) = unsafe { descriptor.as_ref() } {
+        match label_from_ptr(desc.label) {
+            Ok(label) => label,
+            Err(_) => {
+                set_last_error("Command encoder label is not valid UTF-8");
+                return std::ptr::null_mut();
+            }
+        }
+    } else {
+        None
+    };
+
+    let encoder_desc = wgpu::CommandEncoderDescriptor {
+        label: label_storage.as_deref(),
+    };
+
+    let encoder = device.device.create_command_encoder(&encoder_desc);
+    Box::into_raw(Box::new(VelloWgpuCommandEncoderHandle {
+        encoder: Some(encoder),
+        pass_active: false,
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_command_encoder_destroy(
+    encoder: *mut VelloWgpuCommandEncoderHandle,
+) {
+    if !encoder.is_null() {
+        let mut handle = unsafe { Box::from_raw(encoder) };
+        handle.encoder.take();
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_command_encoder_begin_render_pass(
+    encoder: *mut VelloWgpuCommandEncoderHandle,
+    descriptor: *const VelloWgpuRenderPassDescriptor,
+) -> *mut VelloWgpuRenderPassHandle {
+    clear_last_error();
+    let Some(encoder_handle) = (unsafe { encoder.as_mut() }) else {
+        set_last_error("Command encoder pointer is null");
+        return std::ptr::null_mut();
+    };
+
+    if encoder_handle.pass_active {
+        set_last_error("A render pass is already active for this command encoder");
+        return std::ptr::null_mut();
+    }
+
+    let Some(encoder_ref) = encoder_handle.encoder.as_mut() else {
+        set_last_error("Command encoder has already been finished");
+        return std::ptr::null_mut();
+    };
+
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Render pass descriptor is null");
+        return std::ptr::null_mut();
+    };
+
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Render pass label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+
+    let color_slice = if desc.color_attachment_count == 0 {
+        &[][..]
+    } else if desc.color_attachments.is_null() {
+        set_last_error("Render pass color attachments pointer is null");
+        return std::ptr::null_mut();
+    } else {
+        unsafe { slice::from_raw_parts(desc.color_attachments, desc.color_attachment_count) }
+    };
+
+    if color_slice.is_empty() {
+        set_last_error("Render pass requires at least one color attachment");
+        return std::ptr::null_mut();
+    }
+
+    let mut color_views = Vec::with_capacity(color_slice.len());
+    let mut resolve_views = Vec::with_capacity(color_slice.len());
+    let mut color_attachments: Vec<Option<wgpu::RenderPassColorAttachment<'static>>> =
+        Vec::with_capacity(color_slice.len());
+
+    for attachment in color_slice {
+        let Some(view_handle) = (unsafe { attachment.view.as_ref() }) else {
+            set_last_error("Render pass color attachment view is null");
+            return std::ptr::null_mut();
+        };
+        let view_ref: &'static wgpu::TextureView = unsafe {
+            std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(&view_handle.view)
+        };
+
+        let resolve_ref = if attachment.resolve_target.is_null() {
+            None
+        } else {
+            let Some(handle) = (unsafe { attachment.resolve_target.as_ref() }) else {
+                set_last_error("Render pass resolve target view is null");
+                return std::ptr::null_mut();
+            };
+            Some(unsafe {
+                std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(
+                    &handle.view,
+                )
+            })
+        };
+
+        let load = match color_load_op_from_ffi(attachment.load, attachment.clear_color) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid color load operation");
+                return std::ptr::null_mut();
+            }
+        };
+
+        let store = store_op_from_ffi(attachment.store);
+
+        color_views.push(view_ref);
+        resolve_views.push(resolve_ref);
+        color_attachments.push(Some(wgpu::RenderPassColorAttachment {
+            view: view_ref,
+            depth_slice: None,
+            resolve_target: resolve_ref,
+            ops: wgpu::Operations { load, store },
+        }));
+    }
+
+    let (depth_attachment, depth_view) = if desc.depth_stencil.is_null() {
+        (None, None)
+    } else {
+        let Some(depth) = (unsafe { desc.depth_stencil.as_ref() }) else {
+            set_last_error("Depth stencil descriptor is null");
+            return std::ptr::null_mut();
+        };
+
+        let Some(view_handle) = (unsafe { depth.view.as_ref() }) else {
+            set_last_error("Depth stencil view is null");
+            return std::ptr::null_mut();
+        };
+        let depth_view_ref: &'static wgpu::TextureView = unsafe {
+            std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(
+                &view_handle.view,
+            )
+        };
+
+        let depth_ops = if depth.depth_read_only {
+            None
+        } else {
+            let load = match float_load_op_from_ffi(depth.depth_load, depth.depth_clear) {
+                Ok(value) => value,
+                Err(_) => {
+                    set_last_error("Invalid depth load operation");
+                    return std::ptr::null_mut();
+                }
+            };
+            Some(wgpu::Operations {
+                load,
+                store: store_op_from_ffi(depth.depth_store),
+            })
+        };
+
+        let stencil_ops = if depth.stencil_read_only {
+            None
+        } else {
+            let load = match uint_load_op_from_ffi(depth.stencil_load, depth.stencil_clear) {
+                Ok(value) => value,
+                Err(_) => {
+                    set_last_error("Invalid stencil load operation");
+                    return std::ptr::null_mut();
+                }
+            };
+            Some(wgpu::Operations {
+                load,
+                store: store_op_from_ffi(depth.stencil_store),
+            })
+        };
+
+        (
+            Some(wgpu::RenderPassDepthStencilAttachment {
+                view: depth_view_ref,
+                depth_ops,
+                stencil_ops,
+            }),
+            Some(depth_view_ref),
+        )
+    };
+
+    let render_pass_desc = wgpu::RenderPassDescriptor {
+        label: label_storage.as_deref(),
+        color_attachments: color_attachments.as_slice(),
+        depth_stencil_attachment: depth_attachment.clone(),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    };
+
+    let pass = encoder_ref.begin_render_pass(&render_pass_desc);
+    let pass_box = Box::new(ManuallyDrop::new(pass));
+    let pass_ptr = Box::into_raw(pass_box);
+
+    encoder_handle.pass_active = true;
+
+    let inner = Box::new(VelloWgpuRenderPassInner {
+        pass: pass_ptr,
+        encoder,
+        color_views,
+        resolve_views,
+        depth_stencil_view: depth_view,
+    });
+
+    Box::into_raw(Box::new(VelloWgpuRenderPassHandle {
+        inner: Box::into_raw(inner),
+    }))
+}
+
+fn render_pass_inner_mut<'a>(
+    pass: *mut VelloWgpuRenderPassHandle,
+) -> Result<&'a mut VelloWgpuRenderPassInner, ()> {
+    unsafe {
+        let Some(handle) = pass.as_mut() else {
+            set_last_error("Render pass pointer is null");
+            return Err(());
+        };
+
+        if handle.inner.is_null() {
+            set_last_error("Render pass has already ended");
+            return Err(());
+        }
+
+        Ok(&mut *handle.inner)
+    }
+}
+
+fn render_pass_mut<'a>(
+    pass: *mut VelloWgpuRenderPassHandle,
+) -> Result<&'a mut wgpu::RenderPass<'static>, ()> {
+    let inner = render_pass_inner_mut(pass)?;
+    if inner.pass.is_null() {
+        set_last_error("Render pass has already ended");
+        return Err(());
+    }
+    unsafe { Ok(&mut **inner.pass) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_set_pipeline(
+    pass: *mut VelloWgpuRenderPassHandle,
+    pipeline: *mut VelloWgpuRenderPipelineHandle,
+) {
+    clear_last_error();
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    let Some(pipeline_handle) = (unsafe { pipeline.as_ref() }) else {
+        set_last_error("Pipeline pointer is null");
+        return;
+    };
+    pass_ref.set_pipeline(&pipeline_handle.pipeline);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_set_bind_group(
+    pass: *mut VelloWgpuRenderPassHandle,
+    index: u32,
+    bind_group: *mut VelloWgpuBindGroupHandle,
+    dynamic_offsets: *const u32,
+    dynamic_offset_count: usize,
+) {
+    clear_last_error();
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    let Some(bind_group_handle) = (unsafe { bind_group.as_ref() }) else {
+        set_last_error("Bind group pointer is null");
+        return;
+    };
+    let offsets = if dynamic_offset_count == 0 {
+        &[][..]
+    } else if dynamic_offsets.is_null() {
+        set_last_error("Dynamic offsets pointer is null");
+        return;
+    } else {
+        unsafe { slice::from_raw_parts(dynamic_offsets, dynamic_offset_count) }
+    };
+    pass_ref.set_bind_group(index, &bind_group_handle.bind_group, offsets);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_set_vertex_buffer(
+    pass: *mut VelloWgpuRenderPassHandle,
+    slot: u32,
+    buffer: *mut VelloWgpuBufferHandle,
+    offset: u64,
+    size: u64,
+) {
+    clear_last_error();
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    let Some(buffer_handle) = (unsafe { buffer.as_ref() }) else {
+        set_last_error("Vertex buffer pointer is null");
+        return;
+    };
+    let slice = if size == 0 {
+        buffer_handle.buffer.slice(offset..)
+    } else if let Some(end) = offset.checked_add(size) {
+        buffer_handle.buffer.slice(offset..end)
+    } else {
+        set_last_error("Vertex buffer slice range is invalid");
+        return;
+    };
+    pass_ref.set_vertex_buffer(slot, slice);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_set_index_buffer(
+    pass: *mut VelloWgpuRenderPassHandle,
+    buffer: *mut VelloWgpuBufferHandle,
+    format: u32,
+    offset: u64,
+    size: u64,
+) {
+    clear_last_error();
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    let Some(buffer_handle) = (unsafe { buffer.as_ref() }) else {
+        set_last_error("Index buffer pointer is null");
+        return;
+    };
+    let Some(index_format) = (match index_format_from_u32(format) {
+        Ok(value) => value,
+        Err(_) => {
+            set_last_error("Invalid index buffer format");
+            return;
+        }
+    }) else {
+        set_last_error("Index buffer format must not be undefined");
+        return;
+    };
+    let slice = if size == 0 {
+        buffer_handle.buffer.slice(offset..)
+    } else if let Some(end) = offset.checked_add(size) {
+        buffer_handle.buffer.slice(offset..end)
+    } else {
+        set_last_error("Index buffer slice range is invalid");
+        return;
+    };
+    pass_ref.set_index_buffer(slice, index_format);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_draw(
+    pass: *mut VelloWgpuRenderPassHandle,
+    vertex_count: u32,
+    instance_count: u32,
+    first_vertex: u32,
+    first_instance: u32,
+) {
+    clear_last_error();
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    let Some(vertex_end) = first_vertex.checked_add(vertex_count) else {
+        set_last_error("Vertex draw range overflow");
+        return;
+    };
+    let Some(instance_end) = first_instance.checked_add(instance_count) else {
+        set_last_error("Instance draw range overflow");
+        return;
+    };
+    pass_ref.draw(first_vertex..vertex_end, first_instance..instance_end);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_draw_indexed(
+    pass: *mut VelloWgpuRenderPassHandle,
+    index_count: u32,
+    instance_count: u32,
+    first_index: u32,
+    base_vertex: i32,
+    first_instance: u32,
+) {
+    clear_last_error();
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    let Some(index_end) = first_index.checked_add(index_count) else {
+        set_last_error("Index draw range overflow");
+        return;
+    };
+    let Some(instance_end) = first_instance.checked_add(instance_count) else {
+        set_last_error("Instance draw range overflow");
+        return;
+    };
+    pass_ref.draw_indexed(first_index..index_end, base_vertex, first_instance..instance_end);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_end(pass: *mut VelloWgpuRenderPassHandle) {
+    clear_last_error();
+    let Some(handle) = (unsafe { pass.as_mut() }) else {
+        set_last_error("Render pass pointer is null");
+        return;
+    };
+    if handle.inner.is_null() {
+        return;
+    }
+
+    let inner = unsafe { Box::from_raw(handle.inner) };
+    if !inner.pass.is_null() {
+        let mut pass_box = unsafe { Box::from_raw(inner.pass) };
+        unsafe { ManuallyDrop::drop(&mut *pass_box) };
+    }
+
+    if let Some(encoder_handle) = unsafe { inner.encoder.as_mut() } {
+        encoder_handle.pass_active = false;
+    }
+
+    handle.inner = std::ptr::null_mut();
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_command_encoder_finish(
+    encoder: *mut VelloWgpuCommandEncoderHandle,
+    descriptor: *const VelloWgpuCommandBufferDescriptor,
+) -> *mut VelloWgpuCommandBufferHandle {
+    clear_last_error();
+    let Some(encoder_handle) = (unsafe { encoder.as_mut() }) else {
+        set_last_error("Command encoder pointer is null");
+        return std::ptr::null_mut();
+    };
+
+    if encoder_handle.pass_active {
+        set_last_error("Cannot finish command encoder while a render pass is active");
+        return std::ptr::null_mut();
+    }
+
+    let Some(encoder_value) = encoder_handle.encoder.take() else {
+        set_last_error("Command encoder has already been finished");
+        return std::ptr::null_mut();
+    };
+
+    if let Some(desc) = unsafe { descriptor.as_ref() } {
+        if label_from_ptr(desc.label).is_err() {
+            set_last_error("Command buffer label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    }
+
+    let buffer = encoder_value.finish();
+    Box::into_raw(Box::new(VelloWgpuCommandBufferHandle {
+        buffer: Some(buffer),
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_command_buffer_destroy(
+    buffer: *mut VelloWgpuCommandBufferHandle,
+) {
+    if !buffer.is_null() {
+        let mut handle = unsafe { Box::from_raw(buffer) };
+        handle.buffer.take();
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_queue_submit(
+    queue: *mut VelloWgpuQueueHandle,
+    buffers: *const *mut VelloWgpuCommandBufferHandle,
+    buffer_count: usize,
+) -> u64 {
+    clear_last_error();
+    let Some(queue_handle) = (unsafe { queue.as_ref() }) else {
+        set_last_error("Queue pointer is null");
+        return 0;
+    };
+
+    let buffer_slice = if buffer_count == 0 {
+        &[][..]
+    } else if buffers.is_null() {
+        set_last_error("Command buffer pointer array is null");
+        return 0;
+    } else {
+        unsafe { slice::from_raw_parts(buffers, buffer_count) }
+    };
+
+    let mut owned_buffers = Vec::with_capacity(buffer_slice.len());
+    for &buffer_ptr in buffer_slice {
+        let Some(handle) = (unsafe { buffer_ptr.as_mut() }) else {
+            set_last_error("Command buffer pointer is null");
+            return 0;
+        };
+        let Some(buffer) = handle.buffer.take() else {
+            set_last_error("Command buffer has already been consumed");
+            return 0;
+        };
+        owned_buffers.push(buffer);
+        unsafe { drop(Box::from_raw(buffer_ptr)) };
+    }
+
+    let submission = queue_handle.queue.submit(owned_buffers);
+    // SAFETY: `wgpu::SubmissionIndex` currently contains a single `u64` field and has no
+    // destructor. Using `transmute` lets us preserve the numeric submission identifier for
+    // consumers that rely on it (for example, waiting on a submission). This mirrors the
+    // previous tuple-struct layout used by wgpu prior to 0.19.
+    unsafe { std::mem::transmute::<wgpu::SubmissionIndex, u64>(submission) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_queue_write_buffer(
+    queue: *mut VelloWgpuQueueHandle,
+    buffer: *mut VelloWgpuBufferHandle,
+    offset: u64,
+    data: VelloBytes,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(queue_handle) = (unsafe { queue.as_ref() }) else {
+        set_last_error("Queue pointer is null");
+        return VelloStatus::InvalidArgument;
+    };
+    let Some(buffer_handle) = (unsafe { buffer.as_ref() }) else {
+        set_last_error("Buffer pointer is null");
+        return VelloStatus::InvalidArgument;
+    };
+    if data.length == 0 || data.data.is_null() {
+        return VelloStatus::Success;
+    }
+    let bytes = unsafe { slice::from_raw_parts(data.data, data.length) };
+    queue_handle.queue.write_buffer(&buffer_handle.buffer, offset, bytes);
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_queue_write_texture(
+    queue: *mut VelloWgpuQueueHandle,
+    destination: *const VelloWgpuImageCopyTexture,
+    data: VelloBytes,
+    data_layout: VelloWgpuTextureDataLayout,
+    size: VelloWgpuExtent3d,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(queue_handle) = (unsafe { queue.as_ref() }) else {
+        set_last_error("Queue pointer is null");
+        return VelloStatus::InvalidArgument;
+    };
+    let Some(dest) = (unsafe { destination.as_ref() }) else {
+        set_last_error("Destination descriptor is null");
+        return VelloStatus::InvalidArgument;
+    };
+    let Some(texture_handle) = (unsafe { dest.texture.as_ref() }) else {
+        set_last_error("Destination texture pointer is null");
+        return VelloStatus::InvalidArgument;
+    };
+    if data.length == 0 || data.data.is_null() {
+        return VelloStatus::Success;
+    }
+    let aspect = match texture_aspect_from_u32(dest.aspect) {
+        Ok(value) => value,
+        Err(_) => {
+            set_last_error("Invalid texture aspect");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+    let image_copy = wgpu::TexelCopyTextureInfo {
+        texture: &texture_handle.texture,
+        mip_level: dest.mip_level,
+        origin: wgpu::Origin3d {
+            x: dest.origin.x,
+            y: dest.origin.y,
+            z: dest.origin.z,
+        },
+        aspect,
+    };
+    let layout = wgpu::TexelCopyBufferLayout {
+        offset: data_layout.offset,
+        bytes_per_row: (data_layout.bytes_per_row != 0).then_some(data_layout.bytes_per_row),
+        rows_per_image: (data_layout.rows_per_image != 0).then_some(data_layout.rows_per_image),
+    };
+    let extent = extent3d_from_ffi(size);
+    let bytes = unsafe { slice::from_raw_parts(data.data, data.length) };
+    queue_handle
+        .queue
+        .write_texture(image_copy, bytes, layout, extent);
+    VelloStatus::Success
 }
 
 #[unsafe(no_mangle)]

@@ -41,6 +41,12 @@ public interface IVelloApiLease : IDisposable
     /// </summary>
     /// <returns>An <see cref="IVelloPlatformGraphicsLease"/> when wgpu access is available; otherwise <c>null</c>.</returns>
     IVelloPlatformGraphicsLease? TryLeasePlatformGraphics();
+
+    /// <summary>
+    /// Schedules a wgpu rendering callback that will be executed on the swapchain surface prior to the Vello scene being composited.
+    /// </summary>
+    /// <param name="renderAction">The callback to execute.</param>
+    void ScheduleWgpuSurfaceRender(Action<WgpuSurfaceRenderContext> renderAction);
 }
 
 /// <summary>

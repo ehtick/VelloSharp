@@ -12,6 +12,9 @@
     <TabItem Header="Velato">
       <views:VelatoPage />
     </TabItem>
+    <TabItem Header="WGPU Cube">
+      <views:CubeDemoPage />
+    </TabItem>
     <TabItem Header="API Lease">
       <views:LeaseDemoPage />
     </TabItem>

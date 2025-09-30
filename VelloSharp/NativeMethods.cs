@@ -457,6 +457,110 @@ internal static partial class NativeMethods
         IntPtr device,
         WgpuRenderPipelineDescriptorNative* descriptor);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_command_encoder")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_command_encoder(
+        IntPtr device,
+        VelloWgpuCommandEncoderDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_command_encoder_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_command_encoder_destroy(IntPtr encoder);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_command_encoder_begin_render_pass")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_command_encoder_begin_render_pass(
+        IntPtr encoder,
+        VelloWgpuRenderPassDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_pipeline")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_set_pipeline(IntPtr pass, IntPtr pipeline);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_bind_group")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial void vello_wgpu_render_pass_set_bind_group(
+        IntPtr pass,
+        uint index,
+        IntPtr bindGroup,
+        uint* dynamicOffsets,
+        nuint dynamicOffsetCount);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_vertex_buffer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_set_vertex_buffer(
+        IntPtr pass,
+        uint slot,
+        IntPtr buffer,
+        ulong offset,
+        ulong size);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_index_buffer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_set_index_buffer(
+        IntPtr pass,
+        IntPtr buffer,
+        uint format,
+        ulong offset,
+        ulong size);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_draw")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_draw(
+        IntPtr pass,
+        uint vertexCount,
+        uint instanceCount,
+        uint firstVertex,
+        uint firstInstance);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_draw_indexed")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_draw_indexed(
+        IntPtr pass,
+        uint indexCount,
+        uint instanceCount,
+        uint firstIndex,
+        int baseVertex,
+        uint firstInstance);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_end")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_end(IntPtr pass);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_command_encoder_finish")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_command_encoder_finish(
+        IntPtr encoder,
+        VelloWgpuCommandBufferDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_command_buffer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_command_buffer_destroy(IntPtr buffer);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_queue_submit")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial ulong vello_wgpu_queue_submit(
+        IntPtr queue,
+        IntPtr* buffers,
+        nuint bufferCount);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_queue_write_buffer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_queue_write_buffer(
+        IntPtr queue,
+        IntPtr buffer,
+        ulong offset,
+        VelloBytesNative data);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_queue_write_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_wgpu_queue_write_texture(
+        IntPtr queue,
+        VelloWgpuImageCopyTextureNative* destination,
+        VelloBytesNative data,
+        VelloWgpuTextureDataLayoutNative dataLayout,
+        VelloWgpuExtent3dNative size);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pipeline_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_render_pipeline_destroy(IntPtr pipeline);

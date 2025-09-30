@@ -25,6 +25,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private readonly Stack<Matrix> _transformStack = new();
     private readonly Stack<LayerEntry> _layerStack = new();
     private readonly List<IDisposable> _deferredDisposables = new();
+    private List<Action<WgpuSurfaceRenderContext>>? _wgpuSurfaceCallbacks;
     private int _clipDepth;
     private int _opacityDepth;
     private int _layerDepth;
@@ -65,6 +66,19 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     public RenderParams RenderParams { get; private set; }
 
     public Scene Scene => _scene;
+
+    internal void ScheduleWgpuSurfaceRender(Action<WgpuSurfaceRenderContext> callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        (_wgpuSurfaceCallbacks ??= new List<Action<WgpuSurfaceRenderContext>>()).Add(callback);
+    }
+
+    internal List<Action<WgpuSurfaceRenderContext>>? TakeWgpuSurfaceRenderCallbacks()
+    {
+        var callbacks = _wgpuSurfaceCallbacks;
+        _wgpuSurfaceCallbacks = null;
+        return callbacks;
+    }
 
     public void Dispose()
     {
@@ -599,6 +613,12 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
                 _platformLease ??= _context.TryCreatePlatformGraphicsLease(OnPlatformLeaseDisposed);
                 return _platformLease;
+            }
+
+            public void ScheduleWgpuSurfaceRender(Action<WgpuSurfaceRenderContext> renderAction)
+            {
+                EnsureNotDisposed();
+                _context.ScheduleWgpuSurfaceRender(renderAction);
             }
 
             public void Dispose()

@@ -720,6 +720,7 @@ internal enum WgpuTextureFormatNative : uint
     Bgra8Unorm = 2,
     Bgra8UnormSrgb = 3,
     Rgba16Float = 4,
+    R8Uint = 5,
 }
 
 internal enum WgpuBackendTypeNative : uint
@@ -1061,6 +1062,95 @@ internal struct WgpuRenderPipelineDescriptorNative
     public IntPtr DepthStencil;
     public WgpuMultisampleStateNative Multisample;
     public IntPtr Fragment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuCommandEncoderDescriptorNative
+{
+    public IntPtr Label;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuColorNative
+{
+    public double R;
+    public double G;
+    public double B;
+    public double A;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuRenderPassColorAttachmentNative
+{
+    public IntPtr View;
+    public IntPtr ResolveTarget;
+    public uint Load;
+    public uint Store;
+    public VelloWgpuColorNative ClearColor;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuRenderPassDepthStencilAttachmentNative
+{
+    public IntPtr View;
+    public uint DepthLoad;
+    public uint DepthStore;
+    public float DepthClear;
+    public uint StencilLoad;
+    public uint StencilStore;
+    public uint StencilClear;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool DepthReadOnly;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool StencilReadOnly;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuRenderPassDescriptorNative
+{
+    public IntPtr Label;
+    public nuint ColorAttachmentCount;
+    public IntPtr ColorAttachments;
+    public IntPtr DepthStencil;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuOrigin3dNative
+{
+    public uint X;
+    public uint Y;
+    public uint Z;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuImageCopyTextureNative
+{
+    public IntPtr Texture;
+    public uint MipLevel;
+    public VelloWgpuOrigin3dNative Origin;
+    public uint Aspect;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuTextureDataLayoutNative
+{
+    public ulong Offset;
+    public uint BytesPerRow;
+    public uint RowsPerImage;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuExtent3dNative
+{
+    public uint Width;
+    public uint Height;
+    public uint DepthOrArrayLayers;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloWgpuCommandBufferDescriptorNative
+{
+    public IntPtr Label;
 }
 
 [StructLayout(LayoutKind.Sequential)]
