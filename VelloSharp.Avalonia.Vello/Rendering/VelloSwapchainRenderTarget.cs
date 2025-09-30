@@ -87,7 +87,8 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             clampedSize,
             _options,
             OnContextCompleted,
-            skipInitialClip: !properties.PreviousFrameIsRetained);
+            skipInitialClip: !properties.PreviousFrameIsRetained,
+            graphicsDevice: _graphicsDevice);
     }
 
     public void Dispose()

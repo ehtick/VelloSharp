@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:AvaloniaWinitDemo.Controls"
+             x:Class="AvaloniaWinitDemo.Views.LeaseDemoPage">
+  <Grid RowDefinitions="Auto,*"
+        RowSpacing="16">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Vello API lease demo"
+                 FontSize="18"
+                 FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap"
+                 Opacity="0.8"
+                 Text="This sample requests the IVelloApiLeaseFeature from the drawing context to append raw Vello commands and read WGPU device information." />
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            Background="#1f4d7a"
+            CornerRadius="8"
+            Padding="16">
+      <controls:LeaseDemoControl MinHeight="260" />
+    </Border>
+  </Grid>
+</UserControl>

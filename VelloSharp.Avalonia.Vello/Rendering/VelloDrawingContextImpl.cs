@@ -20,6 +20,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private readonly PixelSize _targetSize;
     private readonly Action<VelloDrawingContextImpl> _onCompleted;
     private readonly VelloPlatformOptions _options;
+    private readonly VelloGraphicsDevice? _graphicsDevice;
     private bool _disposed;
     private readonly Stack<Matrix> _transformStack = new();
     private readonly Stack<LayerEntry> _layerStack = new();
@@ -28,6 +29,9 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private int _opacityDepth;
     private int _layerDepth;
     private bool _skipInitialClip;
+    private VelloLeaseFeature? _leaseFeature;
+    private bool _apiLeaseActive;
+    private bool _platformGraphicsLeaseActive;
     private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
     private static readonly global::Avalonia.Vector s_intermediateDpi = new(96, 96);
@@ -39,13 +43,15 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         PixelSize targetSize,
         VelloPlatformOptions options,
         Action<VelloDrawingContextImpl> onCompleted,
-        bool skipInitialClip = false)
+        bool skipInitialClip = false,
+        VelloGraphicsDevice? graphicsDevice = null)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _targetSize = targetSize;
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _onCompleted = onCompleted ?? throw new ArgumentNullException(nameof(onCompleted));
         _skipInitialClip = skipInitialClip;
+        _graphicsDevice = graphicsDevice;
         Transform = Matrix.Identity;
         RenderParams = new RenderParams((uint)Math.Max(1, targetSize.Width), (uint)Math.Max(1, targetSize.Height), options.ClearColor)
         {
@@ -480,7 +486,187 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     {
     }
 
-    public object? GetFeature(Type t) => null;
+    public object? GetFeature(Type t)
+    {
+        if (t == typeof(IVelloApiLeaseFeature))
+        {
+            _leaseFeature ??= new VelloLeaseFeature(this);
+            return _leaseFeature;
+        }
+
+        return null;
+    }
+
+    private void BeginApiLease()
+    {
+        EnsureNotDisposed();
+
+        if (_apiLeaseActive)
+        {
+            throw new InvalidOperationException("The Vello API is already leased.");
+        }
+
+        _apiLeaseActive = true;
+    }
+
+    private void EndApiLease()
+    {
+        _apiLeaseActive = false;
+        _platformGraphicsLeaseActive = false;
+    }
+
+    private IVelloPlatformGraphicsLease? TryCreatePlatformGraphicsLease(Action onLeaseDisposed)
+    {
+        if (_graphicsDevice is null)
+        {
+            return null;
+        }
+
+        if (_platformGraphicsLeaseActive)
+        {
+            throw new InvalidOperationException("The Vello platform graphics API is already leased.");
+        }
+
+        var resources = _graphicsDevice.Acquire(_options.RendererOptions);
+        _platformGraphicsLeaseActive = true;
+        return new VelloPlatformGraphicsLease(this, onLeaseDisposed, resources.Instance, resources.Adapter, resources.Device, resources.Queue, resources.Renderer);
+    }
+
+    private sealed class VelloLeaseFeature : IVelloApiLeaseFeature
+    {
+        private readonly VelloDrawingContextImpl _context;
+
+        public VelloLeaseFeature(VelloDrawingContextImpl context)
+        {
+            _context = context;
+        }
+
+        public IVelloApiLease Lease()
+        {
+            _context.BeginApiLease();
+            return new ApiLease(_context);
+        }
+
+        private sealed class ApiLease : IVelloApiLease
+        {
+            private readonly VelloDrawingContextImpl _context;
+            private bool _disposed;
+            private IVelloPlatformGraphicsLease? _platformLease;
+
+            public ApiLease(VelloDrawingContextImpl context)
+            {
+                _context = context;
+            }
+
+            private void EnsureNotDisposed()
+            {
+                if (_disposed)
+                {
+                    throw new ObjectDisposedException(nameof(ApiLease));
+                }
+            }
+
+            public Scene Scene
+            {
+                get
+                {
+                    EnsureNotDisposed();
+                    return _context.Scene;
+                }
+            }
+
+            public RenderParams RenderParams
+            {
+                get
+                {
+                    EnsureNotDisposed();
+                    return _context.RenderParams;
+                }
+            }
+
+            public Matrix Transform
+            {
+                get
+                {
+                    EnsureNotDisposed();
+                    return _context.Transform;
+                }
+            }
+
+            public IVelloPlatformGraphicsLease? TryLeasePlatformGraphics()
+            {
+                EnsureNotDisposed();
+
+                _platformLease ??= _context.TryCreatePlatformGraphicsLease(OnPlatformLeaseDisposed);
+                return _platformLease;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _platformLease?.Dispose();
+                _platformLease = null;
+                _context.EndApiLease();
+                _disposed = true;
+            }
+
+            private void OnPlatformLeaseDisposed()
+            {
+                _platformLease = null;
+            }
+        }
+    }
+
+    private sealed class VelloPlatformGraphicsLease : IVelloPlatformGraphicsLease
+    {
+        private readonly VelloDrawingContextImpl _context;
+        private readonly Action _onDispose;
+        private bool _disposed;
+
+        public VelloPlatformGraphicsLease(
+            VelloDrawingContextImpl context,
+            Action onDispose,
+            WgpuInstance instance,
+            WgpuAdapter adapter,
+            WgpuDevice device,
+            WgpuQueue queue,
+            WgpuRenderer renderer)
+        {
+            _context = context;
+            _onDispose = onDispose ?? throw new ArgumentNullException(nameof(onDispose));
+            Instance = instance;
+            Adapter = adapter;
+            Device = device;
+            Queue = queue;
+            Renderer = renderer;
+        }
+
+        public WgpuInstance Instance { get; }
+
+        public WgpuAdapter Adapter { get; }
+
+        public WgpuDevice Device { get; }
+
+        public WgpuQueue Queue { get; }
+
+        public WgpuRenderer Renderer { get; }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _context._platformGraphicsLeaseActive = false;
+            _disposed = true;
+            _onDispose();
+        }
+    }
 
     private void ApplyStroke(PathBuilder builder, StrokeStyle style, VelloSharp.Brush brush, Matrix3x2? brushTransform)
     {
@@ -614,6 +800,11 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(VelloDrawingContextImpl));
+        }
+
+        if (_apiLeaseActive)
+        {
+            throw new InvalidOperationException("The Vello API is currently leased.");
         }
     }
 
