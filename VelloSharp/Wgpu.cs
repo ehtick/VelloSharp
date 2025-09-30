@@ -125,6 +125,562 @@ public enum WgpuTextureAspect
     Plane1,
 }
 
+public enum WgpuTextureDimension
+{
+    D1 = 0,
+    D2 = 1,
+    D3 = 2,
+}
+
+[Flags]
+public enum WgpuBufferUsage : uint
+{
+    None = 0,
+    MapRead = 1u << 0,
+    MapWrite = 1u << 1,
+    CopySrc = 1u << 2,
+    CopyDst = 1u << 3,
+    Index = 1u << 4,
+    Vertex = 1u << 5,
+    Uniform = 1u << 6,
+    Storage = 1u << 7,
+    Indirect = 1u << 8,
+    QueryResolve = 1u << 9,
+}
+
+public enum WgpuAddressMode
+{
+    ClampToEdge = 0,
+    Repeat = 1,
+    MirrorRepeat = 2,
+    ClampToBorder = 3,
+}
+
+public enum WgpuFilterMode
+{
+    Nearest = 0,
+    Linear = 1,
+}
+
+public enum WgpuCompareFunction
+{
+    Undefined = 0,
+    Never = 1,
+    Less = 2,
+    LessEqual = 3,
+    Equal = 4,
+    Greater = 5,
+    NotEqual = 6,
+    GreaterEqual = 7,
+    Always = 8,
+}
+
+public enum WgpuStencilOperation
+{
+    Keep = 0,
+    Zero = 1,
+    Replace = 2,
+    Invert = 3,
+    IncrementClamp = 4,
+    DecrementClamp = 5,
+    IncrementWrap = 6,
+    DecrementWrap = 7,
+}
+
+[Flags]
+public enum WgpuColorWriteMask : uint
+{
+    None = 0,
+    Red = 0x1,
+    Green = 0x2,
+    Blue = 0x4,
+    Alpha = 0x8,
+    All = Red | Green | Blue | Alpha,
+}
+
+public enum WgpuBlendFactor
+{
+    Zero = 0,
+    One = 1,
+    Src = 2,
+    OneMinusSrc = 3,
+    SrcAlpha = 4,
+    OneMinusSrcAlpha = 5,
+    Dst = 6,
+    OneMinusDst = 7,
+    DstAlpha = 8,
+    OneMinusDstAlpha = 9,
+    SrcAlphaSaturated = 10,
+    Constant = 11,
+    OneMinusConstant = 12,
+}
+
+public enum WgpuBlendOperation
+{
+    Add = 0,
+    Subtract = 1,
+    ReverseSubtract = 2,
+    Min = 3,
+    Max = 4,
+}
+
+public enum WgpuPrimitiveTopology
+{
+    PointList = 0,
+    LineList = 1,
+    LineStrip = 2,
+    TriangleList = 3,
+    TriangleStrip = 4,
+}
+
+public enum WgpuFrontFace
+{
+    Ccw = 0,
+    Cw = 1,
+}
+
+public enum WgpuCullMode
+{
+    None = 0,
+    Front = 1,
+    Back = 2,
+}
+
+public enum WgpuPolygonMode
+{
+    Fill = 0,
+    Line = 1,
+    Point = 2,
+}
+
+public enum WgpuSamplerBindingType
+{
+    Filtering = 0,
+    NonFiltering = 1,
+    Comparison = 2,
+}
+
+public enum WgpuBufferBindingType
+{
+    Uniform = 0,
+    Storage = 1,
+    ReadOnlyStorage = 2,
+}
+
+public enum WgpuTextureSampleType
+{
+    Float = 0,
+    UnfilterableFloat = 1,
+    Depth = 2,
+    Sint = 3,
+    Uint = 4,
+}
+
+public enum WgpuStorageTextureAccess
+{
+    ReadOnly = 0,
+    WriteOnly = 1,
+    ReadWrite = 2,
+}
+
+[Flags]
+public enum WgpuShaderStage : uint
+{
+    None = 0,
+    Vertex = 1u << 0,
+    Fragment = 1u << 1,
+    Compute = 1u << 2,
+}
+
+public enum WgpuVertexStepMode
+{
+    Vertex = 0,
+    Instance = 1,
+}
+
+public enum WgpuVertexFormat
+{
+    Float32 = 0,
+    Float32x2 = 1,
+    Float32x3 = 2,
+    Float32x4 = 3,
+    Uint32 = 4,
+    Uint32x2 = 5,
+    Uint32x3 = 6,
+    Uint32x4 = 7,
+    Sint32 = 8,
+    Sint32x2 = 9,
+    Sint32x3 = 10,
+    Sint32x4 = 11,
+    Float16x2 = 12,
+    Float16x4 = 13,
+}
+
+public enum WgpuIndexFormat
+{
+    Undefined = 0,
+    Uint16 = 1,
+    Uint32 = 2,
+}
+
+public enum WgpuLoadOp
+{
+    Load = 0,
+    Clear = 1,
+}
+
+public enum WgpuStoreOp
+{
+    Store = 0,
+    Discard = 1,
+}
+
+public enum WgpuShaderModuleSourceKind
+{
+    Wgsl,
+    Spirv,
+}
+
+public enum WgpuBindingLayoutType
+{
+    Buffer,
+    Sampler,
+    Texture,
+    StorageTexture,
+}
+
+public enum WgpuBindGroupEntryType
+{
+    Buffer,
+    Sampler,
+    TextureView,
+}
+
+public readonly struct WgpuExtent3D
+{
+    public uint Width { get; init; }
+    public uint Height { get; init; }
+    public uint DepthOrArrayLayers { get; init; }
+}
+
+public readonly struct WgpuShaderModuleDescriptor
+{
+    public WgpuShaderModuleDescriptor(string wgsl, string? label = null)
+    {
+        Label = label;
+        Wgsl = wgsl ?? throw new ArgumentNullException(nameof(wgsl));
+        Spirv = ReadOnlyMemory<uint>.Empty;
+        Source = WgpuShaderModuleSourceKind.Wgsl;
+    }
+
+    public WgpuShaderModuleDescriptor(ReadOnlyMemory<uint> spirv, string? label = null)
+    {
+        Label = label;
+        Wgsl = null;
+        Spirv = spirv;
+        Source = WgpuShaderModuleSourceKind.Spirv;
+    }
+
+    public string? Label { get; }
+    public string? Wgsl { get; }
+    public ReadOnlyMemory<uint> Spirv { get; }
+    public WgpuShaderModuleSourceKind Source { get; }
+}
+
+public readonly struct WgpuBufferDescriptor
+{
+    public string? Label { get; init; }
+    public WgpuBufferUsage Usage { get; init; }
+    public ulong Size { get; init; }
+    public bool MappedAtCreation { get; init; }
+}
+
+public readonly struct WgpuSamplerDescriptor
+{
+    public string? Label { get; init; }
+    public WgpuAddressMode AddressModeU { get; init; }
+    public WgpuAddressMode AddressModeV { get; init; }
+    public WgpuAddressMode AddressModeW { get; init; }
+    public WgpuFilterMode MagFilter { get; init; }
+    public WgpuFilterMode MinFilter { get; init; }
+    public WgpuFilterMode MipFilter { get; init; }
+    public float LodMinClamp { get; init; }
+    public float LodMaxClamp { get; init; }
+    public WgpuCompareFunction Compare { get; init; }
+    public ushort AnisotropyClamp { get; init; }
+}
+
+public readonly struct WgpuTextureDescriptor
+{
+    public string? Label { get; init; }
+    public WgpuExtent3D Size { get; init; }
+    public uint MipLevelCount { get; init; }
+    public uint SampleCount { get; init; }
+    public WgpuTextureDimension Dimension { get; init; }
+    public WgpuTextureFormat Format { get; init; }
+    public WgpuTextureUsage Usage { get; init; }
+    public IReadOnlyList<WgpuTextureFormat>? ViewFormats { get; init; }
+}
+
+public readonly struct WgpuBufferBindingLayout
+{
+    public WgpuBufferBindingType Type { get; init; }
+    public bool HasDynamicOffset { get; init; }
+    public ulong MinBindingSize { get; init; }
+}
+
+public readonly struct WgpuSamplerBindingLayout
+{
+    public WgpuSamplerBindingType Type { get; init; }
+}
+
+public readonly struct WgpuTextureBindingLayout
+{
+    public WgpuTextureSampleType SampleType { get; init; }
+    public WgpuTextureViewDimension Dimension { get; init; }
+    public bool Multisampled { get; init; }
+}
+
+public readonly struct WgpuStorageTextureBindingLayout
+{
+    public WgpuStorageTextureAccess Access { get; init; }
+    public WgpuTextureFormat Format { get; init; }
+    public WgpuTextureViewDimension Dimension { get; init; }
+}
+
+public readonly struct WgpuBindGroupLayoutEntry
+{
+    public WgpuBindGroupLayoutEntry(
+        uint binding,
+        WgpuShaderStage visibility,
+        WgpuBufferBindingLayout layout)
+    {
+        Binding = binding;
+        Visibility = visibility;
+        Kind = WgpuBindingLayoutType.Buffer;
+        Buffer = layout;
+        Sampler = null;
+        Texture = null;
+        StorageTexture = null;
+    }
+
+    public WgpuBindGroupLayoutEntry(
+        uint binding,
+        WgpuShaderStage visibility,
+        WgpuSamplerBindingLayout layout)
+    {
+        Binding = binding;
+        Visibility = visibility;
+        Kind = WgpuBindingLayoutType.Sampler;
+        Buffer = null;
+        Sampler = layout;
+        Texture = null;
+        StorageTexture = null;
+    }
+
+    public WgpuBindGroupLayoutEntry(
+        uint binding,
+        WgpuShaderStage visibility,
+        WgpuTextureBindingLayout layout)
+    {
+        Binding = binding;
+        Visibility = visibility;
+        Kind = WgpuBindingLayoutType.Texture;
+        Buffer = null;
+        Sampler = null;
+        Texture = layout;
+        StorageTexture = null;
+    }
+
+    public WgpuBindGroupLayoutEntry(
+        uint binding,
+        WgpuShaderStage visibility,
+        WgpuStorageTextureBindingLayout layout)
+    {
+        Binding = binding;
+        Visibility = visibility;
+        Kind = WgpuBindingLayoutType.StorageTexture;
+        Buffer = null;
+        Sampler = null;
+        Texture = null;
+        StorageTexture = layout;
+    }
+
+    public uint Binding { get; }
+    public WgpuShaderStage Visibility { get; }
+    public WgpuBindingLayoutType Kind { get; }
+    public WgpuBufferBindingLayout? Buffer { get; }
+    public WgpuSamplerBindingLayout? Sampler { get; }
+    public WgpuTextureBindingLayout? Texture { get; }
+    public WgpuStorageTextureBindingLayout? StorageTexture { get; }
+}
+
+public readonly struct WgpuBindGroupLayoutDescriptor
+{
+    public string? Label { get; init; }
+    public IReadOnlyList<WgpuBindGroupLayoutEntry> Entries { get; init; }
+}
+
+public readonly struct WgpuBufferBinding
+{
+    public WgpuBuffer Buffer { get; init; }
+    public ulong Offset { get; init; }
+    public ulong? Size { get; init; }
+}
+
+public readonly struct WgpuBindGroupEntry
+{
+    public static WgpuBindGroupEntry CreateBuffer(uint binding, WgpuBufferBinding bindingInfo)
+    {
+        ArgumentNullException.ThrowIfNull(bindingInfo.Buffer);
+        return new WgpuBindGroupEntry(binding, WgpuBindGroupEntryType.Buffer, bindingInfo, null, null);
+    }
+
+    public static WgpuBindGroupEntry CreateSampler(uint binding, WgpuSampler sampler)
+    {
+        ArgumentNullException.ThrowIfNull(sampler);
+        return new WgpuBindGroupEntry(binding, WgpuBindGroupEntryType.Sampler, null, sampler, null);
+    }
+
+    public static WgpuBindGroupEntry CreateTextureView(uint binding, WgpuTextureView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        return new WgpuBindGroupEntry(binding, WgpuBindGroupEntryType.TextureView, null, null, view);
+    }
+
+    private WgpuBindGroupEntry(
+        uint binding,
+        WgpuBindGroupEntryType type,
+        WgpuBufferBinding? buffer,
+        WgpuSampler? sampler,
+        WgpuTextureView? textureView)
+    {
+        Binding = binding;
+        Type = type;
+        Buffer = buffer;
+        Sampler = sampler;
+        TextureView = textureView;
+    }
+
+    public uint Binding { get; }
+    public WgpuBindGroupEntryType Type { get; }
+    public WgpuBufferBinding? Buffer { get; }
+    public WgpuSampler? Sampler { get; }
+    public WgpuTextureView? TextureView { get; }
+}
+
+public readonly struct WgpuBindGroupDescriptor
+{
+    public string? Label { get; init; }
+    public WgpuBindGroupLayout Layout { get; init; }
+    public IReadOnlyList<WgpuBindGroupEntry> Entries { get; init; }
+}
+
+public readonly struct WgpuPipelineLayoutDescriptor
+{
+    public string? Label { get; init; }
+    public IReadOnlyList<WgpuBindGroupLayout> BindGroupLayouts { get; init; }
+}
+
+public readonly struct WgpuVertexAttribute
+{
+    public WgpuVertexFormat Format { get; init; }
+    public ulong Offset { get; init; }
+    public uint ShaderLocation { get; init; }
+}
+
+public readonly struct WgpuVertexBufferLayout
+{
+    public ulong ArrayStride { get; init; }
+    public WgpuVertexStepMode StepMode { get; init; }
+    public IReadOnlyList<WgpuVertexAttribute> Attributes { get; init; }
+}
+
+public readonly struct WgpuVertexState
+{
+    public WgpuShaderModule Module { get; init; }
+    public string EntryPoint { get; init; }
+    public IReadOnlyList<WgpuVertexBufferLayout>? Buffers { get; init; }
+}
+
+public readonly struct WgpuBlendComponent
+{
+    public WgpuBlendFactor SrcFactor { get; init; }
+    public WgpuBlendFactor DstFactor { get; init; }
+    public WgpuBlendOperation Operation { get; init; }
+}
+
+public readonly struct WgpuBlendState
+{
+    public WgpuBlendComponent Color { get; init; }
+    public WgpuBlendComponent Alpha { get; init; }
+}
+
+public readonly struct WgpuColorTargetState
+{
+    public WgpuTextureFormat Format { get; init; }
+    public WgpuBlendState? Blend { get; init; }
+    public WgpuColorWriteMask WriteMask { get; init; }
+}
+
+public readonly struct WgpuFragmentState
+{
+    public WgpuShaderModule Module { get; init; }
+    public string EntryPoint { get; init; }
+    public IReadOnlyList<WgpuColorTargetState> Targets { get; init; }
+}
+
+public readonly struct WgpuPrimitiveState
+{
+    public WgpuPrimitiveTopology Topology { get; init; }
+    public WgpuIndexFormat? StripIndexFormat { get; init; }
+    public WgpuFrontFace FrontFace { get; init; }
+    public WgpuCullMode CullMode { get; init; }
+    public bool UnclippedDepth { get; init; }
+    public WgpuPolygonMode PolygonMode { get; init; }
+    public bool Conservative { get; init; }
+}
+
+public readonly struct WgpuStencilFaceState
+{
+    public WgpuCompareFunction Compare { get; init; }
+    public WgpuStencilOperation Fail { get; init; }
+    public WgpuStencilOperation DepthFail { get; init; }
+    public WgpuStencilOperation Pass { get; init; }
+}
+
+public readonly struct WgpuDepthStencilState
+{
+    public WgpuTextureFormat Format { get; init; }
+    public bool DepthWriteEnabled { get; init; }
+    public WgpuCompareFunction DepthCompare { get; init; }
+    public WgpuStencilFaceState StencilFront { get; init; }
+    public WgpuStencilFaceState StencilBack { get; init; }
+    public uint StencilReadMask { get; init; }
+    public uint StencilWriteMask { get; init; }
+    public int BiasConstant { get; init; }
+    public float BiasSlopeScale { get; init; }
+    public float BiasClamp { get; init; }
+}
+
+public readonly struct WgpuMultisampleState
+{
+    public uint Count { get; init; }
+    public uint Mask { get; init; }
+    public bool AlphaToCoverageEnabled { get; init; }
+}
+
+public readonly struct WgpuRenderPipelineDescriptor
+{
+    public string? Label { get; init; }
+    public WgpuPipelineLayout? Layout { get; init; }
+    public WgpuVertexState Vertex { get; init; }
+    public WgpuPrimitiveState Primitive { get; init; }
+    public WgpuDepthStencilState? DepthStencil { get; init; }
+    public WgpuMultisampleState Multisample { get; init; }
+    public WgpuFragmentState? Fragment { get; init; }
+}
+
 public readonly struct WgpuInstanceOptions
 {
     public WgpuBackend Backends { get; init; }
@@ -542,6 +1098,855 @@ public sealed class WgpuDevice : IDisposable
         }
     }
 
+    public WgpuShaderModule CreateShaderModule(WgpuShaderModuleDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        unsafe
+        {
+            scoped Span<byte> labelScratch = stackalloc byte[256];
+            scoped Span<byte> sourceScratch = stackalloc byte[1024];
+            byte[]? rentedLabel = null;
+            byte[]? rentedSource = null;
+            try
+            {
+                var native = new WgpuShaderModuleDescriptorNative
+                {
+                    SourceKind = descriptor.Source switch
+                    {
+                        WgpuShaderModuleSourceKind.Spirv => WgpuShaderSourceKindNative.Spirv,
+                        _ => WgpuShaderSourceKindNative.Wgsl,
+                    },
+                    SourceWgsl = default,
+                    SourceSpirv = default,
+                };
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+
+                Span<byte> wgslSpan = Span<byte>.Empty;
+                ReadOnlySpan<uint> spirvSpan = ReadOnlySpan<uint>.Empty;
+                if (native.SourceKind == WgpuShaderSourceKindNative.Wgsl)
+                {
+                    if (string.IsNullOrEmpty(descriptor.Wgsl))
+                    {
+                        throw new ArgumentException("WGSL source must be provided for WGSL shader modules.", nameof(descriptor));
+                    }
+
+#pragma warning disable CS9080
+                    var wgslText = descriptor.Wgsl!;
+                    var chars = wgslText.AsSpan();
+                    var byteCount = Encoding.UTF8.GetByteCount(chars);
+                    if (byteCount <= sourceScratch.Length)
+                    {
+                        wgslSpan = sourceScratch[..byteCount];
+                        Encoding.UTF8.GetBytes(chars, wgslSpan);
+                    }
+                    else
+                    {
+                        rentedSource = ArrayPool<byte>.Shared.Rent(byteCount);
+                        wgslSpan = rentedSource.AsSpan(0, byteCount);
+                        Encoding.UTF8.GetBytes(chars, wgslSpan);
+                    }
+
+                    if (wgslSpan.IsEmpty)
+                    {
+                        throw new ArgumentException("WGSL source must not be empty.", nameof(descriptor));
+                    }
+#pragma warning restore CS9080
+                }
+                else
+                {
+                    spirvSpan = descriptor.Spirv.Span;
+                    if (spirvSpan.IsEmpty)
+                    {
+                        throw new ArgumentException("SPIR-V source must not be empty.", nameof(descriptor));
+                    }
+                }
+
+                fixed (byte* labelPtr = labelSpan)
+                fixed (byte* wgslPtr = wgslSpan)
+                fixed (uint* spirvPtr = spirvSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    if (native.SourceKind == WgpuShaderSourceKindNative.Wgsl)
+                    {
+                        native.SourceWgsl = new VelloBytesNative
+                        {
+                            Data = (IntPtr)wgslPtr,
+                            Length = (nuint)wgslSpan.Length,
+                        };
+                        native.SourceSpirv = default;
+                    }
+                    else
+                    {
+                        native.SourceWgsl = default;
+                        native.SourceSpirv = new VelloU32SliceNative
+                        {
+                            Data = (IntPtr)spirvPtr,
+                            Length = (nuint)spirvSpan.Length,
+                        };
+                    }
+
+                    var handle = NativeMethods.vello_wgpu_device_create_shader_module(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create shader module.");
+                    }
+
+                    return new WgpuShaderModule(handle);
+                }
+            }
+            finally
+            {
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+
+                if (rentedSource is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedSource);
+                }
+            }
+        }
+    }
+
+    public WgpuBuffer CreateBuffer(WgpuBufferDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        if (descriptor.Size == 0)
+        {
+            throw new ArgumentException("Buffer size must be greater than zero.", nameof(descriptor));
+        }
+
+        if (descriptor.Usage == WgpuBufferUsage.None)
+        {
+            throw new ArgumentException("Buffer usage must include at least one flag.", nameof(descriptor));
+        }
+
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            try
+            {
+                var native = new WgpuBufferDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    Usage = (uint)descriptor.Usage,
+                    Size = descriptor.Size,
+                    MappedAtCreation = descriptor.MappedAtCreation,
+                    InitialData = default,
+                };
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                fixed (byte* labelPtr = labelSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_buffer(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create buffer.");
+                    }
+
+                    return new WgpuBuffer(handle);
+                }
+            }
+            finally
+            {
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public WgpuSampler CreateSampler(WgpuSamplerDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            try
+            {
+                var native = new WgpuSamplerDescriptorNative
+                {
+                    AddressModeU = (uint)descriptor.AddressModeU,
+                    AddressModeV = (uint)descriptor.AddressModeV,
+                    AddressModeW = (uint)descriptor.AddressModeW,
+                    MagFilter = (uint)descriptor.MagFilter,
+                    MinFilter = (uint)descriptor.MinFilter,
+                    MipFilter = (uint)descriptor.MipFilter,
+                    LodMinClamp = descriptor.LodMinClamp,
+                    LodMaxClamp = descriptor.LodMaxClamp,
+                    Compare = (uint)descriptor.Compare,
+                    AnisotropyClamp = descriptor.AnisotropyClamp == 0 ? (ushort)1 : descriptor.AnisotropyClamp,
+                };
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                fixed (byte* labelPtr = labelSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_sampler(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create sampler.");
+                    }
+
+                    return new WgpuSampler(handle);
+                }
+            }
+            finally
+            {
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public WgpuTexture CreateTexture(WgpuTextureDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        if (descriptor.Size.Width == 0 || descriptor.Size.Height == 0)
+        {
+            throw new ArgumentException("Texture dimensions must be greater than zero.", nameof(descriptor));
+        }
+
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            WgpuTextureFormatNative[]? viewFormatArray = null;
+            GCHandle viewFormatsHandle = default;
+            try
+            {
+                var native = new WgpuTextureDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    Size = new WgpuExtent3DNative
+                    {
+                        Width = descriptor.Size.Width,
+                        Height = descriptor.Size.Height,
+                        DepthOrArrayLayers = descriptor.Size.DepthOrArrayLayers,
+                    },
+                    MipLevelCount = descriptor.MipLevelCount,
+                    SampleCount = descriptor.SampleCount,
+                    Dimension = (uint)descriptor.Dimension,
+                    Format = (WgpuTextureFormatNative)descriptor.Format,
+                    Usage = (uint)descriptor.Usage,
+                    ViewFormatCount = 0,
+                    ViewFormats = IntPtr.Zero,
+                };
+
+                var viewFormats = descriptor.ViewFormats;
+                if (viewFormats is not null && viewFormats.Count > 0)
+                {
+                    viewFormatArray = new WgpuTextureFormatNative[viewFormats.Count];
+                    for (int i = 0; i < viewFormats.Count; i++)
+                    {
+                        viewFormatArray[i] = (WgpuTextureFormatNative)viewFormats[i];
+                    }
+
+                    viewFormatsHandle = GCHandle.Alloc(viewFormatArray, GCHandleType.Pinned);
+                    native.ViewFormatCount = (nuint)viewFormatArray.Length;
+                    native.ViewFormats = viewFormatsHandle.AddrOfPinnedObject();
+                }
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                fixed (byte* labelPtr = labelSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_texture(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create texture.");
+                    }
+
+                    return new WgpuTexture(handle);
+                }
+            }
+            finally
+            {
+                if (viewFormatsHandle.IsAllocated)
+                {
+                    viewFormatsHandle.Free();
+                }
+
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public WgpuBindGroupLayout CreateBindGroupLayout(WgpuBindGroupLayoutDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(descriptor.Entries);
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            var entries = descriptor.Entries;
+            var nativeEntries = new WgpuBindGroupLayoutEntryNative[entries.Count];
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                var native = new WgpuBindGroupLayoutEntryNative
+                {
+                    Binding = entry.Binding,
+                    Visibility = (uint)entry.Visibility,
+                };
+
+                switch (entry.Kind)
+                {
+                    case WgpuBindingLayoutType.Buffer:
+                        if (entry.Buffer is null)
+                        {
+                            throw new ArgumentException("Buffer layout data was not provided for buffer binding entry.", nameof(descriptor));
+                        }
+
+                        var buffer = entry.Buffer.Value;
+                        native.Type = 0;
+                        native.HasDynamicOffset = buffer.HasDynamicOffset;
+                        native.MinBindingSize = buffer.MinBindingSize;
+                        native.BufferType = (uint)buffer.Type;
+                        break;
+                    case WgpuBindingLayoutType.Sampler:
+                        if (entry.Sampler is null)
+                        {
+                            throw new ArgumentException("Sampler layout data was not provided for sampler binding entry.", nameof(descriptor));
+                        }
+
+                        native.Type = 1;
+                        native.SamplerType = (uint)entry.Sampler.Value.Type;
+                        break;
+                    case WgpuBindingLayoutType.Texture:
+                        if (entry.Texture is null)
+                        {
+                            throw new ArgumentException("Texture layout data was not provided for texture binding entry.", nameof(descriptor));
+                        }
+
+                        native.Type = 2;
+                        var textureLayout = entry.Texture.Value;
+                        if (textureLayout.Dimension == WgpuTextureViewDimension.Default)
+                        {
+                            throw new ArgumentException("Texture view dimension must be specified for texture bindings.", nameof(descriptor));
+                        }
+
+                        native.TextureViewDimension = (uint)textureLayout.Dimension;
+                        native.TextureSampleType = (uint)entry.Texture.Value.SampleType;
+                        native.TextureMultisampled = entry.Texture.Value.Multisampled;
+                        break;
+                    case WgpuBindingLayoutType.StorageTexture:
+                        if (entry.StorageTexture is null)
+                        {
+                            throw new ArgumentException("Storage texture layout data was not provided for storage texture binding entry.", nameof(descriptor));
+                        }
+
+                        native.Type = 3;
+                        var storageTexture = entry.StorageTexture.Value;
+                        if (storageTexture.Dimension == WgpuTextureViewDimension.Default)
+                        {
+                            throw new ArgumentException("Texture view dimension must be specified for storage texture bindings.", nameof(descriptor));
+                        }
+
+                        native.StorageTextureAccess = (uint)storageTexture.Access;
+                        native.StorageTextureFormat = (WgpuTextureFormatNative)storageTexture.Format;
+                        native.TextureViewDimension = (uint)storageTexture.Dimension;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(descriptor), "Unsupported binding layout type.");
+                }
+
+                nativeEntries[i] = native;
+            }
+
+            GCHandle entriesHandle = GCHandle.Alloc(nativeEntries, GCHandleType.Pinned);
+            try
+            {
+                var native = new WgpuBindGroupLayoutDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    EntryCount = (nuint)nativeEntries.Length,
+                    Entries = entriesHandle.AddrOfPinnedObject(),
+                };
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                fixed (byte* labelPtr = labelSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_bind_group_layout(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create bind group layout.");
+                    }
+
+                    return new WgpuBindGroupLayout(handle);
+                }
+            }
+            finally
+            {
+                entriesHandle.Free();
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public WgpuBindGroup CreateBindGroup(WgpuBindGroupDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(descriptor.Layout);
+        ArgumentNullException.ThrowIfNull(descriptor.Entries);
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            var entries = descriptor.Entries;
+            var nativeEntries = new WgpuBindGroupEntryNative[entries.Count];
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                var native = new WgpuBindGroupEntryNative
+                {
+                    Binding = entry.Binding,
+                };
+
+                switch (entry.Type)
+                {
+                    case WgpuBindGroupEntryType.Buffer:
+                        if (entry.Buffer is null)
+                        {
+                            throw new ArgumentException("Buffer entry is missing buffer data.", nameof(descriptor));
+                        }
+
+                        var buffer = entry.Buffer.Value;
+                        native.Buffer = buffer.Buffer.Handle;
+                        native.Offset = buffer.Offset;
+                        native.Size = buffer.Size ?? 0;
+                        break;
+                    case WgpuBindGroupEntryType.Sampler:
+                        if (entry.Sampler is null)
+                        {
+                            throw new ArgumentException("Sampler entry is missing sampler data.", nameof(descriptor));
+                        }
+
+                        native.Sampler = entry.Sampler.Handle;
+                        break;
+                    case WgpuBindGroupEntryType.TextureView:
+                        if (entry.TextureView is null)
+                        {
+                            throw new ArgumentException("Texture view entry is missing view data.", nameof(descriptor));
+                        }
+
+                        native.TextureView = entry.TextureView.Handle;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(descriptor), "Unsupported bind group entry type.");
+                }
+
+                nativeEntries[i] = native;
+            }
+
+            GCHandle entriesHandle = GCHandle.Alloc(nativeEntries, GCHandleType.Pinned);
+            try
+            {
+                var native = new WgpuBindGroupDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    Layout = descriptor.Layout.Handle,
+                    EntryCount = (nuint)nativeEntries.Length,
+                    Entries = entriesHandle.AddrOfPinnedObject(),
+                };
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                fixed (byte* labelPtr = labelSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_bind_group(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create bind group.");
+                    }
+
+                    return new WgpuBindGroup(handle);
+                }
+            }
+            finally
+            {
+                entriesHandle.Free();
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public WgpuPipelineLayout CreatePipelineLayout(WgpuPipelineLayoutDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(descriptor.BindGroupLayouts);
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            var layouts = descriptor.BindGroupLayouts;
+            var layoutPointers = new IntPtr[layouts.Count];
+            for (int i = 0; i < layouts.Count; i++)
+            {
+                layoutPointers[i] = layouts[i].Handle;
+            }
+
+            GCHandle layoutsHandle = GCHandle.Alloc(layoutPointers, GCHandleType.Pinned);
+            try
+            {
+                var native = new WgpuPipelineLayoutDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    BindGroupLayoutCount = (nuint)layoutPointers.Length,
+                    BindGroupLayouts = layoutPointers.Length == 0 ? IntPtr.Zero : layoutsHandle.AddrOfPinnedObject(),
+                };
+
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                fixed (byte* labelPtr = labelSpan)
+                {
+                    native.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    var handle = NativeMethods.vello_wgpu_device_create_pipeline_layout(_handle, &native);
+                    if (handle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create pipeline layout.");
+                    }
+
+                    return new WgpuPipelineLayout(handle);
+                }
+            }
+            finally
+            {
+                layoutsHandle.Free();
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public WgpuRenderPipeline CreateRenderPipeline(WgpuRenderPipelineDescriptor descriptor)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(descriptor.Vertex.Module);
+        if (string.IsNullOrEmpty(descriptor.Vertex.EntryPoint))
+        {
+            throw new ArgumentException("Vertex entry point must be provided.", nameof(descriptor));
+        }
+
+        unsafe
+        {
+            scoped Span<byte> labelScratch = stackalloc byte[256];
+            scoped Span<byte> entryScratch = stackalloc byte[256];
+            scoped Span<byte> fragmentEntryScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            byte[]? rentedVertexEntry = null;
+            byte[]? rentedFragmentEntry = null;
+
+            var handles = new List<GCHandle>();
+            try
+            {
+                var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(descriptor.Label, labelScratch, ref rentedLabel);
+                var vertexChars = descriptor.Vertex.EntryPoint.AsSpan();
+                var vertexByteCount = Encoding.UTF8.GetByteCount(vertexChars);
+#pragma warning disable CS9080
+                Span<byte> vertexEntrySpan;
+                if (vertexByteCount <= entryScratch.Length)
+                {
+                    vertexEntrySpan = entryScratch[..vertexByteCount];
+                    Encoding.UTF8.GetBytes(vertexChars, vertexEntrySpan);
+                }
+                else
+                {
+                    rentedVertexEntry = ArrayPool<byte>.Shared.Rent(vertexByteCount);
+                    vertexEntrySpan = rentedVertexEntry.AsSpan(0, vertexByteCount);
+                    Encoding.UTF8.GetBytes(vertexChars, vertexEntrySpan);
+                }
+#pragma warning restore CS9080
+
+                var vertexBuffers = descriptor.Vertex.Buffers;
+                var vertexLayouts = vertexBuffers is null ? Array.Empty<WgpuVertexBufferLayout>() : vertexBuffers;
+                var nativeVertexLayouts = new WgpuVertexBufferLayoutNative[vertexLayouts.Count];
+                var attributeArrays = new WgpuVertexAttributeNative[vertexLayouts.Count][];
+
+                for (int i = 0; i < vertexLayouts.Count; i++)
+                {
+                    var layout = vertexLayouts[i];
+                    var attributes = layout.Attributes ?? Array.Empty<WgpuVertexAttribute>();
+                    var nativeAttributes = new WgpuVertexAttributeNative[attributes.Count];
+                    for (int j = 0; j < attributes.Count; j++)
+                    {
+                        nativeAttributes[j] = new WgpuVertexAttributeNative
+                        {
+                            Format = (uint)attributes[j].Format,
+                            Offset = attributes[j].Offset,
+                            ShaderLocation = attributes[j].ShaderLocation,
+                        };
+                    }
+
+                    attributeArrays[i] = nativeAttributes;
+                    var attrHandle = GCHandle.Alloc(nativeAttributes, GCHandleType.Pinned);
+                    handles.Add(attrHandle);
+
+                    nativeVertexLayouts[i] = new WgpuVertexBufferLayoutNative
+                    {
+                        ArrayStride = layout.ArrayStride,
+                        StepMode = (uint)layout.StepMode,
+                        AttributeCount = (nuint)nativeAttributes.Length,
+                        Attributes = nativeAttributes.Length == 0 ? IntPtr.Zero : attrHandle.AddrOfPinnedObject(),
+                    };
+                }
+
+                var vertexLayoutsHandle = GCHandle.Alloc(nativeVertexLayouts, GCHandleType.Pinned);
+                handles.Add(vertexLayoutsHandle);
+
+                var primitive = descriptor.Primitive;
+                var nativePrimitive = new WgpuPrimitiveStateNative
+                {
+                    Topology = (uint)primitive.Topology,
+                    StripIndexFormat = primitive.StripIndexFormat is null ? 0u : (uint)primitive.StripIndexFormat.Value,
+                    FrontFace = (uint)primitive.FrontFace,
+                    CullMode = (uint)primitive.CullMode,
+                    UnclippedDepth = primitive.UnclippedDepth,
+                    PolygonMode = (uint)primitive.PolygonMode,
+                    Conservative = primitive.Conservative,
+                };
+
+                WgpuDepthStencilStateNative[]? depthArray = null;
+                GCHandle depthHandle = default;
+                if (descriptor.DepthStencil is { } depth)
+                {
+                    var nativeDepth = new WgpuDepthStencilStateNative
+                    {
+                        Format = (WgpuTextureFormatNative)depth.Format,
+                        DepthWriteEnabled = depth.DepthWriteEnabled,
+                        DepthCompare = (uint)depth.DepthCompare,
+                        StencilFront = new WgpuStencilFaceStateNative
+                        {
+                            Compare = (uint)depth.StencilFront.Compare,
+                            FailOp = (uint)depth.StencilFront.Fail,
+                            DepthFailOp = (uint)depth.StencilFront.DepthFail,
+                            PassOp = (uint)depth.StencilFront.Pass,
+                        },
+                        StencilBack = new WgpuStencilFaceStateNative
+                        {
+                            Compare = (uint)depth.StencilBack.Compare,
+                            FailOp = (uint)depth.StencilBack.Fail,
+                            DepthFailOp = (uint)depth.StencilBack.DepthFail,
+                            PassOp = (uint)depth.StencilBack.Pass,
+                        },
+                        StencilReadMask = depth.StencilReadMask,
+                        StencilWriteMask = depth.StencilWriteMask,
+                        BiasConstant = depth.BiasConstant,
+                        BiasSlopeScale = depth.BiasSlopeScale,
+                        BiasClamp = depth.BiasClamp,
+                    };
+
+                    depthArray = new[] { nativeDepth };
+                    depthHandle = GCHandle.Alloc(depthArray, GCHandleType.Pinned);
+                    handles.Add(depthHandle);
+                }
+
+                var multisample = descriptor.Multisample;
+                var nativeMultisample = new WgpuMultisampleStateNative
+                {
+                    Count = multisample.Count == 0 ? 1u : multisample.Count,
+                    Mask = multisample.Mask,
+                    AlphaToCoverageEnabled = multisample.AlphaToCoverageEnabled,
+                };
+
+                WgpuColorTargetStateNative[]? colorTargetsArray = null;
+                WgpuBlendStateNative[]? blendStatesArray = null;
+                GCHandle colorTargetsHandle = default;
+                GCHandle blendStatesHandle = default;
+                Span<byte> fragmentEntrySpan = Span<byte>.Empty;
+                WgpuFragmentStateNative[]? fragmentStateArray = null;
+                GCHandle fragmentStateHandle = default;
+                if (descriptor.Fragment is { } fragment)
+                {
+                    if (string.IsNullOrEmpty(fragment.EntryPoint))
+                    {
+                        throw new ArgumentException("Fragment entry point must be provided when fragment state is specified.", nameof(descriptor));
+                    }
+
+                    var fragmentChars = fragment.EntryPoint.AsSpan();
+                    var fragmentByteCount = Encoding.UTF8.GetByteCount(fragmentChars);
+#pragma warning disable CS9080
+                    if (fragmentByteCount <= fragmentEntryScratch.Length)
+                    {
+                        fragmentEntrySpan = fragmentEntryScratch[..fragmentByteCount];
+                        Encoding.UTF8.GetBytes(fragmentChars, fragmentEntrySpan);
+                    }
+                    else
+                    {
+                        rentedFragmentEntry = ArrayPool<byte>.Shared.Rent(fragmentByteCount);
+                        fragmentEntrySpan = rentedFragmentEntry.AsSpan(0, fragmentByteCount);
+                        Encoding.UTF8.GetBytes(fragmentChars, fragmentEntrySpan);
+                    }
+#pragma warning restore CS9080
+
+                    var targets = fragment.Targets ?? Array.Empty<WgpuColorTargetState>();
+                    colorTargetsArray = new WgpuColorTargetStateNative[targets.Count];
+                    var blendStates = new List<WgpuBlendStateNative>();
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        var target = targets[i];
+                        var nativeTarget = new WgpuColorTargetStateNative
+                        {
+                            Format = (WgpuTextureFormatNative)target.Format,
+                            WriteMask = (uint)(target.WriteMask == WgpuColorWriteMask.None ? WgpuColorWriteMask.All : target.WriteMask),
+                        };
+
+                        if (target.Blend is { } blend)
+                        {
+                            var nativeBlend = new WgpuBlendStateNative
+                            {
+                                Color = new WgpuBlendComponentNative
+                                {
+                                    SrcFactor = (uint)blend.Color.SrcFactor,
+                                    DstFactor = (uint)blend.Color.DstFactor,
+                                    Operation = (uint)blend.Color.Operation,
+                                },
+                                Alpha = new WgpuBlendComponentNative
+                                {
+                                    SrcFactor = (uint)blend.Alpha.SrcFactor,
+                                    DstFactor = (uint)blend.Alpha.DstFactor,
+                                    Operation = (uint)blend.Alpha.Operation,
+                                },
+                            };
+                            blendStates.Add(nativeBlend);
+                        }
+                        else
+                        {
+                            blendStates.Add(default);
+                        }
+
+                        colorTargetsArray[i] = nativeTarget;
+                    }
+
+                    blendStatesArray = blendStates.ToArray();
+                    blendStatesHandle = GCHandle.Alloc(blendStatesArray, GCHandleType.Pinned);
+                    handles.Add(blendStatesHandle);
+
+                    for (int i = 0; i < colorTargetsArray.Length; i++)
+                    {
+                        var blend = targets[i].Blend;
+                        if (blend is not null)
+                        {
+                            colorTargetsArray[i].Blend = blendStatesHandle.AddrOfPinnedObject() + i * Marshal.SizeOf<WgpuBlendStateNative>();
+                        }
+                    }
+
+                    colorTargetsHandle = GCHandle.Alloc(colorTargetsArray, GCHandleType.Pinned);
+                    handles.Add(colorTargetsHandle);
+
+                    var nativeFragment = new WgpuFragmentStateNative
+                    {
+                        Module = fragment.Module.Handle,
+                        EntryPoint = new VelloBytesNative
+                        {
+                            Data = IntPtr.Zero,
+                            Length = (nuint)fragmentEntrySpan.Length,
+                        },
+                        TargetCount = (nuint)colorTargetsArray.Length,
+                        Targets = colorTargetsArray.Length == 0 ? IntPtr.Zero : colorTargetsHandle.AddrOfPinnedObject(),
+                    };
+
+                    fragmentStateArray = new[] { nativeFragment };
+                    fragmentStateHandle = GCHandle.Alloc(fragmentStateArray, GCHandleType.Pinned);
+                    handles.Add(fragmentStateHandle);
+                }
+
+                var nativeVertex = new WgpuVertexStateNative
+                {
+                    Module = descriptor.Vertex.Module.Handle,
+                    EntryPoint = default,
+                    BufferCount = (nuint)nativeVertexLayouts.Length,
+                    Buffers = nativeVertexLayouts.Length == 0 ? IntPtr.Zero : vertexLayoutsHandle.AddrOfPinnedObject(),
+                };
+
+                var nativeDescriptor = new WgpuRenderPipelineDescriptorNative
+                {
+                    Label = IntPtr.Zero,
+                    Layout = descriptor.Layout?.Handle ?? IntPtr.Zero,
+                    Vertex = nativeVertex,
+                    Primitive = nativePrimitive,
+                    DepthStencil = depthArray is null ? IntPtr.Zero : depthHandle.AddrOfPinnedObject(),
+                    Multisample = nativeMultisample,
+                    Fragment = fragmentStateArray is null ? IntPtr.Zero : fragmentStateHandle.AddrOfPinnedObject(),
+                };
+
+                fixed (byte* labelPtr = labelSpan)
+                fixed (byte* vertexEntryPtr = vertexEntrySpan)
+                fixed (byte* fragmentEntryPtr = fragmentEntrySpan)
+                {
+                    nativeDescriptor.Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                    nativeDescriptor.Vertex.EntryPoint = new VelloBytesNative
+                    {
+                        Data = (IntPtr)vertexEntryPtr,
+                        Length = (nuint)vertexEntrySpan.Length,
+                    };
+
+                    if (fragmentStateArray is not null)
+                    {
+                        fragmentStateArray[0].EntryPoint = new VelloBytesNative
+                        {
+                            Data = (IntPtr)fragmentEntryPtr,
+                            Length = (nuint)fragmentEntrySpan.Length,
+                        };
+                    }
+
+                    var pipelineHandle = NativeMethods.vello_wgpu_device_create_render_pipeline(_handle, &nativeDescriptor);
+                    if (pipelineHandle == IntPtr.Zero)
+                    {
+                        throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create render pipeline.");
+                    }
+
+                    return new WgpuRenderPipeline(pipelineHandle);
+                }
+            }
+            finally
+            {
+                foreach (var handle in handles)
+                {
+                    if (handle.IsAllocated)
+                    {
+                        handle.Free();
+                    }
+                }
+
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+
+                if (rentedVertexEntry is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedVertexEntry);
+                }
+
+                if (rentedFragmentEntry is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedFragmentEntry);
+                }
+            }
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -625,6 +2030,497 @@ public sealed class WgpuQueue : IDisposable
         if (_disposed)
         {
             throw new ObjectDisposedException(nameof(WgpuQueue));
+        }
+    }
+}
+
+public sealed class WgpuShaderModule : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuShaderModule(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_shader_module_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuShaderModule()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_shader_module_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuShaderModule));
+        }
+    }
+}
+
+public sealed class WgpuBuffer : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuBuffer(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public ulong Size
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return NativeMethods.vello_wgpu_buffer_get_size(_handle);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_buffer_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuBuffer()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_buffer_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuBuffer));
+        }
+    }
+}
+
+public sealed class WgpuSampler : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuSampler(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_sampler_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuSampler()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_sampler_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuSampler));
+        }
+    }
+}
+
+public sealed class WgpuTexture : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuTexture(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public WgpuTextureView CreateView(WgpuTextureViewDescriptor? descriptor = null)
+    {
+        ThrowIfDisposed();
+        unsafe
+        {
+            Span<byte> labelScratch = stackalloc byte[256];
+            byte[]? rentedLabel = null;
+            try
+            {
+                IntPtr viewHandle;
+                if (descriptor.HasValue)
+                {
+                    var desc = descriptor.Value;
+                    var native = new WgpuTextureViewDescriptorNative
+                    {
+                        Label = IntPtr.Zero,
+                        Format = (WgpuTextureFormatNative)desc.Format,
+                        Dimension = (uint)desc.Dimension,
+                        Aspect = (uint)desc.Aspect,
+                        BaseMipLevel = desc.BaseMipLevel,
+                        MipLevelCount = desc.MipLevelCount ?? 0,
+                        BaseArrayLayer = desc.BaseArrayLayer,
+                        ArrayLayerCount = desc.ArrayLayerCount ?? 0,
+                    };
+
+                    var buffer = stackalloc WgpuTextureViewDescriptorNative[1];
+                    buffer[0] = native;
+                    var labelSpan = NativeHelpers.EncodeUtf8NullTerminated(desc.Label, labelScratch, ref rentedLabel);
+
+                    fixed (byte* labelPtr = labelSpan)
+                    {
+                        buffer[0].Label = labelSpan.IsEmpty ? IntPtr.Zero : (IntPtr)labelPtr;
+                        viewHandle = NativeMethods.vello_wgpu_texture_create_view(_handle, buffer);
+                        buffer[0].Label = IntPtr.Zero;
+                    }
+                }
+                else
+                {
+                    viewHandle = NativeMethods.vello_wgpu_texture_create_view(_handle, null);
+                }
+
+                if (viewHandle == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create texture view.");
+                }
+
+                return new WgpuTextureView(viewHandle);
+            }
+            finally
+            {
+                if (rentedLabel is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(rentedLabel);
+                }
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_texture_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuTexture()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_texture_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuTexture));
+        }
+    }
+}
+
+public sealed class WgpuBindGroupLayout : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuBindGroupLayout(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_bind_group_layout_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuBindGroupLayout()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_bind_group_layout_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuBindGroupLayout));
+        }
+    }
+}
+
+public sealed class WgpuBindGroup : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuBindGroup(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_bind_group_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuBindGroup()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_bind_group_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuBindGroup));
+        }
+    }
+}
+
+public sealed class WgpuPipelineLayout : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuPipelineLayout(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_pipeline_layout_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuPipelineLayout()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_pipeline_layout_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuPipelineLayout));
+        }
+    }
+}
+
+public sealed class WgpuRenderPipeline : IDisposable
+{
+    private IntPtr _handle;
+    private bool _disposed;
+
+    internal WgpuRenderPipeline(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_render_pipeline_destroy(_handle);
+            _handle = IntPtr.Zero;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    ~WgpuRenderPipeline()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_wgpu_render_pipeline_destroy(_handle);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(WgpuRenderPipeline));
         }
     }
 }

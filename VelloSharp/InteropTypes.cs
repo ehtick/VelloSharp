@@ -812,6 +812,258 @@ internal struct WgpuPipelineCacheDescriptorNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloBytesNative
+{
+    public IntPtr Data;
+    public nuint Length;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloU32SliceNative
+{
+    public IntPtr Data;
+    public nuint Length;
+}
+
+internal enum WgpuShaderSourceKindNative : uint
+{
+    Wgsl = 0,
+    Spirv = 1,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuShaderModuleDescriptorNative
+{
+    public IntPtr Label;
+    public WgpuShaderSourceKindNative SourceKind;
+    public VelloBytesNative SourceWgsl;
+    public VelloU32SliceNative SourceSpirv;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBufferDescriptorNative
+{
+    public IntPtr Label;
+    public uint Usage;
+    public ulong Size;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool MappedAtCreation;
+    public VelloBytesNative InitialData;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuExtent3DNative
+{
+    public uint Width;
+    public uint Height;
+    public uint DepthOrArrayLayers;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuTextureDescriptorNative
+{
+    public IntPtr Label;
+    public WgpuExtent3DNative Size;
+    public uint MipLevelCount;
+    public uint SampleCount;
+    public uint Dimension;
+    public WgpuTextureFormatNative Format;
+    public uint Usage;
+    public nuint ViewFormatCount;
+    public IntPtr ViewFormats;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuSamplerDescriptorNative
+{
+    public IntPtr Label;
+    public uint AddressModeU;
+    public uint AddressModeV;
+    public uint AddressModeW;
+    public uint MagFilter;
+    public uint MinFilter;
+    public uint MipFilter;
+    public float LodMinClamp;
+    public float LodMaxClamp;
+    public uint Compare;
+    public ushort AnisotropyClamp;
+    public ushort Padding;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBindGroupLayoutEntryNative
+{
+    public uint Binding;
+    public uint Visibility;
+    public uint Type;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool HasDynamicOffset;
+    public ulong MinBindingSize;
+    public uint BufferType;
+    public uint TextureViewDimension;
+    public uint TextureSampleType;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool TextureMultisampled;
+    public uint StorageTextureAccess;
+    public WgpuTextureFormatNative StorageTextureFormat;
+    public uint SamplerType;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBindGroupLayoutDescriptorNative
+{
+    public IntPtr Label;
+    public nuint EntryCount;
+    public IntPtr Entries;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBindGroupEntryNative
+{
+    public uint Binding;
+    public IntPtr Buffer;
+    public ulong Offset;
+    public ulong Size;
+    public IntPtr Sampler;
+    public IntPtr TextureView;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBindGroupDescriptorNative
+{
+    public IntPtr Label;
+    public IntPtr Layout;
+    public nuint EntryCount;
+    public IntPtr Entries;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuPipelineLayoutDescriptorNative
+{
+    public IntPtr Label;
+    public nuint BindGroupLayoutCount;
+    public IntPtr BindGroupLayouts;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuVertexAttributeNative
+{
+    public uint Format;
+    public ulong Offset;
+    public uint ShaderLocation;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuVertexBufferLayoutNative
+{
+    public ulong ArrayStride;
+    public uint StepMode;
+    public nuint AttributeCount;
+    public IntPtr Attributes;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuVertexStateNative
+{
+    public IntPtr Module;
+    public VelloBytesNative EntryPoint;
+    public nuint BufferCount;
+    public IntPtr Buffers;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBlendComponentNative
+{
+    public uint SrcFactor;
+    public uint DstFactor;
+    public uint Operation;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuBlendStateNative
+{
+    public WgpuBlendComponentNative Color;
+    public WgpuBlendComponentNative Alpha;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuColorTargetStateNative
+{
+    public WgpuTextureFormatNative Format;
+    public IntPtr Blend;
+    public uint WriteMask;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuFragmentStateNative
+{
+    public IntPtr Module;
+    public VelloBytesNative EntryPoint;
+    public nuint TargetCount;
+    public IntPtr Targets;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuStencilFaceStateNative
+{
+    public uint Compare;
+    public uint FailOp;
+    public uint DepthFailOp;
+    public uint PassOp;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuDepthStencilStateNative
+{
+    public WgpuTextureFormatNative Format;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool DepthWriteEnabled;
+    public uint DepthCompare;
+    public WgpuStencilFaceStateNative StencilFront;
+    public WgpuStencilFaceStateNative StencilBack;
+    public uint StencilReadMask;
+    public uint StencilWriteMask;
+    public int BiasConstant;
+    public float BiasSlopeScale;
+    public float BiasClamp;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuPrimitiveStateNative
+{
+    public uint Topology;
+    public uint StripIndexFormat;
+    public uint FrontFace;
+    public uint CullMode;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool UnclippedDepth;
+    public uint PolygonMode;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool Conservative;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuMultisampleStateNative
+{
+    public uint Count;
+    public uint Mask;
+    [MarshalAs(UnmanagedType.I1)]
+    public bool AlphaToCoverageEnabled;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuRenderPipelineDescriptorNative
+{
+    public IntPtr Label;
+    public IntPtr Layout;
+    public WgpuVertexStateNative Vertex;
+    public WgpuPrimitiveStateNative Primitive;
+    public IntPtr DepthStencil;
+    public WgpuMultisampleStateNative Multisample;
+    public IntPtr Fragment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloLayerParams
 {
     public VelloBlendMix Mix;

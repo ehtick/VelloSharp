@@ -4,12 +4,14 @@
 #![allow(missing_debug_implementations)]
 
 use std::{
+    borrow::Cow,
     cell::RefCell,
     convert::TryFrom,
     ffi::{CStr, CString, c_char, c_ulong, c_void},
     io::Cursor,
     mem,
-    num::{NonZeroIsize, NonZeroUsize},
+    mem::ManuallyDrop,
+    num::{NonZeroIsize, NonZeroU64, NonZeroUsize},
     ptr::NonNull,
     slice,
     sync::Mutex,
@@ -1440,6 +1442,7 @@ mod tests {
                     support_msaa8: true,
                     support_msaa16: false,
                     init_threads: 0,
+                    pipeline_cache: std::ptr::null_mut(),
                 },
             )
         };
@@ -2424,6 +2427,7 @@ pub struct VelloScriptSegmentArray {
     pub count: usize,
 }
 
+#[allow(dead_code)]
 pub struct VelloScriptSegmentHandle {
     segments: Box<[VelloScriptSegment]>,
 }
@@ -2444,6 +2448,7 @@ pub struct VelloVariationAxisArray {
     pub count: usize,
 }
 
+#[allow(dead_code)]
 pub struct VelloVariationAxisHandle {
     axes: Box<[VelloVariationAxis]>,
 }
@@ -2520,6 +2525,68 @@ pub struct VelloWgpuRendererHandle {
 #[repr(C)]
 pub struct VelloWgpuPipelineCacheHandle {
     cache: PipelineCache,
+}
+
+#[repr(C)]
+pub struct VelloWgpuShaderModuleHandle {
+    module: wgpu::ShaderModule,
+}
+
+#[repr(C)]
+pub struct VelloWgpuBufferHandle {
+    buffer: wgpu::Buffer,
+    size: u64,
+}
+
+#[repr(C)]
+pub struct VelloWgpuSamplerHandle {
+    sampler: wgpu::Sampler,
+}
+
+#[repr(C)]
+pub struct VelloWgpuBindGroupLayoutHandle {
+    layout: wgpu::BindGroupLayout,
+}
+
+#[repr(C)]
+pub struct VelloWgpuPipelineLayoutHandle {
+    layout: wgpu::PipelineLayout,
+}
+
+#[repr(C)]
+pub struct VelloWgpuBindGroupHandle {
+    bind_group: wgpu::BindGroup,
+}
+
+#[repr(C)]
+pub struct VelloWgpuRenderPipelineHandle {
+    pipeline: wgpu::RenderPipeline,
+}
+
+#[repr(C)]
+pub struct VelloWgpuTextureHandle {
+    texture: wgpu::Texture,
+}
+
+#[repr(C)]
+pub struct VelloWgpuCommandEncoderHandle {
+    encoder: Option<wgpu::CommandEncoder>,
+}
+
+#[repr(C)]
+pub struct VelloWgpuCommandBufferHandle {
+    buffer: wgpu::CommandBuffer,
+}
+
+#[allow(dead_code)]
+struct VelloWgpuRenderPassInner {
+    pass: ManuallyDrop<wgpu::RenderPass<'static>>,
+    encoder: *mut VelloWgpuCommandEncoderHandle,
+}
+
+#[repr(C)]
+pub struct VelloWgpuRenderPassHandle {
+    inner: *mut VelloWgpuRenderPassInner,
 }
 
 #[repr(C)]
@@ -2687,12 +2754,378 @@ pub struct VelloWgpuTextureViewDescriptor {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct VelloWgpuExtent3d {
+    pub width: u32,
+    pub height: u32,
+    pub depth_or_array_layers: u32,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuTextureDimension {
+    D1 = 0,
+    D2 = 1,
+    D3 = 2,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuAddressMode {
+    ClampToEdge = 0,
+    Repeat = 1,
+    MirrorRepeat = 2,
+    ClampToBorder = 3,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuFilterMode {
+    Nearest = 0,
+    Linear = 1,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuCompareFunction {
+    Undefined = 0,
+    Never = 1,
+    Less = 2,
+    LessEqual = 3,
+    Equal = 4,
+    Greater = 5,
+    NotEqual = 6,
+    GreaterEqual = 7,
+    Always = 8,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuStencilOperation {
+    Keep = 0,
+    Zero = 1,
+    Replace = 2,
+    Invert = 3,
+    IncrementClamp = 4,
+    DecrementClamp = 5,
+    IncrementWrap = 6,
+    DecrementWrap = 7,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuStencilFaceState {
+    pub compare: VelloWgpuCompareFunction,
+    pub fail_op: VelloWgpuStencilOperation,
+    pub depth_fail_op: VelloWgpuStencilOperation,
+    pub pass_op: VelloWgpuStencilOperation,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuLoadOp {
+    Load = 0,
+    Clear = 1,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuStoreOp {
+    Store = 0,
+    Discard = 1,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuColor {
+    pub r: f64,
+    pub g: f64,
+    pub b: f64,
+    pub a: f64,
+}
+
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct VelloWgpuPipelineCacheDescriptor {
     pub label: *const c_char,
     pub data: *const u8,
     pub data_len: usize,
     pub fallback: bool,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloWgpuShaderSourceKind {
+    Wgsl = 0,
+    Spirv = 1,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloBytes {
+    pub data: *const u8,
+    pub length: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloU32Slice {
+    pub data: *const u32,
+    pub length: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuShaderModuleDescriptor {
+    pub label: *const c_char,
+    pub source_kind: VelloWgpuShaderSourceKind,
+    pub source_wgsl: VelloBytes,
+    pub source_spirv: VelloU32Slice,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBufferDescriptor {
+    pub label: *const c_char,
+    pub usage: u32,
+    pub size: u64,
+    pub mapped_at_creation: bool,
+    pub initial_data: VelloBytes,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuTextureDescriptor {
+    pub label: *const c_char,
+    pub size: VelloWgpuExtent3d,
+    pub mip_level_count: u32,
+    pub sample_count: u32,
+    pub dimension: VelloWgpuTextureDimension,
+    pub format: VelloWgpuTextureFormat,
+    pub usage: u32,
+    pub view_format_count: usize,
+    pub view_formats: *const VelloWgpuTextureFormat,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuSamplerDescriptor {
+    pub label: *const c_char,
+    pub address_mode_u: VelloWgpuAddressMode,
+    pub address_mode_v: VelloWgpuAddressMode,
+    pub address_mode_w: VelloWgpuAddressMode,
+    pub mag_filter: VelloWgpuFilterMode,
+    pub min_filter: VelloWgpuFilterMode,
+    pub mip_filter: VelloWgpuFilterMode,
+    pub lod_min_clamp: f32,
+    pub lod_max_clamp: f32,
+    pub compare: VelloWgpuCompareFunction,
+    pub anisotropy_clamp: u16,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBindGroupLayoutEntry {
+    pub binding: u32,
+    pub visibility: u32,
+    pub ty: u32,
+    pub has_dynamic_offset: bool,
+    pub min_binding_size: u64,
+    pub buffer_type: u32,
+    pub texture_view_dimension: u32,
+    pub texture_sample_type: u32,
+    pub texture_multisampled: bool,
+    pub storage_texture_access: u32,
+    pub storage_texture_format: VelloWgpuTextureFormat,
+    pub sampler_type: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBindGroupLayoutDescriptor {
+    pub label: *const c_char,
+    pub entry_count: usize,
+    pub entries: *const VelloWgpuBindGroupLayoutEntry,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBindGroupEntry {
+    pub binding: u32,
+    pub buffer: *const VelloWgpuBufferHandle,
+    pub offset: u64,
+    pub size: u64,
+    pub sampler: *const VelloWgpuSamplerHandle,
+    pub texture_view: *const VelloWgpuTextureViewHandle,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBindGroupDescriptor {
+    pub label: *const c_char,
+    pub layout: *const VelloWgpuBindGroupLayoutHandle,
+    pub entry_count: usize,
+    pub entries: *const VelloWgpuBindGroupEntry,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuPipelineLayoutDescriptor {
+    pub label: *const c_char,
+    pub bind_group_layout_count: usize,
+    pub bind_group_layouts: *const *const VelloWgpuBindGroupLayoutHandle,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuVertexAttribute {
+    pub format: u32,
+    pub offset: u64,
+    pub shader_location: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuVertexBufferLayout {
+    pub array_stride: u64,
+    pub step_mode: u32,
+    pub attribute_count: usize,
+    pub attributes: *const VelloWgpuVertexAttribute,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuVertexState {
+    pub module: *const VelloWgpuShaderModuleHandle,
+    pub entry_point: VelloBytes,
+    pub buffer_count: usize,
+    pub buffers: *const VelloWgpuVertexBufferLayout,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBlendComponent {
+    pub src_factor: u32,
+    pub dst_factor: u32,
+    pub operation: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuBlendState {
+    pub color: VelloWgpuBlendComponent,
+    pub alpha: VelloWgpuBlendComponent,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuColorTargetState {
+    pub format: VelloWgpuTextureFormat,
+    pub blend: *const VelloWgpuBlendState,
+    pub write_mask: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuFragmentState {
+    pub module: *const VelloWgpuShaderModuleHandle,
+    pub entry_point: VelloBytes,
+    pub target_count: usize,
+    pub targets: *const VelloWgpuColorTargetState,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuPrimitiveState {
+    pub topology: u32,
+    pub strip_index_format: u32,
+    pub front_face: u32,
+    pub cull_mode: u32,
+    pub unclipped_depth: bool,
+    pub polygon_mode: u32,
+    pub conservative: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuDepthStencilState {
+    pub format: VelloWgpuTextureFormat,
+    pub depth_write_enabled: bool,
+    pub depth_compare: VelloWgpuCompareFunction,
+    pub stencil_front: VelloWgpuStencilFaceState,
+    pub stencil_back: VelloWgpuStencilFaceState,
+    pub stencil_read_mask: u32,
+    pub stencil_write_mask: u32,
+    pub bias_constant: i32,
+    pub bias_slope_scale: f32,
+    pub bias_clamp: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuMultisampleState {
+    pub count: u32,
+    pub mask: u32,
+    pub alpha_to_coverage_enabled: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuRenderPipelineDescriptor {
+    pub label: *const c_char,
+    pub layout: *const VelloWgpuPipelineLayoutHandle,
+    pub vertex: VelloWgpuVertexState,
+    pub primitive: VelloWgpuPrimitiveState,
+    pub depth_stencil: *const VelloWgpuDepthStencilState,
+    pub multisample: VelloWgpuMultisampleState,
+    pub fragment: *const VelloWgpuFragmentState,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuCommandEncoderDescriptor {
+    pub label: *const c_char,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuRenderPassColorAttachment {
+    pub view: *const VelloWgpuTextureViewHandle,
+    pub resolve_target: *const VelloWgpuTextureViewHandle,
+    pub load: VelloWgpuLoadOp,
+    pub store: VelloWgpuStoreOp,
+    pub clear_color: VelloWgpuColor,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuRenderPassDepthStencilAttachment {
+    pub view: *const VelloWgpuTextureViewHandle,
+    pub depth_load: VelloWgpuLoadOp,
+    pub depth_store: VelloWgpuStoreOp,
+    pub depth_clear: f32,
+    pub stencil_load: VelloWgpuLoadOp,
+    pub stencil_store: VelloWgpuStoreOp,
+    pub stencil_clear: u32,
+    pub depth_read_only: bool,
+    pub stencil_read_only: bool,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuRenderPassDescriptor {
+    pub label: *const c_char,
+    pub color_attachment_count: usize,
+    pub color_attachments: *const VelloWgpuRenderPassColorAttachment,
+    pub depth_stencil: *const VelloWgpuRenderPassDepthStencilAttachment,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuIndexBufferBinding {
+    pub buffer: *const VelloWgpuBufferHandle,
+    pub offset: u64,
+    pub format: u32,
 }
 
 impl RenderTarget {
@@ -4304,6 +4737,125 @@ fn texture_format_from_ffi(format: VelloWgpuTextureFormat) -> TextureFormat {
     }
 }
 
+fn extent3d_from_ffi(extent: VelloWgpuExtent3d) -> wgpu::Extent3d {
+    wgpu::Extent3d {
+        width: extent.width,
+        height: extent.height,
+        depth_or_array_layers: extent.depth_or_array_layers,
+    }
+}
+
+fn texture_dimension_from_ffi(dimension: VelloWgpuTextureDimension) -> wgpu::TextureDimension {
+    match dimension {
+        VelloWgpuTextureDimension::D1 => wgpu::TextureDimension::D1,
+        VelloWgpuTextureDimension::D2 => wgpu::TextureDimension::D2,
+        VelloWgpuTextureDimension::D3 => wgpu::TextureDimension::D3,
+    }
+}
+
+fn address_mode_from_ffi(mode: VelloWgpuAddressMode) -> wgpu::AddressMode {
+    match mode {
+        VelloWgpuAddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+        VelloWgpuAddressMode::Repeat => wgpu::AddressMode::Repeat,
+        VelloWgpuAddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+        VelloWgpuAddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+    }
+}
+
+fn filter_mode_from_ffi(mode: VelloWgpuFilterMode) -> wgpu::FilterMode {
+    match mode {
+        VelloWgpuFilterMode::Nearest => wgpu::FilterMode::Nearest,
+        VelloWgpuFilterMode::Linear => wgpu::FilterMode::Linear,
+    }
+}
+
+fn compare_function_from_ffi(func: VelloWgpuCompareFunction) -> Option<wgpu::CompareFunction> {
+    match func {
+        VelloWgpuCompareFunction::Undefined => None,
+        VelloWgpuCompareFunction::Never => Some(wgpu::CompareFunction::Never),
+        VelloWgpuCompareFunction::Less => Some(wgpu::CompareFunction::Less),
+        VelloWgpuCompareFunction::LessEqual => Some(wgpu::CompareFunction::LessEqual),
+        VelloWgpuCompareFunction::Equal => Some(wgpu::CompareFunction::Equal),
+        VelloWgpuCompareFunction::Greater => Some(wgpu::CompareFunction::Greater),
+        VelloWgpuCompareFunction::NotEqual => Some(wgpu::CompareFunction::NotEqual),
+        VelloWgpuCompareFunction::GreaterEqual => Some(wgpu::CompareFunction::GreaterEqual),
+        VelloWgpuCompareFunction::Always => Some(wgpu::CompareFunction::Always),
+    }
+}
+
+fn compare_function_required(func: VelloWgpuCompareFunction) -> Result<wgpu::CompareFunction, VelloStatus> {
+    compare_function_from_ffi(func).ok_or(VelloStatus::InvalidArgument)
+}
+
+fn stencil_operation_from_ffi(op: VelloWgpuStencilOperation) -> wgpu::StencilOperation {
+    match op {
+        VelloWgpuStencilOperation::Keep => wgpu::StencilOperation::Keep,
+        VelloWgpuStencilOperation::Zero => wgpu::StencilOperation::Zero,
+        VelloWgpuStencilOperation::Replace => wgpu::StencilOperation::Replace,
+        VelloWgpuStencilOperation::Invert => wgpu::StencilOperation::Invert,
+        VelloWgpuStencilOperation::IncrementClamp => wgpu::StencilOperation::IncrementClamp,
+        VelloWgpuStencilOperation::DecrementClamp => wgpu::StencilOperation::DecrementClamp,
+        VelloWgpuStencilOperation::IncrementWrap => wgpu::StencilOperation::IncrementWrap,
+        VelloWgpuStencilOperation::DecrementWrap => wgpu::StencilOperation::DecrementWrap,
+    }
+}
+
+fn stencil_face_state_from_ffi(
+    state: VelloWgpuStencilFaceState,
+) -> Result<wgpu::StencilFaceState, VelloStatus> {
+    Ok(wgpu::StencilFaceState {
+        compare: compare_function_required(state.compare)?,
+        fail_op: stencil_operation_from_ffi(state.fail_op),
+        depth_fail_op: stencil_operation_from_ffi(state.depth_fail_op),
+        pass_op: stencil_operation_from_ffi(state.pass_op),
+    })
+}
+
+#[allow(dead_code)]
+fn color_from_ffi(color: VelloWgpuColor) -> wgpu::Color {
+    wgpu::Color {
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
+    }
+}
+
+#[allow(dead_code)]
+fn color_load_op_from_ffi(
+    load: VelloWgpuLoadOp,
+    clear: VelloWgpuColor,
+) -> Result<wgpu::LoadOp<wgpu::Color>, VelloStatus> {
+    Ok(match load {
+        VelloWgpuLoadOp::Load => wgpu::LoadOp::Load,
+        VelloWgpuLoadOp::Clear => wgpu::LoadOp::Clear(color_from_ffi(clear)),
+    })
+}
+
+#[allow(dead_code)]
+fn float_load_op_from_ffi(load: VelloWgpuLoadOp, clear: f32) -> Result<wgpu::LoadOp<f32>, VelloStatus> {
+    Ok(match load {
+        VelloWgpuLoadOp::Load => wgpu::LoadOp::Load,
+        VelloWgpuLoadOp::Clear => wgpu::LoadOp::Clear(clear),
+    })
+}
+
+#[allow(dead_code)]
+fn uint_load_op_from_ffi(load: VelloWgpuLoadOp, clear: u32) -> Result<wgpu::LoadOp<u32>, VelloStatus> {
+    Ok(match load {
+        VelloWgpuLoadOp::Load => wgpu::LoadOp::Load,
+        VelloWgpuLoadOp::Clear => wgpu::LoadOp::Clear(clear),
+    })
+}
+
+#[allow(dead_code)]
+fn store_op_from_ffi(store: VelloWgpuStoreOp) -> wgpu::StoreOp {
+    match store {
+        VelloWgpuStoreOp::Store => wgpu::StoreOp::Store,
+        VelloWgpuStoreOp::Discard => wgpu::StoreOp::Discard,
+    }
+}
+
 fn texture_format_to_ffi(format: TextureFormat) -> Option<VelloWgpuTextureFormat> {
     match format {
         TextureFormat::Rgba8Unorm => Some(VelloWgpuTextureFormat::Rgba8Unorm),
@@ -4339,6 +4891,48 @@ fn texture_usage_from_bits(bits: u32) -> Result<TextureUsages, VelloStatus> {
         Err(VelloStatus::InvalidArgument)
     } else {
         Ok(usages)
+    }
+}
+
+fn buffer_usage_from_bits(bits: u32) -> Result<wgpu::BufferUsages, VelloStatus> {
+    if bits == 0 {
+        return Err(VelloStatus::InvalidArgument);
+    }
+    let mut usage = wgpu::BufferUsages::empty();
+    if bits & 0x1 != 0 {
+        usage |= wgpu::BufferUsages::MAP_READ;
+    }
+    if bits & 0x2 != 0 {
+        usage |= wgpu::BufferUsages::MAP_WRITE;
+    }
+    if bits & 0x4 != 0 {
+        usage |= wgpu::BufferUsages::COPY_SRC;
+    }
+    if bits & 0x8 != 0 {
+        usage |= wgpu::BufferUsages::COPY_DST;
+    }
+    if bits & 0x10 != 0 {
+        usage |= wgpu::BufferUsages::INDEX;
+    }
+    if bits & 0x20 != 0 {
+        usage |= wgpu::BufferUsages::VERTEX;
+    }
+    if bits & 0x40 != 0 {
+        usage |= wgpu::BufferUsages::UNIFORM;
+    }
+    if bits & 0x80 != 0 {
+        usage |= wgpu::BufferUsages::STORAGE;
+    }
+    if bits & 0x100 != 0 {
+        usage |= wgpu::BufferUsages::INDIRECT;
+    }
+    if bits & 0x200 != 0 {
+        usage |= wgpu::BufferUsages::QUERY_RESOLVE;
+    }
+    if usage.is_empty() {
+        Err(VelloStatus::InvalidArgument)
+    } else {
+        Ok(usage)
     }
 }
 
@@ -4393,6 +4987,31 @@ fn instance_descriptor_from_ffi(
     Ok(instance_descriptor)
 }
 
+fn label_from_ptr(label: *const c_char) -> Result<Option<String>, VelloStatus> {
+    if label.is_null() {
+        Ok(None)
+    } else {
+        match unsafe { CStr::from_ptr(label) }.to_str() {
+            Ok(value) => Ok(Some(value.to_owned())),
+            Err(_) => Err(VelloStatus::InvalidArgument),
+        }
+    }
+}
+
+fn entry_point_from_bytes(bytes: &VelloBytes) -> Result<Option<String>, VelloStatus> {
+    if bytes.length == 0 {
+        return Ok(None);
+    }
+    if bytes.data.is_null() {
+        return Err(VelloStatus::InvalidArgument);
+    }
+    let slice = unsafe { slice::from_raw_parts(bytes.data, bytes.length) };
+    match std::str::from_utf8(slice) {
+        Ok(value) => Ok(Some(value.to_owned())),
+        Err(_) => Err(VelloStatus::InvalidArgument),
+    }
+}
+
 fn texture_view_descriptor_from_ffi(
     descriptor: Option<&VelloWgpuTextureViewDescriptor>,
 ) -> Result<TextureViewDescriptor<'static>, VelloStatus> {
@@ -4426,6 +5045,212 @@ fn texture_view_descriptor_from_ffi(
     } else {
         Ok(TextureViewDescriptor::default())
     }
+}
+
+fn shader_stages_from_bits(bits: u32) -> Result<wgpu::ShaderStages, VelloStatus> {
+    wgpu::ShaderStages::from_bits(bits).ok_or(VelloStatus::InvalidArgument)
+}
+
+fn buffer_binding_type_from_u32(value: u32) -> Result<wgpu::BufferBindingType, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::BufferBindingType::Uniform),
+        1 => Ok(wgpu::BufferBindingType::Storage { read_only: false }),
+        2 => Ok(wgpu::BufferBindingType::Storage { read_only: true }),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn texture_sample_type_from_u32(value: u32) -> Result<wgpu::TextureSampleType, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::TextureSampleType::Float { filterable: true }),
+        1 => Ok(wgpu::TextureSampleType::Float { filterable: false }),
+        2 => Ok(wgpu::TextureSampleType::Depth),
+        3 => Ok(wgpu::TextureSampleType::Sint),
+        4 => Ok(wgpu::TextureSampleType::Uint),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn sampler_binding_type_from_u32(value: u32) -> Result<wgpu::SamplerBindingType, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::SamplerBindingType::Filtering),
+        1 => Ok(wgpu::SamplerBindingType::NonFiltering),
+        2 => Ok(wgpu::SamplerBindingType::Comparison),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn storage_texture_access_from_u32(value: u32) -> Result<wgpu::StorageTextureAccess, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::StorageTextureAccess::ReadOnly),
+        1 => Ok(wgpu::StorageTextureAccess::WriteOnly),
+        2 => Ok(wgpu::StorageTextureAccess::ReadWrite),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn bind_group_layout_entry_from_ffi(
+    entry: &VelloWgpuBindGroupLayoutEntry,
+) -> Result<wgpu::BindGroupLayoutEntry, VelloStatus> {
+    let visibility = shader_stages_from_bits(entry.visibility)?;
+    let binding_type = match entry.ty {
+        0 => {
+            let ty = buffer_binding_type_from_u32(entry.buffer_type)?;
+            let min_binding_size = NonZeroU64::new(entry.min_binding_size);
+            wgpu::BindingType::Buffer {
+                ty,
+                has_dynamic_offset: entry.has_dynamic_offset,
+                min_binding_size,
+            }
+        }
+        1 => wgpu::BindingType::Sampler(sampler_binding_type_from_u32(entry.sampler_type)?),
+        2 => {
+            let dimension = texture_view_dimension_from_u32(entry.texture_view_dimension)?
+                .ok_or(VelloStatus::InvalidArgument)?;
+            let sample_type = texture_sample_type_from_u32(entry.texture_sample_type)?;
+            wgpu::BindingType::Texture {
+                sample_type,
+                view_dimension: dimension,
+                multisampled: entry.texture_multisampled,
+            }
+        }
+        3 => {
+            let dimension = texture_view_dimension_from_u32(entry.texture_view_dimension)?
+                .ok_or(VelloStatus::InvalidArgument)?;
+            let access = storage_texture_access_from_u32(entry.storage_texture_access)?;
+            let format = texture_format_from_ffi(entry.storage_texture_format);
+            wgpu::BindingType::StorageTexture {
+                access,
+                format,
+                view_dimension: dimension,
+            }
+        }
+        _ => return Err(VelloStatus::InvalidArgument),
+    };
+    Ok(wgpu::BindGroupLayoutEntry {
+        binding: entry.binding,
+        visibility,
+        ty: binding_type,
+        count: None,
+    })
+}
+
+fn vertex_format_from_u32(value: u32) -> Result<wgpu::VertexFormat, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::VertexFormat::Float32),
+        1 => Ok(wgpu::VertexFormat::Float32x2),
+        2 => Ok(wgpu::VertexFormat::Float32x3),
+        3 => Ok(wgpu::VertexFormat::Float32x4),
+        4 => Ok(wgpu::VertexFormat::Uint32),
+        5 => Ok(wgpu::VertexFormat::Uint32x2),
+        6 => Ok(wgpu::VertexFormat::Uint32x3),
+        7 => Ok(wgpu::VertexFormat::Uint32x4),
+        8 => Ok(wgpu::VertexFormat::Sint32),
+        9 => Ok(wgpu::VertexFormat::Sint32x2),
+        10 => Ok(wgpu::VertexFormat::Sint32x3),
+        11 => Ok(wgpu::VertexFormat::Sint32x4),
+        12 => Ok(wgpu::VertexFormat::Float16x2),
+        13 => Ok(wgpu::VertexFormat::Float16x4),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn vertex_step_mode_from_u32(value: u32) -> Result<wgpu::VertexStepMode, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::VertexStepMode::Vertex),
+        1 => Ok(wgpu::VertexStepMode::Instance),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn index_format_from_u32(value: u32) -> Result<Option<wgpu::IndexFormat>, VelloStatus> {
+    match value {
+        0 => Ok(None),
+        1 => Ok(Some(wgpu::IndexFormat::Uint16)),
+        2 => Ok(Some(wgpu::IndexFormat::Uint32)),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn primitive_topology_from_u32(value: u32) -> Result<wgpu::PrimitiveTopology, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::PrimitiveTopology::PointList),
+        1 => Ok(wgpu::PrimitiveTopology::LineList),
+        2 => Ok(wgpu::PrimitiveTopology::LineStrip),
+        3 => Ok(wgpu::PrimitiveTopology::TriangleList),
+        4 => Ok(wgpu::PrimitiveTopology::TriangleStrip),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn front_face_from_u32(value: u32) -> Result<wgpu::FrontFace, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::FrontFace::Ccw),
+        1 => Ok(wgpu::FrontFace::Cw),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn cull_mode_from_u32(value: u32) -> Result<Option<wgpu::Face>, VelloStatus> {
+    match value {
+        0 => Ok(None),
+        1 => Ok(Some(wgpu::Face::Front)),
+        2 => Ok(Some(wgpu::Face::Back)),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn polygon_mode_from_u32(value: u32) -> Result<wgpu::PolygonMode, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::PolygonMode::Fill),
+        1 => Ok(wgpu::PolygonMode::Line),
+        2 => Ok(wgpu::PolygonMode::Point),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn blend_factor_from_u32(value: u32) -> Result<wgpu::BlendFactor, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::BlendFactor::Zero),
+        1 => Ok(wgpu::BlendFactor::One),
+        2 => Ok(wgpu::BlendFactor::Src),
+        3 => Ok(wgpu::BlendFactor::OneMinusSrc),
+        4 => Ok(wgpu::BlendFactor::SrcAlpha),
+        5 => Ok(wgpu::BlendFactor::OneMinusSrcAlpha),
+        6 => Ok(wgpu::BlendFactor::Dst),
+        7 => Ok(wgpu::BlendFactor::OneMinusDst),
+        8 => Ok(wgpu::BlendFactor::DstAlpha),
+        9 => Ok(wgpu::BlendFactor::OneMinusDstAlpha),
+        10 => Ok(wgpu::BlendFactor::SrcAlphaSaturated),
+        11 => Ok(wgpu::BlendFactor::Constant),
+        12 => Ok(wgpu::BlendFactor::OneMinusConstant),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn blend_operation_from_u32(value: u32) -> Result<wgpu::BlendOperation, VelloStatus> {
+    match value {
+        0 => Ok(wgpu::BlendOperation::Add),
+        1 => Ok(wgpu::BlendOperation::Subtract),
+        2 => Ok(wgpu::BlendOperation::ReverseSubtract),
+        3 => Ok(wgpu::BlendOperation::Min),
+        4 => Ok(wgpu::BlendOperation::Max),
+        _ => Err(VelloStatus::InvalidArgument),
+    }
+}
+
+fn blend_component_from_ffi(
+    component: &VelloWgpuBlendComponent,
+) -> Result<wgpu::BlendComponent, VelloStatus> {
+    Ok(wgpu::BlendComponent {
+        src_factor: blend_factor_from_u32(component.src_factor)?,
+        dst_factor: blend_factor_from_u32(component.dst_factor)?,
+        operation: blend_operation_from_u32(component.operation)?,
+    })
+}
+
+fn color_write_mask_from_u32(value: u32) -> Result<wgpu::ColorWrites, VelloStatus> {
+    wgpu::ColorWrites::from_bits(value).ok_or(VelloStatus::InvalidArgument)
 }
 
 #[unsafe(no_mangle)]
@@ -4751,9 +5576,796 @@ pub unsafe extern "C" fn vello_wgpu_pipeline_cache_free_data(data: *const u8, le
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_shader_module(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuShaderModuleDescriptor,
+) -> *mut VelloWgpuShaderModuleHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Shader module descriptor is null");
+        return std::ptr::null_mut();
+    };
+
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Shader module label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let label = label_storage.as_deref();
+
+    let shader_source = match desc.source_kind {
+        VelloWgpuShaderSourceKind::Wgsl => {
+            if desc.source_wgsl.data.is_null() || desc.source_wgsl.length == 0 {
+                set_last_error("WGSL source is empty");
+                return std::ptr::null_mut();
+            }
+            let bytes = unsafe {
+                slice::from_raw_parts(desc.source_wgsl.data, desc.source_wgsl.length)
+            };
+            let source = match std::str::from_utf8(bytes) {
+                Ok(value) => value.to_owned(),
+                Err(err) => {
+                    set_last_error(format!("WGSL source is not valid UTF-8: {err}"));
+                    return std::ptr::null_mut();
+                }
+            };
+            wgpu::ShaderSource::Wgsl(Cow::Owned(source))
+        }
+        VelloWgpuShaderSourceKind::Spirv => {
+            set_last_error("SPIR-V shaders are not supported in this build");
+            return std::ptr::null_mut();
+        }
+    };
+
+    let module_descriptor = wgpu::ShaderModuleDescriptor { label, source: shader_source }; // label lifetime tied to storage
+    let module = device.device.create_shader_module(module_descriptor);
+    Box::into_raw(Box::new(VelloWgpuShaderModuleHandle { module }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_shader_module_destroy(
+    module: *mut VelloWgpuShaderModuleHandle,
+) {
+    if !module.is_null() {
+        unsafe { drop(Box::from_raw(module)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_buffer(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuBufferDescriptor,
+) -> *mut VelloWgpuBufferHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Buffer descriptor is null");
+        return std::ptr::null_mut();
+    };
+    if desc.size == 0 {
+        set_last_error("Buffer size must be greater than zero");
+        return std::ptr::null_mut();
+    }
+    if !desc.initial_data.data.is_null() && desc.initial_data.length > 0 {
+        set_last_error("Buffer initial data is not supported; use queue_write_buffer");
+        return std::ptr::null_mut();
+    }
+    let usage = match buffer_usage_from_bits(desc.usage) {
+        Ok(usage) => usage,
+        Err(_) => {
+            set_last_error("Unsupported buffer usage flags");
+            return std::ptr::null_mut();
+        }
+    };
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Buffer label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let descriptor = wgpu::BufferDescriptor {
+        label: label_storage.as_deref(),
+        size: desc.size,
+        usage,
+        mapped_at_creation: desc.mapped_at_creation,
+    };
+    let buffer = device.device.create_buffer(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuBufferHandle {
+        buffer,
+        size: desc.size,
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_buffer_destroy(buffer: *mut VelloWgpuBufferHandle) {
+    if !buffer.is_null() {
+        unsafe { drop(Box::from_raw(buffer)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_buffer_get_size(
+    buffer: *const VelloWgpuBufferHandle,
+) -> u64 {
+    if let Some(buffer) = unsafe { buffer.as_ref() } {
+        buffer.size
+    } else {
+        0
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_sampler(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuSamplerDescriptor,
+) -> *mut VelloWgpuSamplerHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Sampler descriptor is null");
+        return std::ptr::null_mut();
+    };
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Sampler label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let descriptor = wgpu::SamplerDescriptor {
+        label: label_storage.as_deref(),
+        address_mode_u: address_mode_from_ffi(desc.address_mode_u),
+        address_mode_v: address_mode_from_ffi(desc.address_mode_v),
+        address_mode_w: address_mode_from_ffi(desc.address_mode_w),
+        mag_filter: filter_mode_from_ffi(desc.mag_filter),
+        min_filter: filter_mode_from_ffi(desc.min_filter),
+        mipmap_filter: filter_mode_from_ffi(desc.mip_filter),
+        lod_min_clamp: desc.lod_min_clamp,
+        lod_max_clamp: desc.lod_max_clamp,
+        compare: compare_function_from_ffi(desc.compare),
+        anisotropy_clamp: desc.anisotropy_clamp.max(1),
+        border_color: None,
+    };
+    let sampler = device.device.create_sampler(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuSamplerHandle { sampler }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_sampler_destroy(sampler: *mut VelloWgpuSamplerHandle) {
+    if !sampler.is_null() {
+        unsafe { drop(Box::from_raw(sampler)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_texture(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuTextureDescriptor,
+) -> *mut VelloWgpuTextureHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Texture descriptor is null");
+        return std::ptr::null_mut();
+    };
+    if desc.size.width == 0 || desc.size.height == 0 {
+        set_last_error("Texture dimensions must be greater than zero");
+        return std::ptr::null_mut();
+    }
+    let usage = match texture_usage_from_bits(desc.usage) {
+        Ok(usage) => usage,
+        Err(_) => {
+            set_last_error("Unsupported texture usage flags");
+            return std::ptr::null_mut();
+        }
+    };
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Texture label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let view_formats = if desc.view_format_count > 0 && !desc.view_formats.is_null() {
+        unsafe { std::slice::from_raw_parts(desc.view_formats, desc.view_format_count) }
+            .iter()
+            .map(|format| texture_format_from_ffi(*format))
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let descriptor = wgpu::TextureDescriptor {
+        label: label_storage.as_deref(),
+        size: extent3d_from_ffi(desc.size),
+        mip_level_count: desc.mip_level_count,
+        sample_count: desc.sample_count,
+        dimension: texture_dimension_from_ffi(desc.dimension),
+        format: texture_format_from_ffi(desc.format),
+        usage,
+        view_formats: &view_formats,
+    };
+    let texture = device.device.create_texture(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuTextureHandle { texture }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_texture_destroy(texture: *mut VelloWgpuTextureHandle) {
+    if !texture.is_null() {
+        unsafe { drop(Box::from_raw(texture)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_texture_create_view(
+    texture: *mut VelloWgpuTextureHandle,
+    descriptor: *const VelloWgpuTextureViewDescriptor,
+) -> *mut VelloWgpuTextureViewHandle {
+    clear_last_error();
+    let Some(texture) = (unsafe { texture.as_ref() }) else {
+        set_last_error("Texture pointer is null");
+        return std::ptr::null_mut();
+    };
+    let descriptor = match texture_view_descriptor_from_ffi(unsafe { descriptor.as_ref() }) {
+        Ok(desc) => desc,
+        Err(err) => {
+            set_last_error(format!("Invalid texture view descriptor: {err:?}"));
+            return std::ptr::null_mut();
+        }
+    };
+    let view = texture.texture.create_view(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuTextureViewHandle { view }))
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_wgpu_queue_destroy(queue: *mut VelloWgpuQueueHandle) {
     if !queue.is_null() {
         unsafe { drop(Box::from_raw(queue)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_bind_group_layout(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuBindGroupLayoutDescriptor,
+) -> *mut VelloWgpuBindGroupLayoutHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Bind group layout descriptor is null");
+        return std::ptr::null_mut();
+    };
+    let entries_slice = if desc.entry_count == 0 {
+        &[][..]
+    } else if desc.entries.is_null() {
+        set_last_error("Bind group layout entries pointer is null");
+        return std::ptr::null_mut();
+    } else {
+        unsafe { slice::from_raw_parts(desc.entries, desc.entry_count) }
+    };
+    let mut converted_entries = Vec::with_capacity(entries_slice.len());
+    for entry in entries_slice {
+        match bind_group_layout_entry_from_ffi(entry) {
+            Ok(converted) => converted_entries.push(converted),
+            Err(_) => {
+                set_last_error("Invalid bind group layout entry");
+                return std::ptr::null_mut();
+            }
+        }
+    }
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Bind group layout label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: label_storage.as_deref(),
+        entries: &converted_entries,
+    };
+    let layout = device.device.create_bind_group_layout(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuBindGroupLayoutHandle { layout }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_bind_group_layout_destroy(
+    layout: *mut VelloWgpuBindGroupLayoutHandle,
+) {
+    if !layout.is_null() {
+        unsafe { drop(Box::from_raw(layout)) };
+    }
+}
+
+fn bind_group_entry_resource_from_ffi(
+    entry: &VelloWgpuBindGroupEntry,
+) -> Result<wgpu::BindingResource<'static>, VelloStatus> {
+    if let Some(buffer) = unsafe { entry.buffer.as_ref() } {
+        let size = if entry.size == 0 {
+            None
+        } else {
+            NonZeroU64::new(entry.size)
+        };
+        Ok(wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+            buffer: &buffer.buffer,
+            offset: entry.offset,
+            size,
+        }))
+    } else if let Some(sampler) = unsafe { entry.sampler.as_ref() } {
+        Ok(wgpu::BindingResource::Sampler(&sampler.sampler))
+    } else if let Some(view) = unsafe { entry.texture_view.as_ref() } {
+        Ok(wgpu::BindingResource::TextureView(&view.view))
+    } else {
+        Err(VelloStatus::InvalidArgument)
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_bind_group(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuBindGroupDescriptor,
+) -> *mut VelloWgpuBindGroupHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Bind group descriptor is null");
+        return std::ptr::null_mut();
+    };
+    let Some(layout_handle) = (unsafe { desc.layout.as_ref() }) else {
+        set_last_error("Bind group layout pointer is null");
+        return std::ptr::null_mut();
+    };
+    let entries_slice = if desc.entry_count == 0 {
+        &[][..]
+    } else if desc.entries.is_null() {
+        set_last_error("Bind group entries pointer is null");
+        return std::ptr::null_mut();
+    } else {
+        unsafe { slice::from_raw_parts(desc.entries, desc.entry_count) }
+    };
+    let mut converted_entries = Vec::with_capacity(entries_slice.len());
+    for entry in entries_slice {
+        match bind_group_entry_resource_from_ffi(entry) {
+            Ok(resource) => converted_entries.push(wgpu::BindGroupEntry {
+                binding: entry.binding,
+                resource,
+            }),
+            Err(_) => {
+                set_last_error("Invalid bind group entry");
+                return std::ptr::null_mut();
+            }
+        }
+    }
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Bind group label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let descriptor = wgpu::BindGroupDescriptor {
+        label: label_storage.as_deref(),
+        layout: &layout_handle.layout,
+        entries: &converted_entries,
+    };
+    let bind_group = device.device.create_bind_group(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuBindGroupHandle { bind_group }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_bind_group_destroy(bind_group: *mut VelloWgpuBindGroupHandle) {
+    if !bind_group.is_null() {
+        unsafe { drop(Box::from_raw(bind_group)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_pipeline_layout(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuPipelineLayoutDescriptor,
+) -> *mut VelloWgpuPipelineLayoutHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Pipeline layout descriptor is null");
+        return std::ptr::null_mut();
+    };
+    let layout_ptrs = if desc.bind_group_layout_count == 0 {
+        &[][..]
+    } else if desc.bind_group_layouts.is_null() {
+        set_last_error("Pipeline layout bind group layouts pointer is null");
+        return std::ptr::null_mut();
+    } else {
+        unsafe { slice::from_raw_parts(desc.bind_group_layouts, desc.bind_group_layout_count) }
+    };
+    let mut layouts = Vec::with_capacity(layout_ptrs.len());
+    for &layout_ptr in layout_ptrs {
+        let layout_handle = match unsafe { layout_ptr.as_ref() } {
+            Some(layout) => layout,
+            None => {
+                set_last_error("Bind group layout pointer is null");
+                return std::ptr::null_mut();
+            }
+        };
+        layouts.push(&layout_handle.layout);
+    }
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Pipeline layout label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let descriptor = wgpu::PipelineLayoutDescriptor {
+        label: label_storage.as_deref(),
+        bind_group_layouts: &layouts,
+        push_constant_ranges: &[],
+    };
+    let layout = device.device.create_pipeline_layout(&descriptor);
+    Box::into_raw(Box::new(VelloWgpuPipelineLayoutHandle { layout }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_pipeline_layout_destroy(
+    layout: *mut VelloWgpuPipelineLayoutHandle,
+) {
+    if !layout.is_null() {
+        unsafe { drop(Box::from_raw(layout)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_device_create_render_pipeline(
+    device: *mut VelloWgpuDeviceHandle,
+    descriptor: *const VelloWgpuRenderPipelineDescriptor,
+) -> *mut VelloWgpuRenderPipelineHandle {
+    clear_last_error();
+    let Some(device) = (unsafe { device.as_ref() }) else {
+        set_last_error("Device pointer is null");
+        return std::ptr::null_mut();
+    };
+    let Some(desc) = (unsafe { descriptor.as_ref() }) else {
+        set_last_error("Render pipeline descriptor is null");
+        return std::ptr::null_mut();
+    };
+
+    let label_storage = match label_from_ptr(desc.label) {
+        Ok(label) => label,
+        Err(_) => {
+            set_last_error("Render pipeline label is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+
+    let layout_ref = if desc.layout.is_null() {
+        None
+    } else {
+        match unsafe { desc.layout.as_ref() } {
+            Some(layout) => Some(&layout.layout),
+            None => {
+                set_last_error("Pipeline layout pointer is null");
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    let vertex_module = match unsafe { desc.vertex.module.as_ref() } {
+        Some(handle) => &handle.module,
+        None => {
+            set_last_error("Vertex shader module pointer is null");
+            return std::ptr::null_mut();
+        }
+    };
+    let vertex_entry_point_storage = match entry_point_from_bytes(&desc.vertex.entry_point) {
+        Ok(value) => value,
+        Err(_) => {
+            set_last_error("Vertex entry point is not valid UTF-8");
+            return std::ptr::null_mut();
+        }
+    };
+    let vertex_entry_point = vertex_entry_point_storage.as_deref();
+
+    let vertex_buffers_slice = if desc.vertex.buffer_count == 0 {
+        &[][..]
+    } else if desc.vertex.buffers.is_null() {
+        set_last_error("Vertex buffer layouts pointer is null");
+        return std::ptr::null_mut();
+    } else {
+        unsafe { slice::from_raw_parts(desc.vertex.buffers, desc.vertex.buffer_count) }
+    };
+    struct ConvertedVertexBufferLayout {
+        array_stride: u64,
+        step_mode: wgpu::VertexStepMode,
+        attributes: Vec<wgpu::VertexAttribute>,
+    }
+    let mut converted_vertex_buffers = Vec::with_capacity(vertex_buffers_slice.len());
+    for buffer in vertex_buffers_slice {
+        let attributes_slice = if buffer.attribute_count == 0 {
+            &[][..]
+        } else if buffer.attributes.is_null() {
+            set_last_error("Vertex attribute pointer is null");
+            return std::ptr::null_mut();
+        } else {
+            unsafe { slice::from_raw_parts(buffer.attributes, buffer.attribute_count) }
+        };
+        let mut attributes = Vec::with_capacity(attributes_slice.len());
+        for attribute in attributes_slice {
+            let format = match vertex_format_from_u32(attribute.format) {
+                Ok(value) => value,
+                Err(_) => {
+                    set_last_error("Invalid vertex attribute format");
+                    return std::ptr::null_mut();
+                }
+            };
+            attributes.push(wgpu::VertexAttribute {
+                format,
+                offset: attribute.offset,
+                shader_location: attribute.shader_location,
+            });
+        }
+        let step_mode = match vertex_step_mode_from_u32(buffer.step_mode) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid vertex step mode");
+                return std::ptr::null_mut();
+            }
+        };
+        converted_vertex_buffers.push(ConvertedVertexBufferLayout {
+            array_stride: buffer.array_stride,
+            step_mode,
+            attributes,
+        });
+    }
+    let mut vertex_buffer_layouts = Vec::with_capacity(converted_vertex_buffers.len());
+    for converted in &converted_vertex_buffers {
+        vertex_buffer_layouts.push(wgpu::VertexBufferLayout {
+            array_stride: converted.array_stride,
+            step_mode: converted.step_mode,
+            attributes: converted.attributes.as_slice(),
+        });
+    }
+
+    let primitive_state = {
+        let topology = match primitive_topology_from_u32(desc.primitive.topology) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid primitive topology");
+                return std::ptr::null_mut();
+            }
+        };
+        let strip_index_format = match index_format_from_u32(desc.primitive.strip_index_format) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid strip index format");
+                return std::ptr::null_mut();
+            }
+        };
+        let front_face = match front_face_from_u32(desc.primitive.front_face) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid front face value");
+                return std::ptr::null_mut();
+            }
+        };
+        let cull_mode = match cull_mode_from_u32(desc.primitive.cull_mode) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid cull mode value");
+                return std::ptr::null_mut();
+            }
+        };
+        let polygon_mode = match polygon_mode_from_u32(desc.primitive.polygon_mode) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid polygon mode");
+                return std::ptr::null_mut();
+            }
+        };
+        wgpu::PrimitiveState {
+            topology,
+            strip_index_format,
+            front_face,
+            cull_mode,
+            unclipped_depth: desc.primitive.unclipped_depth,
+            polygon_mode,
+            conservative: desc.primitive.conservative,
+        }
+    };
+
+    let depth_stencil_state = if desc.depth_stencil.is_null() {
+        None
+    } else {
+        let depth = match unsafe { desc.depth_stencil.as_ref() } {
+            Some(value) => value,
+            None => {
+                set_last_error("Depth stencil pointer is null");
+                return std::ptr::null_mut();
+            }
+        };
+        let depth_compare = match compare_function_required(depth.depth_compare) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid depth compare function");
+                return std::ptr::null_mut();
+            }
+        };
+        let stencil_front = match stencil_face_state_from_ffi(depth.stencil_front) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid stencil front state");
+                return std::ptr::null_mut();
+            }
+        };
+        let stencil_back = match stencil_face_state_from_ffi(depth.stencil_back) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Invalid stencil back state");
+                return std::ptr::null_mut();
+            }
+        };
+        Some(wgpu::DepthStencilState {
+            format: texture_format_from_ffi(depth.format),
+            depth_write_enabled: depth.depth_write_enabled,
+            depth_compare,
+            stencil: wgpu::StencilState {
+                front: stencil_front,
+                back: stencil_back,
+                read_mask: depth.stencil_read_mask,
+                write_mask: depth.stencil_write_mask,
+            },
+            bias: wgpu::DepthBiasState {
+                constant: depth.bias_constant,
+                slope_scale: depth.bias_slope_scale,
+                clamp: depth.bias_clamp,
+            },
+        })
+    };
+
+    let multisample_state = wgpu::MultisampleState {
+        count: desc.multisample.count,
+        mask: desc.multisample.mask as u64,
+        alpha_to_coverage_enabled: desc.multisample.alpha_to_coverage_enabled,
+    };
+
+    let mut fragment_storage: Option<(Option<String>, Vec<Option<wgpu::ColorTargetState>>)> = None;
+    let fragment_state = if desc.fragment.is_null() {
+        None
+    } else {
+        let fragment = match unsafe { desc.fragment.as_ref() } {
+            Some(value) => value,
+            None => {
+                set_last_error("Fragment descriptor pointer is null");
+                return std::ptr::null_mut();
+            }
+        };
+        let fragment_module = match unsafe { fragment.module.as_ref() } {
+            Some(handle) => &handle.module,
+            None => {
+                set_last_error("Fragment shader module pointer is null");
+                return std::ptr::null_mut();
+            }
+        };
+        let entry_point_storage = match entry_point_from_bytes(&fragment.entry_point) {
+            Ok(value) => value,
+            Err(_) => {
+                set_last_error("Fragment entry point is not valid UTF-8");
+                return std::ptr::null_mut();
+            }
+        };
+        let targets_slice = if fragment.target_count == 0 {
+            &[][..]
+        } else if fragment.targets.is_null() {
+            set_last_error("Fragment target pointer is null");
+            return std::ptr::null_mut();
+        } else {
+            unsafe { slice::from_raw_parts(fragment.targets, fragment.target_count) }
+        };
+        let mut color_targets = Vec::with_capacity(targets_slice.len());
+        for target in targets_slice {
+            let blend_state = if target.blend.is_null() {
+                None
+            } else {
+                let blend = match unsafe { target.blend.as_ref() } {
+                    Some(value) => value,
+                    None => {
+                        set_last_error("Fragment blend pointer is null");
+                        return std::ptr::null_mut();
+                    }
+                };
+                let color = match blend_component_from_ffi(&blend.color) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        set_last_error("Invalid color blend component");
+                        return std::ptr::null_mut();
+                    }
+                };
+                let alpha = match blend_component_from_ffi(&blend.alpha) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        set_last_error("Invalid alpha blend component");
+                        return std::ptr::null_mut();
+                    }
+                };
+                Some(wgpu::BlendState { color, alpha })
+            };
+            let write_mask = match color_write_mask_from_u32(target.write_mask) {
+                Ok(value) => value,
+                Err(_) => {
+                    set_last_error("Invalid color write mask");
+                    return std::ptr::null_mut();
+                }
+            };
+            let state = wgpu::ColorTargetState {
+                format: texture_format_from_ffi(target.format),
+                blend: blend_state,
+                write_mask,
+            };
+            color_targets.push(Some(state));
+        }
+        fragment_storage = Some((entry_point_storage, color_targets));
+        let storage_ref = fragment_storage.as_ref().unwrap();
+        Some(wgpu::FragmentState {
+            module: fragment_module,
+            entry_point: storage_ref.0.as_deref(),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: storage_ref.1.as_slice(),
+        })
+    };
+    let _ = &fragment_storage;
+
+    let vertex_state = wgpu::VertexState {
+        module: vertex_module,
+        entry_point: vertex_entry_point,
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        buffers: vertex_buffer_layouts.as_slice(),
+    };
+
+    let pipeline_descriptor = wgpu::RenderPipelineDescriptor {
+        label: label_storage.as_deref(),
+        layout: layout_ref,
+        vertex: vertex_state,
+        primitive: primitive_state,
+        depth_stencil: depth_stencil_state,
+        multisample: multisample_state,
+        fragment: fragment_state,
+        multiview: None,
+        cache: None,
+    };
+
+    let pipeline = device.device.create_render_pipeline(&pipeline_descriptor);
+    Box::into_raw(Box::new(VelloWgpuRenderPipelineHandle { pipeline }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pipeline_destroy(
+    pipeline: *mut VelloWgpuRenderPipelineHandle,
+) {
+    if !pipeline.is_null() {
+        unsafe { drop(Box::from_raw(pipeline)) };
     }
 }
 

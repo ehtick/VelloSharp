@@ -371,6 +371,96 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_queue_destroy(IntPtr queue);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_shader_module")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_shader_module(
+        IntPtr device,
+        WgpuShaderModuleDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_shader_module_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_shader_module_destroy(IntPtr module);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_buffer")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_buffer(
+        IntPtr device,
+        WgpuBufferDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_buffer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_buffer_destroy(IntPtr buffer);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_buffer_get_size")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial ulong vello_wgpu_buffer_get_size(IntPtr buffer);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_sampler")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_sampler(
+        IntPtr device,
+        WgpuSamplerDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_sampler_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_sampler_destroy(IntPtr sampler);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_texture(
+        IntPtr device,
+        WgpuTextureDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_texture_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_texture_destroy(IntPtr texture);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_texture_create_view")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_texture_create_view(
+        IntPtr texture,
+        WgpuTextureViewDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_bind_group_layout")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_bind_group_layout(
+        IntPtr device,
+        WgpuBindGroupLayoutDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_bind_group_layout_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_bind_group_layout_destroy(IntPtr layout);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_bind_group")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_bind_group(
+        IntPtr device,
+        WgpuBindGroupDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_bind_group_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_bind_group_destroy(IntPtr bindGroup);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_pipeline_layout")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_pipeline_layout(
+        IntPtr device,
+        WgpuPipelineLayoutDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_pipeline_layout_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_pipeline_layout_destroy(IntPtr layout);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_render_pipeline")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_wgpu_device_create_render_pipeline(
+        IntPtr device,
+        WgpuRenderPipelineDescriptorNative* descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pipeline_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pipeline_destroy(IntPtr pipeline);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_surface_create")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr vello_wgpu_surface_create(IntPtr instance, VelloSurfaceDescriptor descriptor);
