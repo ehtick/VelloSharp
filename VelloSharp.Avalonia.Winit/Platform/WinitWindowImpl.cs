@@ -42,6 +42,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private PlatformThemeVariant _themeVariant = PlatformThemeVariant.Light;
     private Point _pointerPosition = new Point(0, 0);
     private bool _isClosing;
+    private RawInputModifiers _keyboardModifiers;
+    private RawInputModifiers _mouseButtonModifiers;
 
     public WinitWindowImpl(WinitDispatcher dispatcher, WinitScreenManager screenManager, WinitWindowOptions options)
     {
@@ -723,6 +725,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     internal void OnDeactivated()
     {
+        ClearMouseButtonModifiers();
         Deactivated?.Invoke();
         LostFocus?.Invoke();
     }
@@ -762,12 +765,15 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     internal void OnMouseInput(WinitMouseButton button, WinitElementState state, WinitModifiers modifiers)
     {
+        UpdateMouseButtonModifiers(button, state);
         var mods = ConvertModifiers(modifiers);
         var type = button switch
         {
             WinitMouseButton.Left => state == WinitElementState.Pressed ? RawPointerEventType.LeftButtonDown : RawPointerEventType.LeftButtonUp,
             WinitMouseButton.Right => state == WinitElementState.Pressed ? RawPointerEventType.RightButtonDown : RawPointerEventType.RightButtonUp,
             WinitMouseButton.Middle => state == WinitElementState.Pressed ? RawPointerEventType.MiddleButtonDown : RawPointerEventType.MiddleButtonUp,
+            WinitMouseButton.Back => state == WinitElementState.Pressed ? RawPointerEventType.XButton1Down : RawPointerEventType.XButton1Up,
+            WinitMouseButton.Forward => state == WinitElementState.Pressed ? RawPointerEventType.XButton2Down : RawPointerEventType.XButton2Up,
             _ => state == WinitElementState.Pressed ? RawPointerEventType.Move : RawPointerEventType.Move,
         };
 
@@ -879,6 +885,51 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         return new RawPointerEventArgs(_mouseDevice, (ulong)Now, root, type, position, modifiers);
     }
 
+    private void UpdateMouseButtonModifiers(WinitMouseButton button, WinitElementState state)
+    {
+        var flag = button switch
+        {
+            WinitMouseButton.Left => RawInputModifiers.LeftMouseButton,
+            WinitMouseButton.Right => RawInputModifiers.RightMouseButton,
+            WinitMouseButton.Middle => RawInputModifiers.MiddleMouseButton,
+            WinitMouseButton.Back => RawInputModifiers.XButton1MouseButton,
+            WinitMouseButton.Forward => RawInputModifiers.XButton2MouseButton,
+            _ => RawInputModifiers.None,
+        };
+
+        if (flag == RawInputModifiers.None)
+        {
+            return;
+        }
+
+        if (state == WinitElementState.Pressed)
+        {
+            _mouseButtonModifiers |= flag;
+        }
+        else
+        {
+            _mouseButtonModifiers &= ~flag;
+        }
+
+        UpdateModifiers();
+    }
+
+    private void ClearMouseButtonModifiers()
+    {
+        if (_mouseButtonModifiers == RawInputModifiers.None)
+        {
+            return;
+        }
+
+        _mouseButtonModifiers = RawInputModifiers.None;
+        UpdateModifiers();
+    }
+
+    private void UpdateModifiers()
+    {
+        _modifiers = _keyboardModifiers | _mouseButtonModifiers;
+    }
+
     private RawInputModifiers ConvertModifiers(WinitModifiers modifiers)
     {
         var result = RawInputModifiers.None;
@@ -902,8 +953,9 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             result |= RawInputModifiers.Meta;
         }
 
-        _modifiers = result;
-        return result;
+        _keyboardModifiers = result;
+        UpdateModifiers();
+        return _modifiers;
     }
 
     private Point CreatePointerPosition(double x, double y)
