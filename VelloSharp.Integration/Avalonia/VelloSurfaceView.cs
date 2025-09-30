@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -24,6 +26,7 @@ public class VelloSurfaceView : ContentControl, IDisposable
     private uint _surfaceWidth = 1;
     private uint _surfaceHeight = 1;
     private bool _surfaceConfigured;
+    private bool _requiresSurfaceBlit;
     private TimeSpan _lastFrameTimestamp = TimeSpan.Zero;
     private bool _isLoopEnabled = true;
     private bool _animationFrameRequested;
@@ -212,7 +215,14 @@ public class VelloSurfaceView : ContentControl, IDisposable
                 Height = height,
             };
 
-            _wgpuRenderer.Render(scene, textureView, renderParams);
+            if (_requiresSurfaceBlit)
+            {
+                _wgpuRenderer.RenderSurface(scene, textureView, renderParams, _surfaceFormat);
+            }
+            else
+            {
+                _wgpuRenderer.Render(scene, textureView, renderParams);
+            }
             surfaceTexture.Present();
             surfaceTexture = null;
         }
@@ -369,13 +379,71 @@ public class VelloSurfaceView : ContentControl, IDisposable
             return true;
         }
 
-        if (descriptor.Equals("NSWindow", StringComparison.OrdinalIgnoreCase))
+        if (descriptor.Equals("NSView", StringComparison.OrdinalIgnoreCase))
         {
+            if (platformHandle.Handle == IntPtr.Zero)
+            {
+                return false;
+            }
+
             handle = SurfaceHandle.FromAppKit(platformHandle.Handle);
             return true;
         }
 
+        if (descriptor.Equals("NSWindow", StringComparison.OrdinalIgnoreCase))
+        {
+            var nsView = GetAppKitContentView(platformHandle.Handle);
+            if (nsView == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            handle = SurfaceHandle.FromAppKit(nsView);
+            return true;
+        }
+
         return false;
+    }
+
+    private static IntPtr GetAppKitContentView(IntPtr handle)
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return IntPtr.Zero;
+        }
+
+        if (handle == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        return MacInterop.GetContentView(handle);
+    }
+
+    private static class MacInterop
+    {
+        private const string ObjectiveCLibrary = "/usr/lib/libobjc.A.dylib";
+
+        private static readonly IntPtr SelContentView = sel_registerName("contentView");
+
+    [SupportedOSPlatform("macos")]
+    [DllImport(ObjectiveCLibrary)]
+        private static extern IntPtr sel_registerName(string name);
+
+    [SupportedOSPlatform("macos")]
+    [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
+        private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [SupportedOSPlatform("macos")]
+        public static IntPtr GetContentView(IntPtr nsWindow)
+        {
+            if (nsWindow == IntPtr.Zero || SelContentView == IntPtr.Zero)
+            {
+                return IntPtr.Zero;
+            }
+
+            return objc_msgSend(nsWindow, SelContentView);
+        }
     }
 
     private bool ConfigureSurface(uint width, uint height)
@@ -393,6 +461,7 @@ public class VelloSurfaceView : ContentControl, IDisposable
 
         try
         {
+            var requiresSurfaceBlit = RequiresSurfaceBlit(format);
             var config = new WgpuSurfaceConfiguration
             {
                 Usage = WgpuTextureUsage.RenderAttachment,
@@ -409,8 +478,9 @@ public class VelloSurfaceView : ContentControl, IDisposable
             _surfaceHeight = height;
             _surfaceFormat = format;
             _surfaceConfigured = true;
+            _requiresSurfaceBlit = requiresSurfaceBlit;
 
-            var renderFormat = MapRenderFormat(format);
+            var renderFormat = MapRenderFormat(format, _requiresSurfaceBlit);
             RenderParameters = _renderParams with { Format = renderFormat };
             return true;
         }
@@ -421,12 +491,21 @@ public class VelloSurfaceView : ContentControl, IDisposable
         }
     }
 
-    private static RenderFormat MapRenderFormat(WgpuTextureFormat format)
+    private static RenderFormat MapRenderFormat(WgpuTextureFormat format, bool requiresSurfaceBlit)
+        => requiresSurfaceBlit
+            ? RenderFormat.Rgba8
+            : format switch
+            {
+                WgpuTextureFormat.Bgra8Unorm => RenderFormat.Bgra8,
+                WgpuTextureFormat.Bgra8UnormSrgb => RenderFormat.Bgra8,
+                _ => RenderFormat.Rgba8,
+            };
+
+    private static bool RequiresSurfaceBlit(WgpuTextureFormat format)
         => format switch
         {
-            WgpuTextureFormat.Bgra8Unorm => RenderFormat.Bgra8,
-            WgpuTextureFormat.Bgra8UnormSrgb => RenderFormat.Bgra8,
-            _ => RenderFormat.Rgba8,
+            WgpuTextureFormat.Rgba8Unorm => false,
+            _ => true,
         };
 
     private void EnsureFallback()
