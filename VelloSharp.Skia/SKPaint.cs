@@ -38,6 +38,7 @@ public sealed class SKPaint : IDisposable
     public SKColor Color { get; set; } = new(0, 0, 0, 255);
     public SKTypeface? Typeface { get; set; }
     public float Opacity { get; set; } = 1f;
+    public SKShader? Shader { get; set; }
 
     public void Dispose() => _disposed = true;
 
@@ -49,12 +50,22 @@ public sealed class SKPaint : IDisposable
         }
     }
 
-    internal SolidColorBrush CreateSolidColorBrush()
+    internal PaintBrush CreateBrush()
     {
         ThrowIfDisposed();
+        if (Shader is { } shader)
+        {
+            return shader.CreateBrush(this);
+        }
+        return CreateSolidColorBrush();
+    }
+
+    private PaintBrush CreateSolidColorBrush()
+    {
         var alpha = Math.Clamp(Opacity, 0f, 1f);
         var color = Color.ToRgbaColor();
-        return new SolidColorBrush(new RgbaColor(color.R, color.G, color.B, color.A * alpha));
+        var brush = new SolidColorBrush(new RgbaColor(color.R, color.G, color.B, color.A * alpha));
+        return new PaintBrush(brush, null);
     }
 
     internal StrokeStyle CreateStrokeStyle()

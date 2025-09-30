@@ -26,13 +26,13 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="SixLabors.ImageSharp" />
-    <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../../VelloSharp.Integration/VelloSharp.Integration.csproj" />
+    <ProjectReference Include="../../HarfBuzzSharp/HarfBuzzSharp.csproj" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj"
                       ReferenceOutputAssembly="false"
                       Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/osx-arm64/native')" />

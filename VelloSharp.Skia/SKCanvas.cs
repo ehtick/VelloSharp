@@ -15,25 +15,29 @@ public sealed class SKCanvas
     private readonly float _width;
     private readonly float _height;
     private readonly Stack<CanvasState> _saveStack = new();
+    private readonly List<ICanvasCommand>? _commandLog;
 
     private CanvasState _currentState;
     private int _activeLayerDepth;
 
-    internal SKCanvas(Scene scene, float width, float height)
+    internal SKCanvas(Scene scene, float width, float height, List<ICanvasCommand>? commandLog = null)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _width = width;
         _height = height;
+        _commandLog = commandLog;
         ResetState();
     }
 
     public void Save()
     {
         _saveStack.Push(_currentState);
+        _commandLog?.Add(SaveCommand.Instance);
     }
 
     public void Restore()
     {
+        _commandLog?.Add(RestoreCommand.Instance);
         if (_saveStack.Count == 0)
         {
             ResetState();
@@ -54,6 +58,7 @@ public sealed class SKCanvas
     {
         var translation = Matrix3x2.CreateTranslation(dx, dy);
         _currentState = _currentState with { Transform = _currentState.Transform * translation };
+        _commandLog?.Add(new TranslateCommand(dx, dy));
     }
 
     public void Scale(float scale) => Scale(scale, scale);
@@ -62,7 +67,24 @@ public sealed class SKCanvas
     {
         var scaleMatrix = Matrix3x2.CreateScale(sx, sy);
         _currentState = _currentState with { Transform = _currentState.Transform * scaleMatrix };
+        _commandLog?.Add(new ScaleCommand(sx, sy));
     }
+
+    public void ResetMatrix()
+    {
+        _currentState = _currentState with { Transform = Matrix3x2.Identity };
+        _commandLog?.Add(ResetMatrixCommand.Instance);
+    }
+
+    public void SetMatrix(SKMatrix matrix)
+    {
+        _currentState = _currentState with { Transform = matrix.ToMatrix3x2() };
+        _commandLog?.Add(new SetMatrixCommand(matrix));
+    }
+
+    public SKMatrix TotalMatrix => SKMatrix.FromMatrix3x2(_currentState.Transform);
+
+    public SKMatrix44 TotalMatrix44 => SKMatrix44.FromMatrix3x2(_currentState.Transform);
 
     public void ClipRect(SKRect rect)
     {
@@ -75,12 +97,14 @@ public sealed class SKCanvas
         _scene.PushLayer(builder, s_clipLayerBlend, _currentState.Transform, alpha: 1f);
         _activeLayerDepth++;
         _currentState = _currentState with { LayerDepth = _activeLayerDepth };
+        _commandLog?.Add(new ClipRectCommand(rect));
     }
 
     public void Clear(SKColor color)
     {
         _scene.Reset();
         ResetState();
+        _commandLog?.Add(new ClearCommand(color));
 
         if (color == SKColors.Transparent)
         {
@@ -100,18 +124,47 @@ public sealed class SKCanvas
         paint.ThrowIfDisposed();
 
         var builder = path.ToPathBuilder();
-        var brush = paint.CreateSolidColorBrush();
+        var brushInfo = paint.CreateBrush();
+        var (fillBrush, fillTransform) = brushInfo;
 
         if (paint.Style is SKPaintStyle.Fill or SKPaintStyle.StrokeAndFill)
         {
-            _scene.FillPath(builder, FillRule.NonZero, _currentState.Transform, brush);
+            _scene.FillPath(builder, FillRule.NonZero, _currentState.Transform, fillBrush, fillTransform);
         }
 
         if (paint.Style is SKPaintStyle.Stroke or SKPaintStyle.StrokeAndFill)
         {
             var stroke = paint.CreateStrokeStyle();
-            _scene.StrokePath(builder, stroke, _currentState.Transform, brush);
+            _scene.StrokePath(builder, stroke, _currentState.Transform, fillBrush, fillTransform);
         }
+
+        _commandLog?.Add(new DrawPathCommand(path, paint));
+    }
+
+    public void DrawImage(SKImage image, float x, float y)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        var dest = SKRect.Create(x, y, image.Width, image.Height);
+        DrawImage(image, dest);
+    }
+
+    public void DrawImage(SKImage image, SKRect destRect)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        if (destRect.IsEmpty)
+        {
+            return;
+        }
+
+        var scale = Matrix3x2.CreateScale(
+            destRect.Width / Math.Max(image.Width, 1),
+            destRect.Height / Math.Max(image.Height, 1));
+        var translation = Matrix3x2.CreateTranslation(destRect.Left, destRect.Top);
+        var transform = scale * translation * _currentState.Transform;
+
+        var brush = new ImageBrush(image.Image);
+        _scene.DrawImage(brush, transform);
+        _commandLog?.Add(new DrawImageCommand(image, destRect));
     }
 
     public void DrawText(string? text, float x, float y, SKPaint paint)
@@ -129,6 +182,7 @@ public sealed class SKCanvas
         var fontSize = paint.TextSize <= 0 ? 16f : paint.TextSize;
 
         var glyphs = ListPool<Glyph>.Shared.Rent(text.Length);
+        var rendered = false;
         try
         {
             var penX = 0f;
@@ -158,24 +212,86 @@ public sealed class SKCanvas
                 return;
             }
 
-            var brush = paint.CreateSolidColorBrush();
-            var options = new GlyphRunOptions
-            {
-                Brush = brush,
-                FontSize = fontSize,
-                Hint = paint.IsAntialias,
-                Style = GlyphRunStyle.Fill,
-                BrushAlpha = 1f,
-                Transform = Matrix3x2.CreateTranslation(x, y) * _currentState.Transform,
-            };
+            var snapshot = new SKFont.FontSnapshot(
+                typeface,
+                fontSize,
+                1f,
+                0f,
+                true,
+                false,
+                paint.IsAntialias,
+                paint.IsAntialias ? SKFontHinting.Normal : SKFontHinting.None,
+                paint.IsAntialias ? SKFontEdging.SubpixelAntialias : SKFontEdging.Alias);
 
-            var span = CollectionsMarshal.AsSpan(glyphs);
-            _scene.DrawGlyphRun(font, span, options);
+            var transform = Matrix3x2.CreateTranslation(x, y) * _currentState.Transform;
+            RenderGlyphRun(snapshot, CollectionsMarshal.AsSpan(glyphs), paint, transform);
+            rendered = true;
         }
         finally
         {
             ListPool<Glyph>.Shared.Return(glyphs);
         }
+
+        if (rendered)
+        {
+            _commandLog?.Add(new DrawTextCommand(text, x, y, paint));
+        }
+    }
+
+    public void DrawText(SKTextBlob textBlob, float x, float y, SKPaint paint)
+    {
+        ArgumentNullException.ThrowIfNull(textBlob);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        var transform = Matrix3x2.CreateTranslation(x, y) * _currentState.Transform;
+        var rendered = false;
+
+        foreach (var run in textBlob.Runs)
+        {
+            var glyphs = run.Glyphs;
+            var positions = run.Positions;
+            var glyphList = ListPool<Glyph>.Shared.Rent(glyphs.Length);
+            try
+            {
+                for (var i = 0; i < glyphs.Length; i++)
+                {
+                    var pos = positions[i];
+                    glyphList.Add(new Glyph(glyphs[i], pos.X, pos.Y));
+                }
+
+                RenderGlyphRun(run.FontSnapshot, CollectionsMarshal.AsSpan(glyphList), paint, transform);
+                rendered = true;
+            }
+            finally
+            {
+                ListPool<Glyph>.Shared.Return(glyphList);
+            }
+        }
+
+        if (rendered)
+        {
+            _commandLog?.Add(new DrawTextBlobCommand(textBlob, x, y, paint));
+        }
+    }
+
+    public void DrawPicture(SKPicture picture)
+    {
+        ArgumentNullException.ThrowIfNull(picture);
+        picture.Playback(this);
+    }
+
+    public void DrawPicture(SKPicture picture, SKMatrix matrix)
+    {
+        ArgumentNullException.ThrowIfNull(picture);
+        Save();
+        SetMatrix(matrix);
+        picture.Playback(this);
+        Restore();
+    }
+
+    public void Flush()
+    {
+        // No batching semantics yet; scene is built incrementally.
     }
 
     internal Matrix3x2 CurrentTransform => _currentState.Transform;
@@ -185,6 +301,48 @@ public sealed class SKCanvas
         _saveStack.Clear();
         _activeLayerDepth = 0;
         _currentState = new CanvasState(Matrix3x2.Identity, 0);
+    }
+
+    private void RenderGlyphRun(SKFont.FontSnapshot snapshot, ReadOnlySpan<Glyph> glyphs, SKPaint paint, Matrix3x2 transform)
+    {
+        var font = snapshot.Typeface?.Font ?? SKTypeface.Default.Font;
+
+        Matrix3x2? glyphTransform = null;
+        if (Math.Abs(snapshot.ScaleX - 1f) > float.Epsilon)
+        {
+            var scaleTransform = Matrix3x2.CreateScale(snapshot.ScaleX, 1f);
+            glyphTransform = glyphTransform.HasValue ? glyphTransform.Value * scaleTransform : scaleTransform;
+        }
+
+        if (Math.Abs(snapshot.SkewX) > float.Epsilon)
+        {
+            var skewTransform = Matrix3x2.CreateSkew(snapshot.SkewX, 0f);
+            glyphTransform = glyphTransform.HasValue ? glyphTransform.Value * skewTransform : skewTransform;
+        }
+
+        EmitGlyphRun(font, glyphs, snapshot.Size, paint, transform, glyphTransform, snapshot.Hinting != SKFontHinting.None);
+    }
+
+    private void EmitGlyphRun(Font font, ReadOnlySpan<Glyph> glyphs, float fontSize, SKPaint paint, Matrix3x2 transform, Matrix3x2? glyphTransform, bool hint)
+    {
+        if (glyphs.IsEmpty)
+        {
+            return;
+        }
+
+        var brushInfo = paint.CreateBrush();
+        var options = new GlyphRunOptions
+        {
+            Brush = brushInfo.Brush,
+            FontSize = fontSize <= 0 ? 16f : fontSize,
+            Hint = hint,
+            Style = GlyphRunStyle.Fill,
+            BrushAlpha = 1f,
+            Transform = transform,
+            GlyphTransform = glyphTransform,
+        };
+
+        _scene.DrawGlyphRun(font, glyphs, options);
     }
 
     private readonly record struct CanvasState(Matrix3x2 Transform, int LayerDepth);

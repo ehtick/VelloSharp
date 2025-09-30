@@ -1,7 +1,7 @@
 using System;
 using VelloSharp;
 
-namespace VelloSharp.Integration.Rendering;
+namespace VelloSharp.Rendering;
 
 public static class VelloRenderPath
 {

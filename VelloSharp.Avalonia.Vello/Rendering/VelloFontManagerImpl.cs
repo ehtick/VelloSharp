@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using Avalonia.Media;
 using Avalonia.Platform;
 using VelloSharp;
+using VelloSharp.Text;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
@@ -16,6 +16,7 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
 
     private readonly object _sync = new();
     private readonly byte[] _embeddedFontData;
+    private readonly ParleyFontService _parley = ParleyFontService.Instance;
     private string? _defaultFamilyName;
     private string[]? _installedFamilies;
     private HashSet<string>? _installedFamilyLookup;
@@ -34,19 +35,9 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
                 return _defaultFamilyName!;
             }
 
-            var ptr = NativeMethods.vello_parley_get_default_family();
-            try
-            {
-                var name = ptr != IntPtr.Zero ? Marshal.PtrToStringUTF8(ptr) : null;
-                _defaultFamilyName = !string.IsNullOrWhiteSpace(name) ? name : EmbeddedFamilyName;
-            }
-            finally
-            {
-                if (ptr != IntPtr.Zero)
-                {
-                    NativeMethods.vello_string_destroy(ptr);
-                }
-            }
+
+            var name = _parley.GetDefaultFamilyName();
+            _defaultFamilyName = !string.IsNullOrWhiteSpace(name) ? name : EmbeddedFamilyName;
 
             return _defaultFamilyName!;
         }
@@ -61,40 +52,10 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
                 return _installedFamilies;
             }
 
-            var status = NativeMethods.vello_parley_get_family_names(out var handle, out var array);
-            try
-            {
-                if (status != VelloStatus.Success || array.Count == 0 || array.Items == IntPtr.Zero)
-                {
-                    var fallback = new[] { GetDefaultFontFamilyName() };
-                    _installedFamilyLookup = new HashSet<string>(fallback, StringComparer.OrdinalIgnoreCase);
-                    return _installedFamilies = fallback;
-                }
-
-                var count = checked((int)array.Count);
-                var names = new string[count];
-
-                unsafe
-                {
-                    var items = (IntPtr*)array.Items;
-                    for (var i = 0; i < count; i++)
-                    {
-                        names[i] = Marshal.PtrToStringUTF8(items[i]) ?? string.Empty;
-                    }
-                }
-
-                Array.Sort(names, StringComparer.OrdinalIgnoreCase);
-                _installedFamilies = names;
-                _installedFamilyLookup = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
-                return names;
-            }
-            finally
-            {
-                if (handle != IntPtr.Zero)
-                {
-                    NativeMethods.vello_parley_string_array_destroy(handle);
-                }
-            }
+            var names = _parley.GetInstalledFamilyNames(checkForUpdates).ToArray();
+            _installedFamilies = names;
+            _installedFamilyLookup = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+            return names;
         }
     }
 
@@ -102,43 +63,18 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
     {
         typeface = default;
 
-        var status = NativeMethods.vello_parley_match_character(
-            (uint)codepoint,
-            ToFontWeightValue(fontWeight),
-            ToStretchRatio(fontStretch),
-            ToFontStyleValue(fontStyle),
-            familyName: null,
-            locale: culture?.Name,
-            out var handle,
-            out var info);
-
-        if (status != VelloStatus.Success)
+        if (_parley.TryMatchCharacter((uint)codepoint, CreateQuery(null, fontStyle, fontWeight, fontStretch, culture), out var info))
         {
-            if (handle != IntPtr.Zero)
-            {
-                NativeMethods.vello_parley_font_handle_destroy(handle);
-            }
-
-            return false;
-        }
-
-        try
-        {
-            var family = Marshal.PtrToStringUTF8(info.FamilyName) ?? GetDefaultFontFamilyName();
             typeface = new Typeface(
-                family,
-                FromFontStyleValue(info.Style),
+                string.IsNullOrWhiteSpace(info.FamilyName) ? GetDefaultFontFamilyName() : info.FamilyName,
+                FromFontStyle(info.Style),
                 FromFontWeightValue(info.Weight),
                 FromStretchRatio(info.Stretch));
             return true;
         }
-        finally
-        {
-            if (handle != IntPtr.Zero)
-            {
-                NativeMethods.vello_parley_font_handle_destroy(handle);
-            }
-        }
+
+        typeface = default;
+        return false;
     }
 
     public bool TryCreateGlyphTypeface(
@@ -157,36 +93,10 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             familyName = GetDefaultFontFamilyName();
         }
 
-        var status = NativeMethods.vello_parley_load_typeface(
-            familyName,
-            ToFontWeightValue(weight),
-            ToStretchRatio(stretch),
-            ToFontStyleValue(style),
-            out var handle,
-            out var info);
-
-        if (status != VelloStatus.Success)
+        if (_parley.TryLoadTypeface(CreateQuery(familyName, style, weight, stretch, null), out var info))
         {
-            if (handle != IntPtr.Zero)
-            {
-                NativeMethods.vello_parley_font_handle_destroy(handle);
-            }
-
-            var fallbackSimulations = ComputeSimulations(style, weight, FontStyle.Normal, FontWeight.Normal);
-            return TryCreateEmbeddedGlyphTypeface(requestedFamily, style, weight, stretch, fallbackSimulations, out glyphTypeface);
-        }
-
-        try
-        {
-            var data = CopyFontData(info);
-            if (data.Length == 0)
-            {
-                var fallbackSimulations = ComputeSimulations(style, weight, FontStyle.Normal, FontWeight.Normal);
-                return TryCreateEmbeddedGlyphTypeface(requestedFamily, style, weight, stretch, fallbackSimulations, out glyphTypeface);
-            }
-
-            var resolvedFamily = Marshal.PtrToStringUTF8(info.FamilyName) ?? familyName;
-            var resolvedStyle = FromFontStyleValue(info.Style);
+            var resolvedFamily = string.IsNullOrWhiteSpace(info.FamilyName) ? familyName : info.FamilyName;
+            var resolvedStyle = FromFontStyle(info.Style);
             var resolvedWeight = FromFontWeightValue(info.Weight);
             var resolvedStretch = FromStretchRatio(info.Stretch);
 
@@ -207,18 +117,14 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
                 resolvedStyle,
                 resolvedWeight,
                 resolvedStretch,
-                data,
-                info.Index,
+                info.FontData,
+                info.FaceIndex,
                 simulations);
             return true;
         }
-        finally
-        {
-            if (handle != IntPtr.Zero)
-            {
-                NativeMethods.vello_parley_font_handle_destroy(handle);
-            }
-        }
+
+        var fallback = ComputeSimulations(style, weight, FontStyle.Normal, FontWeight.Normal);
+        return TryCreateEmbeddedGlyphTypeface(requestedFamily, style, weight, stretch, fallback, out glyphTypeface);
     }
 
     public bool TryCreateGlyphTypeface(Stream stream, FontSimulations fontSimulations, [NotNullWhen(true)] out IGlyphTypeface? glyphTypeface)
@@ -273,24 +179,6 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             _embeddedFontData,
             simulations: simulations);
         return true;
-    }
-
-    private static byte[] CopyFontData(VelloParleyFontInfoNative info)
-    {
-        if (info.Length == 0 || info.Data == IntPtr.Zero)
-        {
-            return Array.Empty<byte>();
-        }
-
-        var length = checked((int)info.Length);
-        if (length == 0)
-        {
-            return Array.Empty<byte>();
-        }
-
-        var data = new byte[length];
-        Marshal.Copy(info.Data, data, 0, length);
-        return data;
     }
 
     private bool IsFamilyInstalled(string familyName)
@@ -354,6 +242,28 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
         _ => 1.0f,
     };
 
+    private ParleyFontQuery CreateQuery(string? familyName, FontStyle style, FontWeight weight, FontStretch stretch, CultureInfo? culture)
+        => new(
+            familyName,
+            ToFontWeightValue(weight),
+            ToStretchRatio(stretch),
+            ToVelloFontStyle(style),
+            culture);
+
+    private static VelloFontStyle ToVelloFontStyle(FontStyle style) => style switch
+    {
+        FontStyle.Italic => VelloFontStyle.Italic,
+        FontStyle.Oblique => VelloFontStyle.Oblique,
+        _ => VelloFontStyle.Normal,
+    };
+
+    private static FontStyle FromFontStyle(VelloFontStyle style) => style switch
+    {
+        VelloFontStyle.Italic => FontStyle.Italic,
+        VelloFontStyle.Oblique => FontStyle.Oblique,
+        _ => FontStyle.Normal,
+    };
+
     private static FontStretch FromStretchRatio(float ratio)
     {
         if (!float.IsFinite(ratio) || ratio <= 0)
@@ -374,20 +284,6 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             _ => FontStretch.UltraExpanded,
         };
     }
-
-    private static int ToFontStyleValue(FontStyle style) => style switch
-    {
-        FontStyle.Italic => 1,
-        FontStyle.Oblique => 2,
-        _ => 0,
-    };
-
-    private static FontStyle FromFontStyleValue(int style) => style switch
-    {
-        1 => FontStyle.Italic,
-        2 => FontStyle.Oblique,
-        _ => FontStyle.Normal,
-    };
 
     private static byte[] LoadEmbeddedFont()
     {

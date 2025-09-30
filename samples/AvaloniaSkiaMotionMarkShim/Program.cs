@@ -1,4 +1,5 @@
 using Avalonia;
+using VelloSharp.Integration.Avalonia;
 
 namespace AvaloniaSkiaMotionMarkShim;
 
@@ -12,5 +13,6 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .UseVelloSkiaTextServices()
             .LogToTrace();
 }

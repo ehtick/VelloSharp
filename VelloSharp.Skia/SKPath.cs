@@ -40,6 +40,13 @@ public sealed class SKPath : IDisposable
         _commands.Clear();
     }
 
+    public SKPath Clone()
+    {
+        var clone = new SKPath();
+        clone._commands.AddRange(_commands);
+        return clone;
+    }
+
     internal PathBuilder ToPathBuilder()
     {
         var builder = new PathBuilder();

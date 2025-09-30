@@ -1,7 +1,7 @@
 using System;
 using SkiaSharp;
 using VelloSharp;
-using VelloSharp.Integration.Rendering;
+using VelloSharp.Rendering;
 
 namespace VelloSharp.Integration.Skia;
 

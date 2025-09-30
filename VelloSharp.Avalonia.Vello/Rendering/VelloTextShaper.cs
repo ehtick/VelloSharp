@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Platform;
+using VelloSharp.Text;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
@@ -21,57 +22,27 @@ internal sealed class VelloTextShaper : ITextShaperImpl
         var font = VelloFontManager.GetFont(typeface);
         var isRightToLeft = (options.BidiLevel & 1) != 0;
 
-        unsafe
+        var glyphs = VelloTextShaperCore.ShapeUtf16(
+            font.Handle,
+            text.Span,
+            (float)options.FontRenderingEmSize,
+            isRightToLeft,
+            (float)options.LetterSpacing);
+
+        if (glyphs.Count == 0)
         {
-            fixed (char* textPtr = text.Span)
-            {
-                var status = NativeMethods.vello_text_shape_utf16(
-                    font.Handle,
-                    (ushort*)textPtr,
-                    (nuint)text.Length,
-                    (float)options.FontRenderingEmSize,
-                    isRightToLeft ? 1 : 0,
-                    out var run,
-                    out var handle);
-
-                if (status != VelloStatus.Success || run.Glyphs == IntPtr.Zero)
-                {
-                    return ShapeWithFallback(text, options);
-                }
-
-                try
-                {
-                    var glyphCount = checked((int)run.GlyphCount);
-                    var shapedBuffer = new ShapedBuffer(text, glyphCount, typeface, options.FontRenderingEmSize, options.BidiLevel);
-                    var glyphSpan = new ReadOnlySpan<VelloShapedGlyphNative>((void*)run.Glyphs, glyphCount);
-
-
-                    for (var i = 0; i < glyphCount; i++)
-                    {
-                        ref readonly var glyph = ref glyphSpan[i];
-                        var advance = glyph.XAdvance + options.LetterSpacing;
-                        if (advance <= 0)
-                        {
-                            var designAdvance = options.Typeface.GetGlyphAdvance((ushort)glyph.GlyphId);
-                            var designEm = options.Typeface.Metrics.DesignEmHeight;
-                            if (designAdvance > 0 && designEm != 0)
-                            {
-                                var scale = options.FontRenderingEmSize / designEm;
-                                advance = designAdvance * scale + options.LetterSpacing;
-                            }
-                        }
-                        var offset = new Vector(glyph.XOffset, -glyph.YOffset);
-                        shapedBuffer[i] = new GlyphInfo((ushort)glyph.GlyphId, (int)glyph.Cluster, advance, offset);
-                    }
-
-                    return shapedBuffer;
-                }
-                finally
-                {
-                    NativeMethods.vello_text_shape_destroy(handle);
-                }
-            }
+            return ShapeWithFallback(text, options);
         }
+
+        var shapedBuffer = new ShapedBuffer(text, glyphs.Count, typeface, options.FontRenderingEmSize, options.BidiLevel);
+        for (var i = 0; i < glyphs.Count; i++)
+        {
+            var glyph = glyphs[i];
+            var offset = new Vector(glyph.XOffset, -glyph.YOffset);
+            shapedBuffer[i] = new GlyphInfo((ushort)glyph.GlyphId, (int)glyph.Cluster, glyph.XAdvance, offset);
+        }
+
+        return shapedBuffer;
     }
 
     private static ShapedBuffer ShapeWithFallback(ReadOnlyMemory<char> text, TextShaperOptions options)

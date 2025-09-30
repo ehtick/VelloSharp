@@ -14,6 +14,9 @@
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.5" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="xunit" Version="2.5.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <PackageVersion Include="VelloSharp.Native.linux-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.linux-arm64" Version="$(VelloNativePackageVersion)" />

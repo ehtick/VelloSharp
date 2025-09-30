@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../HarfBuzzSharp/HarfBuzzSharp.csproj">
+      <Aliases>VelloHB</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp">
+      <Aliases>RealHB</Aliases>
+    </PackageReference>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf" Link="Assets/Roboto-Regular.ttf" />
+  </ItemGroup>
+</Project>

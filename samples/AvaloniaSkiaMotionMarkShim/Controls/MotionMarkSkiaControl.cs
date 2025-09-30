@@ -24,7 +24,7 @@ using SkiaColorType = global::SkiaSharp.SKColorType;
 using SkiaAlphaType = global::SkiaSharp.SKAlphaType;
 using SkiaRect = global::SkiaSharp.SKRect;
 using VelloSharp;
-using VelloSharp.Integration.Rendering;
+using VelloSharp.Rendering;
 using VelloSharp.Integration.Skia;
 
 namespace AvaloniaSkiaMotionMarkShim.Controls;

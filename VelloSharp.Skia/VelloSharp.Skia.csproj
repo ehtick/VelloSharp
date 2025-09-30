@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
   </ItemGroup>
 
   <ItemGroup>
