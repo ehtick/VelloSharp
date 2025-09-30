@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace VelloSharp;
 
@@ -233,6 +234,7 @@ public readonly struct WinitEventArgs
         ElementState = evt.ElementState;
         ScrollDeltaKind = evt.ScrollDeltaKind;
         KeyCode = evt.KeyCode;
+        KeyCodeName = DecodeUtf8String(evt.KeyCodeName);
         KeyLocation = evt.KeyLocation;
         Repeat = evt.Repeat;
         TouchId = evt.TouchId;
@@ -270,6 +272,8 @@ public readonly struct WinitEventArgs
 
     public uint KeyCode { get; }
 
+    public string? KeyCodeName { get; }
+
     public WinitKeyLocation KeyLocation { get; }
 
     public bool Repeat { get; }
@@ -283,6 +287,24 @@ public readonly struct WinitEventArgs
     internal nint WindowHandle { get; }
 
     public WinitWindow? TryGetWindow() => WindowHandle == nint.Zero ? null : new WinitWindow(WindowHandle);
+
+    private static string? DecodeUtf8String(byte[]? bytes)
+    {
+        if (bytes is null || bytes.Length == 0)
+        {
+            return null;
+        }
+
+        var terminator = Array.IndexOf(bytes, (byte)0);
+        var length = terminator switch
+        {
+            < 0 => bytes.Length,
+            0 => 0,
+            _ => terminator,
+        };
+
+        return length == 0 ? null : Encoding.UTF8.GetString(bytes, 0, length);
+    }
 }
 
 public readonly struct WinitRunConfiguration

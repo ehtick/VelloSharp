@@ -244,6 +244,8 @@ internal struct WinitEvent
     public WinitElementState ElementState;
     public WinitMouseScrollDeltaKind ScrollDeltaKind;
     public uint KeyCode;
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
+    public byte[] KeyCodeName;
     public WinitKeyLocation KeyLocation;
     [MarshalAs(UnmanagedType.I1)]
     public bool Repeat;

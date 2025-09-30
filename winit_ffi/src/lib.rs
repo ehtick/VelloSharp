@@ -15,6 +15,8 @@ use std::{
     time::Duration,
 };
 
+const KEY_CODE_NAME_CAPACITY: usize = 64;
+
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use copypasta::{ClipboardContext, ClipboardProvider};
 
@@ -447,6 +449,7 @@ pub struct WinitEvent {
     pub element_state: WinitElementState,
     pub scroll_delta_kind: WinitScrollDeltaKind,
     pub key_code: u32,
+    pub key_code_name: [c_char; KEY_CODE_NAME_CAPACITY],
     pub key_location: WinitKeyLocation,
     pub repeat: bool,
     pub touch_id: u64,
@@ -473,6 +476,7 @@ impl Default for WinitEvent {
             element_state: WinitElementState::Released,
             scroll_delta_kind: WinitScrollDeltaKind::LineDelta,
             key_code: 0,
+            key_code_name: [0; KEY_CODE_NAME_CAPACITY],
             key_location: WinitKeyLocation::Standard,
             repeat: false,
             touch_id: 0,
@@ -702,6 +706,15 @@ struct WinitApplication {
 impl Drop for WinitApplication {
     fn drop(&mut self) {
         self.drop_window_handle();
+    }
+}
+
+fn set_key_code_name(target: &mut [c_char; KEY_CODE_NAME_CAPACITY], value: &str) {
+    target.fill(0);
+    let bytes = value.as_bytes();
+    let len = bytes.len().min(KEY_CODE_NAME_CAPACITY.saturating_sub(1));
+    for (dst, src) in target.iter_mut().take(len).zip(bytes.iter()) {
+        *dst = *src as c_char;
     }
 }
 
@@ -996,8 +1009,16 @@ impl ApplicationHandler<UserEvent> for WinitApplication {
                 evt.modifiers = modifiers_state.bits();
                 evt.repeat = event.repeat;
                 evt.key_location = map_key_location(event.location);
-                if let PhysicalKey::Code(code) = event.physical_key {
-                    evt.key_code = code as u32;
+                match event.physical_key {
+                    PhysicalKey::Code(code) => {
+                        evt.key_code = code as u32;
+                        let name = format!("{code:?}");
+                        set_key_code_name(&mut evt.key_code_name, &name);
+                    }
+                    PhysicalKey::Unidentified(native) => {
+                        let name = format!("Unidentified({native:?})");
+                        set_key_code_name(&mut evt.key_code_name, &name);
+                    }
                 }
                 if let Some(text) = event.text.as_ref() {
                     if !text.is_empty() {

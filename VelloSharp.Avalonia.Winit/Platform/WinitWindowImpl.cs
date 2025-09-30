@@ -797,7 +797,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         _mouseDevice?.ProcessRawEvent(args);
     }
 
-    internal void OnKeyboardInput(uint keyCode, WinitElementState state, WinitModifiers modifiers, WinitKeyLocation location, bool repeat, string? text)
+    internal void OnKeyboardInput(uint keyCode, string? keyCodeName, WinitElementState state, WinitModifiers modifiers, WinitKeyLocation location, bool repeat, string? text)
     {
         var mods = ConvertModifiers(modifiers);
         var root = _inputRoot;
@@ -807,7 +807,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         }
 
         var keyboardDevice = _keyboardDevice ?? throw new InvalidOperationException("Keyboard device is not available.");
-        var physical = (PhysicalKey)keyCode;
+        var physical = WinitKeyCodeMapper.MapPhysicalKey(keyCode, keyCodeName);
         var key = physical.ToQwertyKey();
         var args = new RawKeyEventArgs(
             keyboardDevice,

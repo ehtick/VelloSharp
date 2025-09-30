@@ -86,6 +86,14 @@ internal static class WinitPlatform
             var keyboardDevice = new KeyboardDevice();
             var mouseDevice = new MouseDevice();
 
+            var commandModifiers = OperatingSystem.IsMacOS() || OperatingSystem.IsMacCatalyst()
+                ? KeyModifiers.Meta
+                : KeyModifiers.Control;
+            var wholeWordModifiers = OperatingSystem.IsMacOS() || OperatingSystem.IsMacCatalyst()
+                ? KeyModifiers.Alt
+                : KeyModifiers.Control;
+            var hotkeys = new PlatformHotkeyConfiguration(commandModifiers, KeyModifiers.Shift, wholeWordModifiers);
+
             var locator = AvaloniaLocator.CurrentMutable;
 
             locator
@@ -96,7 +104,7 @@ internal static class WinitPlatform
                 .Bind<IWindowingPlatform>().ToConstant(s_windowingPlatform)
                 .Bind<IKeyboardDevice>().ToConstant(keyboardDevice)
                 .Bind<IMouseDevice>().ToConstant(mouseDevice)
-                .Bind<PlatformHotkeyConfiguration>().ToSingleton<PlatformHotkeyConfiguration>()
+                .Bind<PlatformHotkeyConfiguration>().ToConstant(hotkeys)
                 .Bind<IPlatformSettings>().ToSingleton<DefaultPlatformSettings>()
                 .Bind<IPlatformIconLoader>().ToSingleton<WinitIconLoader>()
                 .Bind<IPlatformLifetimeEventsImpl>().ToSingleton<WinitLifetimeEvents>();
