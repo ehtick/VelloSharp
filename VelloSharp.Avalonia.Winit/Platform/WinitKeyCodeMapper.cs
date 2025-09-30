@@ -22,9 +22,13 @@ internal static class WinitKeyCodeMapper
         }
 
         // Fall back to casting when the incoming value already matches Avalonia's enum.
-        if (Enum.IsDefined(typeof(PhysicalKey), keyCode))
+        if (keyCode <= int.MaxValue)
         {
-            return (PhysicalKey)keyCode;
+            var candidate = (int)keyCode;
+            if (Enum.IsDefined(typeof(PhysicalKey), candidate))
+            {
+                return (PhysicalKey)candidate;
+            }
         }
 
         return PhysicalKey.None;
