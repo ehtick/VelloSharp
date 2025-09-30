@@ -12,7 +12,6 @@
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Rendering/VelloSharp.Rendering.csproj" />
     <ProjectReference Include="../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
-    <ProjectReference Include="../HarfBuzzSharp/HarfBuzzSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
