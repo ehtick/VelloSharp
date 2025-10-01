@@ -8,6 +8,15 @@ namespace VelloSharp.Avalonia.Vello.Rendering;
 /// </summary>
 public readonly struct WgpuSurfaceRenderContext
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="device"></param>
+    /// <param name="queue"></param>
+    /// <param name="targetView"></param>
+    /// <param name="renderParams"></param>
+    /// <param name="surfaceFormat"></param>
+    /// <exception cref="ArgumentNullException"></exception>
     public WgpuSurfaceRenderContext(
         WgpuDevice device,
         WgpuQueue queue,
