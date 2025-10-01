@@ -2116,6 +2116,18 @@ public sealed class WgpuCommandBuffer : IDisposable
         }
     }
 
+    internal void MarkConsumed()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _handle = IntPtr.Zero;
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -2513,10 +2525,18 @@ public sealed class WgpuQueue : IDisposable
                 bufferHandles[i] = commandBuffers[i].Handle;
             }
 
+            ulong submission;
             fixed (IntPtr* ptr = bufferHandles)
             {
-                return NativeMethods.vello_wgpu_queue_submit(_handle, ptr, (nuint)commandBuffers.Length);
+                submission = NativeMethods.vello_wgpu_queue_submit(_handle, ptr, (nuint)commandBuffers.Length);
             }
+
+            for (int i = 0; i < commandBuffers.Length; i++)
+            {
+                commandBuffers[i].MarkConsumed();
+            }
+
+            return submission;
         }
     }
 
