@@ -12,6 +12,12 @@ namespace Avalonia.Winit;
 
 internal sealed class WinitDispatcher : IControlledDispatcherImpl, IWinitEventHandler, IDisposable
 {
+    [ThreadStatic]
+    private static WinitEventLoopContext s_currentContext;
+
+    [ThreadStatic]
+    private static bool s_hasCurrentContext;
+
     private readonly WinitEventLoop _eventLoop = new();
     private readonly Thread? _loopThread;
     private readonly ManualResetEventSlim _loopStarted = new(false);
@@ -173,25 +179,33 @@ internal sealed class WinitDispatcher : IControlledDispatcherImpl, IWinitEventHa
             return;
         }
 
-        ProcessQueues(context);
-
-        switch (args.Kind)
+        SetCurrentContext(context);
+        try
         {
-            case WinitEventKind.NewEvents:
-                // queues already processed
-                break;
-            case WinitEventKind.AboutToWait:
-                ConfigureControlFlow(context);
-                break;
-            case WinitEventKind.MemoryWarning:
-                break;
-            case WinitEventKind.Exiting:
-                RequestExit();
-                context.Exit();
-                break;
-            default:
-                DispatchWindowEvent(context, args);
-                break;
+            ProcessQueues(context);
+
+            switch (args.Kind)
+            {
+                case WinitEventKind.NewEvents:
+                    // queues already processed
+                    break;
+                case WinitEventKind.AboutToWait:
+                    ConfigureControlFlow(context);
+                    break;
+                case WinitEventKind.MemoryWarning:
+                    break;
+                case WinitEventKind.Exiting:
+                    RequestExit();
+                    context.Exit();
+                    break;
+                default:
+                    DispatchWindowEvent(context, args);
+                    break;
+            }
+        }
+        finally
+        {
+            ClearCurrentContext();
         }
     }
 
@@ -408,5 +422,28 @@ internal sealed class WinitDispatcher : IControlledDispatcherImpl, IWinitEventHa
         _exitStatus = status;
         _loopRunning = false;
         _loopExited.Set();
+    }
+
+    private static void SetCurrentContext(WinitEventLoopContext context)
+    {
+        s_currentContext = context;
+        s_hasCurrentContext = true;
+    }
+
+    private static void ClearCurrentContext()
+    {
+        s_hasCurrentContext = false;
+    }
+
+    internal bool TryGetCurrentContext(out WinitEventLoopContext context)
+    {
+        if (CurrentThreadIsLoopThread && s_hasCurrentContext)
+        {
+            context = s_currentContext;
+            return true;
+        }
+
+        context = default;
+        return false;
     }
 }

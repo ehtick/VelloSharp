@@ -444,17 +444,22 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     private void InitializeWindow(WinitWindowOptions options)
     {
-        var waitForCompletion = !_dispatcher.RunsOnMainThread || _dispatcher.IsLoopRunning;
-        ManualResetEventSlim? completion = waitForCompletion ? new ManualResetEventSlim(false) : null;
-        WinitStatus status = WinitStatus.Success;
-        nint handle = nint.Zero;
-
-        _dispatcher.Post(context =>
+        WinitStatus CreateWindowCore(WinitEventLoopContext context)
         {
             var descriptor = options.ToNative(out var titlePtr);
             try
             {
-                status = WinitNativeMethods.winit_context_create_window(context.Handle, ref descriptor, out handle);
+                var result = WinitNativeMethods.winit_context_create_window(context.Handle, ref descriptor, out var handle);
+                if (result == WinitStatus.Success && handle != nint.Zero)
+                {
+                    _window = new WinitWindow(handle);
+                    _dispatcher.RegisterWindow(handle, this);
+                    _nativeHandle = handle;
+                    UpdatePlatformHandle();
+                    _isVisible = options.Visible;
+                }
+
+                return result;
             }
             finally
             {
@@ -466,30 +471,44 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
                     }
                 }
             }
+        }
 
-            if (status == WinitStatus.Success && handle != nint.Zero)
+        void EnsureCreated(WinitStatus result)
+        {
+            NativeHelpers.ThrowOnError(result, "winit_context_create_window");
+
+            if (_window is null)
             {
-                _window = new WinitWindow(handle);
-                _dispatcher.RegisterWindow(handle, this);
-                _nativeHandle = handle;
-                UpdatePlatformHandle();
-                _isVisible = options.Visible;
+                throw new InvalidOperationException("Failed to initialize winit window.");
             }
+        }
 
-            if (!waitForCompletion)
+        if (_dispatcher.TryGetCurrentContext(out var currentContext))
+        {
+            var immediateStatus = CreateWindowCore(currentContext);
+            EnsureCreated(immediateStatus);
+            return;
+        }
+
+        var waitForCompletion = !_dispatcher.RunsOnMainThread || _dispatcher.IsLoopRunning;
+        ManualResetEventSlim? completion = waitForCompletion ? new ManualResetEventSlim(false) : null;
+        var status = WinitStatus.Success;
+
+        _dispatcher.Post(context =>
+        {
+            try
             {
-                if (status != WinitStatus.Success)
-                {
-                    NativeHelpers.ThrowOnError(status, "winit_context_create_window");
-                }
+                status = CreateWindowCore(context);
 
-                if (_window is null)
+                if (!waitForCompletion)
                 {
-                    throw new InvalidOperationException("Failed to initialize winit window.");
+                    EnsureCreated(status);
                 }
             }
-
-            completion?.Set();
+            finally
+            {
+                completion?.Set();
+            }
         });
 
         if (waitForCompletion)
@@ -497,12 +516,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             completion!.Wait();
             completion.Dispose();
 
-            NativeHelpers.ThrowOnError(status, "winit_context_create_window");
-
-            if (_window is null)
-            {
-                throw new InvalidOperationException("Failed to initialize winit window.");
-            }
+            EnsureCreated(status);
         }
     }
 
