@@ -269,6 +269,15 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 
             var adjustedParams = AdjustRenderParams(renderParams);
 
+            if (_requiresSurfaceBlit)
+            {
+                resources.Renderer.RenderSurface(scene, textureView, adjustedParams, _surfaceFormat);
+            }
+            else
+            {
+                resources.Renderer.Render(scene, textureView, adjustedParams);
+            }
+
             if (surfaceCallbacks is { Count: > 0 })
             {
                 var callbackContext = new WgpuSurfaceRenderContext(
@@ -289,15 +298,6 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
                         Debug.WriteLine($"[Vello] WGPU surface callback failed: {ex}");
                     }
                 }
-            }
-
-            if (_requiresSurfaceBlit)
-            {
-                resources.Renderer.RenderSurface(scene, textureView, adjustedParams, _surfaceFormat);
-            }
-            else
-            {
-                resources.Renderer.Render(scene, textureView, adjustedParams);
             }
 
             surfaceTexture.Present();
