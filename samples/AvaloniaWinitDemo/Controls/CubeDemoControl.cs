@@ -71,7 +71,11 @@ public class CubeDemoControl : Control
             return;
         }
 
-        context.FillRectangle(_backgroundBrush, bounds);
+        if (!_wgpuAvailable)
+        {
+            context.FillRectangle(_backgroundBrush, bounds);
+        }
+
         context.Custom(new CubeDrawOperation(bounds, this));
 
         if (!_wgpuAvailable)
