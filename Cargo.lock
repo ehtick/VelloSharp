@@ -4153,6 +4153,7 @@ dependencies = [
  "objc",
  "raw-window-handle",
  "serde_json",
+ "windows-sys 0.59.0",
  "winit",
 ]
 

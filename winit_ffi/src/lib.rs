@@ -39,6 +39,9 @@ use winit::{
 };
 
 #[cfg(target_os = "windows")]
+use winit::platform::windows::WindowExtWindows;
+
+#[cfg(target_os = "windows")]
 use windows_sys::Win32::{
     Foundation::{GetLastError, SetLastError},
     UI::WindowsAndMessaging::{GWL_HWNDPARENT, SetWindowLongPtrW},
