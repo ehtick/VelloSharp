@@ -40,3 +40,9 @@
 [submodule "extern/SkiaSharp"]
 	path = extern/SkiaSharp
 	url = https://github.com/wieslawsoltes/SkiaSharp.git
+[submodule "extern/accesskit"]
+	path = extern/accesskit
+	url = https://github.com/AccessKit/accesskit.git
+[submodule "extern/xilem"]
+	path = extern/xilem
+	url = https://github.com/linebender/xilem.git
