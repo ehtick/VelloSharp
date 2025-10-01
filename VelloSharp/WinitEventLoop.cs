@@ -198,6 +198,92 @@ public sealed class WinitWindow
         NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_decorations(_handle, decorations), "winit_window_set_decorations");
     }
 
+    public void SetOuterPosition(int x, int y)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_outer_position(_handle, x, y), "winit_window_set_outer_position");
+    }
+
+    public WinitStatus TryBeginMoveDrag()
+    {
+        var status = WinitNativeMethods.winit_window_drag_window(_handle);
+        if (status != WinitStatus.Success && status != WinitStatus.Unsupported)
+        {
+            NativeHelpers.ThrowOnError(status, "winit_window_drag_window");
+        }
+
+        return status;
+    }
+
+    public WinitStatus TryBeginResizeDrag(WinitResizeDirection direction)
+    {
+        var status = WinitNativeMethods.winit_window_drag_resize_window(_handle, direction);
+        if (status != WinitStatus.Success && status != WinitStatus.Unsupported)
+        {
+            NativeHelpers.ThrowOnError(status, "winit_window_drag_resize_window");
+        }
+
+        return status;
+    }
+
+    public void SetWindowLevel(WinitWindowLevel level)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_window_level(_handle, level), "winit_window_set_window_level");
+    }
+
+    public void SetEnabledButtons(WinitWindowButtons buttons)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_enabled_buttons(_handle, (uint)buttons), "winit_window_set_enabled_buttons");
+    }
+
+    public void SetEnabled(bool enabled)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_enabled(_handle, enabled), "winit_window_set_enabled");
+    }
+
+    public void SetSkipTaskbar(bool skip)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_skip_taskbar(_handle, skip), "winit_window_set_skip_taskbar");
+    }
+
+    public void SetWindowIcon(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            unsafe
+            {
+                NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_icon(_handle, null, 0), "winit_window_set_icon");
+            }
+
+            return;
+        }
+
+        unsafe
+        {
+            fixed (byte* ptr = data)
+            {
+                NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_icon(_handle, ptr, (nuint)data.Length), "winit_window_set_icon");
+            }
+        }
+    }
+
+    public void ClearWindowIcon()
+    {
+        unsafe
+        {
+            NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_icon(_handle, null, 0), "winit_window_set_icon");
+        }
+    }
+
+    public void SetCursor(WinitCursorIcon icon)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_cursor_icon(_handle, icon), "winit_window_set_cursor_icon");
+    }
+
+    public void SetCursorVisible(bool visible)
+    {
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_cursor_visible(_handle, visible), "winit_window_set_cursor_visible");
+    }
+
     public void SetMinimized(bool minimized)
     {
         NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_set_minimized(_handle, minimized), "winit_window_set_minimized");

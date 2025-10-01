@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -49,6 +50,11 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private bool _windowReady;
     private WinitWindowImpl? _parentWindow;
     private bool _isDialogWindow;
+    private bool _canMinimize = true;
+    private bool _canMaximize = true;
+    private bool _isEnabled = true;
+    private bool _isTopmost;
+    private bool _isResizable = true;
 
     public WinitWindowImpl(WinitDispatcher dispatcher, WinitScreenManager screenManager, WinitWindowOptions options)
     {
@@ -162,6 +168,14 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void SetEnabled(bool enable)
     {
+        _isEnabled = enable;
+
+        if (_isClosing)
+        {
+            return;
+        }
+
+        InvokeOnLoop(() => _window?.SetEnabled(enable));
     }
 
     public Action? GotInputWhenDisabled { get; set; }
@@ -178,28 +192,87 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void SetIcon(IWindowIconImpl? icon)
     {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        byte[]? iconData = null;
+
+        if (icon is WinitIconImpl winitIcon)
+        {
+            iconData = winitIcon.GetBytes();
+        }
+        else if (icon is not null)
+        {
+            using var stream = new MemoryStream();
+            icon.Save(stream);
+            iconData = stream.ToArray();
+        }
+
+        var payload = iconData;
+        InvokeOnLoop(() =>
+        {
+            var window = _window;
+            if (window is null)
+            {
+                return;
+            }
+
+            if (payload is { Length: > 0 })
+            {
+                window.SetWindowIcon(payload);
+            }
+            else
+            {
+                window.ClearWindowIcon();
+            }
+        });
     }
 
     public void ShowTaskbarIcon(bool value)
-    {
-    }
-
-    public void CanResize(bool value)
     {
         if (_isClosing)
         {
             return;
         }
 
+        InvokeOnLoop(() => _window?.SetSkipTaskbar(!value));
+    }
+
+    public void CanResize(bool value)
+    {
+        _isResizable = value;
+
+        if (_isClosing)
+        {
+            return;
+        }
+
         InvokeOnLoop(() => _window?.SetResizable(value));
+        ApplyWindowButtons();
     }
 
     public void SetCanMinimize(bool value)
     {
+        if (_canMinimize == value)
+        {
+            return;
+        }
+
+        _canMinimize = value;
+        ApplyWindowButtons();
     }
 
     public void SetCanMaximize(bool value)
     {
+        if (_canMaximize == value)
+        {
+            return;
+        }
+
+        _canMaximize = value;
+        ApplyWindowButtons();
     }
 
     public Func<WindowCloseReason, bool>? Closing { get; set; }
@@ -216,10 +289,69 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void BeginMoveDrag(PointerPressedEventArgs e)
     {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(null);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        e.Pointer.Capture(null);
+
+        InvokeOnLoop(() =>
+        {
+            var window = _window;
+            if (window is null)
+            {
+                return;
+            }
+
+            var status = window.TryBeginMoveDrag();
+            if (status == WinitStatus.Unsupported)
+            {
+                // Platform does not support programmatic move drags.
+            }
+        });
     }
 
     public void BeginResizeDrag(WindowEdge edge, PointerPressedEventArgs e)
     {
+        if (_isClosing || !_isResizable)
+        {
+            return;
+        }
+
+        if (!TryGetResizeDirection(edge, out var direction))
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(null);
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        e.Pointer.Capture(null);
+
+        InvokeOnLoop(() =>
+        {
+            var window = _window;
+            if (window is null)
+            {
+                return;
+            }
+
+            var status = window.TryBeginResizeDrag(direction);
+            if (status == WinitStatus.Unsupported)
+            {
+                // Resize drags are unsupported on this platform.
+            }
+        });
     }
 
     public void Resize(Size clientSize, WindowResizeReason reason = WindowResizeReason.Application)
@@ -239,6 +371,12 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void Move(PixelPoint point)
     {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        InvokeOnLoop(() => _window?.SetOuterPosition(point.X, point.Y));
     }
 
     public void SetMinMaxSize(Size minSize, Size maxSize)
@@ -282,6 +420,15 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void SetTopmost(bool value)
     {
+        _isTopmost = value;
+
+        if (_isClosing)
+        {
+            return;
+        }
+
+        var level = value ? WinitWindowLevel.AlwaysOnTop : WinitWindowLevel.Normal;
+        InvokeOnLoop(() => _window?.SetWindowLevel(level));
     }
 
     public double DesktopScaling => _desktopScaling;
@@ -324,6 +471,49 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void SetCursor(ICursorImpl? cursor)
     {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        if (cursor is WinitCursorFactory.WinitCursorImpl winitCursor)
+        {
+            var icon = winitCursor.Icon;
+            var hidden = winitCursor.IsHidden;
+
+            InvokeOnLoop(() =>
+            {
+                var window = _window;
+                if (window is null)
+                {
+                    return;
+                }
+
+                if (hidden)
+                {
+                    window.SetCursorVisible(false);
+                }
+                else
+                {
+                    window.SetCursor(icon);
+                    window.SetCursorVisible(true);
+                }
+            });
+        }
+        else
+        {
+            InvokeOnLoop(() =>
+            {
+                var window = _window;
+                if (window is null)
+                {
+                    return;
+                }
+
+                window.SetCursor(WinitCursorIcon.Default);
+                window.SetCursorVisible(true);
+            });
+        }
     }
 
     public Action? Closed { get; set; }
@@ -559,6 +749,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
         if (pending is null)
         {
+            ApplyWindowButtons();
             return;
         }
 
@@ -573,6 +764,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
                 Console.Error.WriteLine($"WinitWindowImpl pending loop action failed: {ex}");
             }
         }
+
+        ApplyWindowButtons();
     }
 
     private void DestroyNativeWindow(WinitEventLoopContext? context = null)
@@ -716,6 +909,55 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         NativeHelpers.ThrowOnError(
             WinitNativeMethods.winit_window_set_owner(handle, parentHandle),
             "winit_window_set_owner");
+    }
+
+    private void ApplyWindowButtons()
+    {
+        if (_isClosing)
+        {
+            return;
+        }
+
+        InvokeOnLoop(() =>
+        {
+            var window = _window;
+            if (window is null)
+            {
+                return;
+            }
+
+            var buttons = WinitWindowButtons.Close;
+
+            if (_canMinimize)
+            {
+                buttons |= WinitWindowButtons.Minimize;
+            }
+
+            if (_canMaximize && _isResizable)
+            {
+                buttons |= WinitWindowButtons.Maximize;
+            }
+
+            window.SetEnabledButtons(buttons);
+        });
+    }
+
+    private static bool TryGetResizeDirection(WindowEdge edge, out WinitResizeDirection direction)
+    {
+        direction = edge switch
+        {
+            WindowEdge.NorthWest => WinitResizeDirection.NorthWest,
+            WindowEdge.North => WinitResizeDirection.North,
+            WindowEdge.NorthEast => WinitResizeDirection.NorthEast,
+            WindowEdge.West => WinitResizeDirection.West,
+            WindowEdge.East => WinitResizeDirection.East,
+            WindowEdge.SouthWest => WinitResizeDirection.SouthWest,
+            WindowEdge.South => WinitResizeDirection.South,
+            WindowEdge.SouthEast => WinitResizeDirection.SouthEast,
+            _ => default,
+        };
+
+        return edge is WindowEdge.NorthWest or WindowEdge.North or WindowEdge.NorthEast or WindowEdge.West or WindowEdge.East or WindowEdge.SouthWest or WindowEdge.South or WindowEdge.SouthEast;
     }
 
     private void ExecuteOrQueueLoopAction(Action action)

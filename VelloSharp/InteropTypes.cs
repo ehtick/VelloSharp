@@ -104,6 +104,7 @@ public enum WinitStatus : int
     WindowCreationFailed = 4,
     CallbackPanicked = 5,
     InvalidState = 6,
+    Unsupported = 7,
 }
 
 public enum WinitControlFlow : int
@@ -147,6 +148,66 @@ public enum WinitEventKind : int
     ModifiersChanged = 20,
     Touch = 21,
     TextInput = 22,
+}
+
+public enum WinitResizeDirection : int
+{
+    East = 0,
+    North = 1,
+    NorthEast = 2,
+    NorthWest = 3,
+    South = 4,
+    SouthEast = 5,
+    SouthWest = 6,
+    West = 7,
+}
+
+public enum WinitWindowLevel : int
+{
+    AlwaysOnBottom = 0,
+    Normal = 1,
+    AlwaysOnTop = 2,
+}
+
+[Flags]
+public enum WinitWindowButtons : uint
+{
+    None = 0,
+    Close = 1 << 0,
+    Minimize = 1 << 1,
+    Maximize = 1 << 2,
+}
+
+public enum WinitCursorIcon : int
+{
+    Default = 0,
+    Pointer = 1,
+    Text = 2,
+    Crosshair = 3,
+    Wait = 4,
+    Progress = 5,
+    Help = 6,
+    NotAllowed = 7,
+    Move = 8,
+    Alias = 9,
+    Copy = 10,
+    Grab = 11,
+    Grabbing = 12,
+    EResize = 13,
+    NResize = 14,
+    NeResize = 15,
+    NwResize = 16,
+    SResize = 17,
+    SeResize = 18,
+    SwResize = 19,
+    WResize = 20,
+    EwResize = 21,
+    NsResize = 22,
+    NeswResize = 23,
+    NwseResize = 24,
+    ColResize = 25,
+    RowResize = 26,
+    AllScroll = 27,
 }
 
 public enum WinitMouseButton : int

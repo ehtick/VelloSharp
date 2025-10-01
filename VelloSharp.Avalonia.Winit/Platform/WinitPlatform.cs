@@ -135,11 +135,52 @@ internal static class WinitPlatform
 
 internal sealed class WinitIconLoader : IPlatformIconLoader
 {
-    public IWindowIconImpl LoadIcon(string fileName) => throw new NotSupportedException("Window icons are not supported by the Winit backend.");
+    public IWindowIconImpl LoadIcon(string fileName)
+    {
+        if (fileName is null)
+        {
+            throw new ArgumentNullException(nameof(fileName));
+        }
 
-    public IWindowIconImpl LoadIcon(Stream stream) => throw new NotSupportedException("Window icons are not supported by the Winit backend.");
+        using var stream = File.OpenRead(fileName);
+        return LoadIcon(stream);
+    }
 
-    public IWindowIconImpl LoadIcon(IBitmapImpl bitmap) => throw new NotSupportedException("Window icons are not supported by the Winit backend.");
+    public IWindowIconImpl LoadIcon(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        return new WinitIconImpl(memory.ToArray());
+    }
+
+    public IWindowIconImpl LoadIcon(IBitmapImpl bitmap)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        using var memory = new MemoryStream();
+        bitmap.Save(memory);
+        return new WinitIconImpl(memory.ToArray());
+    }
+}
+
+internal sealed class WinitIconImpl : IWindowIconImpl
+{
+    private readonly byte[] _data;
+
+    public WinitIconImpl(byte[] data)
+    {
+        _data = data ?? throw new ArgumentNullException(nameof(data));
+    }
+
+    public ReadOnlySpan<byte> Data => _data;
+
+    public byte[] GetBytes() => (byte[])_data.Clone();
+
+    public void Save(Stream outputStream)
+    {
+        ArgumentNullException.ThrowIfNull(outputStream);
+        outputStream.Write(_data, 0, _data.Length);
+    }
 }
 
 [PrivateApi]

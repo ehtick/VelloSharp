@@ -24,15 +24,17 @@ use copypasta::{ClipboardContext, ClipboardProvider};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
+    dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{
         DeviceEvent, ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, StartCause,
         TouchPhase, WindowEvent,
     },
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     keyboard::{Key, KeyCode, KeyLocation, ModifiersState, NamedKey, PhysicalKey},
-    window::{Window, WindowAttributes, WindowId},
+    window::{ResizeDirection, Window, WindowAttributes, WindowButtons, WindowId, WindowLevel},
 };
+use winit::error::ExternalError;
+use winit::window::{CursorIcon, Icon};
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::{
@@ -301,6 +303,141 @@ pub enum WinitStatus {
     WindowCreationFailed = 4,
     CallbackPanicked = 5,
     InvalidState = 6,
+    Unsupported = 7,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum WinitResizeDirection {
+    East = 0,
+    North = 1,
+    NorthEast = 2,
+    NorthWest = 3,
+    South = 4,
+    SouthEast = 5,
+    SouthWest = 6,
+    West = 7,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum WinitWindowLevel {
+    AlwaysOnBottom = 0,
+    Normal = 1,
+    AlwaysOnTop = 2,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum WinitCursorIcon {
+    Default = 0,
+    Pointer = 1,
+    Text = 2,
+    Crosshair = 3,
+    Wait = 4,
+    Progress = 5,
+    Help = 6,
+    NotAllowed = 7,
+    Move = 8,
+    Alias = 9,
+    Copy = 10,
+    Grab = 11,
+    Grabbing = 12,
+    EResize = 13,
+    NResize = 14,
+    NeResize = 15,
+    NwResize = 16,
+    SResize = 17,
+    SeResize = 18,
+    SwResize = 19,
+    WResize = 20,
+    EwResize = 21,
+    NsResize = 22,
+    NeswResize = 23,
+    NwseResize = 24,
+    ColResize = 25,
+    RowResize = 26,
+    AllScroll = 27,
+}
+
+pub const WINIT_WINDOW_BUTTON_CLOSE: u32 = WindowButtons::CLOSE.bits();
+pub const WINIT_WINDOW_BUTTON_MINIMIZE: u32 = WindowButtons::MINIMIZE.bits();
+pub const WINIT_WINDOW_BUTTON_MAXIMIZE: u32 = WindowButtons::MAXIMIZE.bits();
+
+fn map_resize_direction(direction: WinitResizeDirection) -> ResizeDirection {
+    match direction {
+        WinitResizeDirection::East => ResizeDirection::East,
+        WinitResizeDirection::North => ResizeDirection::North,
+        WinitResizeDirection::NorthEast => ResizeDirection::NorthEast,
+        WinitResizeDirection::NorthWest => ResizeDirection::NorthWest,
+        WinitResizeDirection::South => ResizeDirection::South,
+        WinitResizeDirection::SouthEast => ResizeDirection::SouthEast,
+        WinitResizeDirection::SouthWest => ResizeDirection::SouthWest,
+        WinitResizeDirection::West => ResizeDirection::West,
+    }
+}
+
+fn map_window_level(level: WinitWindowLevel) -> WindowLevel {
+    match level {
+        WinitWindowLevel::AlwaysOnBottom => WindowLevel::AlwaysOnBottom,
+        WinitWindowLevel::Normal => WindowLevel::Normal,
+        WinitWindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnTop,
+    }
+}
+
+fn map_cursor_icon(icon: WinitCursorIcon) -> CursorIcon {
+    match icon {
+        WinitCursorIcon::Default => CursorIcon::Default,
+        WinitCursorIcon::Pointer => CursorIcon::Pointer,
+        WinitCursorIcon::Text => CursorIcon::Text,
+        WinitCursorIcon::Crosshair => CursorIcon::Crosshair,
+        WinitCursorIcon::Wait => CursorIcon::Wait,
+        WinitCursorIcon::Progress => CursorIcon::Progress,
+        WinitCursorIcon::Help => CursorIcon::Help,
+        WinitCursorIcon::NotAllowed => CursorIcon::NotAllowed,
+        WinitCursorIcon::Move => CursorIcon::Move,
+        WinitCursorIcon::Alias => CursorIcon::Alias,
+        WinitCursorIcon::Copy => CursorIcon::Copy,
+        WinitCursorIcon::Grab => CursorIcon::Grab,
+        WinitCursorIcon::Grabbing => CursorIcon::Grabbing,
+        WinitCursorIcon::EResize => CursorIcon::EResize,
+        WinitCursorIcon::NResize => CursorIcon::NResize,
+        WinitCursorIcon::NeResize => CursorIcon::NeResize,
+        WinitCursorIcon::NwResize => CursorIcon::NwResize,
+        WinitCursorIcon::SResize => CursorIcon::SResize,
+        WinitCursorIcon::SeResize => CursorIcon::SeResize,
+        WinitCursorIcon::SwResize => CursorIcon::SwResize,
+        WinitCursorIcon::WResize => CursorIcon::WResize,
+        WinitCursorIcon::EwResize => CursorIcon::EwResize,
+        WinitCursorIcon::NsResize => CursorIcon::NsResize,
+        WinitCursorIcon::NeswResize => CursorIcon::NeswResize,
+        WinitCursorIcon::NwseResize => CursorIcon::NwseResize,
+        WinitCursorIcon::ColResize => CursorIcon::ColResize,
+        WinitCursorIcon::RowResize => CursorIcon::RowResize,
+        WinitCursorIcon::AllScroll => CursorIcon::AllScroll,
+    }
+}
+
+fn window_buttons_from_mask(mask: u32) -> WindowButtons {
+    let mut buttons = WindowButtons::empty();
+    if mask & WINIT_WINDOW_BUTTON_CLOSE != 0 {
+        buttons |= WindowButtons::CLOSE;
+    }
+    if mask & WINIT_WINDOW_BUTTON_MINIMIZE != 0 {
+        buttons |= WindowButtons::MINIMIZE;
+    }
+    if mask & WINIT_WINDOW_BUTTON_MAXIMIZE != 0 {
+        buttons |= WindowButtons::MAXIMIZE;
+    }
+    buttons
+}
+
+fn map_external_error(err: ExternalError) -> WinitStatus {
+    set_last_error(err.to_string());
+    match err {
+        ExternalError::NotSupported(_) | ExternalError::Ignored => WinitStatus::Unsupported,
+        ExternalError::Os(_) => WinitStatus::RuntimeError,
+    }
 }
 
 #[repr(i32)]
@@ -1735,6 +1872,199 @@ pub unsafe extern "C" fn winit_window_set_decorations(
     clear_last_error();
     match with_window(window, |handle| {
         handle.window().set_decorations(decorations);
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_outer_position(
+    window: *mut WinitWindowHandleOpaque,
+    x: i32,
+    y: i32,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle
+            .window()
+            .set_outer_position(Position::Physical(PhysicalPosition::new(x, y)));
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_drag_window(
+    window: *mut WinitWindowHandleOpaque,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle
+            .window()
+            .drag_window()
+            .map_err(map_external_error)
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_drag_resize_window(
+    window: *mut WinitWindowHandleOpaque,
+    direction: WinitResizeDirection,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle
+            .window()
+            .drag_resize_window(map_resize_direction(direction))
+            .map_err(map_external_error)
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_window_level(
+    window: *mut WinitWindowHandleOpaque,
+    level: WinitWindowLevel,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_window_level(map_window_level(level));
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_enabled_buttons(
+    window: *mut WinitWindowHandleOpaque,
+    mask: u32,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_enabled_buttons(window_buttons_from_mask(mask));
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_enabled(
+    window: *mut WinitWindowHandleOpaque,
+    enabled: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::WindowExtWindows;
+            handle.window().set_enable(enabled);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = (handle, enabled);
+        }
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_skip_taskbar(
+    window: *mut WinitWindowHandleOpaque,
+    skip: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::WindowExtWindows;
+            handle.window().set_skip_taskbar(skip);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = (handle, skip);
+        }
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_icon(
+    window: *mut WinitWindowHandleOpaque,
+    data: *const u8,
+    data_len: usize,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        if data.is_null() || data_len == 0 {
+            handle.window().set_window_icon(None);
+            return Ok(());
+        }
+
+        let bytes = unsafe { std::slice::from_raw_parts(data, data_len) };
+        let decoded = image::load_from_memory(bytes).map_err(|err| {
+            set_last_error(format!("Failed to decode icon: {err}"));
+            WinitStatus::InvalidArgument
+        })?;
+
+        let rgba = decoded.to_rgba8();
+        let width = rgba.width();
+        let height = rgba.height();
+
+        let icon = Icon::from_rgba(rgba.into_raw(), width, height).map_err(|err| {
+            set_last_error(err.to_string());
+            WinitStatus::InvalidArgument
+        })?;
+
+        handle.window().set_window_icon(Some(icon));
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_cursor_icon(
+    window: *mut WinitWindowHandleOpaque,
+    icon: WinitCursorIcon,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_cursor(map_cursor_icon(icon));
+        Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_cursor_visible(
+    window: *mut WinitWindowHandleOpaque,
+    visible: bool,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window(window, |handle| {
+        handle.window().set_cursor_visible(visible);
         Ok(())
     }) {
         Ok(()) => WinitStatus::Success,

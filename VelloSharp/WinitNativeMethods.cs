@@ -100,6 +100,46 @@ internal static unsafe partial class WinitNativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_set_owner(nint window, nint owner);
 
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_outer_position")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_outer_position(nint window, int x, int y);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_drag_window")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_drag_window(nint window);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_drag_resize_window")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_drag_resize_window(nint window, WinitResizeDirection direction);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_window_level")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_window_level(nint window, WinitWindowLevel level);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_enabled_buttons")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_enabled_buttons(nint window, uint buttons);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_enabled")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_enabled(nint window, [MarshalAs(UnmanagedType.I1)] bool enabled);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_skip_taskbar")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_skip_taskbar(nint window, [MarshalAs(UnmanagedType.I1)] bool skip);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_icon")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_icon(nint window, byte* data, nuint length);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_cursor_icon")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_cursor_icon(nint window, WinitCursorIcon icon);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_cursor_visible")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_cursor_visible(nint window, [MarshalAs(UnmanagedType.I1)] bool visible);
+
     [LibraryImport(LibraryName, EntryPoint = "winit_window_set_minimized")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_set_minimized(nint window, [MarshalAs(UnmanagedType.I1)] bool minimized);
