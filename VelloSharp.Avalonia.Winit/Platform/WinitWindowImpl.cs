@@ -5,6 +5,7 @@ using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
@@ -55,12 +56,14 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private bool _isEnabled = true;
     private bool _isTopmost;
     private bool _isResizable = true;
+    private readonly WinitAccessKitManager _accessKit;
 
     public WinitWindowImpl(WinitDispatcher dispatcher, WinitScreenManager screenManager, WinitWindowOptions options)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _screenManager = screenManager ?? throw new ArgumentNullException(nameof(screenManager));
         _surfaces = new object[] { this };
+        _accessKit = new WinitAccessKitManager(this, _dispatcher);
         _mouseDevice = AvaloniaLocator.Current.GetService<IMouseDevice>() ?? new MouseDevice();
         _keyboardDevice = AvaloniaLocator.Current.GetService<IKeyboardDevice>() ?? new KeyboardDevice();
         InitializeWindow(options);
@@ -69,6 +72,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void Dispose()
     {
+        _accessKit.Dispose();
         DestroyNativeWindow();
     }
 
@@ -456,6 +460,20 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     public void SetInputRoot(IInputRoot inputRoot)
     {
         _inputRoot = inputRoot;
+        AttachAutomationPeer(inputRoot);
+    }
+
+    private void AttachAutomationPeer(IInputRoot inputRoot)
+    {
+        if (inputRoot is Control control)
+        {
+            var peer = ControlAutomationPeer.CreatePeerForElement(control);
+            _accessKit.AttachAutomationPeer(peer as WindowAutomationPeer);
+        }
+        else
+        {
+            _accessKit.AttachAutomationPeer(null);
+        }
     }
 
     public Point PointToClient(PixelPoint point)
@@ -656,6 +674,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         WinitStatus CreateWindowCore(WinitEventLoopContext context)
         {
             var descriptor = options.ToNative(out var titlePtr);
+            descriptor.Visible = false;
             try
             {
                 var result = WinitNativeMethods.winit_context_create_window(context.Handle, ref descriptor, out var handle);
@@ -1017,7 +1036,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         };
     }
 
-    internal void OnWindowCreated(uint width, uint height, double scale)
+    internal void OnWindowCreated(WinitEventLoopContext context, uint width, uint height, double scale)
     {
         _surfaceSize = CreateSurfaceSize(width, height);
         var normalizedScale = NormalizeScale(scale);
@@ -1027,7 +1046,18 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         Resized?.Invoke(_clientSize, WindowResizeReason.Layout);
         ScalingChanged?.Invoke(normalizedScale);
         _screenManager.UpdateFromWindow(_surfaceSize, normalizedScale);
+
+        if (_window is { } window)
+        {
+            _accessKit.InitializeNative(context, window);
+        }
+
         MarkWindowReady();
+
+        if (_window is { } window)
+        {
+            _accessKit.InvalidateTree();
+        }
     }
 
     internal void OnWindowResized(uint width, uint height, double scale)
@@ -1208,6 +1238,11 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     internal void OnTouch(WinitEventArgs args)
     {
+    }
+
+    internal void OnAccessKitEvent(WinitEventArgs args)
+    {
+        _accessKit.HandleAccessKitEvent(args);
     }
 
     internal void OnTextInput(string text)

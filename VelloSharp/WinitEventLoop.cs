@@ -111,6 +111,12 @@ public readonly struct WinitEventLoopContext
         NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_get_window(_context, out var window), "winit_context_get_window");
         return window == nint.Zero ? null : new WinitWindow(window);
     }
+
+    public void InitializeAccessKit(WinitWindow window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_window_accesskit_init(_context, window.Handle), "winit_context_window_accesskit_init");
+    }
 }
 
 public sealed class WinitWindow
@@ -121,6 +127,8 @@ public sealed class WinitWindow
     {
         _handle = handle;
     }
+
+    internal nint Handle => _handle;
 
     public void RequestRedraw()
     {
@@ -298,6 +306,12 @@ public sealed class WinitWindow
     {
         NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_focus(_handle), "winit_window_focus");
     }
+
+    public void SubmitAccessKitUpdate(string updateJson)
+    {
+        ArgumentNullException.ThrowIfNull(updateJson);
+        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_window_accesskit_update(_handle, updateJson), "winit_window_accesskit_update");
+    }
 }
 
 public readonly struct WinitEventArgs
@@ -333,6 +347,8 @@ public readonly struct WinitEventArgs
         TouchId = evt.TouchId;
         TouchPhase = evt.TouchPhase;
         Text = evt.Text == nint.Zero ? null : Marshal.PtrToStringUTF8(evt.Text);
+        AccessKitEventKind = evt.AccessKitEventKind;
+        AccessKitActionJson = evt.AccessKitAction == nint.Zero ? null : Marshal.PtrToStringUTF8(evt.AccessKitAction);
     }
 
     public WinitEventKind Kind { get; }
@@ -376,6 +392,10 @@ public readonly struct WinitEventArgs
     public WinitTouchPhaseKind TouchPhase { get; }
 
     public string? Text { get; }
+
+    public WinitAccessKitEventKind AccessKitEventKind { get; }
+
+    public string? AccessKitActionJson { get; }
 
     internal nint WindowHandle { get; }
 

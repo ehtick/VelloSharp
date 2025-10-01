@@ -21,6 +21,8 @@ const KEY_CODE_NAME_CAPACITY: usize = 64;
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use copypasta::{ClipboardContext, ClipboardProvider};
 
+use accesskit::TreeUpdate;
+use accesskit_winit::{Adapter, Event as AccessKitEvent, WindowEvent as AccessKitWindowEvent};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
 use winit::error::ExternalError;
 use winit::window::{CursorIcon, Icon};
@@ -47,9 +49,16 @@ use objc::runtime::Object;
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 enum UserEvent {
     Wake,
+    AccessKit(AccessKitEvent),
+}
+
+impl From<AccessKitEvent> for UserEvent {
+    fn from(event: AccessKitEvent) -> Self {
+        UserEvent::AccessKit(event)
+    }
 }
 
 static EVENT_LOOP_PROXY: OnceLock<Mutex<Option<EventLoopProxy<UserEvent>>>> = OnceLock::new();
@@ -95,6 +104,21 @@ where
     };
 
     f(proxy)
+}
+
+fn clone_event_loop_proxy() -> Result<EventLoopProxy<UserEvent>, WinitStatus> {
+    let Some(mutex) = EVENT_LOOP_PROXY.get() else {
+        set_last_error("Event loop proxy is not initialized");
+        return Err(WinitStatus::InvalidState);
+    };
+
+    let guard = mutex.lock().unwrap();
+    let Some(proxy) = guard.as_ref() else {
+        set_last_error("Event loop proxy is not available");
+        return Err(WinitStatus::InvalidState);
+    };
+
+    Ok(proxy.clone())
 }
 
 struct ProxyRegistration;
@@ -484,6 +508,16 @@ pub enum WinitEventKind {
     ModifiersChanged = 20,
     Touch = 21,
     TextInput = 22,
+    AccessKitEvent = 23,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum WinitAccessKitEventKind {
+    None = 0,
+    InitialTreeRequested = 1,
+    ActionRequested = 2,
+    AccessibilityDeactivated = 3,
 }
 
 #[repr(i32)]
@@ -604,6 +638,8 @@ pub struct WinitEvent {
     pub touch_id: u64,
     pub touch_phase: WinitTouchPhaseKind,
     pub text: *mut c_char,
+    pub accesskit_event_kind: WinitAccessKitEventKind,
+    pub accesskit_action: *mut c_char,
 }
 
 impl Default for WinitEvent {
@@ -631,6 +667,8 @@ impl Default for WinitEvent {
             touch_id: 0,
             touch_phase: WinitTouchPhaseKind::Started,
             text: ptr::null_mut(),
+            accesskit_event_kind: WinitAccessKitEventKind::None,
+            accesskit_action: ptr::null_mut(),
         }
     }
 }
@@ -651,6 +689,12 @@ impl Drop for WinitEvent {
                 drop(CString::from_raw(self.text));
             }
             self.text = ptr::null_mut();
+        }
+        if !self.accesskit_action.is_null() {
+            unsafe {
+                drop(CString::from_raw(self.accesskit_action));
+            }
+            self.accesskit_action = ptr::null_mut();
         }
     }
 }
@@ -822,15 +866,72 @@ impl CallbackContext {
     }
 }
 
+struct AccessKitState {
+    adapter: Adapter,
+}
+
+impl AccessKitState {
+    fn new(adapter: Adapter) -> Self {
+        Self { adapter }
+    }
+
+    fn process_event(&mut self, window: &Window, event: &WindowEvent) {
+        self.adapter.process_event(window, event);
+    }
+
+    fn update_from_json(&mut self, json: &str) -> Result<(), WinitStatus> {
+        let update: TreeUpdate = serde_json::from_str(json).map_err(|err| {
+            set_last_error(format!("Failed to parse AccessKit tree update JSON: {err}"));
+            WinitStatus::InvalidArgument
+        })?;
+        let mut update = Some(update);
+        self.adapter
+            .update_if_active(move || update.take().expect("tree update already taken"));
+        Ok(())
+    }
+}
+
 struct WinitWindowHandle {
     id: u64,
     window: Window,
+    accesskit: Option<AccessKitState>,
 }
 
 impl WinitWindowHandle {
     fn new(window: Window) -> Self {
         let id = u64::from(window.id());
-        Self { id, window }
+        Self {
+            id,
+            window,
+            accesskit: None,
+        }
+    }
+
+    fn init_accesskit(&mut self, event_loop: &ActiveEventLoop) -> Result<(), WinitStatus> {
+        if self.accesskit.is_some() {
+            return Ok(());
+        }
+
+        let proxy = clone_event_loop_proxy()?;
+        let adapter = Adapter::with_event_loop_proxy(event_loop, self.window(), proxy);
+        self.accesskit = Some(AccessKitState::new(adapter));
+        Ok(())
+    }
+
+    fn submit_accesskit_update(&mut self, json: &str) -> Result<(), WinitStatus> {
+        let state = self.accesskit.as_mut().ok_or_else(|| {
+            set_last_error("AccessKit adapter is not initialized for this window");
+            WinitStatus::InvalidState
+        })?;
+        state.update_from_json(json)
+    }
+
+    fn process_accesskit_event(&mut self, event: &WindowEvent) {
+        let window_ptr = self.window() as *const Window;
+        if let Some(state) = self.accesskit.as_mut() {
+            let window = unsafe { &*window_ptr };
+            state.process_event(window, event);
+        }
     }
 
     fn id(&self) -> u64 {
@@ -1086,6 +1187,7 @@ impl ApplicationHandler<UserEvent> for WinitApplication {
         };
         let handle_ptr = handle as *mut WinitWindowHandle;
         let window_ptr = handle_ptr.cast::<WinitWindowHandleOpaque>();
+        handle.process_accesskit_event(&event);
         match event {
             WindowEvent::Resized(size) => {
                 let mut evt = WinitEvent::new(WinitEventKind::WindowResized);
@@ -1252,7 +1354,58 @@ impl ApplicationHandler<UserEvent> for WinitApplication {
         self.dispatch_event(event_loop, event);
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: UserEvent) {}
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+        match event {
+            UserEvent::Wake => {}
+            UserEvent::AccessKit(accesskit_event) => {
+                let window_id = accesskit_event.window_id;
+                let window_event = accesskit_event.window_event;
+                let Some(handle) = self.handle_for_id(window_id) else {
+                    self.record_error("Received AccessKit event for unknown window");
+                    return;
+                };
+                let handle_ptr = handle as *mut WinitWindowHandle;
+                let window_ptr = handle_ptr.cast::<WinitWindowHandleOpaque>();
+                drop(handle);
+
+                let mut evt = WinitEvent::new(WinitEventKind::AccessKitEvent);
+                evt.window = window_ptr;
+
+                match window_event {
+                    AccessKitWindowEvent::InitialTreeRequested => {
+                        evt.accesskit_event_kind = WinitAccessKitEventKind::InitialTreeRequested;
+                    }
+                    AccessKitWindowEvent::ActionRequested(request) => {
+                        evt.accesskit_event_kind = WinitAccessKitEventKind::ActionRequested;
+                        match serde_json::to_string(&request) {
+                            Ok(json) => {
+                                if let Ok(cstr) = CString::new(json) {
+                                    evt.accesskit_action = cstr.into_raw();
+                                } else {
+                                    self.record_error(
+                                        "Failed to encode AccessKit action request JSON",
+                                    );
+                                    return;
+                                }
+                            }
+                            Err(err) => {
+                                self.record_error(format!(
+                                    "Failed to serialize AccessKit action request: {err}"
+                                ));
+                                return;
+                            }
+                        }
+                    }
+                    AccessKitWindowEvent::AccessibilityDeactivated => {
+                        evt.accesskit_event_kind =
+                            WinitAccessKitEventKind::AccessibilityDeactivated;
+                    }
+                }
+
+                self.dispatch_event(event_loop, evt);
+            }
+        }
+    }
 }
 
 fn map_element_state(state: ElementState) -> WinitElementState {
@@ -1652,6 +1805,60 @@ pub unsafe extern "C" fn winit_context_destroy_window(
         application.remove_window_by_key(key);
         Ok(())
     }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_context_window_accesskit_init(
+    ctx: *mut WinitCallbackContextOpaque,
+    window: *mut WinitWindowHandleOpaque,
+) -> WinitStatus {
+    clear_last_error();
+    if window.is_null() {
+        set_last_error("Window handle pointer is null");
+        return WinitStatus::NullPointer;
+    }
+
+    match with_context(ctx, |context| {
+        let event_loop = unsafe { context.event_loop()? };
+        let handle = unsafe { (window as *mut WinitWindowHandle).as_mut() }.ok_or_else(|| {
+            set_last_error("Window handle pointer is null");
+            WinitStatus::NullPointer
+        })?;
+        handle.init_accesskit(event_loop)
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_accesskit_update(
+    window: *mut WinitWindowHandleOpaque,
+    update_json: *const c_char,
+) -> WinitStatus {
+    clear_last_error();
+    if window.is_null() {
+        set_last_error("Window pointer is null");
+        return WinitStatus::NullPointer;
+    }
+    if update_json.is_null() {
+        set_last_error("AccessKit tree update JSON pointer is null");
+        return WinitStatus::NullPointer;
+    }
+
+    let json = unsafe { CStr::from_ptr(update_json) };
+    let json_owned = match json.to_str() {
+        Ok(value) => value.to_owned(),
+        Err(_) => {
+            set_last_error("AccessKit tree update JSON is not valid UTF-8");
+            return WinitStatus::InvalidArgument;
+        }
+    };
+
+    match with_window(window, |handle| handle.submit_accesskit_update(&json_owned)) {
         Ok(()) => WinitStatus::Success,
         Err(status) => status,
     }

@@ -225,7 +225,7 @@ internal sealed class WinitDispatcher : IControlledDispatcherImpl, IWinitEventHa
         switch (args.Kind)
         {
             case WinitEventKind.WindowCreated:
-                window.OnWindowCreated(args.Width, args.Height, args.ScaleFactor);
+                window.OnWindowCreated(context, args.Width, args.Height, args.ScaleFactor);
                 break;
             case WinitEventKind.WindowResized:
                 window.OnWindowResized(args.Width, args.Height, args.ScaleFactor);
@@ -277,6 +277,9 @@ internal sealed class WinitDispatcher : IControlledDispatcherImpl, IWinitEventHa
                 break;
             case WinitEventKind.Touch:
                 window.OnTouch(args);
+                break;
+            case WinitEventKind.AccessKitEvent:
+                window.OnAccessKitEvent(args);
                 break;
             default:
                 break;

@@ -157,6 +157,15 @@ public enum WinitEventKind : int
     ModifiersChanged = 20,
     Touch = 21,
     TextInput = 22,
+    AccessKitEvent = 23,
+}
+
+public enum WinitAccessKitEventKind : int
+{
+    None = 0,
+    InitialTreeRequested = 1,
+    ActionRequested = 2,
+    AccessibilityDeactivated = 3,
 }
 
 public enum WinitResizeDirection : int
@@ -321,6 +330,8 @@ internal unsafe struct WinitEvent
     public ulong TouchId;
     public WinitTouchPhaseKind TouchPhase;
     public nint Text;
+    public WinitAccessKitEventKind AccessKitEventKind;
+    public nint AccessKitAction;
 }
 
 

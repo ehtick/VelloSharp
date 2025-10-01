@@ -72,6 +72,14 @@ internal static unsafe partial class WinitNativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_context_destroy_window(nint context, nint window);
 
+    [LibraryImport(LibraryName, EntryPoint = "winit_context_window_accesskit_init")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_context_window_accesskit_init(nint context, nint window);
+
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_accesskit_update", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_accesskit_update(nint window, string updateJson);
+
     [LibraryImport(LibraryName, EntryPoint = "winit_window_set_inner_size")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_set_inner_size(nint window, uint width, uint height);
