@@ -48,6 +48,7 @@ public enum WgpuFeature : ulong
     TextureCompressionAstc = 1ul << 6,
     IndirectFirstInstance = 1ul << 7,
     MappablePrimaryBuffers = 1ul << 8,
+    PolygonModeLine = 1ul << 19,
     ClearTexture = 1ul << 23,
     PipelineCache = 1ul << 41,
 }

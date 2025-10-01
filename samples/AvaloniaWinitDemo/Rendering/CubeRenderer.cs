@@ -11,6 +11,10 @@ internal sealed class CubeRenderer : IDisposable
 {
     private const uint TextureSize = 256;
 
+    private static readonly Vector3 CameraPosition = new(1.5f, -5f, 3f);
+    private static readonly Vector3 CameraTarget = Vector3.Zero;
+    private static readonly Vector3 CameraUp = Vector3.UnitZ;
+
     private static readonly float[] VertexData =
     {
         // top
@@ -131,6 +135,8 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
     private WgpuPipelineLayout? _pipelineLayout;
     private WgpuBindGroup? _bindGroup;
     private WgpuRenderPipeline? _pipeline;
+    private WgpuRenderPipeline? _wireframePipeline;
+    private bool _wireframeSupported;
     private int _indexCount;
     private bool _disposed;
 
@@ -151,7 +157,9 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
             return false;
         }
 
-        UpdateUniformBuffer(context.Queue, viewportRect, timeSeconds);
+        var transform = ComputeTransformMatrix(viewportRect, timeSeconds);
+
+        UpdateUniformBuffer(context.Queue, transform);
         EncodeCommands(context.Device, context.Queue, context.TargetView, context.RenderParams, viewportRect);
         return true;
     }
@@ -168,9 +176,11 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
         DisposeResource(ref _indexBuffer);
         DisposeResource(ref _vertexBuffer);
         DisposeResource(ref _shaderModule);
+        DisposeResource(ref _wireframePipeline);
         _device = null;
         _surfaceFormat = default;
         _indexCount = 0;
+        _wireframeSupported = false;
     }
 
     public void Dispose()
@@ -192,8 +202,9 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
             Reset();
             _device = device;
             _surfaceFormat = surfaceFormat;
+            _wireframeSupported = (device.GetFeatures() & WgpuFeature.PolygonModeLine) != 0;
             CreateStaticResources(device, queue);
-            CreatePipeline(device, surfaceFormat);
+            CreatePipelines(device, surfaceFormat);
             return _pipeline is not null;
         }
 
@@ -201,12 +212,13 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
         {
             _surfaceFormat = surfaceFormat;
             DisposeResource(ref _pipeline);
-            CreatePipeline(device, surfaceFormat);
+            DisposeResource(ref _wireframePipeline);
+            CreatePipelines(device, surfaceFormat);
         }
 
         if (_pipeline is null)
         {
-            CreatePipeline(device, surfaceFormat);
+            CreatePipelines(device, surfaceFormat);
         }
 
         return _pipeline is not null;
@@ -332,7 +344,7 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
         _indexCount = IndexData.Length;
     }
 
-    private void CreatePipeline(WgpuDevice device, WgpuTextureFormat surfaceFormat)
+    private void CreatePipelines(WgpuDevice device, WgpuTextureFormat surfaceFormat)
     {
         if (_shaderModule is null || _pipelineLayout is null)
         {
@@ -411,34 +423,104 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
 
         DisposeResource(ref _pipeline);
         _pipeline = device.CreateRenderPipeline(pipelineDescriptor);
+
+        DisposeResource(ref _wireframePipeline);
+
+        if (_wireframeSupported)
+        {
+            var wireframeFragmentState = new WgpuFragmentState
+            {
+                Module = _shaderModule,
+                EntryPoint = "fs_wire",
+                Targets = new[]
+                {
+                    new WgpuColorTargetState
+                    {
+                        Format = surfaceFormat,
+                        Blend = new WgpuBlendState
+                        {
+                            Color = new WgpuBlendComponent
+                            {
+                                SrcFactor = WgpuBlendFactor.SrcAlpha,
+                                DstFactor = WgpuBlendFactor.OneMinusSrcAlpha,
+                                Operation = WgpuBlendOperation.Add,
+                            },
+                            Alpha = new WgpuBlendComponent
+                            {
+                                SrcFactor = WgpuBlendFactor.One,
+                                DstFactor = WgpuBlendFactor.OneMinusSrcAlpha,
+                                Operation = WgpuBlendOperation.Add,
+                            },
+                        },
+                        WriteMask = WgpuColorWriteMask.All,
+                    },
+                },
+            };
+
+            var wireframePrimitiveState = new WgpuPrimitiveState
+            {
+                Topology = WgpuPrimitiveTopology.TriangleList,
+                StripIndexFormat = null,
+                FrontFace = WgpuFrontFace.Ccw,
+                CullMode = WgpuCullMode.Back,
+                UnclippedDepth = false,
+                PolygonMode = WgpuPolygonMode.Line,
+                Conservative = false,
+            };
+
+            var wireframeDescriptor = new WgpuRenderPipelineDescriptor
+            {
+                Label = "CubeWireframePipeline",
+                Layout = _pipelineLayout,
+                Vertex = vertexState,
+                Primitive = wireframePrimitiveState,
+                DepthStencil = null,
+                Multisample = new WgpuMultisampleState
+                {
+                    Count = 1,
+                    Mask = uint.MaxValue,
+                    AlphaToCoverageEnabled = false,
+                },
+                Fragment = wireframeFragmentState,
+            };
+
+            _wireframePipeline = device.CreateRenderPipeline(wireframeDescriptor);
+        }
     }
 
-    private void UpdateUniformBuffer(WgpuQueue queue, Rect viewportRect, float timeSeconds)
+    private void UpdateUniformBuffer(WgpuQueue queue, in Matrix4x4 uniformMatrix)
     {
         if (_uniformBuffer is null)
         {
             return;
         }
 
+        Span<float> buffer = stackalloc float[16]
+        {
+            uniformMatrix.M11, uniformMatrix.M12, uniformMatrix.M13, uniformMatrix.M14,
+            uniformMatrix.M21, uniformMatrix.M22, uniformMatrix.M23, uniformMatrix.M24,
+            uniformMatrix.M31, uniformMatrix.M32, uniformMatrix.M33, uniformMatrix.M34,
+            uniformMatrix.M41, uniformMatrix.M42, uniformMatrix.M43, uniformMatrix.M44,
+        };
+
+        queue.WriteBuffer(_uniformBuffer, 0, MemoryMarshal.AsBytes(buffer));
+    }
+
+    private Matrix4x4 ComputeTransformMatrix(Rect viewportRect, float timeSeconds)
+    {
         var aspect = (float)(viewportRect.Height <= double.Epsilon
             ? 1.0
             : viewportRect.Width / viewportRect.Height);
 
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 4f, aspect, 0.1f, 100f);
-        var view = Matrix4x4.CreateLookAt(new Vector3(1.5f, -5f, 3f), Vector3.Zero, Vector3.UnitZ);
-        var rotation = Matrix4x4.CreateRotationY(timeSeconds * 0.8f) * Matrix4x4.CreateRotationX(timeSeconds * 0.4f);
-        var mvp = rotation * view * projection;
-        var matrix = Matrix4x4.Transpose(mvp);
+        var view = Matrix4x4.CreateLookAt(CameraPosition, CameraTarget, CameraUp);
 
-        Span<float> buffer = stackalloc float[16]
-        {
-            matrix.M11, matrix.M12, matrix.M13, matrix.M14,
-            matrix.M21, matrix.M22, matrix.M23, matrix.M24,
-            matrix.M31, matrix.M32, matrix.M33, matrix.M34,
-            matrix.M41, matrix.M42, matrix.M43, matrix.M44,
-        };
+        var rotationX = Matrix4x4.CreateRotationX(timeSeconds * 0.4f);
+        var rotationY = Matrix4x4.CreateRotationY(timeSeconds * 0.8f);
+        var model = rotationX * rotationY;
 
-        queue.WriteBuffer(_uniformBuffer, 0, MemoryMarshal.AsBytes(buffer));
+        var mvp = model * view * projection;
+        return Matrix4x4.Transpose(mvp);
     }
 
     private void EncodeCommands(WgpuDevice device, WgpuQueue queue, WgpuTextureView targetView, RenderParams renderParams, Rect viewportRect)
@@ -500,6 +582,13 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
             pass.SetVertexBuffer(0, _vertexBuffer);
             pass.SetIndexBuffer(_indexBuffer, WgpuIndexFormat.Uint16);
             pass.DrawIndexed((uint)_indexCount, 1, 0, 0, 0);
+
+            if (_wireframePipeline is not null)
+            {
+                pass.SetPipeline(_wireframePipeline);
+                pass.SetBindGroup(0, _bindGroup);
+                pass.DrawIndexed((uint)_indexCount, 1, 0, 0, 0);
+            }
         }
 
         using var commandBuffer = encoder.Finish(new WgpuCommandBufferDescriptor { Label = "CubeCommandBuffer" });
