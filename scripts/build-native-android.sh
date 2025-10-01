@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-aarch64-linux-android}
 PROFILE=${2:-release}
 RID=${3:-android-arm64}
-LIBS=(vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
 if [[ -z "${ANDROID_NDK_HOME:-}" ]]; then

@@ -15,6 +15,15 @@ internal enum VelloStatus
     Unsupported = 6,
 }
 
+internal enum AccessKitStatus : int
+{
+    Success = 0,
+    NullPointer = 1,
+    InvalidArgument = 2,
+    JsonError = 3,
+    OutOfMemory = 4,
+}
+
 
 internal enum KurboStatus : int
 {

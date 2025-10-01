@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-x86_64-apple-darwin}
 PROFILE=${2:-release}
 SDK=${3:-}
-LIBS=(vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
 if [[ -n "${SDK}" ]]; then

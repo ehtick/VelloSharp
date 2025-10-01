@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-wasm32-unknown-unknown}
 PROFILE=${2:-release}
 RID=${3:-browser-wasm}
-LIBS=(vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
 build_flags=("--target" "${TARGET}")

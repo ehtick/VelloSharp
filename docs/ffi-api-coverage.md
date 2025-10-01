@@ -8,6 +8,7 @@ This document compares the public C ABI exported by each native FFI crate with t
 - `kurbo_ffi`: 6 native functions are not bound in .NET (`kurbo_bez_path_append`, `kurbo_bez_path_from_elements`, `kurbo_rect_intersect`, `kurbo_rect_is_empty`, `kurbo_rect_union`, `kurbo_vec2_length`).
 - `peniko_ffi`: 100% of exported functions have .NET bindings.
 - `winit_ffi`: 100% of exported functions have .NET bindings.
+- `accesskit_ffi`: 100% of exported functions have .NET bindings (JSON-powered interop surface).
 
 > **Note:** The upstream Rust crates (`vello`, `kurbo`, `peniko`, `winit`) expose a much richer API surface than what is currently bridged via FFI. The tables below focus only on functions exported from the `*_ffi` crates and indicate whether a managed binding is present.
 
@@ -134,6 +135,22 @@ Rust crate: `peniko` (subset exposed here).
 | `peniko_brush_multiply_alpha` | Yes | Yes |  |
 | `peniko_brush_with_alpha` | Yes | Yes |  |
 | `peniko_last_error_message` | Yes | Yes |  |
+
+### AccessKit (accessibility schema) (`accesskit_ffi`)
+
+Rust crate: `accesskit::common` (serialized schema surface).
+
+| Function | Exposed via FFI | Exposed via .NET | Notes |
+| --- | --- | --- | --- |
+| `accesskit_last_error_message` | Yes | Yes |  |
+| `accesskit_string_free` | Yes | Yes | Managed helper frees returned strings |
+| `accesskit_tree_update_from_json` | Yes | Yes | Accepts UTF-8 JSON payload |
+| `accesskit_tree_update_clone` | Yes | Yes |  |
+| `accesskit_tree_update_to_json` | Yes | Yes |  |
+| `accesskit_tree_update_destroy` | Yes | Yes |  |
+| `accesskit_action_request_from_json` | Yes | Yes |  |
+| `accesskit_action_request_to_json` | Yes | Yes |  |
+| `accesskit_action_request_destroy` | Yes | Yes |  |
 
 ### Winit (windowing) (`winit_ffi`)
 

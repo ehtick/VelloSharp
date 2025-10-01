@@ -13,6 +13,7 @@ internal static class NativeLibraryLoader
     private static bool _initialized;
     private static readonly string[] NativeLibraries =
     {
+        "accesskit_ffi",
         "vello_ffi",
         "kurbo_ffi",
         "peniko_ffi",

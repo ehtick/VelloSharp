@@ -11,7 +11,7 @@ use std::{
     io::Cursor,
     mem,
     mem::ManuallyDrop,
-        num::{NonZeroIsize, NonZeroU64, NonZeroUsize},
+    num::{NonZeroIsize, NonZeroU64, NonZeroUsize},
     ptr::NonNull,
     slice,
     sync::Mutex,
@@ -39,11 +39,11 @@ use raw_window_handle::{
     WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowsDisplayHandle,
     XlibDisplayHandle, XlibWindowHandle,
 };
+use skrifa::raw::TableProvider;
 use skrifa::{
     FontRef, GlyphId as SkrifaGlyphId, MetadataProvider, instance::Size as SkrifaSize,
     metrics::GlyphMetrics as SkrifaGlyphMetrics, prelude::LocationRef as SkrifaLocationRef,
 };
-use skrifa::raw::TableProvider;
 use swash::{
     FontRef as SwashFontRef, GlyphId as SwashGlyphId,
     scale::{ScaleContext, outline::Outline},
@@ -317,7 +317,10 @@ pub unsafe extern "C" fn vello_parley_get_family_names(
         pointers.push(s.as_ptr());
     }
 
-    let handle = Box::new(VelloStringArrayHandle { _strings: strings, pointers });
+    let handle = Box::new(VelloStringArrayHandle {
+        _strings: strings,
+        pointers,
+    });
     let array = VelloStringArray {
         items: handle.pointers.as_ptr(),
         count: handle.pointers.len(),
@@ -379,14 +382,19 @@ pub unsafe extern "C" fn vello_parley_match_character(
 
     let mut ctx = PARLEY_FONT_CONTEXT.lock().unwrap();
     {
-        let FontContext { collection, source_cache } = &mut *ctx;
+        let FontContext {
+            collection,
+            source_cache,
+        } = &mut *ctx;
         let mut query = collection.query(source_cache);
 
         let mut families = Vec::new();
         if let Some(ref name) = family {
             families.push(fontique::QueryFamily::Named(name));
         }
-        families.push(fontique::QueryFamily::Generic(FontiqueGenericFamily::SansSerif));
+        families.push(fontique::QueryFamily::Generic(
+            FontiqueGenericFamily::SansSerif,
+        ));
         families.push(fontique::QueryFamily::Generic(FontiqueGenericFamily::Emoji));
         query.set_families(families);
         query.set_attributes(attrs);
@@ -2304,7 +2312,11 @@ fn fontique_style_to_i32(style: &FontiqueStyle) -> i32 {
 }
 
 fn fontique_width_from_ratio(ratio: f32) -> FontiqueWidth {
-    let ratio = if ratio.is_finite() && ratio > 0.0 { ratio } else { 1.0 };
+    let ratio = if ratio.is_finite() && ratio > 0.0 {
+        ratio
+    } else {
+        1.0
+    };
     FontiqueWidth::from_ratio(ratio)
 }
 
@@ -2330,7 +2342,11 @@ fn create_parley_font_handle(
         VelloStatus::InvalidArgument
     })?;
 
-    let metrics = skrifa::metrics::Metrics::new(&font_ref, SkrifaSize::new(1.0), SkrifaLocationRef::default());
+    let metrics = skrifa::metrics::Metrics::new(
+        &font_ref,
+        SkrifaSize::new(1.0),
+        SkrifaLocationRef::default(),
+    );
 
     let name = CString::new(family_name).map_err(|_| {
         set_last_error("Font family name contains interior null byte");
@@ -4820,7 +4836,9 @@ fn compare_function_from_ffi(func: VelloWgpuCompareFunction) -> Option<wgpu::Com
     }
 }
 
-fn compare_function_required(func: VelloWgpuCompareFunction) -> Result<wgpu::CompareFunction, VelloStatus> {
+fn compare_function_required(
+    func: VelloWgpuCompareFunction,
+) -> Result<wgpu::CompareFunction, VelloStatus> {
     compare_function_from_ffi(func).ok_or(VelloStatus::InvalidArgument)
 }
 
@@ -4870,7 +4888,10 @@ fn color_load_op_from_ffi(
 }
 
 #[allow(dead_code)]
-fn float_load_op_from_ffi(load: VelloWgpuLoadOp, clear: f32) -> Result<wgpu::LoadOp<f32>, VelloStatus> {
+fn float_load_op_from_ffi(
+    load: VelloWgpuLoadOp,
+    clear: f32,
+) -> Result<wgpu::LoadOp<f32>, VelloStatus> {
     Ok(match load {
         VelloWgpuLoadOp::Load => wgpu::LoadOp::Load,
         VelloWgpuLoadOp::Clear => wgpu::LoadOp::Clear(clear),
@@ -4878,7 +4899,10 @@ fn float_load_op_from_ffi(load: VelloWgpuLoadOp, clear: f32) -> Result<wgpu::Loa
 }
 
 #[allow(dead_code)]
-fn uint_load_op_from_ffi(load: VelloWgpuLoadOp, clear: u32) -> Result<wgpu::LoadOp<u32>, VelloStatus> {
+fn uint_load_op_from_ffi(
+    load: VelloWgpuLoadOp,
+    clear: u32,
+) -> Result<wgpu::LoadOp<u32>, VelloStatus> {
     Ok(match load {
         VelloWgpuLoadOp::Load => wgpu::LoadOp::Load,
         VelloWgpuLoadOp::Clear => wgpu::LoadOp::Clear(clear),
@@ -5643,9 +5667,8 @@ pub unsafe extern "C" fn vello_wgpu_device_create_shader_module(
                 set_last_error("WGSL source is empty");
                 return std::ptr::null_mut();
             }
-            let bytes = unsafe {
-                slice::from_raw_parts(desc.source_wgsl.data, desc.source_wgsl.length)
-            };
+            let bytes =
+                unsafe { slice::from_raw_parts(desc.source_wgsl.data, desc.source_wgsl.length) };
             let source = match std::str::from_utf8(bytes) {
                 Ok(value) => value.to_owned(),
                 Err(err) => {
@@ -5661,7 +5684,10 @@ pub unsafe extern "C" fn vello_wgpu_device_create_shader_module(
         }
     };
 
-    let module_descriptor = wgpu::ShaderModuleDescriptor { label, source: shader_source }; // label lifetime tied to storage
+    let module_descriptor = wgpu::ShaderModuleDescriptor {
+        label,
+        source: shader_source,
+    }; // label lifetime tied to storage
     let module = device.device.create_shader_module(module_descriptor);
     Box::into_raw(Box::new(VelloWgpuShaderModuleHandle { module }))
 }
@@ -5732,9 +5758,7 @@ pub unsafe extern "C" fn vello_wgpu_buffer_destroy(buffer: *mut VelloWgpuBufferH
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn vello_wgpu_buffer_get_size(
-    buffer: *const VelloWgpuBufferHandle,
-) -> u64 {
+pub unsafe extern "C" fn vello_wgpu_buffer_get_size(buffer: *const VelloWgpuBufferHandle) -> u64 {
     if let Some(buffer) = unsafe { buffer.as_ref() } {
         buffer.size
     } else {
@@ -6521,9 +6545,7 @@ pub unsafe extern "C" fn vello_wgpu_command_encoder_begin_render_pass(
                 return std::ptr::null_mut();
             };
             Some(unsafe {
-                std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(
-                    &handle.view,
-                )
+                std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(&handle.view)
             })
         };
 
@@ -6560,9 +6582,7 @@ pub unsafe extern "C" fn vello_wgpu_command_encoder_begin_render_pass(
             return std::ptr::null_mut();
         };
         let depth_view_ref: &'static wgpu::TextureView = unsafe {
-            std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(
-                &view_handle.view,
-            )
+            std::mem::transmute::<&wgpu::TextureView, &'static wgpu::TextureView>(&view_handle.view)
         };
 
         let depth_ops = if depth.depth_read_only {
@@ -6874,7 +6894,11 @@ pub unsafe extern "C" fn vello_wgpu_render_pass_draw_indexed(
         set_last_error("Instance draw range overflow");
         return;
     };
-    pass_ref.draw_indexed(first_index..index_end, base_vertex, first_instance..instance_end);
+    pass_ref.draw_indexed(
+        first_index..index_end,
+        base_vertex,
+        first_instance..instance_end,
+    );
 }
 
 #[unsafe(no_mangle)]
@@ -7008,7 +7032,9 @@ pub unsafe extern "C" fn vello_wgpu_queue_write_buffer(
         return VelloStatus::Success;
     }
     let bytes = unsafe { slice::from_raw_parts(data.data, data.length) };
-    queue_handle.queue.write_buffer(&buffer_handle.buffer, offset, bytes);
+    queue_handle
+        .queue
+        .write_buffer(&buffer_handle.buffer, offset, bytes);
     VelloStatus::Success
 }
 

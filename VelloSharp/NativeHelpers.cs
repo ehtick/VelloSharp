@@ -113,6 +113,16 @@ internal static class NativeHelpers
         Throw(message, status, PenikoNativeMethods.peniko_last_error_message);
     }
 
+    internal static void ThrowOnError(AccessKitStatus status, string message)
+    {
+        if (status == AccessKitStatus.Success)
+        {
+            return;
+        }
+
+        Throw(message, status, AccessKitNativeMethods.accesskit_last_error_message);
+    }
+
     internal static void ThrowOnError(WinitStatus status, string message)
     {
         if (status == WinitStatus.Success)
@@ -139,5 +149,15 @@ internal static class NativeHelpers
     {
         var ptr = getter();
         return ptr == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(ptr);
+    }
+
+    internal static string GetUtf8String(nint ptr)
+    {
+        if (ptr == IntPtr.Zero)
+        {
+            return string.Empty;
+        }
+
+        return Marshal.PtrToStringUTF8(ptr) ?? string.Empty;
     }
 }

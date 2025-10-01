@@ -129,6 +129,7 @@ RuntimeIdentifier = rid;
           BeforeTargets="Build"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown' and '$(VelloSkipNativeBuild)' != 'true'">
     <ItemGroup>
+      <_VelloNativeCrate Include="accesskit_ffi" />
       <_VelloNativeCrate Include="vello_ffi" />
       <_VelloNativeCrate Include="kurbo_ffi" />
       <_VelloNativeCrate Include="peniko_ffi" />

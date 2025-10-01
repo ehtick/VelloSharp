@@ -22,6 +22,8 @@ const KEY_CODE_NAME_CAPACITY: usize = 64;
 use copypasta::{ClipboardContext, ClipboardProvider};
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
+use winit::error::ExternalError;
+use winit::window::{CursorIcon, Icon};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize, Position},
@@ -33,19 +35,17 @@ use winit::{
     keyboard::{Key, KeyCode, KeyLocation, ModifiersState, NamedKey, PhysicalKey},
     window::{ResizeDirection, Window, WindowAttributes, WindowButtons, WindowId, WindowLevel},
 };
-use winit::error::ExternalError;
-use winit::window::{CursorIcon, Icon};
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::{
     Foundation::{GetLastError, SetLastError},
-    UI::WindowsAndMessaging::{SetWindowLongPtrW, GWL_HWNDPARENT},
+    UI::WindowsAndMessaging::{GWL_HWNDPARENT, SetWindowLongPtrW},
 };
 
 #[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
-#[cfg(target_os = "macos")]
 use objc::runtime::Object;
+#[cfg(target_os = "macos")]
+use objc::{msg_send, sel, sel_impl};
 
 #[derive(Clone, Copy, Debug)]
 enum UserEvent {
@@ -1503,7 +1503,8 @@ fn window_set_owner(
         if let Some(parent_window) = parent_window {
             // NSWindowOrderingMode::Above == 1
             let ordering_above: i64 = 1;
-            let _: () = msg_send![parent_window, addChildWindow: child_window ordered: ordering_above];
+            let _: () =
+                msg_send![parent_window, addChildWindow: child_window ordered: ordering_above];
         }
     }
 
@@ -1903,10 +1904,7 @@ pub unsafe extern "C" fn winit_window_drag_window(
 ) -> WinitStatus {
     clear_last_error();
     match with_window(window, |handle| {
-        handle
-            .window()
-            .drag_window()
-            .map_err(map_external_error)
+        handle.window().drag_window().map_err(map_external_error)
     }) {
         Ok(()) => WinitStatus::Success,
         Err(status) => status,
@@ -1952,7 +1950,9 @@ pub unsafe extern "C" fn winit_window_set_enabled_buttons(
 ) -> WinitStatus {
     clear_last_error();
     match with_window(window, |handle| {
-        handle.window().set_enabled_buttons(window_buttons_from_mask(mask));
+        handle
+            .window()
+            .set_enabled_buttons(window_buttons_from_mask(mask));
         Ok(())
     }) {
         Ok(()) => WinitStatus::Success,

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "accesskit_ffi",
     "vello_ffi",
     "kurbo_ffi",
     "peniko_ffi",
@@ -16,6 +17,7 @@ repository = "https://github.com/wieslawsoltes/VelloSharp"
 homepage = "https://github.com/wieslawsoltes/VelloSharp"
 authors = ["VelloSharp Contributors"]
 keywords = ["graphics"]
+categories = ["gui"]
 
 [workspace.lints]
 rust.keyword_idents_2024 = "forbid"

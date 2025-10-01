@@ -13,6 +13,8 @@ helpers, and sample applications:
     and bounding-box helpers) without pulling in the full Rust curve library.
   - `winit_ffi` – forwards windowing, input, and swap-chain negotiation so native event loops can be driven
     from .NET when desired.
+  - `accesskit_ffi` – serialises/deserialises [AccessKit](https://accesskit.dev) tree updates and action requests
+    so accessibility data can flow between managed code and platform adapters.
 - Managed assemblies:
   - `VelloSharp` – idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
     the wgpu device helpers, and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
@@ -31,10 +33,10 @@ helpers, and sample applications:
 
 ## Project status
 
-- **FFI crates** – `vello_ffi`, `peniko_ffi`, and `winit_ffi` now expose 100% of their exported functions to
-  .NET. `kurbo_ffi` is feature-complete for the bindings in this repository, with only six geometry helpers
-  intentionally left unbound (see `docs/ffi-api-coverage.md`). Native builds are validated across Windows, macOS,
-  Linux, Android, iOS, and WebAssembly RIDs, and they share the same `cargo` feature flags as upstream Vello.
+- **FFI crates** – `vello_ffi`, `peniko_ffi`, `winit_ffi`, and `accesskit_ffi` expose 100% of their exported
+  functions to .NET. `kurbo_ffi` is feature-complete for the bindings in this repository, with only six geometry
+  helpers intentionally left unbound (see `docs/ffi-api-coverage.md`). Native builds are validated across Windows,
+  macOS, Linux, Android, iOS, and WebAssembly RIDs, and they share the same `cargo` feature flags as upstream Vello.
 - **Managed bindings** – `VelloSharp` surfaces the full renderer, scene graph, surface contexts, glyph and
   image helpers, SVG/Velato decoders, and the wgpu device/surface management APIs. Disposable wrappers and span
   validators guard the native lifetimes, and the `RendererOptions`/`RenderParams` mirrors keep behaviour in sync
@@ -52,8 +54,8 @@ helpers, and sample applications:
 ## Building the native library
 
 Install the Rust toolchain (Rust 1.86 or newer) before building the managed projects. The `VelloSharp`
-MSBuild project now drives `cargo build` for every required native crate (`vello_ffi`, `kurbo_ffi`,
-`peniko_ffi`, and `winit_ffi`) for the active .NET runtime identifier and configuration.
+MSBuild project now drives `cargo build` for every required native crate (`accesskit_ffi`, `vello_ffi`,
+`kurbo_ffi`, `peniko_ffi`, and `winit_ffi`) for the active .NET runtime identifier and configuration.
 Running any of the following commands produces the native artifacts and copies them to the managed output
 directory under `runtimes/<rid>/native/` (and alongside the binaries for convenience):
 

@@ -8,7 +8,7 @@ Param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
-$libs = @("vello_ffi", "kurbo_ffi", "peniko_ffi", "winit_ffi")
+$libs = @("accesskit_ffi", "vello_ffi", "kurbo_ffi", "peniko_ffi", "winit_ffi")
 $profileArgs = @()
 switch -Regex ($Profile) {
     "^(?i)release$" {
