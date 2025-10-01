@@ -108,8 +108,8 @@ public class CubeDemoControl : Control
 
     private void SetAvailability(bool available) => _wgpuAvailable = available;
 
-    private bool RenderCube(WgpuSurfaceRenderContext context, float timeSeconds) =>
-        _renderer.Render(context, timeSeconds);
+    private bool RenderCube(WgpuSurfaceRenderContext context, float timeSeconds, Rect viewport) =>
+        _renderer.Render(context, timeSeconds, viewport);
 
     private readonly struct CubeDrawOperation : ICustomDrawOperation
     {
@@ -144,10 +144,16 @@ public class CubeDemoControl : Control
             using var lease = feature.Lease();
             var time = _owner.GetElapsedTimeSeconds();
             var owner = _owner;
+            var transform = lease.Transform;
+            var bounds = _bounds;
 
             lease.ScheduleWgpuSurfaceRender(renderContext =>
             {
-                var rendered = owner.RenderCube(renderContext, time);
+                var surfaceRect = new Rect(0, 0, renderContext.RenderParams.Width, renderContext.RenderParams.Height);
+                var deviceRect = bounds.TransformToAABB(transform);
+                var viewport = deviceRect.Intersect(surfaceRect);
+
+                var rendered = viewport.Width > 0 && viewport.Height > 0 && owner.RenderCube(renderContext, time, viewport);
                 owner.SetAvailability(rendered);
             });
         }

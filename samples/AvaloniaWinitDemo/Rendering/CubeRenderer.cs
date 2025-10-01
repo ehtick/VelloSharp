@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Avalonia;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Rendering;
 
@@ -133,9 +134,14 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
     private int _indexCount;
     private bool _disposed;
 
-    public bool Render(WgpuSurfaceRenderContext context, float timeSeconds)
+    public bool Render(WgpuSurfaceRenderContext context, float timeSeconds, Rect viewportRect)
     {
         if (context.RenderParams.Width == 0 || context.RenderParams.Height == 0)
+        {
+            return false;
+        }
+
+        if (viewportRect.Width <= 0 || viewportRect.Height <= 0)
         {
             return false;
         }
@@ -145,8 +151,8 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
             return false;
         }
 
-        UpdateUniformBuffer(context.Queue, context.RenderParams, timeSeconds);
-        EncodeCommands(context.Device, context.Queue, context.TargetView, context.RenderParams);
+        UpdateUniformBuffer(context.Queue, viewportRect, timeSeconds);
+        EncodeCommands(context.Device, context.Queue, context.TargetView, context.RenderParams, viewportRect);
         return true;
     }
 
@@ -407,16 +413,16 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
         _pipeline = device.CreateRenderPipeline(pipelineDescriptor);
     }
 
-    private void UpdateUniformBuffer(WgpuQueue queue, RenderParams renderParams, float timeSeconds)
+    private void UpdateUniformBuffer(WgpuQueue queue, Rect viewportRect, float timeSeconds)
     {
         if (_uniformBuffer is null)
         {
             return;
         }
 
-        var aspect = renderParams.Height == 0
-            ? 1f
-            : renderParams.Width / (float)renderParams.Height;
+        var aspect = (float)(viewportRect.Height <= double.Epsilon
+            ? 1.0
+            : viewportRect.Width / viewportRect.Height);
 
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 4f, aspect, 0.1f, 100f);
         var view = Matrix4x4.CreateLookAt(new Vector3(1.5f, -5f, 3f), Vector3.Zero, Vector3.UnitZ);
@@ -435,7 +441,7 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
         queue.WriteBuffer(_uniformBuffer, 0, MemoryMarshal.AsBytes(buffer));
     }
 
-    private void EncodeCommands(WgpuDevice device, WgpuQueue queue, WgpuTextureView targetView, RenderParams renderParams)
+    private void EncodeCommands(WgpuDevice device, WgpuQueue queue, WgpuTextureView targetView, RenderParams renderParams, Rect viewportRect)
     {
         if (_pipeline is null || _bindGroup is null || _vertexBuffer is null || _indexBuffer is null)
         {
@@ -448,7 +454,7 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
         {
             View = targetView,
             ResolveTarget = null,
-            Load = WgpuLoadOp.Clear,
+            Load = WgpuLoadOp.Load,
             Store = WgpuStoreOp.Store,
             ClearColor = new WgpuColor
             {
@@ -468,6 +474,27 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
 
         using (var pass = encoder.BeginRenderPass(renderPassDesc))
         {
+            var viewportX = (float)viewportRect.X;
+            var viewportY = (float)viewportRect.Y;
+            var viewportWidth = (float)viewportRect.Width;
+            var viewportHeight = (float)viewportRect.Height;
+
+            pass.SetViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+            var surfaceWidth = (int)renderParams.Width;
+            var surfaceHeight = (int)renderParams.Height;
+
+            var scissorX = (int)Math.Floor(viewportRect.X);
+            var scissorY = (int)Math.Floor(viewportRect.Y);
+            scissorX = Math.Clamp(scissorX, 0, Math.Max(surfaceWidth - 1, 0));
+            scissorY = Math.Clamp(scissorY, 0, Math.Max(surfaceHeight - 1, 0));
+
+            var scissorWidth = (int)Math.Ceiling(viewportRect.Width);
+            var scissorHeight = (int)Math.Ceiling(viewportRect.Height);
+            scissorWidth = Math.Clamp(scissorWidth, 1, Math.Max(surfaceWidth - scissorX, 1));
+            scissorHeight = Math.Clamp(scissorHeight, 1, Math.Max(surfaceHeight - scissorY, 1));
+
+            pass.SetScissorRect((uint)scissorX, (uint)scissorY, (uint)scissorWidth, (uint)scissorHeight);
+
             pass.SetPipeline(_pipeline);
             pass.SetBindGroup(0, _bindGroup);
             pass.SetVertexBuffer(0, _vertexBuffer);

@@ -2181,6 +2181,53 @@ public sealed class WgpuRenderPass : IDisposable
         }
     }
 
+    public void SetViewport(float x, float y, float width, float height, float minDepth = 0f, float maxDepth = 1f)
+    {
+        ThrowIfDisposed();
+        if (width <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), "Viewport width must be positive.");
+        }
+
+        if (height <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "Viewport height must be positive.");
+        }
+
+        if (minDepth is < 0f or > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minDepth), "Minimum depth must be between 0 and 1.");
+        }
+
+        if (maxDepth is < 0f or > 1f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxDepth), "Maximum depth must be between 0 and 1.");
+        }
+
+        if (minDepth > maxDepth)
+        {
+            throw new ArgumentException("Minimum depth must not exceed maximum depth.", nameof(minDepth));
+        }
+
+        NativeMethods.vello_wgpu_render_pass_set_viewport(_handle, x, y, width, height, minDepth, maxDepth);
+    }
+
+    public void SetScissorRect(uint x, uint y, uint width, uint height)
+    {
+        ThrowIfDisposed();
+        if (width == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width), "Scissor width must be greater than zero.");
+        }
+
+        if (height == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height), "Scissor height must be greater than zero.");
+        }
+
+        NativeMethods.vello_wgpu_render_pass_set_scissor_rect(_handle, x, y, width, height);
+    }
+
     public void SetPipeline(WgpuRenderPipeline pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);

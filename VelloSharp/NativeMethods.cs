@@ -473,9 +473,29 @@ internal static partial class NativeMethods
         IntPtr encoder,
         VelloWgpuRenderPassDescriptorNative* descriptor);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_viewport")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_set_viewport(
+        IntPtr pass,
+        float x,
+        float y,
+        float width,
+        float height,
+        float minDepth,
+        float maxDepth);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_pipeline")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_render_pass_set_pipeline(IntPtr pass, IntPtr pipeline);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_scissor_rect")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_wgpu_render_pass_set_scissor_rect(
+        IntPtr pass,
+        uint x,
+        uint y,
+        uint width,
+        uint height);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_render_pass_set_bind_group")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

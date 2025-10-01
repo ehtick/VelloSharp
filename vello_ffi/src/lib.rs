@@ -6664,6 +6664,43 @@ fn render_pass_mut<'a>(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_set_viewport(
+    pass: *mut VelloWgpuRenderPassHandle,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    min_depth: f32,
+    max_depth: f32,
+) {
+    clear_last_error();
+    if width <= 0.0 {
+        set_last_error("Viewport width must be positive");
+        return;
+    }
+    if height <= 0.0 {
+        set_last_error("Viewport height must be positive");
+        return;
+    }
+    if !(0.0..=1.0).contains(&min_depth) {
+        set_last_error("Viewport minimum depth must be between 0 and 1");
+        return;
+    }
+    if !(0.0..=1.0).contains(&max_depth) {
+        set_last_error("Viewport maximum depth must be between 0 and 1");
+        return;
+    }
+    if min_depth > max_depth {
+        set_last_error("Viewport minimum depth must not exceed maximum depth");
+        return;
+    }
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    pass_ref.set_viewport(x, y, width, height, min_depth, max_depth);
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_wgpu_render_pass_set_pipeline(
     pass: *mut VelloWgpuRenderPassHandle,
     pipeline: *mut VelloWgpuRenderPipelineHandle,
@@ -6704,6 +6741,29 @@ pub unsafe extern "C" fn vello_wgpu_render_pass_set_bind_group(
         unsafe { slice::from_raw_parts(dynamic_offsets, dynamic_offset_count) }
     };
     pass_ref.set_bind_group(index, &bind_group_handle.bind_group, offsets);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_render_pass_set_scissor_rect(
+    pass: *mut VelloWgpuRenderPassHandle,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) {
+    clear_last_error();
+    if width == 0 {
+        set_last_error("Scissor width must be greater than zero");
+        return;
+    }
+    if height == 0 {
+        set_last_error("Scissor height must be greater than zero");
+        return;
+    }
+    let Ok(pass_ref) = render_pass_mut(pass) else {
+        return;
+    };
+    pass_ref.set_scissor_rect(x, y, width, height);
 }
 
 #[unsafe(no_mangle)]
