@@ -512,15 +512,15 @@ fn fs_wire(vertex: VertexOutput) -> @location(0) vec4<f32> {
             ? 1.0
             : viewportRect.Width / viewportRect.Height);
 
-        var projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 4f, aspect, 0.1f, 100f);
+        var projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 4f, aspect, 1f, 10f);
         var view = Matrix4x4.CreateLookAt(CameraPosition, CameraTarget, CameraUp);
 
-        var rotationX = Matrix4x4.CreateRotationX(timeSeconds * 0.4f);
         var rotationY = Matrix4x4.CreateRotationY(timeSeconds * 0.8f);
-        var model = rotationX * rotationY;
+        var rotationX = Matrix4x4.CreateRotationX(timeSeconds * 0.4f);
+        var model = Matrix4x4.Multiply(rotationY, rotationX);
 
-        var mvp = model * view * projection;
-        return Matrix4x4.Transpose(mvp);
+        var modelViewProjection = Matrix4x4.Multiply(Matrix4x4.Multiply(model, view), projection);
+        return Matrix4x4.Transpose(modelViewProjection);
     }
 
     private void EncodeCommands(WgpuDevice device, WgpuQueue queue, WgpuTextureView targetView, RenderParams renderParams, Rect viewportRect)
