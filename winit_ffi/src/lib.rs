@@ -39,9 +39,6 @@ use winit::{
 };
 
 #[cfg(target_os = "windows")]
-use winit::platform::windows::WindowExtWindows;
-
-#[cfg(target_os = "windows")]
 use windows_sys::Win32::{
     Foundation::{GetLastError, SetLastError},
     UI::WindowsAndMessaging::{GWL_HWNDPARENT, SetWindowLongPtrW},
@@ -1604,16 +1601,38 @@ fn fill_vello_window_handle(
 }
 
 #[cfg(target_os = "windows")]
+fn window_hwnd(window: &Window) -> Result<isize, WinitStatus> {
+    let handle = match window.window_handle() {
+        Ok(handle) => handle,
+        Err(err) => {
+            set_last_error(format!("Failed to query window handle: {err}"));
+            return Err(WinitStatus::InvalidState);
+        }
+    };
+
+    match handle.as_raw() {
+        RawWindowHandle::Win32(win32) => Ok(win32.hwnd.get()),
+        _ => {
+            set_last_error("Window does not expose a Win32 handle");
+            Err(WinitStatus::InvalidArgument)
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn window_set_owner(
     window: &mut WinitWindowHandle,
     parent: Option<&mut WinitWindowHandle>,
 ) -> Result<(), WinitStatus> {
-    let child_hwnd = window.window().hwnd();
-    let parent_hwnd = parent.map(|p| p.window().hwnd()).unwrap_or(ptr::null_mut());
+    let child_hwnd = window_hwnd(window.window())?;
+    let parent_hwnd = parent
+        .map(|p| window_hwnd(p.window()))
+        .transpose()?
+        .unwrap_or(0);
 
     unsafe {
         SetLastError(0);
-        let result = SetWindowLongPtrW(child_hwnd, GWL_HWNDPARENT, parent_hwnd as isize);
+        let result = SetWindowLongPtrW(child_hwnd, GWL_HWNDPARENT, parent_hwnd);
         if result == 0 {
             let err = GetLastError();
             if err != 0 {
