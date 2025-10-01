@@ -1076,7 +1076,13 @@ impl WinitApplication {
         }
 
         let config = self.window_config.clone();
-        self.create_window_from_config(event_loop, &config)
+        let handle = self.create_window_from_config(event_loop, &config)?;
+        if config.visible {
+            unsafe {
+                handle.as_ref().window().set_visible(true);
+            }
+        }
+        Ok(handle)
     }
 
     fn create_window_from_config(

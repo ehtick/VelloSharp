@@ -91,7 +91,10 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         }
 
         _isVisible = true;
-        InvokeOnLoop(() => _window?.SetVisible(true));
+        InvokeOnLoop(() =>
+        {
+            _window?.SetVisible(true);
+        });
 
         if (activate)
         {
@@ -691,6 +694,11 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
                     _nativeHandle = handle;
                     UpdatePlatformHandle();
                     _isVisible = options.Visible;
+
+                    if (_isVisible)
+                    {
+                        _window.SetVisible(true);
+                    }
                 }
 
                 return result;
