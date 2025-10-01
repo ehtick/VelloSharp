@@ -112,10 +112,17 @@ public readonly struct WinitEventLoopContext
         return window == nint.Zero ? null : new WinitWindow(window);
     }
 
-    public void InitializeAccessKit(WinitWindow window)
+    public bool InitializeAccessKit(WinitWindow window)
     {
         ArgumentNullException.ThrowIfNull(window);
-        NativeHelpers.ThrowOnError(WinitNativeMethods.winit_context_window_accesskit_init(_context, window.Handle), "winit_context_window_accesskit_init");
+        var status = WinitNativeMethods.winit_context_window_accesskit_init(_context, window.Handle);
+        if (status == WinitStatus.Unsupported)
+        {
+            return false;
+        }
+
+        NativeHelpers.ThrowOnError(status, "winit_context_window_accesskit_init");
+        return true;
     }
 }
 

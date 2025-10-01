@@ -36,17 +36,22 @@ internal sealed class WinitAccessKitManager : IDisposable
         _peerToId = new Dictionary<AutomationPeer, ulong>(ReferenceEqualityComparer<AutomationPeer>.Instance);
     }
 
-    public void InitializeNative(WinitEventLoopContext context, WinitWindow window)
+    public bool InitializeNative(WinitEventLoopContext context, WinitWindow window)
     {
         ArgumentNullException.ThrowIfNull(window);
         if (_initialized)
         {
-            return;
+            return true;
         }
 
-        context.InitializeAccessKit(window);
+        if (!context.InitializeAccessKit(window))
+        {
+            return false;
+        }
+
         _window = window;
         _initialized = true;
+        return true;
     }
 
     public void AttachAutomationPeer(WindowAutomationPeer? peer)
@@ -272,26 +277,48 @@ internal sealed class WinitAccessKitManager : IDisposable
                 using var update = AccessKitTreeUpdate.FromObject(payload);
                 var json = update.ToJson();
                 _window.SubmitAccessKitUpdate(json);
+
             });
         }
     }
 
-    private AccessKitTreeUpdatePayload? BuildTreeUpdatePayload()
+    private AccessKitTreeUpdatePayload BuildBasePayload()
     {
-        if (_rootPeer is null)
-        {
-            return null;
-        }
-
-        var payload = new AccessKitTreeUpdatePayload
+        return new AccessKitTreeUpdatePayload
         {
             Tree = new AccessKitTreePayload
             {
                 Root = RootNodeId,
                 ToolkitName = "Avalonia",
-                ToolkitVersion = typeof(Application).Assembly.GetName().Version?.ToString()
+                ToolkitVersion = typeof(Application).Assembly.GetName().Version?.ToString(),
             }
         };
+    }
+
+    private AccessKitTreeUpdatePayload BuildFallbackPayload()
+    {
+        var payload = BuildBasePayload();
+        payload.Nodes.Add(new object[]
+        {
+            RootNodeId,
+            new AccessKitNodePayload
+            {
+                Role = "Window",
+                Name = _owner.Title ?? string.Empty,
+            }
+        });
+        payload.Focus = RootNodeId;
+        return payload;
+    }
+
+    private AccessKitTreeUpdatePayload BuildTreeUpdatePayload()
+    {
+        if (_rootPeer is null)
+        {
+            return BuildFallbackPayload();
+        }
+
+        var payload = BuildBasePayload();
 
         payload.Nodes.Add(BuildNodeEntry(_rootPeer, RootNodeId));
 

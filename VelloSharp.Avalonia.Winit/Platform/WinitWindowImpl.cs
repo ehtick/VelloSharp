@@ -28,6 +28,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     private WinitWindow? _window;
     private nint _nativeHandle;
+
+    internal string? Title => _title;
     private PlatformHandle? _platformHandle;
     private VelloWindowHandle _cachedVelloHandle;
     private bool _hasCachedVelloHandle;
@@ -56,6 +58,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private bool _isEnabled = true;
     private bool _isTopmost;
     private bool _isResizable = true;
+    private string? _title;
     private readonly WinitAccessKitManager _accessKit;
 
     public WinitWindowImpl(WinitDispatcher dispatcher, WinitScreenManager screenManager, WinitWindowOptions options)
@@ -64,6 +67,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         _screenManager = screenManager ?? throw new ArgumentNullException(nameof(screenManager));
         _surfaces = new object[] { this };
         _accessKit = new WinitAccessKitManager(this, _dispatcher);
+        _title = options.Title;
         _mouseDevice = AvaloniaLocator.Current.GetService<IMouseDevice>() ?? new MouseDevice();
         _keyboardDevice = AvaloniaLocator.Current.GetService<IKeyboardDevice>() ?? new KeyboardDevice();
         InitializeWindow(options);
@@ -86,8 +90,9 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             return;
         }
 
-        InvokeOnLoop(() => _window?.SetVisible(true));
         _isVisible = true;
+        InvokeOnLoop(() => _window?.SetVisible(true));
+
         if (activate)
         {
             Activate();
@@ -101,8 +106,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             return;
         }
 
-        InvokeOnLoop(() => _window?.SetVisible(false));
         _isVisible = false;
+        InvokeOnLoop(() => _window?.SetVisible(false));
     }
 
     public PixelPoint Position => default;
@@ -150,6 +155,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             return;
         }
 
+        _title = title;
         InvokeOnLoop(() => _window?.SetTitle(title ?? string.Empty));
     }
 
@@ -1049,15 +1055,15 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
         if (_window is { } window)
         {
-            _accessKit.InitializeNative(context, window);
+            var accessKitInitialized = _accessKit.InitializeNative(context, window);
+            if (accessKitInitialized)
+            {
+                _accessKit.InvalidateTree();
+            }
+            window.SetVisible(_isVisible);
         }
 
         MarkWindowReady();
-
-        if (_window is { } window)
-        {
-            _accessKit.InvalidateTree();
-        }
     }
 
     internal void OnWindowResized(uint width, uint height, double scale)

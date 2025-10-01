@@ -907,15 +907,26 @@ impl WinitWindowHandle {
         }
     }
 
-    fn init_accesskit(&mut self, event_loop: &ActiveEventLoop) -> Result<(), WinitStatus> {
+    fn init_accesskit(&mut self, event_loop: &ActiveEventLoop) -> Result<bool, WinitStatus> {
         if self.accesskit.is_some() {
-            return Ok(());
+            return Ok(true);
         }
 
         let proxy = clone_event_loop_proxy()?;
-        let adapter = Adapter::with_event_loop_proxy(event_loop, self.window(), proxy);
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            Adapter::with_event_loop_proxy(event_loop, self.window(), proxy)
+        }));
+
+        let adapter = match result {
+            Ok(adapter) => adapter,
+            Err(_) => {
+                set_last_error("AccessKit initialization failed");
+                return Ok(false);
+            }
+        };
+
         self.accesskit = Some(AccessKitState::new(adapter));
-        Ok(())
+        Ok(true)
     }
 
     fn submit_accesskit_update(&mut self, json: &str) -> Result<(), WinitStatus> {
@@ -1821,15 +1832,28 @@ pub unsafe extern "C" fn winit_context_window_accesskit_init(
         return WinitStatus::NullPointer;
     }
 
+    let mut enabled = false;
     match with_context(ctx, |context| {
         let event_loop = unsafe { context.event_loop()? };
         let handle = unsafe { (window as *mut WinitWindowHandle).as_mut() }.ok_or_else(|| {
             set_last_error("Window handle pointer is null");
             WinitStatus::NullPointer
         })?;
-        handle.init_accesskit(event_loop)
+        match handle.init_accesskit(event_loop) {
+            Ok(result) => {
+                enabled = result;
+                Ok(())
+            }
+            Err(status) => Err(status),
+        }
     }) {
-        Ok(()) => WinitStatus::Success,
+        Ok(()) => {
+            if enabled {
+                WinitStatus::Success
+            } else {
+                WinitStatus::Unsupported
+            }
+        }
         Err(status) => status,
     }
 }
