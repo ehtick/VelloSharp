@@ -10,6 +10,7 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.6"/>
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.6" />
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.3.6" />
+    <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
     <PackageVersion Include="SkiaSharp" Version="2.88.9" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.5" />
