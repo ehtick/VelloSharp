@@ -44,6 +44,11 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     private bool _isClosing;
     private RawInputModifiers _keyboardModifiers;
     private RawInputModifiers _mouseButtonModifiers;
+    private readonly object _loopActionLock = new();
+    private List<Action>? _pendingLoopActions;
+    private bool _windowReady;
+    private WinitWindowImpl? _parentWindow;
+    private bool _isDialogWindow;
 
     public WinitWindowImpl(WinitDispatcher dispatcher, WinitScreenManager screenManager, WinitWindowOptions options)
     {
@@ -65,6 +70,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void Show(bool activate, bool isDialog)
     {
+        _isDialogWindow = isDialog;
         if (_isClosing)
         {
             return;
@@ -139,6 +145,19 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
 
     public void SetParent(IWindowImpl? parent)
     {
+        if (ReferenceEquals(parent, this))
+        {
+            parent = null;
+        }
+
+        _parentWindow = parent as WinitWindowImpl;
+
+        if (_isClosing)
+        {
+            return;
+        }
+
+        InvokeOnLoop(UpdateParentRelationship);
     }
 
     public void SetEnabled(bool enable)
@@ -520,6 +539,42 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         }
     }
 
+    private void MarkWindowReady()
+    {
+        List<Action>? pending = null;
+        lock (_loopActionLock)
+        {
+            if (_windowReady)
+            {
+                return;
+            }
+
+            _windowReady = true;
+            if (_pendingLoopActions is { Count: > 0 })
+            {
+                pending = _pendingLoopActions;
+                _pendingLoopActions = null;
+            }
+        }
+
+        if (pending is null)
+        {
+            return;
+        }
+
+        foreach (var action in pending)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"WinitWindowImpl pending loop action failed: {ex}");
+            }
+        }
+    }
+
     private void DestroyNativeWindow(WinitEventLoopContext? context = null)
     {
         var handle = _nativeHandle;
@@ -586,6 +641,12 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         _platformHandle = null;
         _cachedVelloHandle = default;
         Volatile.Write(ref _hasCachedVelloHandle, false);
+        lock (_loopActionLock)
+        {
+            _windowReady = false;
+            _pendingLoopActions = null;
+        }
+        _parentWindow = null;
         _isClosing = false;
         WinitWindowZOrderTracker.Unregister(this);
         Closed?.Invoke();
@@ -630,11 +691,51 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
     {
         if (_dispatcher.CurrentThreadIsLoopThread)
         {
-            action();
+            ExecuteOrQueueLoopAction(action);
         }
         else
         {
-            _dispatcher.Post(() => action());
+            _dispatcher.Post(() => ExecuteOrQueueLoopAction(action));
+        }
+    }
+
+    private void UpdateParentRelationship()
+    {
+        var handle = _nativeHandle;
+        if (handle == nint.Zero)
+        {
+            return;
+        }
+
+        var parentHandle = _parentWindow?._nativeHandle ?? nint.Zero;
+        if (handle == parentHandle)
+        {
+            parentHandle = nint.Zero;
+        }
+
+        NativeHelpers.ThrowOnError(
+            WinitNativeMethods.winit_window_set_owner(handle, parentHandle),
+            "winit_window_set_owner");
+    }
+
+    private void ExecuteOrQueueLoopAction(Action action)
+    {
+        if (_windowReady)
+        {
+            action();
+            return;
+        }
+
+        lock (_loopActionLock)
+        {
+            if (_windowReady)
+            {
+                action();
+                return;
+            }
+
+            _pendingLoopActions ??= new List<Action>();
+            _pendingLoopActions.Add(action);
         }
     }
 
@@ -684,6 +785,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         Resized?.Invoke(_clientSize, WindowResizeReason.Layout);
         ScalingChanged?.Invoke(normalizedScale);
         _screenManager.UpdateFromWindow(_surfaceSize, normalizedScale);
+        MarkWindowReady();
     }
 
     internal void OnWindowResized(uint width, uint height, double scale)

@@ -96,6 +96,10 @@ internal static unsafe partial class WinitNativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_set_decorations(nint window, [MarshalAs(UnmanagedType.I1)] bool decorations);
 
+    [LibraryImport(LibraryName, EntryPoint = "winit_window_set_owner")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial WinitStatus winit_window_set_owner(nint window, nint owner);
+
     [LibraryImport(LibraryName, EntryPoint = "winit_window_set_minimized")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial WinitStatus winit_window_set_minimized(nint window, [MarshalAs(UnmanagedType.I1)] bool minimized);

@@ -2,6 +2,7 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(missing_docs)]
 #![allow(missing_debug_implementations)]
+#![allow(unexpected_cfgs)]
 
 use std::{
     cell::RefCell,
@@ -32,6 +33,17 @@ use winit::{
     keyboard::{Key, KeyCode, KeyLocation, ModifiersState, NamedKey, PhysicalKey},
     window::{Window, WindowAttributes, WindowId},
 };
+
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::{
+    Foundation::{GetLastError, SetLastError},
+    UI::WindowsAndMessaging::{SetWindowLongPtrW, GWL_HWNDPARENT},
+};
+
+#[cfg(target_os = "macos")]
+use objc::{msg_send, sel, sel_impl};
+#[cfg(target_os = "macos")]
+use objc::runtime::Object;
 
 #[derive(Clone, Copy, Debug)]
 enum UserEvent {
@@ -1171,6 +1183,39 @@ where
     f(handle)
 }
 
+fn with_window_pair<F>(
+    window: *mut WinitWindowHandleOpaque,
+    parent: *mut WinitWindowHandleOpaque,
+    mut f: F,
+) -> Result<(), WinitStatus>
+where
+    F: FnMut(&mut WinitWindowHandle, Option<&mut WinitWindowHandle>) -> Result<(), WinitStatus>,
+{
+    let Some(window_handle) = (unsafe { (window as *mut WinitWindowHandle).as_mut() }) else {
+        set_last_error("Window handle pointer is null");
+        return Err(WinitStatus::NullPointer);
+    };
+
+    if !parent.is_null() && parent == window {
+        set_last_error("Window cannot be its own parent");
+        return Err(WinitStatus::InvalidArgument);
+    }
+
+    let parent_handle = if parent.is_null() {
+        None
+    } else {
+        match unsafe { (parent as *mut WinitWindowHandle).as_mut() } {
+            Some(handle) => Some(handle),
+            None => {
+                set_last_error("Parent window handle pointer is null");
+                return Err(WinitStatus::NullPointer);
+            }
+        }
+    };
+
+    f(window_handle, parent_handle)
+}
+
 fn fill_vello_window_handle(
     window: &Window,
     out_handle: &mut VelloWindowHandle,
@@ -1246,6 +1291,94 @@ fn fill_vello_window_handle(
             Err(WinitStatus::InvalidArgument)
         }
     }
+}
+
+#[cfg(target_os = "windows")]
+fn window_set_owner(
+    window: &mut WinitWindowHandle,
+    parent: Option<&mut WinitWindowHandle>,
+) -> Result<(), WinitStatus> {
+    let child_hwnd = window.window().hwnd();
+    let parent_hwnd = parent.map(|p| p.window().hwnd()).unwrap_or(ptr::null_mut());
+
+    unsafe {
+        SetLastError(0);
+        let result = SetWindowLongPtrW(child_hwnd, GWL_HWNDPARENT, parent_hwnd as isize);
+        if result == 0 {
+            let err = GetLastError();
+            if err != 0 {
+                set_last_error(format!("SetWindowLongPtrW failed: {err}"));
+                return Err(WinitStatus::RuntimeError);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn window_set_owner(
+    window: &mut WinitWindowHandle,
+    parent: Option<&mut WinitWindowHandle>,
+) -> Result<(), WinitStatus> {
+    unsafe fn ns_window_from_handle(window: &Window) -> Result<*mut Object, WinitStatus> {
+        let window_handle = match window.window_handle() {
+            Ok(handle) => handle,
+            Err(err) => {
+                set_last_error(format!("Failed to query window handle: {err}"));
+                return Err(WinitStatus::InvalidArgument);
+            }
+        };
+
+        let raw_handle = window_handle.as_raw();
+        let RawWindowHandle::AppKit(appkit) = raw_handle else {
+            set_last_error("Unsupported window handle kind");
+            return Err(WinitStatus::InvalidArgument);
+        };
+
+        let ns_view_ptr = appkit.ns_view.as_ptr() as *mut Object;
+        if ns_view_ptr.is_null() {
+            set_last_error("NSView pointer is null");
+            return Err(WinitStatus::InvalidArgument);
+        }
+
+        let ns_window: *mut Object = unsafe { msg_send![ns_view_ptr, window] };
+        if ns_window.is_null() {
+            set_last_error("NSView is not attached to a window");
+            return Err(WinitStatus::InvalidArgument);
+        }
+
+        Ok(ns_window)
+    }
+
+    unsafe {
+        let child_window = ns_window_from_handle(window.window())?;
+        let parent_window = match parent {
+            Some(parent_handle) => Some(ns_window_from_handle(parent_handle.window())?),
+            None => None,
+        };
+
+        let existing_parent: *mut Object = msg_send![child_window, parentWindow];
+        if !existing_parent.is_null() {
+            let _: () = msg_send![existing_parent, removeChildWindow: child_window];
+        }
+
+        if let Some(parent_window) = parent_window {
+            // NSWindowOrderingMode::Above == 1
+            let ordering_above: i64 = 1;
+            let _: () = msg_send![parent_window, addChildWindow: child_window ordered: ordering_above];
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn window_set_owner(
+    _window: &mut WinitWindowHandle,
+    _parent: Option<&mut WinitWindowHandle>,
+) -> Result<(), WinitStatus> {
+    Ok(())
 }
 
 #[unsafe(no_mangle)]
@@ -1603,6 +1736,20 @@ pub unsafe extern "C" fn winit_window_set_decorations(
     match with_window(window, |handle| {
         handle.window().set_decorations(decorations);
         Ok(())
+    }) {
+        Ok(()) => WinitStatus::Success,
+        Err(status) => status,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn winit_window_set_owner(
+    window: *mut WinitWindowHandleOpaque,
+    parent: *mut WinitWindowHandleOpaque,
+) -> WinitStatus {
+    clear_last_error();
+    match with_window_pair(window, parent, |handle, parent_handle| {
+        window_set_owner(handle, parent_handle)
     }) {
         Ok(()) => WinitStatus::Success,
         Err(status) => status,

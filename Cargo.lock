@@ -3384,6 +3384,7 @@ name = "winit_ffi"
 version = "0.5.0"
 dependencies = [
  "copypasta",
+ "objc",
  "raw-window-handle",
  "winit",
 ]
