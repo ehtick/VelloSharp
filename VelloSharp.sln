@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp", "VelloSharp\VelloSharp.csproj", "{A6855173-D686-FAD5-7BAC-84EE02FB9446}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp", "bindings\VelloSharp\VelloSharp.csproj", "{A6855173-D686-FAD5-7BAC-84EE02FB9446}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Integration", "VelloSharp.Integration\VelloSharp.Integration.csproj", "{EADEB67B-A2D4-E3B8-089A-777AB503D0CD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Integration", "bindings\VelloSharp.Integration\VelloSharp.Integration.csproj", "{EADEB67B-A2D4-E3B8-089A-777AB503D0CD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bindings", "bindings", "{CA58B814-9F53-47BD-95B2-74A68310614A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D20AA90-6969-D8BD-9DCD-8634F4692FDA}"
 EndProject
@@ -35,27 +37,27 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Native.win-x64",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.WithWinit", "samples\VelloSharp.WithWinit\VelloSharp.WithWinit.csproj", "{53AED23F-5B02-4EA4-AE14-B177A9737C6B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Avalonia.Winit", "VelloSharp.Avalonia.Winit\VelloSharp.Avalonia.Winit.csproj", "{7FB2201E-6B90-4DE7-AD2B-1F78D104DE5B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Avalonia.Winit", "bindings\VelloSharp.Avalonia.Winit\VelloSharp.Avalonia.Winit.csproj", "{7FB2201E-6B90-4DE7-AD2B-1F78D104DE5B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaWinitDemo", "samples\AvaloniaWinitDemo\AvaloniaWinitDemo.csproj", "{7EAE5920-DEA0-496E-92C1-C7149A0CFBF4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Avalonia.Vello", "VelloSharp.Avalonia.Vello\VelloSharp.Avalonia.Vello.csproj", "{B04D99A9-AC84-4D05-8EE2-A9B6324C7E9A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Avalonia.Vello", "bindings\VelloSharp.Avalonia.Vello\VelloSharp.Avalonia.Vello.csproj", "{B04D99A9-AC84-4D05-8EE2-A9B6324C7E9A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaSkiaMotionMark", "samples\AvaloniaSkiaMotionMark\AvaloniaSkiaMotionMark.csproj", "{9977DD22-B079-40DA-BBC6-D41E75B2369C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Skia", "VelloSharp.Skia\VelloSharp.Skia.csproj", "{3F6047E9-C733-463E-8EDF-75D2931A3429}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Skia", "bindings\VelloSharp.Skia\VelloSharp.Skia.csproj", "{3F6047E9-C733-463E-8EDF-75D2931A3429}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaSkiaMotionMarkShim", "samples\AvaloniaSkiaMotionMarkShim\AvaloniaSkiaMotionMarkShim.csproj", "{D88E3091-7BDE-4266-AAE4-0905A2F0C87C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Rendering", "VelloSharp.Rendering\VelloSharp.Rendering.csproj", "{D7212D47-0977-4E98-8786-EE1BF3C8F88C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Rendering", "bindings\VelloSharp.Rendering\VelloSharp.Rendering.csproj", "{D7212D47-0977-4E98-8786-EE1BF3C8F88C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarfBuzzSharp", "HarfBuzzSharp\HarfBuzzSharp.csproj", "{A8E797BF-697D-4AF1-A073-63F1B781A36B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarfBuzzSharp", "bindings\HarfBuzzSharp\HarfBuzzSharp.csproj", "{A8E797BF-697D-4AF1-A073-63F1B781A36B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloTextParityTests", "tests\VelloTextParityTests\VelloTextParityTests.csproj", "{3639541B-E393-4B8B-8B47-A69A5C3E7306}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Text", "VelloSharp.Text\VelloSharp.Text.csproj", "{56DD8E2B-7ACB-4B81-8FF3-38E5A71B5CCD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Text", "bindings\VelloSharp.Text\VelloSharp.Text.csproj", "{56DD8E2B-7ACB-4B81-8FF3-38E5A71B5CCD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -360,6 +362,14 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{A6855173-D686-FAD5-7BAC-84EE02FB9446} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{EADEB67B-A2D4-E3B8-089A-777AB503D0CD} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{7FB2201E-6B90-4DE7-AD2B-1F78D104DE5B} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{B04D99A9-AC84-4D05-8EE2-A9B6324C7E9A} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{3F6047E9-C733-463E-8EDF-75D2931A3429} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{D7212D47-0977-4E98-8786-EE1BF3C8F88C} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{A8E797BF-697D-4AF1-A073-63F1B781A36B} = {CA58B814-9F53-47BD-95B2-74A68310614A}
+		{56DD8E2B-7ACB-4B81-8FF3-38E5A71B5CCD} = {CA58B814-9F53-47BD-95B2-74A68310614A}
 		{3BE1A3A8-F1AB-8EF7-8CAC-BF350D50EC91} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{DB2B3F8A-5A6C-410D-9DC0-BE4342187A85} = {E927F87B-A585-A586-52B2-1371051E189F}
 		{EFAA09A9-A8EE-4140-B2EB-B35A6DFF55DF} = {E927F87B-A585-A586-52B2-1371051E189F}

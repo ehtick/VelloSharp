@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../VelloSharp.Skia/VelloSharp.Skia.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Skia/VelloSharp.Skia.csproj" />
   </ItemGroup>
 </Project>

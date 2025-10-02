@@ -18,11 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\VelloSharp\VelloSharp.csproj" />
-    <ProjectReference Include="..\..\VelloSharp.Skia\VelloSharp.Skia.csproj">
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia\VelloSharp.Skia.csproj">
       <Aliases>VelloSkia</Aliases>
     </ProjectReference>
-    <ProjectReference Include="..\..\VelloSharp.Integration\VelloSharp.Integration.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
   </ItemGroup>
 
   <ItemGroup>

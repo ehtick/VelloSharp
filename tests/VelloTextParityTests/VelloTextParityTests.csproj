@@ -6,10 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../HarfBuzzSharp/HarfBuzzSharp.csproj">
+    <ProjectReference Include="../../bindings/HarfBuzzSharp/HarfBuzzSharp.csproj">
       <Aliases>VelloHB</Aliases>
     </ProjectReference>
-    <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

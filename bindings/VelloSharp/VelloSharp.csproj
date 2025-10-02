@@ -6,7 +6,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <VelloRuntimeIdentifier>$(RuntimeIdentifier)</VelloRuntimeIdentifier>
-    <VelloRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</VelloRepositoryRoot>
+    <VelloRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</VelloRepositoryRoot>
     <IsPackable>true</IsPackable>
     <PackageId>VelloSharp</PackageId>
     <Title>VelloSharp</Title>
@@ -133,7 +133,7 @@ RuntimeIdentifier = rid;
           BeforeTargets="Build"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown' and '$(VelloSkipNativeBuild)' != 'true'">
     <ItemGroup>
-      <_VelloNativeManifest Include="$(MSBuildThisFileDirectory)..\ffi\*\Cargo.toml">
+      <_VelloNativeManifest Include="$(MSBuildThisFileDirectory)..\..\ffi\*\Cargo.toml">
         <CrateName>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(Identity)'))))</CrateName>
       </_VelloNativeManifest>
     </ItemGroup>

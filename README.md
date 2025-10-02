@@ -15,7 +15,7 @@ helpers, and sample applications:
     from .NET when desired.
   - `ffi/accesskit_ffi` – serialises/deserialises [AccessKit](https://accesskit.dev) tree updates and action requests
     so accessibility data can flow between managed code and platform adapters.
-- Managed assemblies:
+- Managed assemblies (under `bindings/`):
   - `VelloSharp` – idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
     the wgpu device helpers, and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
   - `VelloSharp.Skia` – a Skia-inspired helper layer that maps `SKCanvas`/`SKPath`-style APIs onto Vello
@@ -61,7 +61,7 @@ Running any of the following commands produces the native artifacts and copies t
 directory under `runtimes/<rid>/native/` (and alongside the binaries for convenience):
 
 ```bash
-dotnet build VelloSharp/VelloSharp.csproj
+dotnet build bindings/VelloSharp/VelloSharp.csproj
 dotnet build samples/AvaloniaVelloDemo/AvaloniaVelloDemo.csproj
 dotnet run --project samples/AvaloniaVelloDemo/AvaloniaVelloDemo.csproj
 ```
@@ -92,7 +92,7 @@ runtime you want to redistribute:
 1. Build the native libraries (e.g., via CI) and collect them under a directory layout such as
    `runtimes/<rid>/native/<library>`.
 2. Set the `VelloNativeAssetsDirectory` property to that directory when invoking `dotnet pack`
-   (for example, `dotnet pack VelloSharp/VelloSharp.csproj -c Release -p:VelloSkipNativeBuild=true -p:VelloNativeAssetsDirectory=$PWD/artifacts/runtimes`).
+   (for example, `dotnet pack bindings/VelloSharp/VelloSharp.csproj -c Release -p:VelloSkipNativeBuild=true -p:VelloNativeAssetsDirectory=$PWD/artifacts/runtimes`).
 3. Optionally verify all runtimes by keeping the default `VelloRequireAllNativeAssets=true`, or
    relax the check with `-p:VelloRequireAllNativeAssets=false` when experimenting locally.
 
@@ -111,7 +111,7 @@ The repository tracks per-RID packaging projects under `packaging/VelloSharp.Nat
 the native runtime built by `cargo` into a standalone NuGet package so downstream applications can reference
 only the assets they need. A typical workflow looks like this:
 
-- Build the native crates for the desired RID(s) (`dotnet build -r osx-arm64 VelloSharp/VelloSharp.csproj`).
+- Build the native crates for the desired RID(s) (`dotnet build -r osx-arm64 bindings/VelloSharp/VelloSharp.csproj`).
 - Run `./scripts/copy-runtimes.sh` to sync the generated artifacts into both sample outputs and each
   `packaging/VelloSharp.Native.<rid>/runtimes/<rid>/native` directory.
 - Pack the native project you care about (e.g., `dotnet pack packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj`).

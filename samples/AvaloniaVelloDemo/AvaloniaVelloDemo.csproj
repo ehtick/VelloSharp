@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../VelloSharp/VelloSharp.csproj" />
-    <ProjectReference Include="../../VelloSharp.Integration/VelloSharp.Integration.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Integration/VelloSharp.Integration.csproj" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj"
                       ReferenceOutputAssembly="false"
                       Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/osx-arm64/native')" />

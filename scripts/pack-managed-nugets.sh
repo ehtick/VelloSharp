@@ -15,7 +15,7 @@ if dotnet nuget list source | grep -q "VelloNativeLocal"; then
 fi
 dotnet nuget add source "${NATIVE_FEED}" --name VelloNativeLocal >/dev/null
 
-dotnet pack "${ROOT}/VelloSharp/VelloSharp.csproj" \
+dotnet pack "${ROOT}/bindings/VelloSharp/VelloSharp.csproj" \
   -c Release \
   -p:VelloSkipNativeBuild=true \
   -p:VelloIncludeNativeAssets=false \
