@@ -51,7 +51,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaSkiaMotionMarkShim"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Rendering", "bindings\VelloSharp.Rendering\VelloSharp.Rendering.csproj", "{D7212D47-0977-4E98-8786-EE1BF3C8F88C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarfBuzzSharp", "bindings\HarfBuzzSharp\HarfBuzzSharp.csproj", "{A8E797BF-697D-4AF1-A073-63F1B781A36B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.HarfBuzzSharp", "bindings\VelloSharp.HarfBuzzSharp\HarfBuzzSharp.csproj", "{A8E797BF-697D-4AF1-A073-63F1B781A36B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
