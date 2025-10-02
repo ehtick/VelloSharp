@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>AvaloniaSkiaSparseMotionMarkShim</AssemblyName>
+    <RootNamespace>AvaloniaSkiaSparseMotionMarkShim</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Core\VelloSharp.Skia.Core.csproj">
+      <Aliases>VelloSkia</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Cpu\VelloSharp.Skia.Cpu.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit\VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo\VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko\VelloSharp.Native.Peniko.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello\VelloSharp.Native.Vello.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse\VelloSharp.Native.VelloSparse.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="SkiaSharp" ExcludeAssets="compile;runtime" />
+    <PackageReference Update="SkiaSharp.NativeAssets.Linux" ExcludeAssets="compile;runtime" />
+    <PackageReference Update="SkiaSharp.NativeAssets.macOS" ExcludeAssets="compile;runtime" />
+    <PackageReference Update="SkiaSharp.NativeAssets.Win32" ExcludeAssets="compile;runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Remove="SkiaSharp" />
+    <Reference Remove="SkiaSharp.Views.Avalonia" />
+    <Reference Remove="SkiaSharp.SkiaPaths" />
+  </ItemGroup>
+</Project>

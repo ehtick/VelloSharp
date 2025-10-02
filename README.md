@@ -35,6 +35,8 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `samples/AvaloniaVelloExamples` – expanded scene catalogue with renderer option toggles and surface fallbacks.
   - `samples/AvaloniaSkiaMotionMark` – a side-by-side Skia/Vello motion-mark visualiser built on the integration
     layer.
+  - `samples/AvaloniaSkiaSparseMotionMarkShim` – CPU sparse MotionMark shim that routes Vello scenes through the Velato
+    Skia bridge without touching the GPU backend.
 
 ## Rust dependency reference
 

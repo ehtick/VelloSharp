@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:AvaloniaSkiaSparseMotionMarkShim"
+        xmlns:controls="using:AvaloniaSkiaSparseMotionMarkShim.Controls"
+        x:Class="AvaloniaSkiaSparseMotionMarkShim.MainWindow"
+        Title="MotionMark (Velato CPU Sparse)"
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="600">
+    <Grid RowDefinitions="Auto,*" Margin="12">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="-" Click="OnDecreaseComplexity"/>
+            <Slider x:Name="ComplexitySlider"
+                    Width="200"
+                    Minimum="1"
+                    Maximum="64"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True"
+                    Value="{Binding Complexity, Mode=TwoWay, ElementName=MotionMark}"/>
+            <Button Content="+" Click="OnIncreaseComplexity"/>
+            <Button Content="Reset" Click="OnResetComplexity"/>
+            <Separator Margin="8,0"/>
+            <ToggleSwitch Content="Animate"
+                          IsChecked="{Binding IsAnimationEnabled, Mode=TwoWay, ElementName=MotionMark}"/>
+            <Separator Margin="8,0"/>
+            <TextBlock x:Name="FrameInfo"
+                       VerticalAlignment="Center"
+                       Text="Frame 0.00 ms"/>
+        </StackPanel>
+
+        <controls:MotionMarkSkiaControl x:Name="MotionMark"
+                                        Grid.Row="1"
+                                        Margin="0,12,0,0"/>
+    </Grid>
+</Window>
