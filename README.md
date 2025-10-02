@@ -1,8 +1,13 @@
 # VelloSharp .NET bindings
 
-This repository hosts the managed bindings that expose the [`vello`](https://github.com/linebender/vello)
-renderer to .NET applications. The codebase is split into native FFI crates, managed bindings, integration
-helpers, and sample applications:
+This repository hosts the managed bindings that expose the Linebender graphics stack—[`vello`](https://github.com/linebender/vello)
+for rendering, [`wgpu`](https://github.com/gfx-rs/wgpu) for portable GPU access, [`winit`](https://github.com/rust-windowing/winit)
+for cross-platform windowing, `peniko`/`kurbo` for brush and geometry data, and the text pipeline built on
+`parley`, `skrifa`, `swash`, and `fontique`—to .NET applications. `VelloSharp` wraps these native crates together
+with [`AccessKit`](https://accesskit.dev) so scene building, surface presentation, input, accessibility, and text
+layout share a cohesive managed API while still exposing low-level control over `wgpu` devices, queues, and surfaces.
+
+The codebase is split into native FFI crates, managed bindings, integration helpers, and sample applications:
 
 - Native FFI crates (under `ffi/`):
   - `ffi/vello_ffi` – wraps the renderer, shader, SVG, Velato/Lottie, text, and wgpu stacks behind a single C ABI,
@@ -30,6 +35,42 @@ helpers, and sample applications:
   - `samples/AvaloniaVelloExamples` – expanded scene catalogue with renderer option toggles and surface fallbacks.
   - `samples/AvaloniaSkiaMotionMark` – a side-by-side Skia/Vello motion-mark visualiser built on the integration
     layer.
+
+## Rust dependency reference
+
+The FFI crates (`vello_ffi`, `peniko_ffi`, `kurbo_ffi`, `winit_ffi`, `accesskit_ffi`) share the same high-level
+dependencies from the vendored Vello workspace. The table summarises the crates you interact with most when
+updating or auditing the bindings:
+
+| Dependency | Role in the bindings |
+| --- | --- |
+| `vello` | Core renderer that powers all scene, surface, and GPU/CPU pipelines exposed through `vello_ffi`. |
+| `wgpu` | Graphics abstraction used to request adapters, devices, and swapchains for the GPU-backed render paths. |
+| `vello_svg` & `velato` | Asset loaders surfaced via the FFI for SVG scenes and Lottie/After Effects playback. |
+| `peniko` & `kurbo` | Brush, gradient, and geometry primitives re-exported in managed code for path building. |
+| `skrifa`, `swash`, `parley`, `fontique` | Font parsing, shaping, and layout stack that feeds glyph runs into Vello. |
+| `accesskit` & `accesskit_winit` | Accessibility tree interchange, shared with the Avalonia integrations. |
+| `winit` & `raw-window-handle` | Window/event loop abstractions used by `winit_ffi` and the Avalonia platform glue. |
+| `wgpu-profiler`, `pollster`, `futures-intrusive` | Utilities that bridge async renderer calls and surface GPU timings through the bindings. |
+
+## WGPU integration
+
+`VelloSharp` ships first-class wrappers for the `wgpu` API so .NET applications can configure adapters, devices, and
+surfaces directly before handing targets to the renderer. The binding layer mirrors the Rust API surface closely:
+
+- `WgpuInstance`, `WgpuAdapter`, `WgpuDevice`, and `WgpuQueue` map one-to-one with the native objects and expose all
+  safety checks via `IDisposable` lifetimes.
+- `SurfaceHandle.FromWin32`, `.FromAppKit`, `.FromWayland`, and `.FromXlib` let you construct swapchains from any
+  window handle obtained via `winit_ffi` or Avalonia's `INativePlatformHandleSurface`.
+- `WgpuSurface` configuration accepts the full backend matrix (DX12, Metal, Vulkan, or GLES) so the renderer can
+  adopt whatever the host platform supports without recompiling native code.
+- `WgpuTexture`, `WgpuCommandEncoder`, and `WgpuBuffer` bindings make it feasible to interleave custom compute or
+  upload work with Vello's own render passes when you need advanced scenarios.
+
+The higher-level helpers in `VelloSharp.Integration` build on these primitives: Avalonia controls negotiate
+swapchains through the same APIs, while the profiler hooks exposed by `wgpu-profiler` surface GPU timings back to
+managed code. If you prefer a software path, the bindings can skip `wgpu` entirely and fall back to CPU rendering
+without changing the managed API surface.
 
 ## Project status
 
@@ -303,6 +344,27 @@ Use `Image.FromPixels` and `Scene.DrawImage` to render textures directly. Glyph 
 
 ## Avalonia integration
 
+Avalonia support is split across three managed packages:
+
+- `VelloSharp.Integration` – reusable controls, render-path helpers, and utility services shared by Avalonia and SkiaSharp hosts.
+- `VelloSharp.Avalonia.Winit` – a winit-based windowing backend that plugs into Avalonia's `IWindowingPlatform`, dispatcher, clipboard, and screen services.
+- `VelloSharp.Avalonia.Vello` – a Vello-powered rendering backend that implements Avalonia's platform render interfaces on top of `wgpu`.
+
+Opt in to the stack by extending your `AppBuilder`:
+
+```csharp
+AppBuilder.Configure<App>()
+    .UseWinit()
+    .UseVello()
+    .WithInterFont();
+```
+
+`UseWinit` registers a single-threaded winit event loop, raw handle surfaces, and clipboard/screen implementations for Windows and macOS today, with Wayland/X11 plumbing staged next. Unsupported capabilities such as tray icons, popups, or embedded top levels currently throw `NotSupportedException` so consumers can branch cleanly.
+
+`UseVello` wires Avalonia's composition pipeline to the Vello renderer. It negotiates swapchains via `wgpu`, surfaces the profiler hooks, and falls back to the software `VelloView` path whenever swapchain creation is denied. The renderer shares the same `accesskit_ffi` bridge as the windowing layer, keeping accessibility metadata flowing into screen readers.
+
+### Managed controls
+
 `VelloSharp.Integration` includes a reusable `VelloView` control that owns the renderer, scene, and
 backing `WriteableBitmap`. Subscribe to `RenderFrame` or override `OnRenderFrame` to populate the
 scene — the control manages size changes, render-loop invalidation, and stride/format negotiation for you:
@@ -347,15 +409,86 @@ surface with your preferred `PresentMode`, and call `WgpuRenderer.Render` with t
 control exposes `RendererOptions`, `RenderParameters`, and `IsLoopEnabled` so you can tune anti-aliasing, swapchain
 formats, or frame pacing at runtime.
 
-Run the sample with:
+### Platform comparison
+
+| Capability | Winit + Vello stack | Built-in Avalonia stack |
+| --- | --- | --- |
+| Platform coverage | Windows and macOS shipping today, with X11/Wayland support staged; exposes `RawWindowHandle` values for swapchains. | Win32, AppKit, X11, and Wayland backends ship with the framework today. |
+| Windowing features | Single dispatcher thread with one top-level window; tray icons, popups, and embedding report `NotSupportedException`. | Mature support for multiple windows, popups, tray icons, and embedding scenarios. |
+| Rendering backend | Vello on top of `wgpu` (DX12, Metal, Vulkan, or GLES) with automatic fallbacks to the software path. | Skia renderer with GPU backends (OpenGL, Vulkan, Metal, ANGLE/DirectX) and CPU fallback managed by Avalonia's compositor. |
+| Swapchain control | Applications choose surface formats and `PresentMode` via `WgpuSurface` descriptors. | Swapchain setup is internal to Avalonia; apps rely on compositor defaults and the Skia backend configuration. |
+| GPU extensibility | Full `wgpu` device/queue access lets you mix custom compute or capture passes with Vello rendering. | GPU access limited to compositor hooks; extending beyond Skia requires custom native backends. |
+| Accessibility | AccessKit updates flow through `winit_ffi` so assistive tech stays in sync. | Platform accessibility stacks (UIA/AX/AT-SPI) driven by Avalonia's native backends. |
+
+### Samples and runtime configuration
+
+Run the winit-backed sample to exercise the new windowing and rendering stack end-to-end:
+
+```bash
+dotnet run --project samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
+```
+
+The classic Avalonia demo continues to showcase the controls on the stock platforms:
 
 ```bash
 cd samples/AvaloniaVelloDemo
 dotnet run
 ```
 
-The native `vello_ffi` library is copied next to the managed binaries automatically; no additional setup is
-required as long as the Rust toolchain is installed.
+Both samples copy the native `vello_ffi` library next to the managed binaries automatically; installing the Rust toolchain is the only prerequisite.
+
+## SkiaSharp shim layer
+
+`VelloSharp.Skia` provides a compatibility layer that mirrors the public API of SkiaSharp types while delegating
+all rendering to the Vello engine. The shim keeps porting friction low by re-implementing familiar entry points
+such as `SKCanvas`, `SKPaint`, `SKPath`, `SKImage`, and `SKTypeface` on top of the managed bindings. Highlights:
+
+- Existing SkiaSharp rendering code can be recompiled by switching `using SkiaSharp;` to `using VelloSharp.Skia;`.
+- The shim exposes `SKSurface.Create(VelloSurface surface)` extensions so Vello swapchains or the Avalonia
+  `VelloSurfaceView` render directly into SkiaSharp abstractions.
+- Text and font services integrate with the same `parley`/`skrifa`/`swash` stack used by the native renderer.
+  Call `AppBuilder.UseVelloSkiaTextServices()` when bootstrapping Avalonia to replace Skia text backends with the
+  shimmed implementations.
+- Recording APIs (`SKPictureRecorder`, `SKPicture`) emit Vello scenes, letting you replay existing Skia display
+  lists through the Vello renderer.
+
+Minimal example creating a shim surface and drawing into it:
+
+```csharp
+using VelloSharp;
+using VelloSharp.Skia;
+
+var info = new SKImageInfo(512, 512, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+using var surface = SKSurface.Create(info);
+
+var canvas = surface.Canvas;
+canvas.Clear(new SKColor(0x12, 0x12, 0x14));
+
+using var paint = new SKPaint
+{
+    Color = new SKColor(0x47, 0x91, 0xF9),
+    IsAntialias = true,
+};
+
+canvas.DrawCircle(256, 256, 200, paint);
+
+using var renderer = new Renderer((uint)info.Width, (uint)info.Height);
+var renderParams = new RenderParams(
+    (uint)info.Width,
+    (uint)info.Height,
+    RgbaColor.FromBytes(0x12, 0x12, 0x14))
+{
+    Format = RenderFormat.Bgra8,
+};
+
+var stride = info.RowBytes;
+var pixels = new byte[stride * info.Height];
+renderer.Render(surface.Scene, renderParams, pixels, stride);
+```
+
+`pixels` now contains BGRA output that you can upload to textures or pass to existing SkiaSharp consumers. For
+zero-copy presentation, pair the shim with `VelloSharp.Integration.Skia.SkiaRenderBridge.Render(surface, renderer,
+surface.Scene, renderParams)` so Vello writes straight into `SKSurface`/`SKBitmap` instances.
 
 ## SkiaSharp interop
 
