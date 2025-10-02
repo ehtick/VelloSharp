@@ -11,9 +11,19 @@ public sealed class SparseRenderContextHandle : SafeHandle
 
     public override bool IsInvalid => handle == IntPtr.Zero;
 
-    public static SparseRenderContextHandle Create(ushort width, ushort height)
+    public static SparseRenderContextHandle Create(
+        ushort width,
+        ushort height,
+        ushort threadCount = 0,
+        bool enableMultithreading = true,
+        SparseSimdLevel simdLevel = SparseSimdLevel.Auto)
     {
-        var ptr = SparseNativeMethods.vello_sparse_render_context_create(width, height);
+        var ptr = SparseNativeMethods.vello_sparse_render_context_create_with_options(
+            width,
+            height,
+            enableMultithreading,
+            threadCount,
+            simdLevel);
         if (ptr == IntPtr.Zero)
         {
             throw new InvalidOperationException(SparseNativeHelpers.GetLastErrorMessage() ?? "Failed to create sparse render context.");

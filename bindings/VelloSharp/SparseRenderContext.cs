@@ -9,8 +9,11 @@ public sealed class SparseRenderContext : IDisposable
 {
     private IntPtr _handle;
     private bool _disposed;
+    private readonly bool _isMultithreadingEnabled;
+    private readonly ushort _threadCountOverride;
+    private readonly SparseSimdLevel _requestedSimdLevel;
 
-    public SparseRenderContext(ushort width, ushort height)
+    public SparseRenderContext(ushort width, ushort height, SparseRenderContextOptions? options = null)
     {
         if (width == 0)
         {
@@ -22,7 +25,16 @@ public sealed class SparseRenderContext : IDisposable
             throw new ArgumentOutOfRangeException(nameof(height), "Height must be non-zero.");
         }
 
-        _handle = SparseNativeMethods.vello_sparse_render_context_create(width, height);
+        _isMultithreadingEnabled = options?.EnableMultithreading ?? true;
+        _threadCountOverride = ResolveThreadCount(options);
+        _requestedSimdLevel = options?.SimdLevel ?? SparseSimdLevel.Auto;
+
+        _handle = SparseNativeMethods.vello_sparse_render_context_create_with_options(
+            width,
+            height,
+            _isMultithreadingEnabled,
+            _threadCountOverride,
+            _requestedSimdLevel);
         if (_handle == IntPtr.Zero)
         {
             throw new InvalidOperationException(
@@ -47,6 +59,23 @@ public sealed class SparseRenderContext : IDisposable
     public ushort Width { get; }
 
     public ushort Height { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether multithreaded rendering was requested for this context.
+    /// </summary>
+    public bool IsMultithreadingEnabled => _isMultithreadingEnabled;
+
+    /// <summary>
+    /// Gets the explicit worker thread count requested for the context.
+    /// A value of <c>0</c> indicates that the renderer should choose automatically or fall back to
+    /// single-threaded mode when multithreading is disabled.
+    /// </summary>
+    public ushort ThreadCountOverride => _threadCountOverride;
+
+    /// <summary>
+    /// Gets the SIMD level requested when the context was created.
+    /// </summary>
+    public SparseSimdLevel SimdLevel => _requestedSimdLevel;
 
     public void Reset()
     {
@@ -501,6 +530,41 @@ public sealed class SparseRenderContext : IDisposable
         }
 
         _disposed = true;
+    }
+
+    private static ushort ResolveThreadCount(SparseRenderContextOptions? options)
+    {
+        if (options is null)
+        {
+            return 0;
+        }
+
+        if (!options.EnableMultithreading)
+        {
+            return 0;
+        }
+
+        if (!options.ThreadCount.HasValue)
+        {
+            return 0;
+        }
+
+        var value = options.ThreadCount.Value;
+        if (value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(SparseRenderContextOptions.ThreadCount),
+                "Thread count must be a positive integer when multithreading is enabled.");
+        }
+
+        if (value > ushort.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(SparseRenderContextOptions.ThreadCount),
+                $"Thread count must be less than or equal to {ushort.MaxValue}.");
+        }
+
+        return (ushort)value;
     }
 
     private void ThrowIfDisposed()

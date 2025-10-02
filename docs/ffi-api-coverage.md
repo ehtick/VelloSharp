@@ -145,6 +145,9 @@ Rust crate: `vello_cpu` (sparse strips renderer surface).
 | --- | --- | --- | --- |
 | `vello_sparse_last_error_message` | Yes | Yes |  |
 | `vello_sparse_render_context_create` | Yes | Yes |  |
+| `vello_sparse_render_context_create_with_options` | Yes | Yes | Multithreading toggle, thread count, and SIMD level hints |
+| `vello_sparse_detect_simd_level` | Yes | Yes | Returns the optimal SIMD level for the host |
+| `vello_sparse_detect_thread_count` | Yes | Yes | Reports available parallel threads |
 | `vello_sparse_render_context_destroy` | Yes | Yes |  |
 | `vello_sparse_render_context_reset` | Yes | Yes |  |
 | `vello_sparse_render_context_flush` | Yes | Yes |  |

@@ -29,6 +29,23 @@ internal static partial class SparseNativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr vello_sparse_render_context_create(ushort width, ushort height);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_sparse_render_context_create_with_options")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_sparse_render_context_create_with_options(
+        ushort width,
+        ushort height,
+        [MarshalAs(UnmanagedType.I1)] bool enableMultithreading,
+        ushort threadCount,
+        SparseSimdLevel simdLevel);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_sparse_detect_simd_level")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial SparseSimdLevel vello_sparse_detect_simd_level();
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_sparse_detect_thread_count")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial ushort vello_sparse_detect_thread_count();
+
     [LibraryImport(LibraryName, EntryPoint = "vello_sparse_render_context_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_sparse_render_context_destroy(IntPtr context);

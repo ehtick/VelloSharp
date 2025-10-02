@@ -9,9 +9,13 @@ internal sealed class CpuSparseContext : IDisposable
 {
     private Core.SparseRenderContextHandle? _handle;
 
-    public CpuSparseContext(ushort width, ushort height)
+    public CpuSparseContext(ushort width, ushort height, Core.SparseRenderContextOptions? options = null)
     {
-        _handle = Core.SparseRenderContextHandle.Create(width, height);
+        var threadCount = ResolveThreadCount(options);
+        var simdLevel = options?.SimdLevel ?? Core.SparseSimdLevel.Auto;
+        var enableMultithreading = options?.EnableMultithreading ?? true;
+
+        _handle = Core.SparseRenderContextHandle.Create(width, height, threadCount, enableMultithreading, simdLevel);
         Width = width;
         Height = height;
         var status = Core.SparseNativeMethods.vello_sparse_render_context_get_size(
@@ -337,6 +341,26 @@ internal sealed class CpuSparseContext : IDisposable
         {
             ArrayPool<VelloSharp.VelloGlyph>.Shared.Return(glyphBuffer, clearArray: false);
         }
+    }
+
+    private static ushort ResolveThreadCount(Core.SparseRenderContextOptions? options)
+    {
+        if (options is null)
+        {
+            return 0;
+        }
+
+        if (!options.EnableMultithreading)
+        {
+            return 0;
+        }
+
+        if (options.ThreadCount is not int value || value <= 0)
+        {
+            return 0;
+        }
+
+        return (ushort)Math.Clamp(value, 1, ushort.MaxValue);
     }
 
     public void Dispose()

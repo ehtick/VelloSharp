@@ -13,7 +13,14 @@ use vello_common::{
     kurbo::{Affine, BezPath, Cap, Join, PathEl, Point, Rect, Stroke},
     peniko::{Color, Fill},
 };
-use vello_cpu::{RenderContext, RenderMode};
+use vello_cpu::{RenderContext, RenderMode, RenderSettings, Level};
+
+#[cfg(target_arch = "aarch64")]
+use vello_common::fearless_simd::Neon;
+#[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+use vello_common::fearless_simd::WasmSimd128;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use vello_common::fearless_simd::{Avx2, Sse4_2};
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<CString>> = const { RefCell::new(None) };
@@ -155,6 +162,32 @@ impl From<VelloSparseRenderMode> for RenderMode {
 }
 
 #[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloSparseSimdLevel {
+    Auto = -1,
+    Fallback = 0,
+    Neon = 1,
+    WasmSimd128 = 2,
+    Sse4_2 = 3,
+    Avx2 = 4,
+}
+
+fn simd_level_from_level(level: Level) -> VelloSparseSimdLevel {
+    match level {
+        Level::Fallback(_) => VelloSparseSimdLevel::Fallback,
+        #[cfg(target_arch = "aarch64")]
+        Level::Neon(_) => VelloSparseSimdLevel::Neon,
+        #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+        Level::WasmSimd128(_) => VelloSparseSimdLevel::WasmSimd128,
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        Level::Sse4_2(_) => VelloSparseSimdLevel::Sse4_2,
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        Level::Avx2(_) => VelloSparseSimdLevel::Avx2,
+        _ => VelloSparseSimdLevel::Fallback,
+    }
+}
+
+#[repr(i32)]
 #[derive(Debug, Copy, Clone)]
 pub enum VelloSparseLineCap {
     Butt = 0,
@@ -280,18 +313,126 @@ fn context_from_raw<'a>(
     Ok(ctx)
 }
 
+fn resolve_simd_level(
+    level: VelloSparseSimdLevel,
+    default_level: Level,
+) -> Result<Level, &'static str> {
+    match level {
+        VelloSparseSimdLevel::Auto => Ok(default_level),
+        VelloSparseSimdLevel::Fallback => Ok(Level::fallback()),
+        VelloSparseSimdLevel::Neon => {
+            #[cfg(target_arch = "aarch64")]
+            unsafe {
+                return Ok(Level::Neon(Neon::new_unchecked()));
+            }
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                Err("Neon SIMD level is not supported on this architecture.")
+            }
+        }
+        VelloSparseSimdLevel::WasmSimd128 => {
+            #[cfg(all(target_arch = "wasm32", target_feature = "simd128"))]
+            {
+                return Ok(Level::WasmSimd128(WasmSimd128::new_unchecked()));
+            }
+            #[cfg(not(all(target_arch = "wasm32", target_feature = "simd128")))]
+            {
+                Err("Wasm SIMD128 level is not supported on this architecture.")
+            }
+        }
+        VelloSparseSimdLevel::Sse4_2 => {
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            unsafe {
+                return Ok(Level::Sse4_2(Sse4_2::new_unchecked()));
+            }
+            #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+            {
+                Err("SSE4.2 level is not supported on this architecture.")
+            }
+        }
+        VelloSparseSimdLevel::Avx2 => {
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            unsafe {
+                return Ok(Level::Avx2(Avx2::new_unchecked()));
+            }
+            #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+            {
+                Err("AVX2 level is not supported on this architecture.")
+            }
+        }
+    }
+}
+
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn vello_sparse_render_context_create(
+pub unsafe extern "C" fn vello_sparse_render_context_create_with_options(
     width: u16,
     height: u16,
+    enable_multithreading: bool,
+    thread_count: u16,
+    simd_level: VelloSparseSimdLevel,
 ) -> *mut RenderContext {
     clear_last_error();
     if width == 0 || height == 0 {
         set_last_error("Render context dimensions must be non-zero");
         return ptr::null_mut();
     }
-    let context = RenderContext::new(width, height);
+
+    let mut settings = RenderSettings::default();
+
+    let level = match resolve_simd_level(simd_level, settings.level) {
+        Ok(level) => level,
+        Err(message) => {
+            set_last_error(message);
+            return ptr::null_mut();
+        }
+    };
+
+    settings.level = level;
+
+    if !enable_multithreading {
+        settings.num_threads = 0;
+    } else if thread_count > 0 {
+        settings.num_threads = thread_count;
+    }
+
+    let context = RenderContext::new_with(width, height, settings);
     Box::into_raw(Box::new(context))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_create(
+    width: u16,
+    height: u16,
+) -> *mut RenderContext {
+    unsafe {
+        vello_sparse_render_context_create_with_options(
+            width,
+            height,
+            true,
+            0,
+            VelloSparseSimdLevel::Auto,
+        )
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn vello_sparse_detect_simd_level() -> VelloSparseSimdLevel {
+    simd_level_from_level(Level::new())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn vello_sparse_detect_thread_count() -> u16 {
+    #[cfg(feature = "std")]
+    {
+        std::thread::available_parallelism()
+            .map(|value| value.get().min(u16::MAX as usize) as u16)
+            .unwrap_or(0)
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]

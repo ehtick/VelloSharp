@@ -66,7 +66,21 @@ public sealed class MotionMarkSkiaControl : Control
 
     static MotionMarkSkiaControl()
     {
+        ConfigureSparseBackend();
         AffectsRender<MotionMarkSkiaControl>(ComplexityProperty, IsAnimationEnabledProperty);
+    }
+
+    private static void ConfigureSparseBackend()
+    {
+        try
+        {
+            var options = SparseRenderContextOptions.CreateForCurrentMachine();
+            SkiaSharp.CpuSkiaBackendConfiguration.SparseRenderOptions = options;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to configure sparse backend: {ex.Message}");
+        }
     }
 
     public event EventHandler<FrameRenderedEventArgs>? FrameRendered;

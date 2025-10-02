@@ -6,13 +6,27 @@ using Core = VelloSharp;
 
 namespace SkiaSharp;
 
+public static class CpuSkiaBackendConfiguration
+{
+    private static Core.SparseRenderContextOptions? s_sparseRenderOptions;
+
+    public static Core.SparseRenderContextOptions? SparseRenderOptions
+    {
+        get => s_sparseRenderOptions?.Clone();
+        set => s_sparseRenderOptions = value?.Clone();
+    }
+
+    internal static Core.SparseRenderContextOptions? GetSparseRenderOptionsSnapshot()
+        => s_sparseRenderOptions?.Clone();
+}
+
 internal sealed class CpuSkiaBackendFactory : ISkiaBackendFactory
 {
     public ISkiaSurfaceBackend CreateSurface(SKImageInfo info)
-        => new CpuSurfaceBackend(info);
+        => new CpuSurfaceBackend(info, CpuSkiaBackendConfiguration.GetSparseRenderOptionsSnapshot());
 
     public ISkiaPictureRecorderBackend CreateRecorder(SKRect bounds, List<ICanvasCommand> commandLog)
-        => new CpuPictureRecorderBackend(bounds, commandLog);
+        => new CpuPictureRecorderBackend(bounds, commandLog, CpuSkiaBackendConfiguration.GetSparseRenderOptionsSnapshot());
 
     [ModuleInitializer]
     internal static void Initialize()
@@ -27,12 +41,12 @@ internal sealed class CpuSurfaceBackend : ISkiaSurfaceBackend
     private readonly CpuCanvasBackend _canvasBackend;
     private readonly SKImageInfo _info;
 
-    public CpuSurfaceBackend(SKImageInfo info)
+    public CpuSurfaceBackend(SKImageInfo info, Core.SparseRenderContextOptions? options)
     {
         _info = info;
         var width = (ushort)Math.Clamp(info.Width, 1, ushort.MaxValue);
         var height = (ushort)Math.Clamp(info.Height, 1, ushort.MaxValue);
-        _context = new CpuSparseContext(width, height);
+        _context = new CpuSparseContext(width, height, options);
         _canvasBackend = new CpuCanvasBackend(_context, info.Width, info.Height);
     }
 
@@ -107,13 +121,13 @@ internal sealed class CpuPictureRecorderBackend : ISkiaPictureRecorderBackend
     private readonly List<ICanvasCommand> _commands;
     private readonly SKRect _bounds;
 
-    public CpuPictureRecorderBackend(SKRect bounds, List<ICanvasCommand> commandLog)
+    public CpuPictureRecorderBackend(SKRect bounds, List<ICanvasCommand> commandLog, Core.SparseRenderContextOptions? options)
     {
         _bounds = bounds;
         _commands = commandLog;
         var width = (ushort)Math.Clamp((int)Math.Ceiling(Math.Max(bounds.Width, 1f)), 1, ushort.MaxValue);
         var height = (ushort)Math.Clamp((int)Math.Ceiling(Math.Max(bounds.Height, 1f)), 1, ushort.MaxValue);
-        _context = new CpuSparseContext(width, height);
+        _context = new CpuSparseContext(width, height, options);
         _canvasBackend = new CpuCanvasBackend(_context, bounds.Width, bounds.Height);
     }
 
