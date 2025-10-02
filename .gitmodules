@@ -1,24 +1,21 @@
-[submodule "vello"]
-	path = vello
+[submodule "extern/vello"]
+	path = extern/vello
 	url = https://github.com/wieslawsoltes/vello
-[submodule "vello_svg"]
-	path = vello_svg
+[submodule "extern/vello_svg"]
+	path = extern/vello_svg
 	url = https://github.com/linebender/vello_svg.git
-[submodule "velato"]
-	path = velato
+[submodule "extern/velato"]
+	path = extern/velato
 	url = https://github.com/linebender/velato
-[submodule "wgpu"]
-	path = wgpu
+[submodule "extern/wgpu"]
+	path = extern/wgpu
 	url = https://github.com/gfx-rs/wgpu
-[submodule "winit"]
-	path = winit
+[submodule "extern/winit"]
+	path = extern/winit
 	url = https://github.com/rust-windowing/winit
-[submodule "kurbo"]
-	path = kurbo
+[submodule "extern/kurbo"]
+	path = extern/kurbo
 	url = https://github.com/linebender/kurbo
-[submodule "peniko"]
-	path = peniko
-	url = https://github.com/linebender/peniko
 [submodule "extern/peniko"]
 	path = extern/peniko
 	url = https://github.com/linebender/peniko.git

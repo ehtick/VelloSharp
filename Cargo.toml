@@ -7,6 +7,24 @@ members = [
     "peniko_ffi",
     "winit_ffi",
 ]
+exclude = [
+    "extern/Avalonia",
+    "extern/SkiaSharp",
+    "extern/accesskit",
+    "extern/fontations",
+    "extern/harfbuzz_rs",
+    "extern/kurbo",
+    "extern/parley",
+    "extern/peniko",
+    "extern/peniko_shim",
+    "extern/swash",
+    "extern/velato",
+    "extern/vello",
+    "extern/vello_svg",
+    "extern/wgpu",
+    "extern/winit",
+    "extern/xilem",
+]
 
 [workspace.package]
 version = "0.5.0"
@@ -64,13 +82,13 @@ clippy.redundant_feature_names = "warn"
 clippy.wildcard_dependencies = "warn"
 
 [workspace.dependencies]
-vello = { version = "0.5.0", path = "vello/vello" }
-vello_encoding = { version = "0.5.0", path = "vello/vello_encoding" }
-vello_shaders = { version = "0.5.0", path = "vello/vello_shaders" }
+vello = { version = "0.5.0", path = "extern/vello/vello" }
+vello_encoding = { version = "0.5.0", path = "extern/vello/vello_encoding" }
+vello_shaders = { version = "0.5.0", path = "extern/vello/vello_shaders" }
 bytemuck = { version = "1.23.0", features = ["derive"] }
 skrifa = { version = "0.31.3", default-features = false, features = ["autohint_shaping"] }
-peniko = { path = "extern/peniko_shim", default-features = false }
-kurbo = { path = "kurbo/kurbo", default-features = false }
+peniko = { package = "peniko_shim", path = "extern/peniko_shim", default-features = false }
+kurbo = { path = "extern/kurbo/kurbo", default-features = false }
 futures-intrusive = "0.5.0"
 smallvec = "1.15.1"
 static_assertions = "1.1.0"
@@ -83,13 +101,13 @@ thread_local = "1.1.8"
 crossbeam-channel = "0.5.15"
 ordered-channel = { version = "1.2.0", features = ["crossbeam-channel"] }
 fearless_simd = { version = "0.2.0", default-features = false }
-vello_api = { path = "vello/sparse_strips/vello_api", default-features = false }
-vello_common = { version = "0.0.1", path = "vello/sparse_strips/vello_common", default-features = false }
-vello_cpu = { path = "vello/sparse_strips/vello_cpu" }
-vello_hybrid = { path = "vello/sparse_strips/vello_hybrid" }
-vello_sparse_shaders = { path = "vello/sparse_strips/vello_sparse_shaders" }
-vello_example_scenes = { path = "vello/sparse_strips/vello_example_scenes" }
-vello_dev_macros = { path = "vello/sparse_strips/vello_dev_macros" }
+vello_api = { path = "extern/vello/sparse_strips/vello_api", default-features = false }
+vello_common = { version = "0.0.1", path = "extern/vello/sparse_strips/vello_common", default-features = false }
+vello_cpu = { path = "extern/vello/sparse_strips/vello_cpu" }
+vello_hybrid = { path = "extern/vello/sparse_strips/vello_hybrid" }
+vello_sparse_shaders = { path = "extern/vello/sparse_strips/vello_sparse_shaders" }
+vello_example_scenes = { path = "extern/vello/sparse_strips/vello_example_scenes" }
+vello_dev_macros = { path = "extern/vello/sparse_strips/vello_dev_macros" }
 wgpu = { version = "26.0.1", default-features = false, features = ["std", "wgsl"] }
 log = "0.4.27"
 image = { version = "0.25.6", default-features = false }
@@ -98,7 +116,7 @@ anyhow = "1.0.98"
 pollster = "0.4.0"
 web-time = "1.1.0"
 wgpu-profiler = "0.24.0"
-scenes = { path = "vello/examples/scenes" }
+scenes = { path = "extern/vello/examples/scenes" }
 svg = "0.18.0"
 criterion = { version = "0.5.1", default-features = false }
 rand = { version = "0.9.1", default-features = false, features = ["std_rng"] }
@@ -126,7 +144,7 @@ incremental-font-transfer = { path = "extern/fontations/incremental-font-transfe
 klippa = { path = "extern/fontations/klippa" }
 
 [patch.crates-io]
-vello = { path = "vello/vello" }
-vello_svg = { path = "vello_svg" }
-velato = { path = "velato" }
-peniko = { path = "extern/peniko_shim" }
+vello = { path = "extern/vello/vello" }
+vello_svg = { path = "extern/vello_svg" }
+velato = { path = "extern/velato" }
+peniko = { package = "peniko_shim", path = "extern/peniko_shim" }

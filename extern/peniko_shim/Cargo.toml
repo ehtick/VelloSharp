@@ -1,10 +1,13 @@
 [package]
-name = "peniko"
+name = "peniko_shim"
 version = "0.4.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Shim crate that re-exports peniko with legacy Font alias."
 publish = false
+
+[lib]
+name = "peniko"
 
 [features]
 default = ["std"]
@@ -15,4 +18,4 @@ mint = ["peniko_upstream/mint"]
 serde = ["peniko_upstream/serde"]
 
 [dependencies]
-peniko_upstream = { package = "peniko", git = "https://github.com/linebender/peniko", rev = "dde968cf406be54d3211fe422bdd066f891ab632", default-features = false }
+peniko_upstream = { package = "peniko", path = "../peniko", default-features = false }

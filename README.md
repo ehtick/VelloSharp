@@ -438,9 +438,14 @@ available to packaging steps.
 - `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
 - `samples/AvaloniaVelloDemo`: Avalonia desktop sample that exercises the bindings.
 - `samples/AvaloniaVelloExamples`: showcases the expanded scene catalogue on Avalonia with GPU fallback logic.
-- `velato`: submodule that powers the Lottie/After Effects pipeline.
-- `vello_svg`: submodule responsible for SVG parsing.
-- `wgpu`: vendored subset of wgpu used by the FFI for portable GPU access.
+- `extern/vello`: upstream renderer sources (core crate, sparse strips, shaders, and examples).
+- `extern/kurbo`: geometry primitives consumed by `kurbo_ffi` and Vello.
+- `extern/peniko`: brush/image utilities re-exported through `extern/peniko_shim`.
+- `extern/peniko_shim`: compatibility shim that preserves the legacy `peniko` crate API surface.
+- `extern/velato`: submodule that powers the Lottie/After Effects pipeline.
+- `extern/vello_svg`: submodule responsible for SVG parsing.
+- `extern/wgpu`: vendored subset of wgpu used by the FFI for portable GPU access.
+- `extern/winit`: upstream windowing stack used by the native event-loop bridge.
 
 ## License
 
