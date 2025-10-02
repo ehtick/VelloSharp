@@ -25,6 +25,10 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(IsTestProject)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(MSBuildProjectName)', 'Tests$'))">
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)README.md"
           Condition="Exists('$(MSBuildThisFileDirectory)README.md')"

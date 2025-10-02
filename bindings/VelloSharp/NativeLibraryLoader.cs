@@ -47,12 +47,13 @@ internal static class NativeLibraryLoader
 
     private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
-        if (Array.IndexOf(NativeLibraries, libraryName) < 0)
+        var normalizedName = NormalizeLibraryName(libraryName);
+        if (Array.IndexOf(NativeLibraries, normalizedName) < 0)
         {
             return IntPtr.Zero;
         }
 
-        foreach (var candidate in EnumerateProbePaths(assembly, libraryName))
+        foreach (var candidate in EnumerateProbePaths(assembly, normalizedName))
         {
             if (!string.IsNullOrWhiteSpace(candidate) && NativeLibrary.TryLoad(candidate, out var handle))
             {
@@ -60,8 +61,30 @@ internal static class NativeLibraryLoader
             }
         }
 
-        var fileName = GetLibraryFileName(libraryName);
+        var fileName = GetLibraryFileName(normalizedName);
         return NativeLibrary.Load(fileName, assembly, searchPath);
+    }
+
+    private static string NormalizeLibraryName(string libraryName)
+    {
+        if (string.IsNullOrWhiteSpace(libraryName))
+        {
+            return libraryName;
+        }
+
+        var normalized = libraryName;
+
+        if (normalized.StartsWith("lib", StringComparison.Ordinal))
+        {
+            normalized = normalized[3..];
+        }
+
+        normalized = normalized
+            .Replace(".dll", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(".dylib", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(".so", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+        return normalized;
     }
 
     private static IEnumerable<string> EnumerateProbePaths(Assembly assembly, string libraryName)

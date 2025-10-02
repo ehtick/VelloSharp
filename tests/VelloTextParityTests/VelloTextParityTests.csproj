@@ -3,6 +3,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,5 +28,17 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf" Link="Assets/Roboto-Regular.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../bindings/VelloSharp/bin/$(Configuration)/net8.0/lib*.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="../../bindings/VelloSharp/bin/$(Configuration)/net8.0/*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="../../bindings/VelloSharp/bin/$(Configuration)/net8.0/runtimes/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>
