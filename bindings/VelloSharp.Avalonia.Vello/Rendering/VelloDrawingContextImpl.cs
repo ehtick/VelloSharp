@@ -790,8 +790,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     private void PushSceneLayer(PathBuilder path, float alpha, LayerBlend blend, Matrix3x2 transform)
     {
-        var span = path.AsSpan();
-        if (span.IsEmpty)
+        if (path.Count == 0)
         {
             _layerStack.Push(LayerEntry.Noop());
             return;

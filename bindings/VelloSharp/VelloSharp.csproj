@@ -27,6 +27,13 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Ffi.Sparse/VelloSharp.Ffi.Sparse.csproj" />
+    <ProjectReference Include="../VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj" />
+    <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloIncludeNativeAssets)' == 'true' and Exists('$(VelloNativeAssetsDirectory)')">
     <Content Include="$(VelloNativeAssetsDirectory)**/*"
              Pack="true"
@@ -49,7 +56,7 @@
 
   <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '$(VelloNativePackageIds)' != ''">
     <_VelloNativePackage Include="$(VelloNativePackageIds)">
-      <ProjectPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', 'packaging', '%(Identity)', '%(Identity).csproj'))</ProjectPath>
+      <ProjectPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', '..', 'packaging', '%(Identity)', '%(Identity).csproj'))</ProjectPath>
     </_VelloNativePackage>
   </ItemGroup>
 

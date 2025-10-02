@@ -1,11 +1,10 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("VelloSharp.Integration")]
+[assembly: InternalsVisibleTo("VelloSharp")]
+[assembly: InternalsVisibleTo("VelloSharp.Text")]
 [assembly: InternalsVisibleTo("VelloSharp.Avalonia.Winit")]
 [assembly: InternalsVisibleTo("VelloSharp.Avalonia.Vello")]
-[assembly: InternalsVisibleTo("VelloSharp.Skia")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Core")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Gpu")]
-[assembly: InternalsVisibleTo("VelloSharp.Skia.Cpu")]
-[assembly: InternalsVisibleTo("VelloSharp.Text")]
+[assembly: InternalsVisibleTo("VelloSharp.HarfBuzzSharp")]
 [assembly: InternalsVisibleTo("HarfBuzzSharp")]

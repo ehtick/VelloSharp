@@ -3,13 +3,18 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>HarfBuzzSharp</AssemblyName>
-    <RootNamespace>HarfBuzzSharp</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Skia.Cpu</PackageId>
+    <Title>VelloSharp.Skia.Cpu</Title>
+    <Description>Skia sparse CPU backend built on the shared VelloSharp Skia layer.</Description>
   </PropertyGroup>
+
   <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
     <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
-    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Ffi.Sparse/VelloSharp.Ffi.Sparse.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
   </ItemGroup>
 </Project>

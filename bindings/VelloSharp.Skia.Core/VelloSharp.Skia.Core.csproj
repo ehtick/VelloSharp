@@ -5,11 +5,18 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
+    <AssemblyName>VelloSharp.Skia.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Skia.Core</PackageId>
+    <Title>VelloSharp.Skia.Core</Title>
+    <Description>Shared Skia abstractions and utilities consumed by VelloSharp GPU and CPU backends.</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
+    <ProjectReference Include="../VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj" />
   </ItemGroup>
 
   <ItemGroup>

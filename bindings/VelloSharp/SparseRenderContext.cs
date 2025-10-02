@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
@@ -147,43 +148,260 @@ public sealed class SparseRenderContext : IDisposable
         }
     }
 
-    public void FillPath(PathBuilder path)
+    public void FillPath(PathBuilder path, FillRule fillRule, Matrix3x2 transform, RgbaColor color)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        FillPath(path, fillRule, transform, new SolidColorBrush(color), null);
+    }
+
+    public void FillPath(PathBuilder path, FillRule fillRule, Matrix3x2 transform, Brush brush, Matrix3x2? brushTransform = null)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(path);
-        var span = path.AsSpan();
+        ArgumentNullException.ThrowIfNull(brush);
+
+        using var nativePath = NativePathElements.Rent(path);
+        var elements = nativePath.Span;
+        if (elements.IsEmpty)
+        {
+            throw new ArgumentException("Path must contain at least one element.", nameof(path));
+        }
+
+        using var brushData = BrushNativeFactory.Create(brush);
+        var stops = brushData.Stops;
+
         unsafe
         {
-            fixed (VelloPathElement* ptr = span)
+            fixed (VelloPathElement* elementPtr = elements)
+            fixed (VelloGradientStop* stopPtr = stops)
             {
-                var status = SparseNativeMethods.vello_sparse_render_context_fill_path(
+                var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+                var nativeTransform = transform.ToNativeAffine();
+
+                VelloAffine* brushTransformPtr = null;
+                VelloAffine brushTransformValue = default;
+                if (brushTransform.HasValue)
+                {
+                    brushTransformValue = brushTransform.Value.ToNativeAffine();
+                    brushTransformPtr = &brushTransformValue;
+                }
+
+                var fillStatus = SparseNativeMethods.vello_sparse_render_context_fill_path_brush(
                     _handle,
-                    ptr,
-                    (nuint)span.Length);
-                NativeHelpers.ThrowOnError(status, "Sparse fill path failed");
+                    (VelloFillRule)fillRule,
+                    nativeTransform,
+                    nativeBrush,
+                    brushTransformPtr,
+                    elementPtr,
+                    (nuint)elements.Length);
+                NativeHelpers.ThrowOnError(fillStatus, "Sparse fill path failed");
             }
         }
     }
 
-    public void StrokePath(PathBuilder path)
+    public void StrokePath(PathBuilder path, StrokeStyle style, Matrix3x2 transform, RgbaColor color)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        StrokePath(path, style, transform, new SolidColorBrush(color), null);
+    }
+
+    public void StrokePath(PathBuilder path, StrokeStyle style, Matrix3x2 transform, Brush brush, Matrix3x2? brushTransform = null)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(path);
-        var span = path.AsSpan();
+        ArgumentNullException.ThrowIfNull(style);
+        ArgumentNullException.ThrowIfNull(brush);
+
+        using var nativePath = NativePathElements.Rent(path);
+        var elements = nativePath.Span;
+        if (elements.IsEmpty)
+        {
+            throw new ArgumentException("Path must contain at least one element.", nameof(path));
+        }
+
+        using var brushData = BrushNativeFactory.Create(brush);
+        var stops = brushData.Stops;
+
         unsafe
         {
-            fixed (VelloPathElement* ptr = span)
+            fixed (VelloPathElement* elementPtr = elements)
+            fixed (VelloGradientStop* stopPtr = stops)
             {
-                var status = SparseNativeMethods.vello_sparse_render_context_stroke_path(
+                var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+                var nativeTransform = transform.ToNativeAffine();
+
+                VelloAffine* brushTransformPtr = null;
+                VelloAffine brushTransformValue = default;
+                if (brushTransform.HasValue)
+                {
+                    brushTransformValue = brushTransform.Value.ToNativeAffine();
+                    brushTransformPtr = &brushTransformValue;
+                }
+
+                var nativeStroke = CreateStrokeStyle(style, IntPtr.Zero, 0);
+                var pattern = style.DashPattern;
+                if (pattern is { Length: > 0 })
+                {
+                    fixed (double* dashPtr = pattern)
+                    {
+                        nativeStroke = CreateStrokeStyle(style, (IntPtr)dashPtr, (nuint)pattern.Length);
+                        var strokeStatus = SparseNativeMethods.vello_sparse_render_context_stroke_path_brush(
+                            _handle,
+                            nativeStroke,
+                            nativeTransform,
+                            nativeBrush,
+                            brushTransformPtr,
+                            elementPtr,
+                            (nuint)elements.Length);
+                        NativeHelpers.ThrowOnError(strokeStatus, "Sparse stroke path failed");
+                        return;
+                    }
+                }
+
+                var finalStatus = SparseNativeMethods.vello_sparse_render_context_stroke_path_brush(
                     _handle,
-                    ptr,
-                    (nuint)span.Length);
-                NativeHelpers.ThrowOnError(status, "Sparse stroke path failed");
+                    nativeStroke,
+                    nativeTransform,
+                    nativeBrush,
+                    brushTransformPtr,
+                    elementPtr,
+                    (nuint)elements.Length);
+                NativeHelpers.ThrowOnError(finalStatus, "Sparse stroke path failed");
             }
         }
     }
 
-    public void FillRect(double x, double y, double width, double height)
+    public void PushLayer(PathBuilder clip, LayerBlend blend, Matrix3x2 transform, float alpha = 1f)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(clip);
+
+        using var nativePath = NativePathElements.Rent(clip);
+        var span = nativePath.Span;
+        if (span.IsEmpty)
+        {
+            throw new ArgumentException("Clip path must contain at least one element.", nameof(clip));
+        }
+
+        unsafe
+        {
+            fixed (VelloPathElement* elementPtr = span)
+            {
+                var layer = new VelloLayerParams
+                {
+                    Mix = (VelloBlendMix)blend.Mix,
+                    Compose = (VelloBlendCompose)blend.Compose,
+                    Alpha = alpha,
+                    Transform = transform.ToNativeAffine(),
+                    ClipElements = (IntPtr)elementPtr,
+                    ClipElementCount = (nuint)span.Length,
+                };
+
+                var status = SparseNativeMethods.vello_sparse_render_context_push_layer(_handle, ref layer);
+                NativeHelpers.ThrowOnError(status, "Sparse push layer failed");
+            }
+        }
+    }
+
+    public void PopLayer()
+    {
+        ThrowIfDisposed();
+        SparseNativeMethods.vello_sparse_render_context_pop_layer(_handle);
+    }
+
+    public void DrawImage(Image image, Matrix3x2 transform) => DrawImage(new ImageBrush(image), transform);
+
+    public void DrawImage(ImageBrush brush, Matrix3x2 transform)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(brush);
+        var status = SparseNativeMethods.vello_sparse_render_context_draw_image(
+            _handle,
+            brush.ToNative(),
+            transform.ToNativeAffine());
+        NativeHelpers.ThrowOnError(status, "Sparse draw image failed");
+    }
+
+    public void DrawGlyphRun(Font font, ReadOnlySpan<Glyph> glyphs, GlyphRunOptions options)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(font);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(options.Brush);
+
+        if (glyphs.IsEmpty)
+        {
+            return;
+        }
+
+        using var brushData = BrushNativeFactory.Create(options.Brush);
+        var stops = brushData.Stops;
+
+        var glyphArray = ArrayPool<VelloGlyph>.Shared.Rent(glyphs.Length);
+        var glyphSpan = glyphArray.AsSpan(0, glyphs.Length);
+        for (var i = 0; i < glyphs.Length; i++)
+        {
+            glyphSpan[i] = glyphs[i].ToNative();
+        }
+
+        try
+        {
+            unsafe
+            {
+                fixed (VelloGlyph* glyphPtr = glyphSpan)
+                fixed (VelloGradientStop* stopPtr = stops)
+                {
+                    var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+
+                    var nativeOptions = new SparseNativeMethods.GlyphRunOptionsNative
+                    {
+                        Style = (VelloGlyphRunStyle)options.Style,
+                        FontSize = options.FontSize,
+                        Transform = options.Transform.ToNativeAffine(),
+                        Brush = nativeBrush,
+                        StrokeStyle = default,
+                        GlyphTransform = IntPtr.Zero,
+                        Hint = options.Hint,
+                    };
+
+                    VelloAffine glyphTransformValue = default;
+                    if (options.GlyphTransform.HasValue)
+                    {
+                        glyphTransformValue = options.GlyphTransform.Value.ToNativeAffine();
+                        nativeOptions.GlyphTransform = (IntPtr)(&glyphTransformValue);
+                    }
+
+                    if (options.Style == GlyphRunStyle.Stroke)
+                    {
+                        var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
+                        if (stroke.DashPattern is { Length: > 0 } pattern)
+                        {
+                            fixed (double* dashPtr = pattern)
+                            {
+                                nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
+                                InvokeGlyphRun(font, glyphPtr, (nuint)glyphSpan.Length, nativeOptions);
+                            }
+                        }
+                        else
+                        {
+                            nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, IntPtr.Zero, 0);
+                            InvokeGlyphRun(font, glyphPtr, (nuint)glyphSpan.Length, nativeOptions);
+                        }
+                    }
+                    else
+                    {
+                        InvokeGlyphRun(font, glyphPtr, (nuint)glyphSpan.Length, nativeOptions);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<VelloGlyph>.Shared.Return(glyphArray, clearArray: false);
+        }
+    }
+
+    public void FillRect(double x, double y, double width, double height, RgbaColor color)
     {
         ThrowIfDisposed();
         if (width < 0)
@@ -203,7 +421,7 @@ public sealed class SparseRenderContext : IDisposable
             Width = width,
             Height = height,
         };
-        var status = SparseNativeMethods.vello_sparse_render_context_fill_rect(_handle, rect);
+        var status = SparseNativeMethods.vello_sparse_render_context_fill_rect(_handle, rect, color.ToNative());
         NativeHelpers.ThrowOnError(status, "Sparse fill rect failed");
     }
 
@@ -285,6 +503,46 @@ public sealed class SparseRenderContext : IDisposable
         _disposed = true;
     }
 
+    private void ThrowIfDisposed()
+    {
+        if (_disposed || _handle == IntPtr.Zero)
+        {
+            throw new ObjectDisposedException(nameof(SparseRenderContext));
+        }
+    }
+
+    private static unsafe VelloBrush PrepareBrushForInvocation(
+        VelloBrush brush,
+        ReadOnlySpan<VelloGradientStop> stops,
+        VelloGradientStop* stopPtr)
+    {
+        brush.Linear.Stops = IntPtr.Zero;
+        brush.Radial.Stops = IntPtr.Zero;
+        brush.Sweep.Stops = IntPtr.Zero;
+
+        if (!stops.IsEmpty && stopPtr is not null)
+        {
+            var ptr = (IntPtr)stopPtr;
+            switch (brush.Kind)
+            {
+                case VelloBrushKind.LinearGradient:
+                    brush.Linear.Stops = ptr;
+                    brush.Linear.StopCount = (nuint)stops.Length;
+                    break;
+                case VelloBrushKind.RadialGradient:
+                    brush.Radial.Stops = ptr;
+                    brush.Radial.StopCount = (nuint)stops.Length;
+                    break;
+                case VelloBrushKind.SweepGradient:
+                    brush.Sweep.Stops = ptr;
+                    brush.Sweep.StopCount = (nuint)stops.Length;
+                    break;
+            }
+        }
+
+        return brush;
+    }
+
     private static VelloStrokeStyle CreateStrokeStyle(StrokeStyle style, IntPtr dashPtr, nuint dashLength) => new()
     {
         Width = style.Width,
@@ -297,11 +555,14 @@ public sealed class SparseRenderContext : IDisposable
         DashLength = dashLength,
     };
 
-    private void ThrowIfDisposed()
+    private unsafe void InvokeGlyphRun(Font font, VelloGlyph* glyphPtr, nuint glyphCount, SparseNativeMethods.GlyphRunOptionsNative options)
     {
-        if (_disposed || _handle == IntPtr.Zero)
-        {
-            throw new ObjectDisposedException(nameof(SparseRenderContext));
-        }
+        var status = SparseNativeMethods.vello_sparse_render_context_draw_glyph_run(
+            _handle,
+            font.Handle,
+            glyphPtr,
+            glyphCount,
+            options);
+        NativeHelpers.ThrowOnError(status, "Sparse draw glyph run failed");
     }
 }

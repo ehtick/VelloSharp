@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Ffi.Core</PackageId>
+    <Title>VelloSharp.Ffi.Core</Title>
+    <Description>Core interop helpers and native marshalling primitives for VelloSharp bindings.</Description>
+  </PropertyGroup>
+</Project>

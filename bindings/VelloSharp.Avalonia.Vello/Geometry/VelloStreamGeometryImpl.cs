@@ -38,7 +38,8 @@ internal sealed class VelloStreamGeometryImpl : VelloGeometryImplBase, IStreamGe
     private void Complete(VelloPathBuilder builder, AvaloniaFillRule fillRule)
     {
         var data = new VelloPathData();
-        data.Append(builder.AsSpan());
+        using var nativePath = NativePathElements.Rent(builder);
+        data.Append(nativePath.Span);
         ReplaceData(data);
         SetFillRule(fillRule == AvaloniaFillRule.EvenOdd
             ? global::Avalonia.Media.FillRule.EvenOdd

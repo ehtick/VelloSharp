@@ -5,9 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Text</PackageId>
+    <Title>VelloSharp.Text</Title>
+    <Description>Text integration helpers that bridge VelloSharp core primitives and HarfBuzzSharp.</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj" />
+    <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
   </ItemGroup>
 

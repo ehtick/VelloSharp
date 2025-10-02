@@ -21,7 +21,8 @@ internal sealed class VelloEllipseGeometryImpl : VelloGeometryImplBase
         var builder = new PathBuilder();
         builder.AddEllipse(rect);
         var data = new VelloPathData();
-        data.Append(builder.AsSpan());
+        using var nativePath = NativePathElements.Rent(builder);
+        data.Append(nativePath.Span);
         return data;
     }
 }

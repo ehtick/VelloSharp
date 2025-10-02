@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Ffi.Sparse</PackageId>
+    <Title>VelloSharp.Ffi.Sparse</Title>
+    <Description>Sparse renderer interop layer for VelloSharp, wrapping vello_sparse_ffi.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj" />
+  </ItemGroup>
+</Project>

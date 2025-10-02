@@ -114,7 +114,7 @@ public sealed class SKTypeface : IDisposable
     private static SKTypeface CreateDefault()
     {
         var assembly = typeof(SKTypeface).GetTypeInfo().Assembly;
-        using var stream = assembly.GetManifestResourceStream("VelloSharp.Skia.Fonts.Roboto-Regular.ttf")
+        using var stream = assembly.GetManifestResourceStream("VelloSharp.Skia.Core.Fonts.Roboto-Regular.ttf")
             ?? throw new InvalidOperationException("Embedded default font 'Roboto-Regular.ttf' was not found.");
 
         using var ms = new MemoryStream();

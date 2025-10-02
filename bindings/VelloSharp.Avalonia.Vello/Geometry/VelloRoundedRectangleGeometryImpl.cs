@@ -21,7 +21,8 @@ internal sealed class VelloRoundedRectangleGeometryImpl : VelloGeometryImplBase
         var builder = new PathBuilder();
         builder.AddRoundedRectangle(rect);
         var data = new VelloPathData();
-        data.Append(builder.AsSpan());
+        using var nativePath = NativePathElements.Rent(builder);
+        data.Append(nativePath.Span);
         return data;
     }
 }

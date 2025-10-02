@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageOutputPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'artifacts', 'nuget'))</PackageOutputPath>
+  </PropertyGroup>
+</Project>

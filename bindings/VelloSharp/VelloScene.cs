@@ -29,7 +29,8 @@ public sealed class Scene : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(path);
 
-        var span = path.AsSpan();
+        using var nativePath = NativePathElements.Rent(path);
+        var span = nativePath.Span;
         if (span.IsEmpty)
         {
             throw new ArgumentException("Path must contain at least one element.", nameof(path));
@@ -63,8 +64,8 @@ public sealed class Scene : IDisposable
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(brush);
 
-        var span = path.AsSpan();
-        FillPathInternal(span, fillRule, transform, brush, brushTransform);
+        using var nativePath = NativePathElements.Rent(path);
+        FillPathInternal(nativePath.Span, fillRule, transform, brush, brushTransform);
     }
 
     public void FillPath(
@@ -75,7 +76,7 @@ public sealed class Scene : IDisposable
         Matrix3x2? brushTransform = null)
     {
         ArgumentNullException.ThrowIfNull(brush);
-        FillPath(path, fillRule, transform, Brush.FromPenikoBrush(brush), brushTransform);
+        FillPath(path, fillRule, transform, BrushFactory.FromPenikoBrush(brush), brushTransform);
     }
 
     public void FillPath(
@@ -102,7 +103,7 @@ public sealed class Scene : IDisposable
         Matrix3x2? brushTransform = null)
     {
         ArgumentNullException.ThrowIfNull(brush);
-        FillPath(path, fillRule, transform, Brush.FromPenikoBrush(brush), brushTransform);
+        FillPath(path, fillRule, transform, BrushFactory.FromPenikoBrush(brush), brushTransform);
     }
 
     public void StrokePath(PathBuilder path, StrokeStyle style, Matrix3x2 transform, RgbaColor color)
@@ -111,7 +112,8 @@ public sealed class Scene : IDisposable
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(style);
 
-        var span = path.AsSpan();
+        using var nativePath = NativePathElements.Rent(path);
+        var span = nativePath.Span;
         if (span.IsEmpty)
         {
             throw new ArgumentException("Path must contain at least one element.", nameof(path));
@@ -166,8 +168,8 @@ public sealed class Scene : IDisposable
         ArgumentNullException.ThrowIfNull(style);
         ArgumentNullException.ThrowIfNull(brush);
 
-        var span = path.AsSpan();
-        StrokePathInternal(span, style, transform, brush, brushTransform);
+        using var nativePath = NativePathElements.Rent(path);
+        StrokePathInternal(nativePath.Span, style, transform, brush, brushTransform);
     }
 
     public void StrokePath(
@@ -178,7 +180,7 @@ public sealed class Scene : IDisposable
         Matrix3x2? brushTransform = null)
     {
         ArgumentNullException.ThrowIfNull(brush);
-        StrokePath(path, style, transform, Brush.FromPenikoBrush(brush), brushTransform);
+        StrokePath(path, style, transform, BrushFactory.FromPenikoBrush(brush), brushTransform);
     }
 
     public void StrokePath(
@@ -206,7 +208,7 @@ public sealed class Scene : IDisposable
         Matrix3x2? brushTransform = null)
     {
         ArgumentNullException.ThrowIfNull(brush);
-        StrokePath(path, style, transform, Brush.FromPenikoBrush(brush), brushTransform);
+        StrokePath(path, style, transform, BrushFactory.FromPenikoBrush(brush), brushTransform);
     }
 
     internal IntPtr Handle
@@ -233,7 +235,8 @@ public sealed class Scene : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(clip);
 
-        var span = clip.AsSpan();
+        using var nativePath = NativePathElements.Rent(clip);
+        var span = nativePath.Span;
         if (span.IsEmpty)
         {
             throw new ArgumentException("Clip path must contain at least one element.", nameof(clip));
@@ -264,7 +267,8 @@ public sealed class Scene : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(clip);
 
-        var span = clip.AsSpan();
+        using var nativePath = NativePathElements.Rent(clip);
+        var span = nativePath.Span;
         if (span.IsEmpty)
         {
             throw new ArgumentException("Clip path must contain at least one element.", nameof(clip));
@@ -344,7 +348,7 @@ public sealed class Scene : IDisposable
             return;
         }
 
-        using var brushData = options.Brush.CreateNative();
+        using var brushData = BrushNativeFactory.Create(options.Brush);
         var stops = brushData.Stops;
 
         var glyphArray = ArrayPool<VelloGlyph>.Shared.Rent(glyphs.Length);
@@ -447,7 +451,7 @@ public sealed class Scene : IDisposable
             throw new ArgumentException("Path must contain at least one element.", nameof(elements));
         }
 
-        using var brushData = brush.CreateNative();
+        using var brushData = BrushNativeFactory.Create(brush);
         var stops = brushData.Stops;
 
         unsafe
@@ -491,7 +495,7 @@ public sealed class Scene : IDisposable
             throw new ArgumentException("Path must contain at least one element.", nameof(elements));
         }
 
-        using var brushData = brush.CreateNative();
+        using var brushData = BrushNativeFactory.Create(brush);
         var stops = brushData.Stops;
 
         unsafe

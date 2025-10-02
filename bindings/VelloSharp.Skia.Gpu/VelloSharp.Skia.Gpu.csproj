@@ -3,11 +3,16 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>HarfBuzzSharp</AssemblyName>
-    <RootNamespace>HarfBuzzSharp</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Skia.Gpu</PackageId>
+    <Title>VelloSharp.Skia.Gpu</Title>
+    <Description>Skia GPU backend bindings layered on top of VelloSharp primitives.</Description>
   </PropertyGroup>
+
   <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
     <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />

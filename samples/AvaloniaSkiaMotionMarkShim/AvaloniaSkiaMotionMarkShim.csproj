@@ -19,9 +19,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
-    <ProjectReference Include="..\..\bindings\VelloSharp.Skia\VelloSharp.Skia.csproj">
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Core\VelloSharp.Skia.Core.csproj">
       <Aliases>VelloSkia</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Gpu\VelloSharp.Skia.Gpu.csproj" />
     <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
   </ItemGroup>
 

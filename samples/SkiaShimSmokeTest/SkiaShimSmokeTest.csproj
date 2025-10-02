@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../bindings/VelloSharp.Skia/VelloSharp.Skia.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Ffi.Gpu</PackageId>
+    <Title>VelloSharp.Ffi.Gpu</Title>
+    <Description>GPU-focused P/Invoke bindings for the Vello renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,95 @@
+using System;
+
+namespace VelloSharp;
+
+public sealed class Image : IDisposable
+{
+    private IntPtr _handle;
+
+    private Image(IntPtr handle)
+    {
+        _handle = handle;
+    }
+
+    public IntPtr Handle
+    {
+        get
+        {
+            if (_handle == IntPtr.Zero)
+            {
+                throw new ObjectDisposedException(nameof(Image));
+            }
+            return _handle;
+        }
+    }
+
+    public static Image FromPixels(
+        ReadOnlySpan<byte> pixels,
+        int width,
+        int height,
+        RenderFormat format = RenderFormat.Rgba8,
+        ImageAlphaMode alphaMode = ImageAlphaMode.Straight,
+        int stride = 0)
+    {
+        if (width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+        if (height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(height));
+        }
+        var bytesPerRow = checked(width * 4);
+        if (stride == 0)
+        {
+            stride = bytesPerRow;
+        }
+        if (stride < bytesPerRow)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stride));
+        }
+        var required = checked(stride * height);
+        if (pixels.Length < required)
+        {
+            throw new ArgumentException("Pixel data is smaller than expected for the provided stride and dimensions.", nameof(pixels));
+        }
+
+        var slice = pixels[..required];
+        unsafe
+        {
+            fixed (byte* ptr = slice)
+            {
+                var native = NativeMethods.vello_image_create(
+                    (VelloRenderFormat)format,
+                    (VelloImageAlphaMode)alphaMode,
+                    (uint)width,
+                    (uint)height,
+                    (IntPtr)ptr,
+                    (nuint)stride);
+                if (native == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create image.");
+                }
+                return new Image(native);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_image_destroy(_handle);
+            _handle = IntPtr.Zero;
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    ~Image()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            NativeMethods.vello_image_destroy(_handle);
+        }
+    }
+}
