@@ -7,6 +7,12 @@ namespace VelloSharp.Integration.Skia;
 
 public static class SkiaRenderBridge
 {
+    // Reuse a thread-local scratch bitmap so GPU surfaces do not incur a new allocation per frame.
+    [ThreadStatic]
+    private static SKBitmap? s_sharedBitmap;
+    [ThreadStatic]
+    private static SKImageInfo s_sharedBitmapInfo;
+
     public static void Render(SKBitmap bitmap, Renderer renderer, Scene scene, in RenderParams renderParams)
     {
         ArgumentNullException.ThrowIfNull(bitmap);
@@ -43,15 +49,41 @@ public static class SkiaRenderBridge
         }
 
         var info = new SKImageInfo(bounds.Width, bounds.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var bitmap = new SKBitmap();
-        if (!bitmap.TryAllocPixels(info))
-        {
-            throw new InvalidOperationException("Unable to allocate an SKBitmap for the intermediate surface copy.");
-        }
+        var bitmap = RentBitmap(info);
 
         Render(bitmap, renderer, scene, renderParams);
         surface.Canvas.DrawBitmap(bitmap, 0, 0);
         surface.Flush();
+    }
+
+    private static SKBitmap RentBitmap(SKImageInfo info)
+    {
+        var bitmap = s_sharedBitmap;
+        if (bitmap is null || !IsCompatible(info))
+        {
+            bitmap?.Dispose();
+
+            bitmap = new SKBitmap();
+            if (!bitmap.TryAllocPixels(info))
+            {
+                bitmap.Dispose();
+                throw new InvalidOperationException("Unable to allocate an SKBitmap for the intermediate surface copy.");
+            }
+
+            s_sharedBitmapInfo = info;
+            s_sharedBitmap = bitmap;
+        }
+
+        return bitmap;
+
+        bool IsCompatible(in SKImageInfo requested)
+        {
+            return s_sharedBitmapInfo.Width == requested.Width &&
+                   s_sharedBitmapInfo.Height == requested.Height &&
+                   s_sharedBitmapInfo.ColorType == requested.ColorType &&
+                   s_sharedBitmapInfo.AlphaType == requested.AlphaType &&
+                   Equals(s_sharedBitmapInfo.ColorSpace, requested.ColorSpace);
+        }
     }
 
     private static unsafe void RenderPixmap(SKPixmap pixmap, Renderer renderer, Scene scene, in RenderParams renderParams)
