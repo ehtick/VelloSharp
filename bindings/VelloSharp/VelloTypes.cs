@@ -33,6 +33,12 @@ public enum AntialiasingMode
     Msaa16 = VelloAaMode.Msaa16,
 }
 
+public enum SparseRenderMode
+{
+    OptimizeSpeed = VelloSparseRenderMode.OptimizeSpeed,
+    OptimizeQuality = VelloSparseRenderMode.OptimizeQuality,
+}
+
 public enum RenderFormat
 {
     Rgba8 = VelloRenderFormat.Rgba8,

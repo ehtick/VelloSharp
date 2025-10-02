@@ -5,6 +5,7 @@ This document compares the public C ABI exported by each native FFI crate with t
 ## Summary
 
 - `vello_ffi`: 100% of exported functions have .NET bindings.
+- `vello_sparse_ffi`: 100% of exported functions have .NET bindings.
 - `kurbo_ffi`: 6 native functions are not bound in .NET (`kurbo_bez_path_append`, `kurbo_bez_path_from_elements`, `kurbo_rect_intersect`, `kurbo_rect_is_empty`, `kurbo_rect_union`, `kurbo_vec2_length`).
 - `peniko_ffi`: 100% of exported functions have .NET bindings.
 - `winit_ffi`: 100% of exported functions have .NET bindings.
@@ -135,6 +136,32 @@ Rust crate: `peniko` (subset exposed here).
 | `peniko_brush_multiply_alpha` | Yes | Yes |  |
 | `peniko_brush_with_alpha` | Yes | Yes |  |
 | `peniko_last_error_message` | Yes | Yes |  |
+
+### Sparse Strips (`vello_sparse_ffi`)
+
+Rust crate: `vello_cpu` (sparse strips renderer surface).
+
+| Function | Exposed via FFI | Exposed via .NET | Notes |
+| --- | --- | --- | --- |
+| `vello_sparse_last_error_message` | Yes | Yes |  |
+| `vello_sparse_render_context_create` | Yes | Yes |  |
+| `vello_sparse_render_context_destroy` | Yes | Yes |  |
+| `vello_sparse_render_context_reset` | Yes | Yes |  |
+| `vello_sparse_render_context_flush` | Yes | Yes |  |
+| `vello_sparse_render_context_get_size` | Yes | Yes |  |
+| `vello_sparse_render_context_set_fill_rule` | Yes | Yes |  |
+| `vello_sparse_render_context_set_transform` | Yes | Yes |  |
+| `vello_sparse_render_context_reset_transform` | Yes | Yes |  |
+| `vello_sparse_render_context_set_paint_transform` | Yes | Yes |  |
+| `vello_sparse_render_context_reset_paint_transform` | Yes | Yes |  |
+| `vello_sparse_render_context_set_aliasing_threshold` | Yes | Yes |  |
+| `vello_sparse_render_context_set_solid_paint` | Yes | Yes |  |
+| `vello_sparse_render_context_set_stroke` | Yes | Yes |  |
+| `vello_sparse_render_context_fill_path` | Yes | Yes |  |
+| `vello_sparse_render_context_stroke_path` | Yes | Yes |  |
+| `vello_sparse_render_context_fill_rect` | Yes | Yes |  |
+| `vello_sparse_render_context_stroke_rect` | Yes | Yes |  |
+| `vello_sparse_render_context_render_to_buffer` | Yes | Yes |  |
 
 ### AccessKit (accessibility schema) (`accesskit_ffi`)
 

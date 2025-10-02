@@ -1,0 +1,22 @@
+[package]
+name = "vello_sparse_ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "C bindings for the Vello sparse strips renderer"
+
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+vello_cpu = { workspace = true }
+vello_common = { workspace = true }
+kurbo = { workspace = true, features = ["std"] }
+
+[features]
+default = []

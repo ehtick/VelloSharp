@@ -6,6 +6,7 @@ members = [
     "ffi/kurbo_ffi",
     "ffi/peniko_ffi",
     "ffi/winit_ffi",
+    "ffi/vello_sparse_ffi",
 ]
 exclude = [
     "extern/Avalonia",

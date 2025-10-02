@@ -13,6 +13,12 @@ internal static class NativeHelpers
         return ptr == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(ptr);
     }
 
+    public static string? GetSparseLastErrorMessage()
+    {
+        var ptr = SparseNativeMethods.vello_sparse_last_error_message();
+        return ptr == IntPtr.Zero ? null : Marshal.PtrToStringUTF8(ptr);
+    }
+
     internal static unsafe nint AllocUtf8String(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -111,6 +117,16 @@ internal static class NativeHelpers
         }
 
         Throw(message, status, PenikoNativeMethods.peniko_last_error_message);
+    }
+
+    internal static void ThrowOnError(VelloSparseStatus status, string message)
+    {
+        if (status == VelloSparseStatus.Success)
+        {
+            return;
+        }
+
+        Throw(message, status, SparseNativeMethods.vello_sparse_last_error_message);
     }
 
     internal static void ThrowOnError(AccessKitStatus status, string message)

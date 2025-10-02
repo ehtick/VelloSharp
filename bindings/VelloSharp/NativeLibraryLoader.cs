@@ -15,6 +15,7 @@ internal static class NativeLibraryLoader
     {
         "accesskit_ffi",
         "vello_ffi",
+        "vello_sparse_ffi",
         "kurbo_ffi",
         "peniko_ffi",
         "winit_ffi",

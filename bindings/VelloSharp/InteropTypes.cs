@@ -34,6 +34,14 @@ internal enum KurboStatus : int
     OutOfMemory = 4,
 }
 
+internal enum VelloSparseStatus : int
+{
+    Success = 0,
+    NullPointer = 1,
+    InvalidArgument = 2,
+    RenderError = 3,
+}
+
 #pragma warning restore CS1591
 
 public enum PenikoStatus : int
@@ -725,6 +733,12 @@ internal struct VelloRenderParams
     public VelloColor BaseColor;
     public VelloAaMode Antialiasing;
     public VelloRenderFormat Format;
+}
+
+internal enum VelloSparseRenderMode : int
+{
+    OptimizeSpeed = 0,
+    OptimizeQuality = 1,
 }
 
 [StructLayout(LayoutKind.Sequential)]
