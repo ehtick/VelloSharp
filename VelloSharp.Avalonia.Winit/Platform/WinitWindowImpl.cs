@@ -94,6 +94,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         InvokeOnLoop(() =>
         {
             _window?.SetVisible(true);
+            UpdateParentRelationship();
         });
 
         if (activate)
@@ -933,7 +934,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             return;
         }
 
-        var parentHandle = _parentWindow?._nativeHandle ?? nint.Zero;
+        var parentHandle = _isDialogWindow ? (_parentWindow?._nativeHandle ?? nint.Zero) : nint.Zero;
         if (handle == parentHandle)
         {
             parentHandle = nint.Zero;
@@ -1068,7 +1069,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
             {
                 _accessKit.InvalidateTree();
             }
-            window.SetVisible(_isVisible);
+
+            UpdateParentRelationship();
         }
 
         MarkWindowReady();
