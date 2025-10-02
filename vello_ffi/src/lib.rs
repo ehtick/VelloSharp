@@ -28,10 +28,10 @@ use harfrust::{
 };
 use once_cell::sync::Lazy;
 use parley::FontContext;
-use peniko::{
-    BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
+use vello::kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2};
+use vello::peniko::{
+    self, BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
-    kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2},
 };
 use png::{BitDepth, ColorType, Compression, Decoder, Encoder};
 use raw_window_handle::{
@@ -1424,8 +1424,8 @@ fn resize_surface_if_needed(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use peniko::kurbo::{Affine, Rect};
     use std::ptr;
+    use vello::kurbo::{Affine, Rect};
     use vello::peniko::{Color, Fill};
 
     #[test]

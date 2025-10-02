@@ -1991,22 +1991,22 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "peniko"
-version = "0.4.0"
-dependencies = [
- "color",
- "kurbo 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "linebender_resource_handle",
- "smallvec",
-]
-
-[[package]]
-name = "peniko"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b44f9ddd2f480176b34278eb653ec1c8062f3b143a4e16eeff5ffac3334e288"
 dependencies = [
  "color",
  "kurbo 0.11.3",
+ "linebender_resource_handle",
+ "smallvec",
+]
+
+[[package]]
+name = "peniko"
+version = "0.5.0"
+dependencies = [
+ "color",
+ "kurbo 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "linebender_resource_handle",
  "smallvec",
 ]
@@ -2035,7 +2035,7 @@ dependencies = [
 name = "peniko_shim"
 version = "0.4.0"
 dependencies = [
- "peniko 0.4.0",
+ "peniko 0.5.0",
 ]
 
 [[package]]
@@ -2911,7 +2911,7 @@ dependencies = [
  "bytemuck",
  "futures-intrusive",
  "log",
- "peniko 0.5.0",
+ "peniko 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "png",
  "skrifa 0.37.0",
  "static_assertions",
@@ -2928,7 +2928,7 @@ version = "0.5.0"
 dependencies = [
  "bytemuck",
  "guillotiere",
- "peniko 0.5.0",
+ "peniko 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "skrifa 0.37.0",
  "smallvec",
 ]
@@ -2942,7 +2942,6 @@ dependencies = [
  "harfrust",
  "once_cell",
  "parley",
- "peniko_shim",
  "png",
  "pollster",
  "raw-window-handle",
