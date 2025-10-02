@@ -1,6 +1,6 @@
 # FFI API Coverage
 
-This document compares the public C ABI exported by each native FFI crate with the .NET bindings in `VelloSharp`. It highlights coverage gaps that need attention to achieve feature parity with the upstream Rust libraries.
+This document compares the public C ABI exported by each native FFI crate with the .NET bindings in `VelloSharp`. It highlights coverage gaps that need attention to achieve feature parity with the upstream Rust libraries. All crates now live under the `ffi/` directory (for example `ffi/vello_ffi`).
 
 ## Summary
 

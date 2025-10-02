@@ -4,16 +4,16 @@ This repository hosts the managed bindings that expose the [`vello`](https://git
 renderer to .NET applications. The codebase is split into native FFI crates, managed bindings, integration
 helpers, and sample applications:
 
-- Native FFI crates:
-  - `vello_ffi` – wraps the renderer, shader, SVG, Velato/Lottie, text, and wgpu stacks behind a single C ABI,
+- Native FFI crates (under `ffi/`):
+  - `ffi/vello_ffi` – wraps the renderer, shader, SVG, Velato/Lottie, text, and wgpu stacks behind a single C ABI,
     including surface/swapchain helpers for GPU presentation.
-  - `peniko_ffi` – bridges paint/brush data so gradients, images, and style metadata can be inspected or
+  - `ffi/peniko_ffi` – bridges paint/brush data so gradients, images, and style metadata can be inspected or
     constructed from managed code.
-  - `kurbo_ffi` – exposes the geometry primitives used across the stack (affine transforms, Bézier paths,
+  - `ffi/kurbo_ffi` – exposes the geometry primitives used across the stack (affine transforms, Bézier paths,
     and bounding-box helpers) without pulling in the full Rust curve library.
-  - `winit_ffi` – forwards windowing, input, and swap-chain negotiation so native event loops can be driven
+  - `ffi/winit_ffi` – forwards windowing, input, and swap-chain negotiation so native event loops can be driven
     from .NET when desired.
-  - `accesskit_ffi` – serialises/deserialises [AccessKit](https://accesskit.dev) tree updates and action requests
+  - `ffi/accesskit_ffi` – serialises/deserialises [AccessKit](https://accesskit.dev) tree updates and action requests
     so accessibility data can flow between managed code and platform adapters.
 - Managed assemblies:
   - `VelloSharp` – idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
@@ -47,9 +47,10 @@ helpers, and sample applications:
 - **Samples and tooling** – the Avalonia demos ship with automated runtime asset copying, configurable frame
   pacing, and software/GPU fallbacks. `STATUS.md` and the plans under `docs/` track the remaining backlog for
   surface handles, validation, and additional platform glue.
-- **Packaging** – `dotnet pack` produces the aggregate `VelloSharp` NuGet in addition to
-  `VelloSharp.Native.<rid>` runtime packages. Helper scripts in `scripts/` collect, copy, and repackage the
-  native artifacts for CI and local workflows.
+- **Packaging** – `dotnet pack` produces the aggregate `VelloSharp` NuGet plus the `VelloSharp.Native.<rid>`
+  runtime packages. The managed package now declares dependencies on the RID-specific native packages so
+  consuming projects restore the correct binaries automatically. Helper scripts in `scripts/` collect, copy,
+  and repackage the native artifacts for CI and local workflows.
 
 ## Building the native library
 
@@ -399,18 +400,20 @@ artifacts under `artifacts/` and are safe to combine with `dotnet build`/`cargo`
 
 ### Native builds
 
-- `scripts/build-native-macos.sh [target] [profile] [sdk] [rid]` – builds `vello_ffi` for macOS/iOS targets. Pass
-  an Apple SDK name (for example `macosx` or `iphoneos`) to compile against a specific SDK, and optionally override
-  the runtime identifier. Defaults to `x86_64-apple-darwin` in `release` mode.
-- `scripts/build-native-linux.sh [target] [profile] [rid]` – cross-compiles the shared object for GNU/Linux
+- `scripts/build-native-macos.sh [target] [profile] [sdk] [rid]` – builds all FFI crates for macOS/iOS targets
+  (Vello, Peniko, Kurbo, AccessKit, Winit). Pass an Apple SDK name (for example `macosx` or `iphoneos`) to
+  compile against a specific SDK, and optionally override the runtime identifier. Defaults to
+  `x86_64-apple-darwin` in `release` mode.
+- `scripts/build-native-linux.sh [target] [profile] [rid]` – cross-compiles the native crates for GNU/Linux
   platforms, defaulting to `x86_64-unknown-linux-gnu`. Supply `aarch64-unknown-linux-gnu` to produce the ARM64
   variant.
 - `scripts/build-native-windows.ps1 [target] [profile] [rid]` – a PowerShell helper for the Windows MSVC builds.
-  Run from PowerShell or pwsh. Automatically maps the target triple to `win-x64`/`win-arm64` unless a RID is provided.
-- `scripts/build-native-android.sh [target] [profile] [rid]` – targets Android via the NDK. Requires
-  `ANDROID_NDK_HOME` and adds the toolchain binaries to `PATH` before calling `cargo`.
-- `scripts/build-native-wasm.sh [target] [profile] [rid]` – compiles the WebAssembly artifact (`vello_ffi.wasm`) for
-  `wasm32-unknown-unknown`.
+  Run from PowerShell or pwsh. Automatically maps the target triple to `win-x64`/`win-arm64` unless a RID is
+  provided.
+- `scripts/build-native-android.sh [target] [profile] [rid]` – targets Android via the NDK and builds the entire
+  FFI set. Requires `ANDROID_NDK_HOME` and adds the toolchain binaries to `PATH` before calling `cargo`.
+- `scripts/build-native-wasm.sh [target] [profile] [rid]` – compiles the WebAssembly and static library variants
+  for the FFI crates targeting `wasm32-unknown-unknown`.
 
 All build scripts copy the produced library into `artifacts/runtimes/<rid>/native/`, making the payload immediately
 available to packaging steps.
@@ -433,7 +436,9 @@ available to packaging steps.
 
 ## Repository layout recap
 
-- `vello_ffi`: Rust source for the native shared library.
+- `ffi/vello_ffi`: Rust source for the native shared library.
+- `ffi/*_ffi`: Companion crates exposing AccessKit, Kurbo, Peniko, and Winit bindings consumed by the
+  managed layer.
 - `VelloSharp`: C# wrapper library with `Scene`, `Renderer`, and path-building helpers.
 - `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
 - `samples/AvaloniaVelloDemo`: Avalonia desktop sample that exercises the bindings.

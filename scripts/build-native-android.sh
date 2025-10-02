@@ -5,7 +5,18 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-aarch64-linux-android}
 PROFILE=${2:-release}
 RID=${3:-android-arm64}
-LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+LIBS=()
+FFI_DIR="${ROOT}/ffi"
+if [[ -d "${FFI_DIR}" ]]; then
+  while IFS= read -r dir; do
+    if [[ -f "${dir}/Cargo.toml" ]]; then
+      LIBS+=("$(basename "${dir}")")
+    fi
+  done < <(find "${FFI_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
+fi
+if [[ ${#LIBS[@]} -eq 0 ]]; then
+  LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+fi
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
 if [[ -z "${ANDROID_NDK_HOME:-}" ]]; then

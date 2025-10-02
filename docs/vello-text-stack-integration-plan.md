@@ -64,8 +64,8 @@
 - Threading: glyph outline and bitmap handles are immutable once returned and may be used on any thread. Decode/encode operations themselves are not thread safe with respect to the same handle and require external synchronization if multiple threads call into the same resource simultaneously.
 
 #### Initial FFI wiring *(In Progress)*
-- Added workspace dependencies on `parley`, `fontique`, `swash`, and `skrifa` in `vello_ffi/Cargo.toml`, enabling compilation against the vendored sources with explicit feature control.
-- Introduced `VelloTextStackProbe` and the exported `vello_text_stack_probe` entry point (`vello_ffi/src/lib.rs:205-236`) to validate basic crate integration from the managed side.
+- Added workspace dependencies on `parley`, `fontique`, `swash`, and `skrifa` in `ffi/vello_ffi/Cargo.toml`, enabling compilation against the vendored sources with explicit feature control.
+- Introduced `VelloTextStackProbe` and the exported `vello_text_stack_probe` entry point (`ffi/vello_ffi/src/lib.rs:205-236`) to validate basic crate integration from the managed side.
 - Patched the vendored `parley` sources to define an internal `Font` handle and applied Rust 2024 `impl Trait` capture annotations so the crate builds cleanly in this workspace.
 - Verified `cargo check -p vello_ffi` succeeds against the expanded workspace.
 - Added production FFI for glyph metrics (`vello_font_get_glyph_metrics`) and hooked it through `VelloFontManager.TryGetGlyphMetrics`, allowing `VelloGlyphRunImpl` to favour Vello metrics over the Skia fallback during glyph-run construction.

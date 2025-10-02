@@ -54,6 +54,10 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '@(_VelloNativePackage)' != ''">
+    <PackageReference Include="@(_VelloNativePackage->'%(Identity)')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '@(_VelloNativePackage)' != ''">
     <ProjectReference Include="@(_VelloNativePackage->'%(ProjectPath)')"
                       ReferenceOutputAssembly="false"
                       SkipGetTargetFrameworkProperties="true" />
@@ -129,6 +133,16 @@ RuntimeIdentifier = rid;
           BeforeTargets="Build"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown' and '$(VelloSkipNativeBuild)' != 'true'">
     <ItemGroup>
+      <_VelloNativeManifest Include="$(MSBuildThisFileDirectory)..\ffi\*\Cargo.toml">
+        <CrateName>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(Identity)'))))</CrateName>
+      </_VelloNativeManifest>
+    </ItemGroup>
+
+    <ItemGroup>
+      <_VelloNativeCrate Include="@(_VelloNativeManifest->'%(CrateName)')" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'@(_VelloNativeCrate)' == ''">
       <_VelloNativeCrate Include="accesskit_ffi" />
       <_VelloNativeCrate Include="vello_ffi" />
       <_VelloNativeCrate Include="kurbo_ffi" />

@@ -8,7 +8,17 @@ Param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
-$libs = @("accesskit_ffi", "vello_ffi", "kurbo_ffi", "peniko_ffi", "winit_ffi")
+$ffiDir = Join-Path $root "ffi"
+$libs = @()
+if (Test-Path $ffiDir) {
+    $libs = Get-ChildItem -Path $ffiDir -Directory |
+        Where-Object { Test-Path (Join-Path $_.FullName "Cargo.toml") } |
+        Sort-Object Name |
+        ForEach-Object { $_.Name }
+}
+if ($libs.Count -eq 0) {
+    $libs = @("accesskit_ffi", "vello_ffi", "kurbo_ffi", "peniko_ffi", "winit_ffi")
+}
 $profileArgs = @()
 switch -Regex ($Profile) {
     "^(?i)release$" {

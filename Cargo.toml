@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "accesskit_ffi",
-    "vello_ffi",
-    "kurbo_ffi",
-    "peniko_ffi",
-    "winit_ffi",
+    "ffi/accesskit_ffi",
+    "ffi/vello_ffi",
+    "ffi/kurbo_ffi",
+    "ffi/peniko_ffi",
+    "ffi/winit_ffi",
 ]
 exclude = [
     "extern/Avalonia",

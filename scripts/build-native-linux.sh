@@ -4,7 +4,18 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGET=${1:-x86_64-unknown-linux-gnu}
 PROFILE=${2:-release}
-LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+LIBS=()
+FFI_DIR="${ROOT}/ffi"
+if [[ -d "${FFI_DIR}" ]]; then
+  while IFS= read -r dir; do
+    if [[ -f "${dir}/Cargo.toml" ]]; then
+      LIBS+=("$(basename "${dir}")")
+    fi
+  done < <(find "${FFI_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
+fi
+if [[ ${#LIBS[@]} -eq 0 ]]; then
+  LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+fi
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
 build_flags=("--target" "${TARGET}")
