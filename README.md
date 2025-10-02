@@ -552,16 +552,19 @@ available to packaging steps.
 - `scripts/collect-native-artifacts.sh [source-dir] [dest-dir]` – normalises arbitrary build outputs into the
   `runtimes/<rid>/native/` layout by scanning for `native` folders and copying their contents into the destination.
   Used by CI to gather per-RID outputs before packing.
-- `scripts/copy-runtimes.sh [artifacts-dir] [targets…]` – copies the assembled runtime folder into project outputs
+- `scripts/copy-runtimes.sh [artifacts-dir] [targets…]` / `scripts/copy-runtimes.ps1 [artifactsDir] [targets…]` – copies the assembled runtime folder into project outputs
   and sample applications. The script defaults to propagating assets into `Debug`/`Release` `net8.0` builds for the
   library, integrations, and samples, but you can override the target projects, configurations, or frameworks via
   `COPY_CONFIGURATIONS` / `COPY_TARGET_FRAMEWORKS`.
-- `scripts/pack-native-nugets.sh [runtimes-dir] [output-dir]` – iterates the collected runtimes and packs the
+- `scripts/pack-native-nugets.sh [runtimes-dir] [output-dir]` / `scripts/pack-native-nugets.ps1 [runtimesDir] [outputDir]` – iterates the collected runtimes and packs the
   corresponding `VelloSharp.Native.<rid>` NuGet packages. Each package simply embeds the `native` folder for its RID.
-- `scripts/pack-managed-nugets.sh [output-dir] [native-feed]` – builds the managed projects in `Release`, registers a
+- `scripts/pack-managed-nugets.sh [output-dir] [native-feed]` / `scripts/pack-managed-nugets.ps1 [nugetOutput] [nativeFeed]` – builds the managed projects in `Release`, registers a
   temporary NuGet source pointing at the native packages, and packs the aggregate `VelloSharp` NuGet with
-  `VelloUseNativePackageDependencies=true`. Run this after `pack-native-nugets.sh` to produce a coherent set of
-  packages under `artifacts/nuget/`.
+  `VelloUseNativePackageDependencies=true`. Run this after `pack-native-nugets.sh` / `pack-native-nugets.ps1` to produce a
+  coherent set of packages under `artifacts/nuget/`.
+- `scripts/remove-runtimes.sh [targets…]` / `scripts/remove-runtimes.ps1 [targets…]` – deletes copied runtime folders
+  from the default build outputs (or the ones supplied through `REMOVE_RUNTIMES_CONFIGURATIONS` /
+  `REMOVE_RUNTIMES_TARGET_FRAMEWORKS`), keeping local trees tidy between packaging runs.
 
 ## Repository layout recap
 
