@@ -918,6 +918,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "font-types"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "511e2c18a516c666d27867d2f9821f76e7d591f762e9fc41dd6cc5c90fe54b0b"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "fontconfig-cache-parser"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2003,6 +2012,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "peniko"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3c76095c9a636173600478e0373218c7b955335048c2bcd12dc6a79657649d8"
+dependencies = [
+ "color",
+ "kurbo 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "linebender_resource_handle",
+ "smallvec",
+]
+
+[[package]]
 name = "peniko_ffi"
 version = "0.5.0"
 dependencies = [
@@ -2209,7 +2230,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04ca636dac446b5664bd16c069c00a9621806895b8bb02c2dc68542b23b8f25d"
 dependencies = [
  "bytemuck",
- "font-types",
+ "font-types 0.9.0",
 ]
 
 [[package]]
@@ -2220,7 +2241,17 @@ checksum = "8941f8e9d5f8ad3aebea330d01ac68c0167600eb31a86ecd86e97be4d13b51f5"
 dependencies = [
  "bytemuck",
  "core_maths",
- "font-types",
+ "font-types 0.9.0",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.35.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6717cf23b488adf64b9d711329542ba34de147df262370221940dfabc2c91358"
+dependencies = [
+ "bytemuck",
+ "font-types 0.10.0",
 ]
 
 [[package]]
@@ -2451,12 +2482,12 @@ dependencies = [
 
 [[package]]
 name = "skrifa"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37004372610e83ee2a4c69c7d896b41f33da6a3dc1a4fe07dd9b2629a549b1dc"
+checksum = "8c31071dedf532758ecf3fed987cdb4bd9509f900e026ab684b4ecb81ea49841"
 dependencies = [
  "bytemuck",
- "read-fonts 0.34.0",
+ "read-fonts 0.35.0",
 ]
 
 [[package]]
@@ -2880,9 +2911,9 @@ dependencies = [
  "bytemuck",
  "futures-intrusive",
  "log",
- "peniko_shim",
+ "peniko 0.5.0",
  "png",
- "skrifa 0.36.0",
+ "skrifa 0.37.0",
  "static_assertions",
  "thiserror 2.0.16",
  "vello_encoding",
@@ -2897,8 +2928,8 @@ version = "0.5.0"
 dependencies = [
  "bytemuck",
  "guillotiere",
- "peniko_shim",
- "skrifa 0.36.0",
+ "peniko 0.5.0",
+ "skrifa 0.37.0",
  "smallvec",
 ]
 
