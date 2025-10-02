@@ -19,15 +19,11 @@
     <PackageVersion Include="xunit" Version="2.5.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-    <PackageVersion Include="VelloSharp.Native.linux-x64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.linux-arm64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.osx-x64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.osx-arm64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.ios-arm64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.android-arm64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.browser-wasm" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.win-x64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="VelloSharp.Native.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.AccessKit" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Kurbo" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Peniko" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Vello" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.VelloSparse" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Winit" Version="$(VelloNativePackageVersion)" />
   </ItemGroup>
 </Project>

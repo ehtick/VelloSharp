@@ -20,7 +20,7 @@
     <VelloSkipNativeBuild Condition="'$(VelloSkipNativeBuild)'==''">false</VelloSkipNativeBuild>
     <VelloIncludeNativeAssets Condition="'$(VelloIncludeNativeAssets)'==''">true</VelloIncludeNativeAssets>
     <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
-    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'=='' and '$(VelloUseNativePackageDependencies)'=='true'">VelloSharp.Native.linux-x64;VelloSharp.Native.linux-arm64;VelloSharp.Native.osx-x64;VelloSharp.Native.osx-arm64;VelloSharp.Native.ios-arm64;VelloSharp.Native.iossimulator-x64;VelloSharp.Native.android-arm64;VelloSharp.Native.browser-wasm;VelloSharp.Native.win-x64;VelloSharp.Native.win-arm64</VelloNativePackageIds>
+    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'=='' and '$(VelloUseNativePackageDependencies)'=='true'">VelloSharp.Native.AccessKit;VelloSharp.Native.Kurbo;VelloSharp.Native.Peniko;VelloSharp.Native.Vello;VelloSharp.Native.VelloSparse;VelloSharp.Native.Winit</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>

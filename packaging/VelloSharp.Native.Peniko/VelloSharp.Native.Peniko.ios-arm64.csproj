@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+    <NativeRid>ios-arm64</NativeRid>
+    <PackageId Condition="'$(PackageId)'==''">$(NativePackagePrefix).ios-arm64</PackageId>
+    <Title Condition="'$(Title)'==''">$(PackageId)</Title>
+    <Description Condition="'$(Description)'==''">Native $(NativeFriendlyName) for $(NativeRid)</Description>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'runtimes', '$(NativeRid)', 'native'))</NativeAssetsDirectory>
+  </PropertyGroup>
+  <Import Project="../VelloSharp.Native/VelloSharp.Native.Shared.props" />
+</Project>

@@ -21,23 +21,11 @@
   <ItemGroup>
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Integration/VelloSharp.Integration.csproj" />
-    <ProjectReference Include="../../packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/osx-arm64/native')" />
-    <ProjectReference Include="../../packaging/VelloSharp.Native.osx-x64/VelloSharp.Native.osx-x64.csproj"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/osx-x64/native')" />
-    <ProjectReference Include="../../packaging/VelloSharp.Native.linux-x64/VelloSharp.Native.linux-x64.csproj"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/linux-x64/native')" />
-    <ProjectReference Include="../../packaging/VelloSharp.Native.linux-arm64/VelloSharp.Native.linux-arm64.csproj"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/linux-arm64/native')" />
-    <ProjectReference Include="../../packaging/VelloSharp.Native.win-x64/VelloSharp.Native.win-x64.csproj"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/win-x64/native')" />
-    <ProjectReference Include="../../packaging/VelloSharp.Native.win-arm64/VelloSharp.Native.win-arm64.csproj"
-                      ReferenceOutputAssembly="false"
-                      Condition="Exists('$(VelloRepositoryRoot)artifacts/runtimes/win-arm64/native')" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.AccessKit/VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Kurbo/VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Peniko/VelloSharp.Native.Peniko.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.VelloSparse/VelloSharp.Native.VelloSparse.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Winit/VelloSharp.Native.Winit.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>kurbo_ffi</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Kurbo</NativePackagePrefix>
+    <NativeFriendlyName>Kurbo geometry FFI (kurbo_ffi)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

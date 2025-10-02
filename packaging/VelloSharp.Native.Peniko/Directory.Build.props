@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>peniko_ffi</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Peniko</NativePackagePrefix>
+    <NativeFriendlyName>Peniko paint FFI (peniko_ffi)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

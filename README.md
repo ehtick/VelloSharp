@@ -139,30 +139,32 @@ runtime you want to redistribute:
 
 The generated `.nupkg` and `.snupkg` files are emitted under `artifacts/nuget/`.
 
-In addition to the aggregate `VelloSharp` package, each runtime is also packed individually as
-`VelloSharp.Native.<rid>` containing only the native asset under `runtimes/<rid>/native/`. These
-packages can be consumed directly when you need granular control over native deployment. When
-packing the managed package you can toggle to native-package dependencies with
+In addition to the aggregate `VelloSharp` package, the repository now produces per-FFI runtime
+packages. Each native crate (`AccessKit`, `Kurbo`, `Peniko`, `Vello`, `VelloSparse`, `Winit`) emits:
+
+- `VelloSharp.Native.<Ffi>.<rid>` – a single native asset for the specified RID.
+- `VelloSharp.Native.<Ffi>` – a meta package that depends on all supported RIDs for that crate.
+
+When packing the managed package you can toggle native-package dependencies with
 `-p:VelloUseNativePackageDependencies=true`; provide a subset via
-`-p:VelloNativePackageIds="VelloSharp.Native.win-x64;VelloSharp.Native.win-arm64"` when testing locally.
+`-p:VelloNativePackageIds="VelloSharp.Native.Vello;VelloSharp.Native.VelloSparse"` when testing locally.
 
 ### Native asset NuGet packages
 
-The repository tracks per-RID packaging projects under `packaging/VelloSharp.Native.*`. Each project wraps
-the native runtime built by `cargo` into a standalone NuGet package so downstream applications can reference
-only the assets they need. A typical workflow looks like this:
+Per-FFI packaging projects live under `packaging/VelloSharp.Native.<Ffi>/`. Each RID-specific project wraps
+the corresponding native library into a standalone NuGet package so downstream applications can pull in only the
+assets they need. A typical workflow looks like this:
 
 - Build the native crates for the desired RID(s) (`dotnet build -r osx-arm64 bindings/VelloSharp/VelloSharp.csproj`).
 - Run `./scripts/copy-runtimes.sh` to sync the generated artifacts into both sample outputs and each
-  `packaging/VelloSharp.Native.<rid>/runtimes/<rid>/native` directory.
-- Pack the native project you care about (e.g., `dotnet pack packaging/VelloSharp.Native.osx-arm64/VelloSharp.Native.osx-arm64.csproj`).
-- Reference `VelloSharp.Native.<rid>` from your application or include it as an additional dependency inside a
-  higher-level distribution.
+  `packaging/VelloSharp.Native.<Ffi>/runtimes/<rid>/native` directory.
+- Pack the runtime you care about, e.g. `dotnet pack packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.osx-arm64.csproj`,
+  or pack the meta package via `dotnet pack packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.csproj` to create a bundle
+  that depends on every RID.
+- Reference the RID-specific packages or the meta package from your application depending on how much granularity you need.
 
 The packaging props also emit fallback copies (for example `osx` alongside `osx-arm64`) so that RID roll-forward
-continues to work when .NET probes `runtimes/<baseRid>/native`. When only managed assets are required, the sample
-projects conditionally reference these packaging projects so the native dylibs land in `bin/<TFM>/runtimes/` without
-custom MSBuild logic.
+continues to work when .NET probes `runtimes/<baseRid>/native`. When only managed assets are required, the sample projects reference the meta packaging projects so the native dylibs land in `bin/<TFM>/runtimes/` without custom MSBuild logic, and the conditional references inside those metas ensure only the available RIDs flow through.
 
 ## Available NuGet packages
 
@@ -173,18 +175,12 @@ custom MSBuild logic.
 - `VelloSharp.Avalonia.Winit` – Avalonia-facing abstractions for driving the winit surface renderer.
 - `VelloSharp.Avalonia.Vello` – Avalonia platform integration that wires Vello surfaces into desktop applications.
 
-### Native runtime packages (`VelloSharp.Native.<rid>`)
+### Native runtime packages
 
-- `VelloSharp.Native.android-arm64`
-- `VelloSharp.Native.browser-wasm`
-- `VelloSharp.Native.ios-arm64`
-- `VelloSharp.Native.iossimulator-x64`
-- `VelloSharp.Native.linux-arm64`
-- `VelloSharp.Native.linux-x64`
-- `VelloSharp.Native.osx-arm64`
-- `VelloSharp.Native.osx-x64`
-- `VelloSharp.Native.win-arm64`
-- `VelloSharp.Native.win-x64`
+- Meta bundles: `VelloSharp.Native.AccessKit`, `VelloSharp.Native.Kurbo`, `VelloSharp.Native.Peniko`,
+  `VelloSharp.Native.Vello`, `VelloSharp.Native.VelloSparse`, `VelloSharp.Native.Winit`.
+- Per-RID packages follow the pattern `VelloSharp.Native.<Ffi>.<rid>` (for example,
+  `VelloSharp.Native.Vello.osx-arm64`, `VelloSharp.Native.VelloSparse.win-x64`).
 
 ## Using `VelloSharp`
 

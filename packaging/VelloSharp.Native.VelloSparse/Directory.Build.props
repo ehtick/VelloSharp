@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>vello_sparse_ffi</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.VelloSparse</NativePackagePrefix>
+    <NativeFriendlyName>Vello sparse renderer FFI (vello_sparse_ffi)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

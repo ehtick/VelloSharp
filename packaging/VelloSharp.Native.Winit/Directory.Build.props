@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>winit_ffi</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Winit</NativePackagePrefix>
+    <NativeFriendlyName>Winit windowing FFI (winit_ffi)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

@@ -78,22 +78,30 @@ for target in "${TARGETS[@]}"; do
 done
 
 echo "Synchronizing runtimes into packaging projects"
-for pkg_dir in "${ROOT}"/packaging/VelloSharp.Native.*; do
-  [[ -d "${pkg_dir}" ]] || continue
-  pkg_name="$(basename "${pkg_dir}")"
-  rid="${pkg_name#VelloSharp.Native.}"
-  if [[ -z "${rid}" || "${rid}" == "VelloSharp.Native" ]]; then
+for ffi_dir in "${ROOT}"/packaging/VelloSharp.Native.*; do
+  [[ -d "${ffi_dir}" ]] || continue
+  if [[ "${ffi_dir}" == "${ROOT}/packaging/VelloSharp.Native" ]]; then
     continue
   fi
 
-  source_dir="${ARTIFACTS_DIR}/${rid}/native"
-  dest_dir="${pkg_dir}/runtimes/${rid}/native"
-  if [[ ! -d "${source_dir}" ]]; then
-    echo "Skipping packaging '${pkg_name}' (no artifacts for '${rid}')."
-    continue
-  fi
-  copy_payload "${dest_dir}" true "${source_dir}"
-  if [[ -d "${dest_dir}" ]]; then
-    echo "Copied runtimes to '${dest_dir}'"
-  fi
+  for project in "${ffi_dir}"/*.csproj; do
+    [[ -f "${project}" ]] || continue
+    project_name="$(basename "${project}" .csproj)"
+    rid="${project_name##*.}"
+    if [[ -z "${rid}" ]]; then
+      continue
+    fi
+
+    source_dir="${ARTIFACTS_DIR}/${rid}/native"
+    if [[ ! -d "${source_dir}" ]]; then
+      echo "Skipping packaging '$(basename "${ffi_dir}")' for '${rid}' (no artifacts)."
+      continue
+    fi
+
+    dest_dir="${ffi_dir}/runtimes/${rid}/native"
+    copy_payload "${dest_dir}" true "${source_dir}"
+    if [[ -d "${dest_dir}" ]]; then
+      echo "Copied runtimes to '${dest_dir}'"
+    fi
+  done
 done

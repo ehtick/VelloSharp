@@ -27,6 +27,7 @@ rid_seen() {
 }
 
 processed=0
+ffi_projects=(AccessKit Kurbo Peniko Vello VelloSparse Winit)
 for native_dir in "${RUNTIMES_ROOT}"/*/native; do
   [[ -d "${native_dir}" ]] || continue
   rid="$(basename "$(dirname "${native_dir}")")"
@@ -35,24 +36,26 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
   fi
   seen_rids+=("${rid}")
 
-  project="${ROOT}/packaging/VelloSharp.Native.${rid}/VelloSharp.Native.${rid}.csproj"
-  if [[ ! -f "${project}" ]]; then
-    echo "Skipping ${rid}: packaging project not found at ${project}."
-    continue
-  fi
-
   if ! find "${native_dir}" -type f -mindepth 1 -print -quit | grep -q .; then
     echo "Skipping ${rid}: no native assets found under '${native_dir}'."
     continue
   fi
 
   native_dir_abs="$(cd "${native_dir}" && pwd)"
-  echo "Packing native package for ${rid}"
-  dotnet pack "${project}" \
-    -c Release \
-    -p:NativeAssetsDirectory="${native_dir_abs}" \
-    -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
-  processed=$((processed + 1))
+  for ffi in "${ffi_projects[@]}"; do
+    project="${ROOT}/packaging/VelloSharp.Native.${ffi}/VelloSharp.Native.${ffi}.${rid}.csproj"
+    if [[ ! -f "${project}" ]]; then
+      echo "Skipping ${ffi} for ${rid}: project not found at ${project}."
+      continue
+    fi
+
+    echo "Packing native package for ${ffi} (${rid})"
+    dotnet pack "${project}" \
+      -c Release \
+      -p:NativeAssetsDirectory="${native_dir_abs}" \
+      -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
+    processed=$((processed + 1))
+  done
 done
 
 if [[ ${processed} -eq 0 ]]; then

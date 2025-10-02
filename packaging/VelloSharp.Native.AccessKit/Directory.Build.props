@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>accesskit_ffi</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.AccessKit</NativePackagePrefix>
+    <NativeFriendlyName>AccessKit bridge FFI (accesskit_ffi)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

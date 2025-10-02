@@ -14,6 +14,8 @@
     <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'=='' and Exists('$(_NativeAssetsLocalRoot)')">$(_NativeAssetsLocalRoot)</NativeAssetsDirectory>
     <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'runtimes', '$(NativeRid)', 'native'))</NativeAssetsDirectory>
     <NativeAssetsDirectory>$([MSBuild]::EnsureTrailingSlash('$(NativeAssetsDirectory)'))</NativeAssetsDirectory>
+    <NativeBinaryName />
+    <NativeBinaryPattern Condition="'$(NativeBinaryName)' != ''">*$(NativeBinaryName).*</NativeBinaryPattern>
     <NativeFallbackRid />
     <NativeFallbackRid Condition="'$(NativeRid)' == 'osx-arm64'">osx</NativeFallbackRid>
     <NativeFallbackRid Condition="'$(NativeRid)' == 'linux-arm64'">linux</NativeFallbackRid>
@@ -24,7 +26,10 @@
 
   <ItemGroup Condition="Exists('$(NativeAssetsDirectory)')">
     <NativeAsset Include="$(NativeAssetsDirectory)/**/*"
-                 Exclude="$(NativeAssetsDirectory)/**/" />
+                 Exclude="$(NativeAssetsDirectory)/**/"
+                 Condition="'$(NativeBinaryPattern)' == ''" />
+    <NativeAsset Include="$(NativeAssetsDirectory)/**/$(NativeBinaryPattern)"
+                 Condition="'$(NativeBinaryPattern)' != ''" />
     <Content Include="@(NativeAsset)"
              Pack="true"
              PackagePath="runtimes/$(NativeRid)/native/%(RecursiveDir)%(Filename)%(Extension)"

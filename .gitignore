@@ -294,3 +294,6 @@ tools/**
 .DS_Store
 *.layout
 *.window
+*.dylib
+*.dylib
+*.dylib
