@@ -1632,8 +1632,8 @@ fn window_set_owner(
 
     unsafe {
         SetLastError(0);
-        let result = SetWindowLongPtrW(child_hwnd, GWL_HWNDPARENT, parent_hwnd);
-        if result == 0 {
+        let result = SetWindowLongPtrW(child_hwnd as _, GWL_HWNDPARENT, parent_hwnd as _);
+        if (result as isize) == 0 {
             let err = GetLastError();
             if err != 0 {
                 set_last_error(format!("SetWindowLongPtrW failed: {err}"));
