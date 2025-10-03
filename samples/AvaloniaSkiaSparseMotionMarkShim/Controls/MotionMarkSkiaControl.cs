@@ -28,6 +28,9 @@ public sealed class MotionMarkSkiaControl : Control
     public static readonly StyledProperty<bool> IsAnimationEnabledProperty =
         AvaloniaProperty.Register<MotionMarkSkiaControl, bool>(nameof(IsAnimationEnabled), true);
 
+    public static readonly StyledProperty<bool> UseSparseRendererProperty =
+        AvaloniaProperty.Register<MotionMarkSkiaControl, bool>(nameof(UseSparseRenderer), true);
+
     private static readonly SparseRenderContextOptions s_defaultSparseOptions;
     private static readonly RgbaColor s_backgroundColor = RgbaColor.FromBytes(0x12, 0x12, 0x14);
 
@@ -46,7 +49,7 @@ public sealed class MotionMarkSkiaControl : Control
     static MotionMarkSkiaControl()
     {
         s_defaultSparseOptions = ConfigureSparseBackend();
-        AffectsRender<MotionMarkSkiaControl>(ComplexityProperty, IsAnimationEnabledProperty);
+        AffectsRender<MotionMarkSkiaControl>(ComplexityProperty, IsAnimationEnabledProperty, UseSparseRendererProperty);
     }
 
     private static SparseRenderContextOptions ConfigureSparseBackend()
@@ -78,6 +81,12 @@ public sealed class MotionMarkSkiaControl : Control
     {
         get => GetValue(IsAnimationEnabledProperty);
         set => SetValue(IsAnimationEnabledProperty, value);
+    }
+
+    public bool UseSparseRenderer
+    {
+        get => GetValue(UseSparseRendererProperty);
+        set => SetValue(UseSparseRendererProperty, value);
     }
 
     public void IncreaseComplexity() => Complexity = Math.Min(Complexity + 1, MaxComplexity);
@@ -117,6 +126,18 @@ public sealed class MotionMarkSkiaControl : Control
                 InvalidateVisual();
             }
         }
+        else if (change.Property == UseSparseRendererProperty)
+        {
+            if (!change.GetNewValue<bool>())
+            {
+                DisposeResources();
+            }
+
+            if (!IsAnimationEnabled)
+            {
+                InvalidateVisual();
+            }
+        }
     }
 
     public override void Render(DrawingContext context)
@@ -135,7 +156,15 @@ public sealed class MotionMarkSkiaControl : Control
             return;
         }
 
-        context.Custom(new VelloDrawOperation(new Rect(Bounds.Size), this));
+        if (UseSparseRenderer)
+        {
+            context.Custom(new VelloDrawOperation(new Rect(Bounds.Size), this));
+        }
+        else
+        {
+            var delta = BeginFrame();
+            context.Custom(new SkiaDrawOperation(new Rect(Bounds.Size), this, width, height, _currentComplexity, delta));
+        }
 
         if (IsAnimationEnabled)
         {
@@ -308,6 +337,58 @@ public sealed class MotionMarkSkiaControl : Control
         }
     }
 
+    private sealed class SkiaDrawOperation : ICustomDrawOperation
+    {
+        private readonly Rect _bounds;
+        private readonly MotionMarkSkiaControl _owner;
+        private readonly double _width;
+        private readonly double _height;
+        private readonly int _complexity;
+        private readonly double _deltaMs;
+
+        public SkiaDrawOperation(Rect bounds, MotionMarkSkiaControl owner, double width, double height, int complexity, double deltaMs)
+        {
+            _bounds = bounds;
+            _owner = owner;
+            _width = width;
+            _height = height;
+            _complexity = complexity;
+            _deltaMs = deltaMs;
+        }
+
+        public Rect Bounds => _bounds;
+
+        public void Dispose()
+        {
+        }
+
+        public bool HitTest(Point p) => _bounds.Contains(p);
+
+        public bool Equals(ICustomDrawOperation? other) => ReferenceEquals(this, other);
+
+        public void Render(ImmediateDrawingContext context)
+        {
+            if (!context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var feature) || feature is null)
+            {
+                return;
+            }
+
+            using var lease = feature.Lease();
+            var surface = lease?.SkSurface;
+            if (surface is null)
+            {
+                return;
+            }
+
+            var canvas = surface.Canvas;
+            canvas.Save();
+            _owner.RenderSkia(canvas, _width, _height, _complexity);
+            canvas.Restore();
+
+            _owner.OnFrameRendered(_deltaMs);
+        }
+    }
+
     private void ScheduleAnimationFrame()
     {
         if (_animationFrameRequested || !IsAnimationEnabled || _disposed)
@@ -359,6 +440,91 @@ public sealed class MotionMarkSkiaControl : Control
     private void OnFrameRendered(double deltaMilliseconds)
     {
         FrameRendered?.Invoke(this, new FrameRenderedEventArgs(deltaMilliseconds));
+    }
+
+    private void RenderSkia(global::SkiaSharp.SKCanvas canvas, double width, double height, int complexity)
+    {
+        canvas.Save();
+        canvas.ClipRect(new global::SkiaSharp.SKRect(0, 0, (float)width, (float)height));
+        canvas.Clear(new global::SkiaSharp.SKColor(0x12, 0x12, 0x14));
+
+        var renderScaling = VisualRoot?.RenderScaling ?? 1.0;
+        var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * renderScaling));
+        var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * renderScaling));
+
+        EnsureCpuBuffer(pixelWidth, pixelHeight);
+        if (_cpuBuffer is null)
+        {
+            canvas.Restore();
+            return;
+        }
+
+        var info = new VelloSkia::SkiaSharp.SKImageInfo(
+            pixelWidth,
+            pixelHeight,
+            VelloSkia::SkiaSharp.SKColorType.Bgra8888,
+            VelloSkia::SkiaSharp.SKAlphaType.Unpremul);
+
+        using var surface = VelloSkia::SkiaSharp.SKSurface.Create(info);
+        var velloCanvas = surface.Canvas;
+        velloCanvas.Clear(new VelloSkia::SkiaSharp.SKColor(0x12, 0x12, 0x14));
+
+        const float sceneWidth = MotionMarkScene.CanvasWidth;
+        const float sceneHeight = MotionMarkScene.CanvasHeight;
+        var logicalScale = (float)Math.Min(width / sceneWidth, height / sceneHeight);
+        if (!float.IsFinite(logicalScale) || logicalScale <= 0f)
+        {
+            logicalScale = 1f;
+        }
+
+        var physicalScale = logicalScale * (float)renderScaling;
+        var offsetXLogical = (float)((width - sceneWidth * logicalScale) * 0.5f);
+        var offsetYLogical = (float)((height - sceneHeight * logicalScale) * 0.5f);
+
+        velloCanvas.Save();
+        velloCanvas.Translate(offsetXLogical * (float)renderScaling, offsetYLogical * (float)renderScaling);
+        velloCanvas.Scale(physicalScale);
+        _scene.Render(velloCanvas, complexity);
+        velloCanvas.Restore();
+
+        using var snapshot = surface.Snapshot();
+
+        unsafe
+        {
+            fixed (byte* bufferPtr = _cpuBuffer)
+            {
+                if (!snapshot.ReadPixels(
+                        info,
+                        (IntPtr)bufferPtr,
+                        _bufferStride,
+                        0,
+                        0,
+                        VelloSkia::SkiaSharp.SKImageCachingHint.Disallow))
+                {
+                    canvas.Restore();
+                    return;
+                }
+
+                var globalInfo = new global::SkiaSharp.SKImageInfo(
+                    pixelWidth,
+                    pixelHeight,
+                    global::SkiaSharp.SKColorType.Bgra8888,
+                    global::SkiaSharp.SKAlphaType.Unpremul);
+
+                var destRect = new global::SkiaSharp.SKRect(0f, 0f, (float)width, (float)height);
+
+                using var bitmap = new global::SkiaSharp.SKBitmap();
+                if (!bitmap.InstallPixels(globalInfo, (IntPtr)bufferPtr, _bufferStride))
+                {
+                    canvas.Restore();
+                    return;
+                }
+
+                canvas.DrawBitmap(bitmap, destRect);
+            }
+        }
+
+        canvas.Restore();
     }
 
 }

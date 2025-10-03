@@ -23,6 +23,8 @@
             <Separator Margin="8,0"/>
             <ToggleSwitch Content="Animate"
                           IsChecked="{Binding IsAnimationEnabled, Mode=TwoWay, ElementName=MotionMark}"/>
+            <ToggleSwitch Content="Sparse renderer"
+                          IsChecked="{Binding UseSparseRenderer, Mode=TwoWay, ElementName=MotionMark}"/>
             <Separator Margin="8,0"/>
             <TextBlock x:Name="FrameInfo"
                        VerticalAlignment="Center"
