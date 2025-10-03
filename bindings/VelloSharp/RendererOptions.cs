@@ -2,7 +2,7 @@ using System;
 
 namespace VelloSharp;
 
-public readonly struct RendererOptions
+public readonly partial struct RendererOptions
 {
     public RendererOptions(
         bool useCpu = false,
@@ -10,7 +10,7 @@ public readonly struct RendererOptions
         bool supportMsaa8 = true,
         bool supportMsaa16 = true,
         int? initThreads = null,
-        WgpuPipelineCache? pipelineCache = null)
+        RendererPipelineCache? pipelineCache = null)
     {
         UseCpu = useCpu;
         SupportArea = supportArea;
@@ -25,7 +25,7 @@ public readonly struct RendererOptions
     public bool SupportMsaa8 { get; }
     public bool SupportMsaa16 { get; }
     public int? InitThreads { get; }
-    public WgpuPipelineCache? PipelineCache { get; }
+    public RendererPipelineCache? PipelineCache { get; }
 
     internal VelloRendererOptions ToNative() => new()
     {
@@ -36,4 +36,19 @@ public readonly struct RendererOptions
         InitThreads = InitThreads ?? 0,
         PipelineCache = PipelineCache?.Handle ?? IntPtr.Zero,
     };
+}
+
+public readonly struct RendererPipelineCache
+{
+    internal RendererPipelineCache(IntPtr handle)
+    {
+        Handle = handle;
+    }
+
+    internal IntPtr Handle { get; }
+
+    public bool IsNull => Handle == IntPtr.Zero;
+
+    internal static RendererPipelineCache FromHandle(IntPtr handle)
+        => new(handle);
 }

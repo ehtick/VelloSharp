@@ -9,11 +9,17 @@ use std::{
     ptr, slice,
 };
 
+use vello_common::glyph::Glyph as CpuGlyph;
 use vello_common::{
+    color::{AlphaColor, Srgb},
     kurbo::{Affine, BezPath, Cap, Join, PathEl, Point, Rect, Stroke},
-    peniko::{Color, Fill},
+    paint::{Image, PaintType},
+    peniko::{
+        self, BlendMode, Brush, Color, ColorStop, ColorStops, Extend, Fill, FontData, Gradient,
+        ImageBrush, ImageData, ImageQuality,
+    },
 };
-use vello_cpu::{RenderContext, RenderMode, RenderSettings, Level};
+use vello_cpu::{Level, RenderContext, RenderMode, RenderSettings};
 
 #[cfg(target_arch = "aarch64")]
 use vello_common::fearless_simd::Neon;
@@ -223,6 +229,267 @@ impl From<VelloSparseLineJoin> for Join {
     }
 }
 
+pub type VelloPathElement = VelloSparsePathElement;
+pub type VelloAffine = VelloSparseAffine;
+pub type VelloColor = VelloSparseColor;
+pub type VelloRect = VelloSparseRect;
+pub type VelloFillRule = VelloSparseFillRule;
+pub type VelloRenderMode = VelloSparseRenderMode;
+pub type VelloSimdLevel = VelloSparseSimdLevel;
+pub type VelloLineCap = VelloSparseLineCap;
+pub type VelloLineJoin = VelloSparseLineJoin;
+pub type VelloStrokeStyle = VelloSparseStrokeStyle;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloExtendMode {
+    Pad = 0,
+    Repeat = 1,
+    Reflect = 2,
+}
+
+impl From<VelloExtendMode> for Extend {
+    fn from(value: VelloExtendMode) -> Self {
+        match value {
+            VelloExtendMode::Pad => Extend::Pad,
+            VelloExtendMode::Repeat => Extend::Repeat,
+            VelloExtendMode::Reflect => Extend::Reflect,
+        }
+    }
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloImageQualityMode {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+}
+
+impl From<VelloImageQualityMode> for ImageQuality {
+    fn from(value: VelloImageQualityMode) -> Self {
+        match value {
+            VelloImageQualityMode::Low => ImageQuality::Low,
+            VelloImageQualityMode::Medium => ImageQuality::Medium,
+            VelloImageQualityMode::High => ImageQuality::High,
+        }
+    }
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloBrushKind {
+    Solid = 0,
+    LinearGradient = 1,
+    RadialGradient = 2,
+    SweepGradient = 3,
+    Image = 4,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloGradientStop {
+    pub offset: f32,
+    pub color: VelloColor,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloLinearGradient {
+    pub start: VelloPoint,
+    pub end: VelloPoint,
+    pub extend: VelloExtendMode,
+    pub stops: *const VelloGradientStop,
+    pub stop_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloRadialGradient {
+    pub start_center: VelloPoint,
+    pub start_radius: f32,
+    pub end_center: VelloPoint,
+    pub end_radius: f32,
+    pub extend: VelloExtendMode,
+    pub stops: *const VelloGradientStop,
+    pub stop_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloSweepGradient {
+    pub center: VelloPoint,
+    pub start_angle: f32,
+    pub end_angle: f32,
+    pub extend: VelloExtendMode,
+    pub stops: *const VelloGradientStop,
+    pub stop_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloImageBrushParams {
+    pub image: *const VelloImageHandle,
+    pub x_extend: VelloExtendMode,
+    pub y_extend: VelloExtendMode,
+    pub quality: VelloImageQualityMode,
+    pub alpha: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloBrush {
+    pub kind: VelloBrushKind,
+    pub solid: VelloColor,
+    pub linear: VelloLinearGradient,
+    pub radial: VelloRadialGradient,
+    pub sweep: VelloSweepGradient,
+    pub image: VelloImageBrushParams,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloBlendMix {
+    Normal = 0,
+    Multiply = 1,
+    Screen = 2,
+    Overlay = 3,
+    Darken = 4,
+    Lighten = 5,
+    ColorDodge = 6,
+    ColorBurn = 7,
+    HardLight = 8,
+    SoftLight = 9,
+    Difference = 10,
+    Exclusion = 11,
+    Hue = 12,
+    Saturation = 13,
+    Color = 14,
+    Luminosity = 15,
+    Clip = 128,
+}
+
+impl From<VelloBlendMix> for peniko::Mix {
+    fn from(value: VelloBlendMix) -> Self {
+        match value {
+            VelloBlendMix::Normal => peniko::Mix::Normal,
+            VelloBlendMix::Multiply => peniko::Mix::Multiply,
+            VelloBlendMix::Screen => peniko::Mix::Screen,
+            VelloBlendMix::Overlay => peniko::Mix::Overlay,
+            VelloBlendMix::Darken => peniko::Mix::Darken,
+            VelloBlendMix::Lighten => peniko::Mix::Lighten,
+            VelloBlendMix::ColorDodge => peniko::Mix::ColorDodge,
+            VelloBlendMix::ColorBurn => peniko::Mix::ColorBurn,
+            VelloBlendMix::HardLight => peniko::Mix::HardLight,
+            VelloBlendMix::SoftLight => peniko::Mix::SoftLight,
+            VelloBlendMix::Difference => peniko::Mix::Difference,
+            VelloBlendMix::Exclusion => peniko::Mix::Exclusion,
+            VelloBlendMix::Hue => peniko::Mix::Hue,
+            VelloBlendMix::Saturation => peniko::Mix::Saturation,
+            VelloBlendMix::Color => peniko::Mix::Color,
+            VelloBlendMix::Luminosity => peniko::Mix::Luminosity,
+            VelloBlendMix::Clip => peniko::Mix::Clip,
+        }
+    }
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloBlendCompose {
+    Clear = 0,
+    Copy = 1,
+    Dest = 2,
+    SrcOver = 3,
+    DestOver = 4,
+    SrcIn = 5,
+    DestIn = 6,
+    SrcOut = 7,
+    DestOut = 8,
+    SrcAtop = 9,
+    DestAtop = 10,
+    Xor = 11,
+    Plus = 12,
+    PlusLighter = 13,
+}
+
+impl From<VelloBlendCompose> for peniko::Compose {
+    fn from(value: VelloBlendCompose) -> Self {
+        match value {
+            VelloBlendCompose::Clear => peniko::Compose::Clear,
+            VelloBlendCompose::Copy => peniko::Compose::Copy,
+            VelloBlendCompose::Dest => peniko::Compose::Dest,
+            VelloBlendCompose::SrcOver => peniko::Compose::SrcOver,
+            VelloBlendCompose::DestOver => peniko::Compose::DestOver,
+            VelloBlendCompose::SrcIn => peniko::Compose::SrcIn,
+            VelloBlendCompose::DestIn => peniko::Compose::DestIn,
+            VelloBlendCompose::SrcOut => peniko::Compose::SrcOut,
+            VelloBlendCompose::DestOut => peniko::Compose::DestOut,
+            VelloBlendCompose::SrcAtop => peniko::Compose::SrcAtop,
+            VelloBlendCompose::DestAtop => peniko::Compose::DestAtop,
+            VelloBlendCompose::Xor => peniko::Compose::Xor,
+            VelloBlendCompose::Plus => peniko::Compose::Plus,
+            VelloBlendCompose::PlusLighter => peniko::Compose::PlusLighter,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloLayerParams {
+    pub mix: VelloBlendMix,
+    pub compose: VelloBlendCompose,
+    pub alpha: f32,
+    pub transform: VelloAffine,
+    pub clip_elements: *const VelloPathElement,
+    pub clip_element_count: usize,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloGlyph {
+    pub id: u32,
+    pub x: f32,
+    pub y: f32,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum VelloGlyphRunStyle {
+    Fill = 0,
+    Stroke = 1,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloGlyphRunOptions {
+    pub transform: VelloAffine,
+    pub glyph_transform: *const VelloAffine,
+    pub font_size: f32,
+    pub hint: bool,
+    pub style: VelloGlyphRunStyle,
+    pub brush: VelloBrush,
+    pub brush_alpha: f32,
+    pub stroke_style: VelloStrokeStyle,
+}
+
+#[repr(C)]
+pub struct VelloImageHandle {
+    image: ImageData,
+    stride: usize,
+}
+
+#[repr(C)]
+pub struct VelloFontHandle {
+    font: FontData,
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct VelloSparseStrokeStyle {
@@ -287,6 +554,133 @@ fn build_bez_path(elements: &[VelloSparsePathElement]) -> Result<BezPath, &'stat
         }
     }
     Ok(path)
+}
+
+fn convert_gradient_stops(stops: &[VelloGradientStop]) -> Result<ColorStops, VelloSparseStatus> {
+    let mut result = ColorStops::new();
+    for stop in stops {
+        let color =
+            AlphaColor::<Srgb>::new([stop.color.r, stop.color.g, stop.color.b, stop.color.a]);
+        result.push(ColorStop::from((stop.offset, color)));
+    }
+    Ok(result)
+}
+
+fn convert_blend_mix(mix: VelloBlendMix) -> peniko::Mix {
+    match mix {
+        VelloBlendMix::Normal => peniko::Mix::Normal,
+        VelloBlendMix::Multiply => peniko::Mix::Multiply,
+        VelloBlendMix::Screen => peniko::Mix::Screen,
+        VelloBlendMix::Overlay => peniko::Mix::Overlay,
+        VelloBlendMix::Darken => peniko::Mix::Darken,
+        VelloBlendMix::Lighten => peniko::Mix::Lighten,
+        VelloBlendMix::ColorDodge => peniko::Mix::ColorDodge,
+        VelloBlendMix::ColorBurn => peniko::Mix::ColorBurn,
+        VelloBlendMix::HardLight => peniko::Mix::HardLight,
+        VelloBlendMix::SoftLight => peniko::Mix::SoftLight,
+        VelloBlendMix::Difference => peniko::Mix::Difference,
+        VelloBlendMix::Exclusion => peniko::Mix::Exclusion,
+        VelloBlendMix::Hue => peniko::Mix::Hue,
+        VelloBlendMix::Saturation => peniko::Mix::Saturation,
+        VelloBlendMix::Color => peniko::Mix::Color,
+        VelloBlendMix::Luminosity => peniko::Mix::Luminosity,
+        VelloBlendMix::Clip => unreachable!("Clip mix should be handled separately"),
+    }
+}
+
+fn gradient_from_linear(linear: &VelloLinearGradient) -> Result<Gradient, VelloSparseStatus> {
+    let stops = unsafe { slice_from_raw(linear.stops, linear.stop_count)? };
+    let mut gradient = Gradient::new_linear(
+        (linear.start.x, linear.start.y),
+        (linear.end.x, linear.end.y),
+    );
+    gradient.extend = linear.extend.into();
+    gradient.stops = convert_gradient_stops(stops)?;
+    Ok(gradient)
+}
+
+fn gradient_from_radial(radial: &VelloRadialGradient) -> Result<Gradient, VelloSparseStatus> {
+    if radial.start_radius < 0.0 || radial.end_radius < 0.0 {
+        return Err(VelloSparseStatus::InvalidArgument);
+    }
+    let stops = unsafe { slice_from_raw(radial.stops, radial.stop_count)? };
+    let mut gradient = Gradient::new_two_point_radial(
+        (radial.start_center.x, radial.start_center.y),
+        radial.start_radius,
+        (radial.end_center.x, radial.end_center.y),
+        radial.end_radius,
+    );
+    gradient.extend = radial.extend.into();
+    gradient.stops = convert_gradient_stops(stops)?;
+    Ok(gradient)
+}
+
+fn gradient_from_sweep(sweep: &VelloSweepGradient) -> Result<Gradient, VelloSparseStatus> {
+    let stops = unsafe { slice_from_raw(sweep.stops, sweep.stop_count)? };
+    let mut gradient = Gradient::new_sweep(
+        (sweep.center.x, sweep.center.y),
+        sweep.start_angle,
+        sweep.end_angle,
+    );
+    gradient.extend = sweep.extend.into();
+    gradient.stops = convert_gradient_stops(stops)?;
+    Ok(gradient)
+}
+
+fn image_brush_from_params(
+    params: &VelloImageBrushParams,
+) -> Result<ImageBrush, VelloSparseStatus> {
+    let Some(handle) = (unsafe { params.image.as_ref() }) else {
+        return Err(VelloSparseStatus::NullPointer);
+    };
+    let mut brush = ImageBrush::new(handle.image.clone());
+    brush.sampler.x_extend = params.x_extend.into();
+    brush.sampler.y_extend = params.y_extend.into();
+    brush.sampler.quality = params.quality.into();
+    brush.sampler.alpha = params.alpha;
+    Ok(brush)
+}
+
+fn brush_to_peniko_brush(brush: &VelloBrush) -> Result<Brush, VelloSparseStatus> {
+    match brush.kind {
+        VelloBrushKind::Solid => Ok(Brush::Solid(AlphaColor::<Srgb>::new([
+            brush.solid.r,
+            brush.solid.g,
+            brush.solid.b,
+            brush.solid.a,
+        ]))),
+        VelloBrushKind::LinearGradient => Ok(Brush::Gradient(gradient_from_linear(&brush.linear)?)),
+        VelloBrushKind::RadialGradient => Ok(Brush::Gradient(gradient_from_radial(&brush.radial)?)),
+        VelloBrushKind::SweepGradient => Ok(Brush::Gradient(gradient_from_sweep(&brush.sweep)?)),
+        VelloBrushKind::Image => Ok(Brush::Image(image_brush_from_params(&brush.image)?)),
+    }
+}
+
+fn paint_from_brush(brush: &VelloBrush, brush_alpha: f32) -> Result<PaintType, VelloSparseStatus> {
+    let base_brush = brush_to_peniko_brush(brush)?;
+    let alpha = brush_alpha.clamp(0.0, 1.0);
+    let brush = base_brush.multiply_alpha(alpha);
+    match brush {
+        Brush::Solid(color) => Ok(PaintType::from(color)),
+        Brush::Gradient(gradient) => Ok(PaintType::from(gradient)),
+        Brush::Image(image_brush) => {
+            let image = Image::from_peniko_image(&image_brush);
+            Ok(PaintType::from(image))
+        }
+    }
+}
+
+fn optional_affine(ptr: *const VelloAffine) -> Result<Option<Affine>, VelloSparseStatus> {
+    if ptr.is_null() {
+        Ok(None)
+    } else {
+        let affine = unsafe { (*ptr).into() };
+        Ok(Some(affine))
+    }
+}
+
+fn blend_mode_from_params(params: &VelloLayerParams) -> BlendMode {
+    BlendMode::new(convert_blend_mix(params.mix), params.compose.into())
 }
 
 fn rect_from_ffi(rect: VelloSparseRect) -> Result<Rect, VelloSparseStatus> {
@@ -422,17 +816,9 @@ pub extern "C" fn vello_sparse_detect_simd_level() -> VelloSparseSimdLevel {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn vello_sparse_detect_thread_count() -> u16 {
-    #[cfg(feature = "std")]
-    {
-        std::thread::available_parallelism()
-            .map(|value| value.get().min(u16::MAX as usize) as u16)
-            .unwrap_or(0)
-    }
-
-    #[cfg(not(feature = "std"))]
-    {
-        0
-    }
+    std::thread::available_parallelism()
+        .map(|value| value.get().min(u16::MAX as usize) as u16)
+        .unwrap_or(0)
 }
 
 #[unsafe(no_mangle)]
@@ -572,13 +958,15 @@ pub unsafe extern "C" fn vello_sparse_render_context_set_aliasing_threshold(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_sparse_render_context_set_solid_paint(
     ctx: *mut RenderContext,
-    color: VelloSparseColor,
+    color: VelloColor,
 ) -> VelloSparseStatus {
     clear_last_error();
     let Ok(ctx) = context_from_raw(ctx) else {
         return VelloSparseStatus::NullPointer;
     };
-    ctx.set_paint(Color::from(color));
+    ctx.set_paint(AlphaColor::<Srgb>::new([
+        color.r, color.g, color.b, color.a,
+    ]));
     VelloSparseStatus::Success
 }
 
@@ -602,7 +990,10 @@ pub unsafe extern "C" fn vello_sparse_render_context_set_stroke(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_sparse_render_context_fill_path(
     ctx: *mut RenderContext,
-    elements: *const VelloSparsePathElement,
+    fill_rule: VelloFillRule,
+    transform: VelloAffine,
+    color: VelloColor,
+    elements: *const VelloPathElement,
     element_count: usize,
 ) -> VelloSparseStatus {
     clear_last_error();
@@ -620,14 +1011,93 @@ pub unsafe extern "C" fn vello_sparse_render_context_fill_path(
             return VelloSparseStatus::InvalidArgument;
         }
     };
+
+    let previous_fill_rule = *ctx.fill_rule();
+    let previous_transform = *ctx.transform();
+    let previous_paint = ctx.paint().clone();
+
+    ctx.set_fill_rule(fill_rule.into());
+    ctx.set_transform(transform.into());
+    ctx.set_paint(AlphaColor::<Srgb>::new([
+        color.r, color.g, color.b, color.a,
+    ]));
+
     ctx.fill_path(&path);
+
+    ctx.set_paint(previous_paint);
+    ctx.set_transform(previous_transform);
+    ctx.set_fill_rule(previous_fill_rule);
+
+    VelloSparseStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_fill_path_brush(
+    ctx: *mut RenderContext,
+    fill_rule: VelloFillRule,
+    transform: VelloAffine,
+    brush: VelloBrush,
+    brush_transform: *const VelloAffine,
+    elements: *const VelloPathElement,
+    element_count: usize,
+) -> VelloSparseStatus {
+    clear_last_error();
+    let Ok(ctx) = context_from_raw(ctx) else {
+        return VelloSparseStatus::NullPointer;
+    };
+    let slice = match unsafe { slice_from_raw(elements, element_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+    let path = match build_bez_path(slice) {
+        Ok(path) => path,
+        Err(err) => {
+            set_last_error(err);
+            return VelloSparseStatus::InvalidArgument;
+        }
+    };
+
+    let paint = match paint_from_brush(&brush, 1.0) {
+        Ok(paint) => paint,
+        Err(status) => return status,
+    };
+    let brush_transform = match optional_affine(brush_transform) {
+        Ok(transform) => transform,
+        Err(status) => return status,
+    };
+
+    let previous_fill_rule = *ctx.fill_rule();
+    let previous_transform = *ctx.transform();
+    let previous_paint = ctx.paint().clone();
+    let previous_paint_transform = *ctx.paint_transform();
+
+    ctx.set_fill_rule(fill_rule.into());
+    ctx.set_transform(transform.into());
+    ctx.set_paint(paint);
+
+    if let Some(paint_transform) = brush_transform {
+        ctx.set_paint_transform(paint_transform);
+    } else {
+        ctx.reset_paint_transform();
+    }
+
+    ctx.fill_path(&path);
+
+    ctx.set_paint(previous_paint);
+    ctx.set_transform(previous_transform);
+    ctx.set_fill_rule(previous_fill_rule);
+    ctx.set_paint_transform(previous_paint_transform);
+
     VelloSparseStatus::Success
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_sparse_render_context_stroke_path(
     ctx: *mut RenderContext,
-    elements: *const VelloSparsePathElement,
+    stroke: VelloStrokeStyle,
+    transform: VelloAffine,
+    color: VelloColor,
+    elements: *const VelloPathElement,
     element_count: usize,
 ) -> VelloSparseStatus {
     clear_last_error();
@@ -645,14 +1115,100 @@ pub unsafe extern "C" fn vello_sparse_render_context_stroke_path(
             return VelloSparseStatus::InvalidArgument;
         }
     };
+
+    let stroke = match stroke.to_stroke() {
+        Ok(stroke) => stroke,
+        Err(status) => return status,
+    };
+
+    let previous_transform = *ctx.transform();
+    let previous_paint = ctx.paint().clone();
+    let previous_stroke = ctx.stroke().clone();
+
+    ctx.set_transform(transform.into());
+    ctx.set_paint(AlphaColor::<Srgb>::new([
+        color.r, color.g, color.b, color.a,
+    ]));
+    ctx.set_stroke(stroke);
+
     ctx.stroke_path(&path);
+
+    ctx.set_stroke(previous_stroke);
+    ctx.set_paint(previous_paint);
+    ctx.set_transform(previous_transform);
+
+    VelloSparseStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_stroke_path_brush(
+    ctx: *mut RenderContext,
+    stroke: VelloStrokeStyle,
+    transform: VelloAffine,
+    brush: VelloBrush,
+    brush_transform: *const VelloAffine,
+    elements: *const VelloPathElement,
+    element_count: usize,
+) -> VelloSparseStatus {
+    clear_last_error();
+    let Ok(ctx) = context_from_raw(ctx) else {
+        return VelloSparseStatus::NullPointer;
+    };
+    let slice = match unsafe { slice_from_raw(elements, element_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+    let path = match build_bez_path(slice) {
+        Ok(path) => path,
+        Err(err) => {
+            set_last_error(err);
+            return VelloSparseStatus::InvalidArgument;
+        }
+    };
+
+    let stroke = match stroke.to_stroke() {
+        Ok(stroke) => stroke,
+        Err(status) => return status,
+    };
+    let paint = match paint_from_brush(&brush, 1.0) {
+        Ok(paint) => paint,
+        Err(status) => return status,
+    };
+    let brush_transform = match optional_affine(brush_transform) {
+        Ok(transform) => transform,
+        Err(status) => return status,
+    };
+
+    let previous_transform = *ctx.transform();
+    let previous_paint = ctx.paint().clone();
+    let previous_paint_transform = *ctx.paint_transform();
+    let previous_stroke = ctx.stroke().clone();
+
+    ctx.set_transform(transform.into());
+    ctx.set_paint(paint);
+    ctx.set_stroke(stroke);
+
+    if let Some(paint_transform) = brush_transform {
+        ctx.set_paint_transform(paint_transform);
+    } else {
+        ctx.reset_paint_transform();
+    }
+
+    ctx.stroke_path(&path);
+
+    ctx.set_paint_transform(previous_paint_transform);
+    ctx.set_stroke(previous_stroke);
+    ctx.set_paint(previous_paint);
+    ctx.set_transform(previous_transform);
+
     VelloSparseStatus::Success
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_sparse_render_context_fill_rect(
     ctx: *mut RenderContext,
-    rect: VelloSparseRect,
+    rect: VelloRect,
+    color: VelloColor,
 ) -> VelloSparseStatus {
     clear_last_error();
     let Ok(ctx) = context_from_raw(ctx) else {
@@ -662,14 +1218,19 @@ pub unsafe extern "C" fn vello_sparse_render_context_fill_rect(
         Ok(rect) => rect,
         Err(status) => return status,
     };
+    let previous_paint = ctx.paint().clone();
+    ctx.set_paint(AlphaColor::<Srgb>::new([
+        color.r, color.g, color.b, color.a,
+    ]));
     ctx.fill_rect(&rect);
+    ctx.set_paint(previous_paint);
     VelloSparseStatus::Success
 }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_sparse_render_context_stroke_rect(
     ctx: *mut RenderContext,
-    rect: VelloSparseRect,
+    rect: VelloRect,
 ) -> VelloSparseStatus {
     clear_last_error();
     let Ok(ctx) = context_from_raw(ctx) else {
@@ -680,6 +1241,187 @@ pub unsafe extern "C" fn vello_sparse_render_context_stroke_rect(
         Err(status) => return status,
     };
     ctx.stroke_rect(&rect);
+    VelloSparseStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_push_layer(
+    ctx: *mut RenderContext,
+    params: VelloLayerParams,
+) -> VelloSparseStatus {
+    clear_last_error();
+    let Ok(ctx) = context_from_raw(ctx) else {
+        return VelloSparseStatus::NullPointer;
+    };
+
+    let clip_elements =
+        match unsafe { slice_from_raw(params.clip_elements, params.clip_element_count) } {
+            Ok(slice) => slice,
+            Err(status) => return status,
+        };
+
+    let clip_path = if clip_elements.is_empty() {
+        None
+    } else {
+        match build_bez_path(clip_elements) {
+            Ok(path) => Some(path),
+            Err(err) => {
+                set_last_error(err);
+                return VelloSparseStatus::InvalidArgument;
+            }
+        }
+    };
+
+    let previous_transform = *ctx.transform();
+    ctx.set_transform(params.transform.into());
+
+    let clip_ref = clip_path.as_ref();
+    let clip_option = clip_ref.map(|path| path as &BezPath);
+    if params.mix == VelloBlendMix::Clip {
+        let Some(path) = clip_option else {
+            ctx.set_transform(previous_transform);
+            return VelloSparseStatus::InvalidArgument;
+        };
+
+        ctx.push_clip_layer(path);
+        ctx.set_transform(previous_transform);
+        return VelloSparseStatus::Success;
+    }
+
+    let blend_mode = blend_mode_from_params(&params);
+
+    ctx.push_layer(clip_option, Some(blend_mode), Some(params.alpha), None);
+
+    ctx.set_transform(previous_transform);
+
+    VelloSparseStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_pop_layer(ctx: *mut RenderContext) {
+    if let Ok(ctx) = context_from_raw(ctx) {
+        ctx.pop_layer();
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_draw_image(
+    ctx: *mut RenderContext,
+    brush: VelloImageBrushParams,
+    transform: VelloAffine,
+) -> VelloSparseStatus {
+    clear_last_error();
+    let Ok(ctx) = context_from_raw(ctx) else {
+        return VelloSparseStatus::NullPointer;
+    };
+
+    let image_brush = match image_brush_from_params(&brush) {
+        Ok(brush) => brush,
+        Err(status) => return status,
+    };
+
+    let width = f64::from(image_brush.image.width);
+    let height = f64::from(image_brush.image.height);
+    if width <= 0.0 || height <= 0.0 {
+        return VelloSparseStatus::InvalidArgument;
+    }
+
+    let image = Image::from_peniko_image(&image_brush);
+
+    let previous_transform = *ctx.transform();
+    let previous_paint = ctx.paint().clone();
+    let previous_paint_transform = *ctx.paint_transform();
+
+    ctx.set_transform(transform.into());
+    ctx.set_paint(PaintType::from(image));
+    ctx.reset_paint_transform();
+
+    let rect = Rect::new(0.0, 0.0, width, height);
+    ctx.fill_rect(&rect);
+
+    ctx.set_paint_transform(previous_paint_transform);
+    ctx.set_paint(previous_paint);
+    ctx.set_transform(previous_transform);
+
+    VelloSparseStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_sparse_render_context_draw_glyph_run(
+    ctx: *mut RenderContext,
+    font: *const VelloFontHandle,
+    glyphs: *const VelloGlyph,
+    glyph_count: usize,
+    options: VelloGlyphRunOptions,
+) -> VelloSparseStatus {
+    clear_last_error();
+    let Ok(ctx) = context_from_raw(ctx) else {
+        return VelloSparseStatus::NullPointer;
+    };
+    let Some(font_handle) = (unsafe { font.as_ref() }) else {
+        return VelloSparseStatus::NullPointer;
+    };
+    let glyph_slice = match unsafe { slice_from_raw(glyphs, glyph_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+
+    let paint = match paint_from_brush(&options.brush, options.brush_alpha) {
+        Ok(paint) => paint,
+        Err(status) => return status,
+    };
+    let glyph_transform = match optional_affine(options.glyph_transform) {
+        Ok(transform) => transform,
+        Err(status) => return status,
+    };
+
+    let previous_transform = *ctx.transform();
+    let previous_paint = ctx.paint().clone();
+    let previous_paint_transform = *ctx.paint_transform();
+    let previous_stroke = ctx.stroke().clone();
+
+    ctx.set_transform(options.transform.into());
+    ctx.set_paint(paint);
+    ctx.reset_paint_transform();
+
+    let stroke_for_run = if matches!(options.style, VelloGlyphRunStyle::Stroke) {
+        match options.stroke_style.to_stroke() {
+            Ok(stroke) => Some(stroke),
+            Err(status) => return status,
+        }
+    } else {
+        None
+    };
+
+    if let Some(ref stroke) = stroke_for_run {
+        ctx.set_stroke(stroke.clone());
+    }
+
+    let glyph_iter = glyph_slice.iter().copied().map(|glyph| CpuGlyph {
+        id: glyph.id,
+        x: glyph.x,
+        y: glyph.y,
+    });
+
+    let mut builder = ctx
+        .glyph_run(&font_handle.font)
+        .font_size(options.font_size)
+        .hint(options.hint);
+
+    if let Some(affine) = glyph_transform {
+        builder = builder.glyph_transform(affine);
+    }
+
+    match options.style {
+        VelloGlyphRunStyle::Fill => builder.fill_glyphs(glyph_iter),
+        VelloGlyphRunStyle::Stroke => builder.stroke_glyphs(glyph_iter),
+    }
+
+    ctx.set_stroke(previous_stroke);
+    ctx.set_paint_transform(previous_paint_transform);
+    ctx.set_paint(previous_paint);
+    ctx.set_transform(previous_transform);
+
     VelloSparseStatus::Success
 }
 

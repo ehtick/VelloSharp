@@ -2,6 +2,8 @@ extern alias VelloSkia;
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
+using VelloSharp;
 using SKCanvas = VelloSkia::SkiaSharp.SKCanvas;
 using SKColor = VelloSkia::SkiaSharp.SKColor;
 using SKColors = VelloSkia::SkiaSharp.SKColors;
@@ -16,6 +18,9 @@ namespace AvaloniaSkiaSparseMotionMarkShim.Scenes;
 
 public sealed class MotionMarkScene
 {
+    public const float CanvasWidth = 1600f;
+    public const float CanvasHeight = 1200f;
+
     private const int Width = 1600;
     private const int Height = 900;
     private const int GridWidth = 80;
@@ -43,12 +48,17 @@ public sealed class MotionMarkScene
     private readonly List<Element> _elements = new();
     private readonly Random _random = new(1);
 
-    public void Render(SKCanvas canvas, int complexity)
+    public static int ComputeElementTarget(int complexity)
     {
         var clamped = Math.Max(1, complexity);
-        var target = clamped < 10
+        return clamped < 10
             ? (clamped + 1) * 1000
             : Math.Min((clamped - 8) * 10000, 120_000);
+    }
+
+    public void Render(SKCanvas canvas, int complexity)
+    {
+        var target = ComputeElementTarget(complexity);
 
         Resize(target);
 
@@ -92,6 +102,61 @@ public sealed class MotionMarkScene
             _elements[i] = element;
         }
 
+        DrawStatusText(canvas, target);
+    }
+
+    public void RenderSparse(SparseRenderContext context, int complexity, Matrix3x2 transform)
+    {
+        var target = ComputeElementTarget(complexity);
+
+        Resize(target);
+
+        var builder = new PathBuilder();
+        var stroke = new StrokeStyle
+        {
+            LineJoin = LineJoin.Bevel,
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            MiterLimit = 4.0,
+        };
+
+        var pathStarted = false;
+
+        context.SetTransform(transform);
+
+        for (var i = 0; i < _elements.Count; i++)
+        {
+            var element = _elements[i];
+            if (!pathStarted)
+            {
+                builder.MoveTo(element.Start.X, element.Start.Y);
+                pathStarted = true;
+            }
+
+            element.AppendTo(builder);
+
+            var isLast = i == _elements.Count - 1;
+            if (element.IsSplit || isLast)
+            {
+                stroke.Width = element.Width;
+                context.StrokePath(builder, stroke, Matrix3x2.Identity, ToRgba(element.Color));
+                builder.Clear();
+                pathStarted = false;
+            }
+
+            if (_random.NextDouble() > 0.995)
+            {
+                element.IsSplit = !element.IsSplit;
+            }
+
+            _elements[i] = element;
+        }
+
+        context.ResetTransform();
+    }
+
+    public void DrawStatusText(SKCanvas canvas, int target)
+    {
         using var textPaint = new SKPaint
         {
             Color = SKColors.White,
@@ -207,6 +272,22 @@ public sealed class MotionMarkScene
                 GridPoint = gridPoint,
             };
         }
+
+        public void AppendTo(PathBuilder builder)
+        {
+            switch (Type)
+            {
+                case SegmentType.Line:
+                    builder.LineTo(End.X, End.Y);
+                    break;
+                case SegmentType.Quad:
+                    builder.QuadraticTo(Control1.X, Control1.Y, End.X, End.Y);
+                    break;
+                case SegmentType.Cubic:
+                    builder.CubicTo(Control1.X, Control1.Y, Control2.X, Control2.Y, End.X, End.Y);
+                    break;
+            }
+        }
     }
 
     private readonly struct GridPoint
@@ -245,4 +326,7 @@ public sealed class MotionMarkScene
             return new SKPoint((float)((X + 0.5f) * scaleX), 100f + (float)((Y + 0.5f) * scaleY));
         }
     }
+
+    private static RgbaColor ToRgba(SKColor color)
+        => RgbaColor.FromBytes(color.Red, color.Green, color.Blue, color.Alpha);
 }

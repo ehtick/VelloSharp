@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
   </ItemGroup>
 
   <ItemGroup>

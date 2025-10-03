@@ -57,6 +57,8 @@ PACK_PROJECTS=(
   "bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj|-p:VelloSkipNativeBuild=true"
   "bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj|-p:VelloSkipNativeBuild=true"
   "bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj|-p:VelloSkipNativeBuild=true"
+  "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj|-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloUseNativePackageDependencies=true -p:VelloRequireAllNativeAssets=false"
+  "bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj|-p:VelloSkipNativeBuild=true"
   "bindings/VelloSharp/VelloSharp.csproj|-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloUseNativePackageDependencies=true -p:VelloRequireAllNativeAssets=false"
 )
 
@@ -67,7 +69,7 @@ for entry in "${PACK_PROJECTS[@]}"; do
     read -r -a extra_args <<<"${extra}"
   fi
 
-  if [[ "${relpath}" == "bindings/VelloSharp/VelloSharp.csproj" ]]; then
+  if [[ "${relpath}" == "bindings/VelloSharp/VelloSharp.csproj" || "${relpath}" == "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" ]]; then
     extra_args+=("-p:VelloNativePackageIds=\"${native_ids}\"")
     extra_args+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED}")
   fi

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.Avalonia.Vello")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Gpu")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Cpu")]
+[assembly: InternalsVisibleTo("VelloSharp.Gpu")]
 [assembly: InternalsVisibleTo("VelloSharp.Ffi.Gpu")]
 [assembly: InternalsVisibleTo("VelloSharp.Ffi.Sparse")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Core")]

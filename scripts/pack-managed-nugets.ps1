@@ -119,6 +119,15 @@ $packProjects = @(
     @{ Path = 'bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
     @{ Path = 'bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
     @{ Path = 'bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj'; Extra = @(
+        '-p:VelloSkipNativeBuild=true',
+        '-p:VelloIncludeNativeAssets=false',
+        '-p:VelloUseNativePackageDependencies=true',
+        '-p:VelloRequireAllNativeAssets=false',
+        "-p:VelloNativePackageIds=$nativeIds",
+        "-p:RestoreAdditionalProjectSources=$NativeFeed"
+    ) },
+    @{ Path = 'bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
     @{ Path = 'bindings/VelloSharp/VelloSharp.csproj'; Extra = @(
         '-p:VelloSkipNativeBuild=true',
         '-p:VelloIncludeNativeAssets=false',

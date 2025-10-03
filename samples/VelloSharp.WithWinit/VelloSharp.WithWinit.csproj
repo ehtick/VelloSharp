@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.HarfBuzzSharp/HarfBuzzSharp.csproj" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.AccessKit/VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.Kurbo/VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" />

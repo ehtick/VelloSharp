@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Integration/VelloSharp.Integration.csproj" />

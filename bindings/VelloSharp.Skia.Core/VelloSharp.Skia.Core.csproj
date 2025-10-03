@@ -16,7 +16,6 @@
     <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
-    <ProjectReference Include="../VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj" />
   </ItemGroup>
 
   <ItemGroup>

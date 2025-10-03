@@ -23,7 +23,6 @@
       <Aliases>VelloSkia</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Cpu\VelloSharp.Skia.Cpu.csproj" />
-    <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -633,7 +633,7 @@ internal sealed class WinitSampleApp : IWinitEventHandler, IDisposable
         var initThreads = OperatingSystem.IsMacOS() ? 1 : 0;
         var supportMsaa8 = SupportsAa(AntialiasingMode.Msaa8);
         var supportMsaa16 = SupportsAa(AntialiasingMode.Msaa16);
-        return new RendererOptions(
+        return RendererOptionsExtensions.CreateGpuOptions(
             useCpu: false,
             supportArea: SupportsAa(AntialiasingMode.Area),
             supportMsaa8: supportMsaa8,

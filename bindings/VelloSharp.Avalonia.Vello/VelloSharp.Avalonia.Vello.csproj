@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
     <!-- TODO: Remove dependency on VelloSharp.Avalonia.Winit -->
     <ProjectReference Include="../VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />

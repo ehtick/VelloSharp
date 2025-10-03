@@ -11,20 +11,31 @@ internal static class NativeLibraryLoader
 {
     private static readonly object Sync = new();
     private static bool _initialized;
-    private static readonly string[] NativeLibraries =
+    private static readonly HashSet<string> NativeLibraries = new(StringComparer.OrdinalIgnoreCase)
     {
-        "accesskit_ffi",
         "vello_ffi",
         "vello_sparse_ffi",
         "kurbo_ffi",
         "peniko_ffi",
-        "winit_ffi",
     };
 
 #pragma warning disable CA2255 // Module initializers limited use warning suppressed intentionally for native resolver registration.
     [ModuleInitializer]
     internal static void Initialize() => EnsureInitialized();
 #pragma warning restore CA2255
+
+    internal static void RegisterNativeLibrary(string libraryName)
+    {
+        if (string.IsNullOrWhiteSpace(libraryName))
+        {
+            return;
+        }
+
+        lock (Sync)
+        {
+            NativeLibraries.Add(NormalizeLibraryName(libraryName));
+        }
+    }
 
     private static void EnsureInitialized()
     {
@@ -48,7 +59,13 @@ internal static class NativeLibraryLoader
     private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
         var normalizedName = NormalizeLibraryName(libraryName);
-        if (Array.IndexOf(NativeLibraries, normalizedName) < 0)
+        bool shouldProbe;
+        lock (Sync)
+        {
+            shouldProbe = NativeLibraries.Contains(normalizedName);
+        }
+
+        if (!shouldProbe)
         {
             return IntPtr.Zero;
         }

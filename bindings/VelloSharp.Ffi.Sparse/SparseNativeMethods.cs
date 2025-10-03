@@ -18,6 +18,7 @@ internal static partial class SparseNativeMethods
         public bool Hint;
         public VelloGlyphRunStyle Style;
         public VelloBrush Brush;
+        public float BrushAlpha;
         public VelloStrokeStyle StrokeStyle;
     }
 
