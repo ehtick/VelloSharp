@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:AvaloniaWinitDemo.Controls"
+             x:Class="AvaloniaWinitDemo.Views.MotionMarkLeasePage">
+  <Grid RowDefinitions="Auto,Auto,*"
+        RowSpacing="16">
+    <StackPanel Spacing="4">
+      <TextBlock Text="MotionMark via Vello lease"
+                 FontSize="18"
+                 FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap"
+                 Opacity="0.8"
+                 Text="Ports the MotionMark stress scene to the Vello API using IVelloApiLeaseFeature. The scene builds buffered Vello paths each frame and submits them directly through the lease." />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Left"
+                Spacing="8"
+                VerticalAlignment="Center">
+      <Button Content="-"
+              Click="OnDecreaseComplexity" />
+      <Slider x:Name="ComplexitySlider"
+              Width="220"
+              Minimum="1"
+              Maximum="64"
+              TickFrequency="1"
+              IsSnapToTickEnabled="True"
+              Value="{Binding Complexity, Mode=TwoWay, ElementName=LeaseControl}" />
+      <Button Content="+"
+              Click="OnIncreaseComplexity" />
+      <Button Content="Reset"
+              Click="OnResetComplexity" />
+      <Separator Margin="8,0" />
+      <ToggleSwitch Content="Animate"
+                    IsChecked="{Binding IsAnimationEnabled, Mode=TwoWay, ElementName=LeaseControl}" />
+      <Separator Margin="8,0" />
+      <TextBlock Text="{Binding Complexity, ElementName=LeaseControl}"
+                 VerticalAlignment="Center"
+                 FontFamily="Inter"
+                 FontWeight="Medium" />
+    </StackPanel>
+
+    <Border Grid.Row="2"
+            Background="#15202B"
+            CornerRadius="8"
+            Padding="16">
+      <controls:MotionMarkLeaseControl x:Name="LeaseControl"
+                                       MinHeight="360" />
+    </Border>
+  </Grid>
+</UserControl>

@@ -18,5 +18,11 @@
     <TabItem Header="API Lease">
       <views:LeaseDemoPage />
     </TabItem>
+    <TabItem Header="Vello MotionMark">
+      <views:MotionMarkLeasePage />
+    </TabItem>
+    <TabItem Header="Immediate MotionMark">
+      <views:MotionMarkImmediatePage />
+    </TabItem>
   </TabControl>
 </UserControl>
