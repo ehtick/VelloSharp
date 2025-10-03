@@ -13,5 +13,8 @@ public partial class MainWindow : Window
         // TODO: Fix RendererDiagnostics.DebugOverlays in vello platform.
         // RendererDiagnostics.DebugOverlays = RendererDebugOverlays.Fps | RendererDebugOverlays.LayoutTimeGraph | RendererDebugOverlays.RenderTimeGraph;
         RendererDiagnostics.DebugOverlays = RendererDebugOverlays.Fps;
+#if DEBUG
+        this.AttachDevTools();
+#endif
     }
 }
