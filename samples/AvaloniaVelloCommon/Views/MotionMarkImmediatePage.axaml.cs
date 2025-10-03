@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-namespace AvaloniaWinitDemo.Views;
+namespace AvaloniaVelloCommon.Views;
 
 public partial class MotionMarkImmediatePage : UserControl
 {

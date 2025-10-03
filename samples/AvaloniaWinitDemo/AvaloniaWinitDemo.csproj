@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../AvaloniaVelloCommon/AvaloniaVelloCommon.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
@@ -37,9 +38,5 @@
     <ProjectReference Include="../../packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.VelloSparse/VelloSharp.Native.VelloSparse.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../packaging/VelloSharp.Native.Winit/VelloSharp.Native.Winit.csproj" ReferenceOutputAssembly="false" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AvaloniaResource Include="Assets/Lottie/CirclePulse.json" />
   </ItemGroup>
 </Project>

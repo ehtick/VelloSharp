@@ -7,7 +7,7 @@ using Avalonia.Platform;
 using VelloSharp;
 using VelloSharp.Integration.Avalonia;
 
-namespace AvaloniaWinitDemo.Controls;
+namespace AvaloniaVelloCommon.Controls;
 
 public sealed class VelatoPlayerView : VelloSurfaceView
 {

@@ -10,7 +10,7 @@ using Avalonia.Rendering.SceneGraph;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Rendering;
 
-namespace AvaloniaWinitDemo.Controls;
+namespace AvaloniaVelloCommon.Controls;
 
 public sealed class MotionMarkLeaseControl : Control
 {

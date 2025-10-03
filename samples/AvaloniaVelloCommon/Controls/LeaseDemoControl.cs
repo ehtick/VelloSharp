@@ -11,7 +11,7 @@ using Avalonia.Threading;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Rendering;
 
-namespace AvaloniaWinitDemo.Controls;
+namespace AvaloniaVelloCommon.Controls;
 
 public class LeaseDemoControl : Control
 {

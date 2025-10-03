@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace AvaloniaWinitDemo;
+namespace AvaloniaVelloCommon;
 
 public partial class MainView : UserControl
 {

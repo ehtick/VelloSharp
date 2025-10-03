@@ -6,11 +6,11 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Threading;
-using AvaloniaWinitDemo.Rendering;
+using AvaloniaVelloCommon.Rendering;
 using Avalonia.Platform;
 using VelloSharp.Avalonia.Vello.Rendering;
 
-namespace AvaloniaWinitDemo.Controls;
+namespace AvaloniaVelloCommon.Controls;
 
 public class CubeDemoControl : Control
 {

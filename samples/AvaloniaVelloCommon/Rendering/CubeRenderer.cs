@@ -5,7 +5,7 @@ using Avalonia;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Rendering;
 
-namespace AvaloniaWinitDemo.Rendering;
+namespace AvaloniaVelloCommon.Rendering;
 
 internal sealed class CubeRenderer : IDisposable
 {

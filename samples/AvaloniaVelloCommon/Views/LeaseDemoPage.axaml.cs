@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace AvaloniaWinitDemo.Views;
+namespace AvaloniaVelloCommon.Views;
 
 public partial class LeaseDemoPage : UserControl
 {

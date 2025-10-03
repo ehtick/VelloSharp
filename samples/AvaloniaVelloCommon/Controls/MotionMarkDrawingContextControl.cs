@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using VelloSharp;
 
-namespace AvaloniaWinitDemo.Controls;
+namespace AvaloniaVelloCommon.Controls;
 
 public sealed class MotionMarkDrawingContextControl : Control
 {

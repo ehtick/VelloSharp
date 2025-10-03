@@ -1,23 +1,23 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:AvaloniaWinitDemo.Controls"
-             x:Class="AvaloniaWinitDemo.Views.LeaseDemoPage">
+             xmlns:controls="clr-namespace:AvaloniaVelloCommon.Controls"
+             x:Class="AvaloniaVelloCommon.Views.CubeDemoPage">
   <Grid RowDefinitions="Auto,*"
         RowSpacing="16">
     <StackPanel Spacing="4">
-      <TextBlock Text="Vello API lease demo"
+      <TextBlock Text="wgpu cube lease demo"
                  FontSize="18"
                  FontWeight="SemiBold" />
       <TextBlock TextWrapping="Wrap"
                  Opacity="0.8"
-                 Text="This sample requests the IVelloApiLeaseFeature from the drawing context to append raw Vello commands and read WGPU device information." />
+                 Text="This sample schedules the canonical wgpu cube rendering via IVelloApiLeaseFeature.ScheduleWgpuSurfaceRender, reusing the upstream cube WGSL while Avalonia/Vello handle the rest of the scene." />
     </StackPanel>
 
     <Border Grid.Row="1"
-            Background="#1f4d7a"
+            Background="#193149"
             CornerRadius="8"
             Padding="16">
-      <controls:LeaseDemoControl MinHeight="260" />
+      <controls:CubeDemoControl MinHeight="320" />
     </Border>
   </Grid>
 </UserControl>
