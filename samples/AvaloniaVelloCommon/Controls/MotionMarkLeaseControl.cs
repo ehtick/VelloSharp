@@ -377,8 +377,6 @@ public sealed class MotionMarkLeaseControl : Control
                 return;
             }
 
-            scene.Reset();
-
             var globalTransform = ToMatrix3x2(lease.Transform);
             var localTransform = _owner.CreateSceneTransform(_bounds);
             var compositeTransform = Matrix3x2.Multiply(localTransform, globalTransform);
