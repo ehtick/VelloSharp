@@ -136,6 +136,7 @@ public sealed class MotionMarkDrawingContextControl : Control
 
             if (_lastElementCount > 0)
             {
+                const double margin = 24;
                 var text = new FormattedText(
                     $"mmark test: {_lastElementCount} path elements",
                     CultureInfo.CurrentCulture,
@@ -144,8 +145,12 @@ public sealed class MotionMarkDrawingContextControl : Control
                     32,
                     Brushes.White);
 
-                var basePoint = Vector2.Transform(new Vector2(100f, 1100f), localTransform);
-                context.DrawText(text, new Point(basePoint.X, basePoint.Y));
+                var textHeight = text.Height;
+                var textOrigin = new Point(
+                    bounds.X + margin,
+                    Math.Max(bounds.Y + margin, bounds.Bottom - textHeight - margin));
+
+                context.DrawText(text, textOrigin);
             }
         }
 
