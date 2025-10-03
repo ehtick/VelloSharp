@@ -33,13 +33,61 @@ internal sealed class VelloPlatformRenderInterfaceContext : IPlatformRenderInter
             throw new ArgumentNullException(nameof(surfaces));
         }
 
-        var surfaceProvider = surfaces.OfType<IVelloWinitSurfaceProvider>().FirstOrDefault();
+        var surfaceList = surfaces as IList<object> ?? surfaces.ToList();
+
+        var surfaceProvider = surfaceList.OfType<IVelloWinitSurfaceProvider>().FirstOrDefault();
         if (surfaceProvider is not null)
         {
             return new VelloSwapchainRenderTarget(_graphicsDevice, _options, surfaceProvider);
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            var topLevel = surfaceList.OfType<ITopLevelImpl>().FirstOrDefault();
+            if (topLevel is not null)
+            {
+                var nativeProvider = new AvaloniaNativeSurfaceProvider(topLevel);
+                return new VelloSwapchainRenderTarget(_graphicsDevice, _options, nativeProvider);
+            }
+        }
+
+        var nativeSurface = surfaceList.OfType<INativePlatformHandleSurface>().FirstOrDefault();
+        if (nativeSurface is not null)
+        {
+            var provider = TryCreateNativePlatformSurfaceProvider(nativeSurface);
+            if (provider is not null)
+            {
+                return new VelloSwapchainRenderTarget(_graphicsDevice, _options, provider);
+            }
+        }
+
         throw new NotSupportedException("Unsupported surface type for the Vello backend.");
+    }
+
+    private static IVelloWinitSurfaceProvider? TryCreateNativePlatformSurfaceProvider(
+        INativePlatformHandleSurface nativeSurface)
+    {
+        if (nativeSurface is null)
+        {
+            return null;
+        }
+
+        var descriptor = nativeSurface.HandleDescriptor;
+
+        if (OperatingSystem.IsWindows())
+        {
+            if (string.Equals(descriptor, "HWND", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Win32SurfaceProvider(nativeSurface);
+            }
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return X11SurfaceProvider.TryCreate(nativeSurface);
+        }
+
+        return null;
     }
 
     public IDrawingContextLayerImpl CreateOffscreenRenderTarget(PixelSize pixelSize, double scaling)
