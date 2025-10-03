@@ -12,7 +12,11 @@ internal static class Program
         .StartWithClassicDesktopLifetime(args);
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
+        //.UsePlatformDetect(
         .UseWinit()
+        //.UseX11()
+        //.UseWin32()
+        //.UseAvaloniaNative()
         .UseVello()
         .WithInterFont()
         .LogToTrace();
