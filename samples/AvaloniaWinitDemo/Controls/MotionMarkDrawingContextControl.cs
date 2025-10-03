@@ -5,14 +5,11 @@ using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Platform;
-using Avalonia.Rendering.SceneGraph;
 using VelloSharp;
-using VelloSharp.Avalonia.Vello.Rendering;
 
 namespace AvaloniaWinitDemo.Controls;
 
-public sealed class MotionMarkLeaseControl : Control
+public sealed class MotionMarkDrawingContextControl : Control
 {
     public const int MinComplexity = 1;
     public const int MaxComplexity = 64;
@@ -43,45 +40,30 @@ public sealed class MotionMarkLeaseControl : Control
         RgbaColor.FromBytes(0xE0, 0x10, 0x40),
     };
 
-    private static readonly RgbaColor BackgroundColor = RgbaColor.FromBytes(0x12, 0x12, 0x14);
-
     public static readonly StyledProperty<int> ComplexityProperty =
-        AvaloniaProperty.Register<MotionMarkLeaseControl, int>(
+        AvaloniaProperty.Register<MotionMarkDrawingContextControl, int>(
             nameof(Complexity),
             MinComplexity,
             coerce: (_, value) => Math.Clamp(value, MinComplexity, MaxComplexity));
 
     public static readonly StyledProperty<bool> IsAnimationEnabledProperty =
-        AvaloniaProperty.Register<MotionMarkLeaseControl, bool>(nameof(IsAnimationEnabled), true);
+        AvaloniaProperty.Register<MotionMarkDrawingContextControl, bool>(nameof(IsAnimationEnabled), true);
 
-    private readonly Avalonia.Media.SolidColorBrush _fallbackBackgroundBrush = new(Color.FromRgb(0x12, 0x12, 0x14));
+    private readonly Avalonia.Media.SolidColorBrush _backgroundBrush = new(Color.FromRgb(0x12, 0x12, 0x14));
+    private readonly PenCache _penCache = new();
     private readonly List<Element> _elements = new();
     private readonly Random _random = new(1);
-    private readonly PathBuilder _backgroundPath = new PathBuilder()
-        .MoveTo(0, 0)
-        .LineTo(SceneWidth, 0)
-        .LineTo(SceneWidth, SceneHeight)
-        .LineTo(0, SceneHeight)
-        .Close();
-    private readonly StrokeStyle _stroke = new()
-    {
-        LineJoin = LineJoin.Bevel,
-        StartCap = LineCap.Round,
-        EndCap = LineCap.Round,
-        MiterLimit = 4.0,
-    };
 
     private bool _animationFrameRequested;
-    private bool _leaseAvailable;
     private int _lastElementCount;
     private Matrix3x2 _lastLocalTransform = Matrix3x2.Identity;
 
-    static MotionMarkLeaseControl()
+    static MotionMarkDrawingContextControl()
     {
-        AffectsRender<MotionMarkLeaseControl>(ComplexityProperty, IsAnimationEnabledProperty);
+        AffectsRender<MotionMarkDrawingContextControl>(ComplexityProperty, IsAnimationEnabledProperty);
     }
 
-    public MotionMarkLeaseControl()
+    public MotionMarkDrawingContextControl()
     {
         ClipToBounds = true;
     }
@@ -143,55 +125,34 @@ public sealed class MotionMarkLeaseControl : Control
 
         using (context.PushClip(bounds))
         {
-            context.FillRectangle(_fallbackBackgroundBrush, bounds);
-            context.Custom(new LeaseDrawOperation(new Rect(bounds.Size), this, Complexity));
-            DrawOverlay(context, bounds);
+            context.FillRectangle(_backgroundBrush, bounds);
+
+            var localTransform = CreateSceneTransform(bounds, out var scale);
+            using (context.PushTransform(ToAvaloniaMatrix(localTransform)))
+            {
+                var target = RenderScene(context, scale, Complexity);
+                UpdateLastRender(localTransform, target);
+            }
+
+            if (_lastElementCount > 0)
+            {
+                var text = new FormattedText(
+                    $"mmark test: {_lastElementCount} path elements",
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Inter"),
+                    32,
+                    Brushes.White);
+
+                var basePoint = Vector2.Transform(new Vector2(100f, 1100f), localTransform);
+                context.DrawText(text, new Point(basePoint.X, basePoint.Y));
+            }
         }
 
         if (IsAnimationEnabled)
         {
             ScheduleAnimationFrame();
         }
-    }
-
-    private void DrawOverlay(DrawingContext context, Rect bounds)
-    {
-        if (!_leaseAvailable)
-        {
-            var message = new FormattedText(
-                "IVelloApiLeaseFeature unavailable.",
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface("Inter"),
-                16,
-                Brushes.White)
-            {
-                TextAlignment = TextAlignment.Center,
-            };
-
-            var origin = new Point(
-                bounds.X + bounds.Width / 2 - message.WidthIncludingTrailingWhitespace / 2,
-                bounds.Y + bounds.Height / 2 - message.Height / 2);
-
-            context.DrawText(message, origin);
-            return;
-        }
-
-        if (_lastElementCount <= 0)
-        {
-            return;
-        }
-
-        var text = new FormattedText(
-            $"mmark test: {_lastElementCount} path elements",
-            CultureInfo.CurrentCulture,
-            FlowDirection.LeftToRight,
-            new Typeface("Inter"),
-            32,
-            Brushes.White);
-
-        var basePoint = Vector2.Transform(new Vector2(100f, 1100f), _lastLocalTransform);
-        context.DrawText(text, new Point(basePoint.X, basePoint.Y));
     }
 
     private void ScheduleAnimationFrame()
@@ -224,39 +185,40 @@ public sealed class MotionMarkLeaseControl : Control
         ScheduleAnimationFrame();
     }
 
-    private void UpdateLeaseAvailability(bool available) => _leaseAvailable = available;
-
-    private void UpdateLastRender(Matrix3x2 localTransform, int elementCount)
+    private void UpdateLastRender(Matrix3x2 transform, int elementCount)
     {
-        _lastLocalTransform = localTransform;
+        _lastLocalTransform = transform;
         _lastElementCount = elementCount;
     }
 
-    private Matrix3x2 CreateSceneTransform(Rect bounds)
+    private Matrix3x2 CreateSceneTransform(Rect bounds, out double scale)
     {
         var width = (float)bounds.Width;
         var height = (float)bounds.Height;
-        var scale = MathF.Min(width / SceneWidth, height / SceneHeight);
-        if (!float.IsFinite(scale) || scale <= 0f)
+        var s = MathF.Min(width / SceneWidth, height / SceneHeight);
+        if (!float.IsFinite(s) || s <= 0f)
         {
-            scale = 1f;
+            s = 1f;
         }
 
-        var scaledWidth = SceneWidth * scale;
-        var scaledHeight = SceneHeight * scale;
+        var scaledWidth = SceneWidth * s;
+        var scaledHeight = SceneHeight * s;
         var offsetX = (width - scaledWidth) * 0.5f + (float)bounds.X;
         var offsetY = (height - scaledHeight) * 0.5f + (float)bounds.Y;
 
-        var transform = Matrix3x2.CreateScale(scale);
+        var transform = Matrix3x2.CreateScale(s);
         transform.Translation = new Vector2(offsetX, offsetY);
+
+        scale = s;
         return transform;
     }
 
-    private int RenderScene(Scene scene, Matrix3x2 transform, int complexity)
+    private int RenderScene(DrawingContext context, double scale, int complexity)
     {
         var target = EnsureElements(complexity);
 
-        var builder = new PathBuilder();
+        StreamGeometry? geometry = null;
+        StreamGeometryContext? geometryContext = null;
         var pathStarted = false;
 
         for (var i = 0; i < _elements.Count; i++)
@@ -265,18 +227,36 @@ public sealed class MotionMarkLeaseControl : Control
 
             if (!pathStarted)
             {
-                builder.MoveTo(element.Start.X, element.Start.Y);
+                geometry = new StreamGeometry();
+                geometryContext = geometry.Open();
+                geometryContext.BeginFigure(ToPoint(element.Start), isFilled: false);
                 pathStarted = true;
             }
 
-            element.AppendTo(builder);
+            switch (element.Type)
+            {
+                case SegmentType.Line:
+                    geometryContext!.LineTo(ToPoint(element.End));
+                    break;
+                case SegmentType.Quad:
+                    geometryContext!.QuadraticBezierTo(ToPoint(element.Control1), ToPoint(element.End));
+                    break;
+                case SegmentType.Cubic:
+                    geometryContext!.CubicBezierTo(ToPoint(element.Control1), ToPoint(element.Control2), ToPoint(element.End));
+                    break;
+            }
 
             var isLast = i == _elements.Count - 1;
             if (element.IsSplit || isLast)
             {
-                _stroke.Width = element.Width;
-                scene.StrokePath(builder, _stroke, transform, element.Color);
-                builder.Clear();
+                geometryContext!.EndFigure(false);
+                geometryContext.Dispose();
+                geometryContext = null;
+
+                var pen = _penCache.GetPen(ToAvaloniaColor(element.Color), element.Width * scale);
+                context.DrawGeometry(null, pen, geometry!);
+
+                geometry = null;
                 pathStarted = false;
             }
 
@@ -287,6 +267,8 @@ public sealed class MotionMarkLeaseControl : Control
 
             _elements[i] = element;
         }
+
+        geometryContext?.Dispose();
 
         return target;
     }
@@ -320,76 +302,29 @@ public sealed class MotionMarkLeaseControl : Control
             : Math.Min((clamped - 8) * 10000, 120_000);
     }
 
-    private static Matrix3x2 ToMatrix3x2(Matrix matrix)
+    private static Matrix ToAvaloniaMatrix(Matrix3x2 matrix) => new(
+        matrix.M11,
+        matrix.M12,
+        matrix.M21,
+        matrix.M22,
+        matrix.M31,
+        matrix.M32);
+
+    private static Point ToPoint(Vector2 value) => new(value.X, value.Y);
+
+    private static Color ToAvaloniaColor(RgbaColor color)
     {
-        return new Matrix3x2(
-            (float)matrix.M11,
-            (float)matrix.M12,
-            (float)matrix.M21,
-            (float)matrix.M22,
-            (float)matrix.M31,
-            (float)matrix.M32);
-    }
-
-    private readonly struct LeaseDrawOperation : ICustomDrawOperation
-    {
-        private readonly Rect _bounds;
-        private readonly MotionMarkLeaseControl _owner;
-        private readonly int _complexity;
-
-        public LeaseDrawOperation(Rect bounds, MotionMarkLeaseControl owner, int complexity)
+        static byte ToByte(float value)
         {
-            _bounds = bounds;
-            _owner = owner;
-            _complexity = complexity;
+            var scaled = (int)MathF.Round(value * 255f);
+            return (byte)Math.Clamp(scaled, 0, 255);
         }
 
-        public Rect Bounds => _bounds;
-
-        public void Dispose()
-        {
-        }
-
-        public bool HitTest(Point p) => _bounds.Contains(p);
-
-        public bool Equals(ICustomDrawOperation? other) =>
-            other is LeaseDrawOperation op && ReferenceEquals(op._owner, _owner) && op._bounds.Equals(_bounds);
-
-        public void Render(ImmediateDrawingContext context)
-        {
-            if (!context.TryGetFeature<IVelloApiLeaseFeature>(out var feature) || feature is null)
-            {
-                _owner.UpdateLeaseAvailability(false);
-                return;
-            }
-
-            using var lease = feature.Lease();
-            if (lease is null)
-            {
-                _owner.UpdateLeaseAvailability(false);
-                return;
-            }
-
-            var scene = lease.Scene;
-            if (scene is null)
-            {
-                _owner.UpdateLeaseAvailability(false);
-                return;
-            }
-
-            scene.Reset();
-
-            var globalTransform = ToMatrix3x2(lease.Transform);
-            var localTransform = _owner.CreateSceneTransform(_bounds);
-            var compositeTransform = Matrix3x2.Multiply(localTransform, globalTransform);
-
-            scene.FillPath(_owner._backgroundPath, VelloSharp.FillRule.NonZero, compositeTransform, BackgroundColor);
-
-            var target = _owner.RenderScene(scene, compositeTransform, _complexity);
-
-            _owner.UpdateLastRender(localTransform, target);
-            _owner.UpdateLeaseAvailability(true);
-        }
+        return Color.FromArgb(
+            ToByte(color.A),
+            ToByte(color.R),
+            ToByte(color.G),
+            ToByte(color.B));
     }
 
     private enum SegmentType
@@ -450,22 +385,6 @@ public sealed class MotionMarkLeaseControl : Control
         public bool IsSplit;
         public GridPoint GridPoint;
 
-        public void AppendTo(PathBuilder builder)
-        {
-            switch (Type)
-            {
-                case SegmentType.Line:
-                    builder.LineTo(End.X, End.Y);
-                    break;
-                case SegmentType.Quad:
-                    builder.QuadraticTo(Control1.X, Control1.Y, End.X, End.Y);
-                    break;
-                case SegmentType.Cubic:
-                    builder.CubicTo(Control1.X, Control1.Y, Control2.X, Control2.Y, End.X, End.Y);
-                    break;
-            }
-        }
-
         public static Element CreateRandom(GridPoint last, Random random)
         {
             var next = GridPoint.Next(last, random);
@@ -514,6 +433,48 @@ public sealed class MotionMarkLeaseControl : Control
                 IsSplit = isSplit,
                 GridPoint = gridPoint,
             };
+        }
+    }
+
+    private sealed class PenCache
+    {
+        private readonly Dictionary<PenKey, Pen> _cache = new();
+
+        public Pen GetPen(Color color, double width)
+        {
+            var key = new PenKey(color, width);
+            if (_cache.TryGetValue(key, out var pen))
+            {
+                return pen;
+            }
+
+            pen = new Pen(new Avalonia.Media.SolidColorBrush(color), width)
+            {
+                LineCap = PenLineCap.Round,
+                LineJoin = PenLineJoin.Bevel,
+                MiterLimit = 4.0,
+            };
+
+            _cache[key] = pen;
+            return pen;
+        }
+
+        private readonly struct PenKey : IEquatable<PenKey>
+        {
+            public PenKey(Color color, double width)
+            {
+                Color = ((uint)color.A << 24) | ((uint)color.R << 16) | ((uint)color.G << 8) | color.B;
+                WidthBits = BitConverter.DoubleToInt64Bits(width);
+            }
+
+            public uint Color { get; }
+            public long WidthBits { get; }
+
+            public bool Equals(PenKey other) => Color == other.Color && WidthBits == other.WidthBits;
+
+            public override bool Equals(object? obj) => obj is PenKey other && Equals(other);
+
+            public override int GetHashCode() => HashCode.Combine(Color, WidthBits);
         }
     }
 }

@@ -21,7 +21,7 @@
     <TabItem Header="Vello MotionMark">
       <views:MotionMarkLeasePage />
     </TabItem>
-    <TabItem Header="Immediate MotionMark">
+    <TabItem Header="DrawingContext MotionMark">
       <views:MotionMarkImmediatePage />
     </TabItem>
   </TabControl>

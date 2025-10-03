@@ -12,16 +12,16 @@ public partial class MotionMarkImmediatePage : UserControl
 
     private void OnDecreaseComplexity(object? sender, RoutedEventArgs e)
     {
-        ImmediateControl.DecreaseComplexity();
+        DrawingContextControl.DecreaseComplexity();
     }
 
     private void OnIncreaseComplexity(object? sender, RoutedEventArgs e)
     {
-        ImmediateControl.IncreaseComplexity();
+        DrawingContextControl.IncreaseComplexity();
     }
 
     private void OnResetComplexity(object? sender, RoutedEventArgs e)
     {
-        ImmediateControl.ResetComplexity();
+        DrawingContextControl.ResetComplexity();
     }
 }
