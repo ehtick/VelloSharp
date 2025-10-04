@@ -1,9 +1,9 @@
 using Avalonia;
-using Avalonia.Winit;
 using Avalonia.ReactiveUI;
+using Avalonia.Winit;
 using VelloSharp.Avalonia.Vello;
 
-namespace AvaloniaWinitDemo;
+namespace AvaloniaVelloWinitDemo;
 
 internal static class Program
 {
@@ -12,11 +12,7 @@ internal static class Program
         .StartWithClassicDesktopLifetime(args);
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
-        //.UsePlatformDetect(
         .UseWinit()
-        //.UseX11()
-        //.UseWin32()
-        //.UseAvaloniaNative()
         .UseVello()
         .WithInterFont()
         .LogToTrace();

@@ -10,7 +10,10 @@ else
     "VelloSharp"
     "VelloSharp.Integration"
     "samples/AvaloniaVelloExamples"
-    "samples/AvaloniaWinitDemo"
+    "samples/AvaloniaVelloWinitDemo"
+    "samples/AvaloniaVelloX11Demo"
+    "samples/AvaloniaVelloWin32Demo"
+    "samples/AvaloniaVelloNativeDemo"
     "samples/VelloSharp.WithWinit"
   )
 fi

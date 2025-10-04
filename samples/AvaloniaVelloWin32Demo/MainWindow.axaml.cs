@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Rendering;
 
-namespace AvaloniaWinitDemo;
+namespace AvaloniaVelloWin32Demo;
 
 public partial class MainWindow : Window
 {

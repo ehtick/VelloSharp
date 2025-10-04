@@ -58,13 +58,13 @@
    - Ensure project references `Avalonia`, `Avalonia.Desktop`, and existing `VelloSharp` packages as needed.
 
 7. **Sample application**
-   - Add `samples/AvaloniaWinitDemo` with minimal MVVM window that calls `.UseWinit()` in `BuildAvaloniaApp`.
+  - Add `samples/AvaloniaVelloWinitDemo` with minimal MVVM window that calls `.UseWinit()` in `BuildAvaloniaApp`.
    - Demonstrate `VelloSurfaceView` usage inside the sample to validate rendering on the new backend.
 
 8. **Solution & documentation updates**
    - Add new projects to `VelloSharp.sln`.
    - Update `README.md` and `docs/ffi-api-coverage.md` with new platform description / status.
-   - Provide run instructions (`dotnet run --project samples/AvaloniaWinitDemo/...`).
+  - Provide run instructions (`dotnet run --project samples/AvaloniaVelloWinitDemo/...`).
 
 ## Implementation Steps
 1. **Scaffold projects & build props**
@@ -87,7 +87,7 @@
    - Integrate with `WinitWindowImpl` event handling pipeline.
 
 5. **Sample application**
-   - Scaffold `samples/AvaloniaWinitDemo` using `.UseWinit()` and `ClassicDesktopStyleApplicationLifetime`.
+  - Scaffold `samples/AvaloniaVelloWinitDemo` using `.UseWinit()` and `ClassicDesktopStyleApplicationLifetime`.
    - Embed `VelloSurfaceView` (or fallback `VelloView`) to showcase rendering with winit backend.
 
 6. **Validation & docs**
@@ -97,7 +97,7 @@
 
 ## Testing & Verification
 - `dotnet build VelloSharp.sln`
-- `dotnet run --project samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj`
+- `dotnet run --project samples/AvaloniaVelloWinitDemo/AvaloniaVelloWinitDemo.csproj`
 - Verify pointer + keyboard interactions produce expected output (document manual testing expectations).
 
 ## Follow-Up Work (Out of Scope)

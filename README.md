@@ -31,7 +31,10 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `VelloSharp.Avalonia.Vello` – Avalonia platform abstractions that adapt Vello surfaces and inputs into
     application-friendly controls.
 - Samples:
-  - `samples/AvaloniaWinitDemo` – minimal Avalonia desktop host covering CPU and GPU render paths through the winit/Vello stack.
+- `samples/AvaloniaVelloWinitDemo` – minimal Avalonia desktop host covering CPU and GPU render paths through the AvaloniaNative/Vello stack.
+- `samples/AvaloniaVelloX11Demo` – Linux-focused host that locks Avalonia to the X11 platform for backend validation.
+- `samples/AvaloniaVelloWin32Demo` – Windows host configured for the Win32 platform while exercising the Vello renderer.
+- `samples/AvaloniaVelloNativeDemo` – macOS host forced onto AvaloniaNative to vet the Vello integration end-to-end.
   - `samples/AvaloniaVelloExamples` – expanded scene catalogue with renderer option toggles and surface fallbacks.
   - `samples/AvaloniaSkiaMotionMark` – a side-by-side Skia/Vello motion-mark visualiser built on the integration
     layer.
@@ -105,8 +108,8 @@ directory under `runtimes/<rid>/native/` (and alongside the binaries for conveni
 
 ```bash
 dotnet build bindings/VelloSharp/VelloSharp.csproj
-dotnet build samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
-dotnet run --project samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
+dotnet build samples/AvaloniaVelloWinitDemo/AvaloniaVelloWinitDemo.csproj
+dotnet run --project samples/AvaloniaVelloWinitDemo/AvaloniaVelloWinitDemo.csproj
 ```
 
 By default the current host target triple is used. To build for an alternate RID, pass `-r <rid>` when
@@ -420,10 +423,13 @@ formats, or frame pacing at runtime.
 
 ### Samples and runtime configuration
 
-Run the winit-backed sample to exercise the new windowing and rendering stack end-to-end:
+Run the Avalonia Vello desktop samples to exercise the platform-specific hosting stacks end-to-end:
 
 ```bash
-dotnet run --project samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
+dotnet run --project samples/AvaloniaVelloWinitDemo/AvaloniaVelloWinitDemo.csproj
+dotnet run --project samples/AvaloniaVelloX11Demo/AvaloniaVelloX11Demo.csproj
+dotnet run --project samples/AvaloniaVelloWin32Demo/AvaloniaVelloWin32Demo.csproj
+dotnet run --project samples/AvaloniaVelloNativeDemo/AvaloniaVelloNativeDemo.csproj
 ```
 
 The Avalonia examples catalogue continues to showcase the controls on the stock platforms:
@@ -574,7 +580,7 @@ available to packaging steps.
   managed layer.
 - `VelloSharp`: C# wrapper library with `Scene`, `Renderer`, and path-building helpers.
 - `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
-- `samples/AvaloniaWinitDemo`: Avalonia desktop sample that exercises the bindings through the winit/Vello path.
+- `samples/AvaloniaVelloWinitDemo`: Avalonia desktop sample that exercises the bindings through the AvaloniaNative/Vello path.
 - `samples/AvaloniaVelloExamples`: showcases the expanded scene catalogue on Avalonia with GPU fallback logic.
 - `extern/vello`: upstream renderer sources (core crate, sparse strips, shaders, and examples).
 - `extern/kurbo`: geometry primitives consumed by `kurbo_ffi` and Vello.
