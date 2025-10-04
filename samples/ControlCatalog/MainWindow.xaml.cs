@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Rendering;
 using ControlCatalog.ViewModels;
 
 namespace ControlCatalog
@@ -16,6 +17,8 @@ namespace ControlCatalog
         public MainWindow()
         {
             this.InitializeComponent();
+
+            RendererDiagnostics.DebugOverlays = RendererDebugOverlays.Fps;
 
             _recentMenu = ((NativeMenu.GetMenu(this)?.Items[0] as NativeMenuItem)?.Menu?.Items[2] as NativeMenuItem)?.Menu;
         }
