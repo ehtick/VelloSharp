@@ -41,6 +41,15 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `samples/AvaloniaSkiaSparseMotionMarkShim` – CPU sparse MotionMark shim that routes Vello scenes through the Velato
     Skia bridge without touching the GPU backend.
 
+## Developer setup
+
+Bootstrap the native toolchains and Rust before building the FFI crates or running the packaging scripts:
+
+- `scripts/bootstrap-linux.sh` installs the required build essentials, GPU/windowing headers, and rustup on Debian/Ubuntu, Fedora, Arch, and openSUSE systems (run with sudo or as root).
+- `scripts/bootstrap-macos.sh` ensures the Xcode Command Line Tools, Homebrew packages (CMake, Ninja, pkg-config, LLVM, Python), and rustup are installed.
+- `scripts/bootstrap-windows.ps1` must be executed from an elevated PowerShell session; it installs Visual Studio Build Tools, CMake, Ninja, Git, and rustup via winget/Chocolatey when available.
+
+Each script is idempotent and skips packages that are already present.
 ## Rust dependency reference
 
 The FFI crates (`vello_ffi`, `peniko_ffi`, `kurbo_ffi`, `winit_ffi`, `accesskit_ffi`) share the same high-level
