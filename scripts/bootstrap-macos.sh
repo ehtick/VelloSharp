@@ -17,31 +17,16 @@ if ! xcode-select -p >/dev/null 2>&1; then
   exit 0
 fi
 
-if ! has_command brew; then
-  echo "Homebrew not detected. Installing..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  if [[ -x /opt/homebrew/bin/brew ]]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [[ -x /usr/local/bin/brew ]]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-  fi
+if has_command dotnet; then
+  echo ".NET SDK detected."
+else
+  echo ".NET SDK not detected. Please install the .NET SDK before continuing." >&2
 fi
 
-if ! has_command brew; then
-  echo "Homebrew installation failed or brew not on PATH." >&2
+if ! has_command curl; then
+  echo "curl is required to install the Rust toolchain. Please install curl and rerun this script." >&2
   exit 1
 fi
-
-brew update
-
-BREW_PACKAGES=(cmake ninja pkg-config llvm python@3.12 git)
-for pkg in "${BREW_PACKAGES[@]}"; do
-  if brew list "$pkg" >/dev/null 2>&1 || brew list --cask "$pkg" >/dev/null 2>&1; then
-    echo "brew package $pkg already installed"
-  else
-    brew install "$pkg"
-  fi
-done
 
 ensure_rustup() {
   if has_command cargo || has_command rustup; then
