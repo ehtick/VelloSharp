@@ -21,7 +21,7 @@ if (-not (Test-Path $ArtifactsDir -PathType Container)) {
 }
 
 if (-not $Targets -or $Targets.Count -eq 0) {
-    $Targets = @('VelloSharp', 'VelloSharp.Integration', 'samples/AvaloniaVelloExamples', 'samples/AvaloniaVelloDemo', 'samples/VelloSharp.WithWinit')
+    $Targets = @('VelloSharp', 'VelloSharp.Integration', 'samples/AvaloniaVelloExamples', 'samples/AvaloniaWinitDemo', 'samples/VelloSharp.WithWinit')
 }
 
 if ($env:COPY_CONFIGURATIONS) {

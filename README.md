@@ -31,7 +31,7 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `VelloSharp.Avalonia.Vello` – Avalonia platform abstractions that adapt Vello surfaces and inputs into
     application-friendly controls.
 - Samples:
-  - `samples/AvaloniaVelloDemo` – minimal Avalonia desktop host covering CPU and GPU render paths.
+  - `samples/AvaloniaWinitDemo` – minimal Avalonia desktop host covering CPU and GPU render paths through the winit/Vello stack.
   - `samples/AvaloniaVelloExamples` – expanded scene catalogue with renderer option toggles and surface fallbacks.
   - `samples/AvaloniaSkiaMotionMark` – a side-by-side Skia/Vello motion-mark visualiser built on the integration
     layer.
@@ -105,8 +105,8 @@ directory under `runtimes/<rid>/native/` (and alongside the binaries for conveni
 
 ```bash
 dotnet build bindings/VelloSharp/VelloSharp.csproj
-dotnet build samples/AvaloniaVelloDemo/AvaloniaVelloDemo.csproj
-dotnet run --project samples/AvaloniaVelloDemo/AvaloniaVelloDemo.csproj
+dotnet build samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
+dotnet run --project samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
 ```
 
 By default the current host target triple is used. To build for an alternate RID, pass `-r <rid>` when
@@ -426,11 +426,10 @@ Run the winit-backed sample to exercise the new windowing and rendering stack en
 dotnet run --project samples/AvaloniaWinitDemo/AvaloniaWinitDemo.csproj
 ```
 
-The classic Avalonia demo continues to showcase the controls on the stock platforms:
+The Avalonia examples catalogue continues to showcase the controls on the stock platforms:
 
 ```bash
-cd samples/AvaloniaVelloDemo
-dotnet run
+dotnet run --project samples/AvaloniaVelloExamples/AvaloniaVelloExamples.csproj
 ```
 
 Both samples copy the native `vello_ffi` library next to the managed binaries automatically; installing the Rust toolchain is the only prerequisite.
@@ -575,7 +574,7 @@ available to packaging steps.
   managed layer.
 - `VelloSharp`: C# wrapper library with `Scene`, `Renderer`, and path-building helpers.
 - `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
-- `samples/AvaloniaVelloDemo`: Avalonia desktop sample that exercises the bindings.
+- `samples/AvaloniaWinitDemo`: Avalonia desktop sample that exercises the bindings through the winit/Vello path.
 - `samples/AvaloniaVelloExamples`: showcases the expanded scene catalogue on Avalonia with GPU fallback logic.
 - `extern/vello`: upstream renderer sources (core crate, sparse strips, shaders, and examples).
 - `extern/kurbo`: geometry primitives consumed by `kurbo_ffi` and Vello.

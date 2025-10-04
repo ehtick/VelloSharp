@@ -30,7 +30,7 @@
 5. **Scene rendering**: Implement `VelloCompositionRenderer` (inspired by `SkiaCompositionRenderer`) that traverses Avalonia visuals, builds a Vello scene (`SceneBuilder`), and submits frames via `Renderer.Render` into the swapchain texture.
 6. **Integration with winit windowing**: Extend `WinitWindowImpl.TryGetFeature` to expose the Vello surface handle feature required by the renderer, ensuring the swapchain uses the correct window handle and DPI scaling.
 7. **Resource lifetime & resize**: Handle window resize events to recreate swapchains and adjust render scaling; integrate with `WinitDispatcher` for device idle/teardown on shutdown.
-8. **Sample application**: Update or add `samples/AvaloniaVelloDemo` (or new sample) to call `.UseWinit().UseVello()`, present rich visuals verifying the pipeline.
+8. **Sample application**: Update or add `samples/AvaloniaWinitDemo` (or new sample) to call `.UseWinit().UseVello()`, present rich visuals verifying the pipeline.
 9. **Documentation**: Describe the new renderer, usage pattern, and known limitations in `docs/avalonia-winit-platform-plan.md` (status update) or a new doc.
 
 ## Implementation Steps

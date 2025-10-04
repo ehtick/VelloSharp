@@ -10,7 +10,7 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $rootPath = (Resolve-Path (Join-Path $scriptRoot '..')).Path
 
 if (-not $Targets -or $Targets.Count -eq 0) {
-    $Targets = @('VelloSharp', 'VelloSharp.Integration', 'samples/AvaloniaVelloExamples', 'samples/AvaloniaVelloDemo', 'samples/VelloSharp.WithWinit')
+    $Targets = @('VelloSharp', 'VelloSharp.Integration', 'samples/AvaloniaVelloExamples', 'samples/AvaloniaWinitDemo', 'samples/VelloSharp.WithWinit')
 }
 
 if ($env:REMOVE_RUNTIMES_CONFIGURATIONS) {
