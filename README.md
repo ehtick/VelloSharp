@@ -41,6 +41,39 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `samples/AvaloniaSkiaSparseMotionMarkShim` – CPU sparse MotionMark shim that routes Vello scenes through the Velato
     Skia bridge without touching the GPU backend.
 
+## Quick start builds
+
+Run these from the repository root to go from a clean clone to native artifacts and managed binaries.
+
+### Windows (PowerShell)
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File scripts\bootstrap-windows.ps1
+pwsh -File scripts\build-native-windows.ps1
+dotnet build VelloSharp.sln -c Release
+pwsh -File scripts\copy-runtimes.ps1
+```
+
+### macOS (bash/zsh)
+
+```bash
+./scripts/bootstrap-macos.sh
+./scripts/build-native-macos.sh
+dotnet build VelloSharp.sln -c Release
+./scripts/copy-runtimes.sh
+```
+
+### Linux (bash)
+
+```bash
+./scripts/bootstrap-linux.sh
+./scripts/build-native-linux.sh
+dotnet build VelloSharp.sln -c Release
+./scripts/copy-runtimes.sh
+```
+
+Each `build-native-*` script compiles every FFI crate and stages the libraries under `artifacts/runtimes/<rid>/native/`. The copy script fans the native payloads into the managed project `bin/` folders so the samples can run immediately.
+
 ## Developer setup
 
 Bootstrap the native toolchains and Rust before building the FFI crates or running the packaging scripts:
