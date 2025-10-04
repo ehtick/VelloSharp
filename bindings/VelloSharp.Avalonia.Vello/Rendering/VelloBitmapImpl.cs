@@ -14,7 +14,6 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
     private byte[] _pixels;
     private readonly PixelFormat _pixelFormat;
     private readonly AlphaFormat _alphaFormat;
-    private GCHandle? _pinnedPixels;
     private bool _disposed;
     private int _version;
 
@@ -50,13 +49,6 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
             {
                 return;
             }
-
-            if (_pinnedPixels is { IsAllocated: true } handle)
-            {
-                handle.Free();
-                _pinnedPixels = null;
-            }
-
             _pixels = Array.Empty<byte>();
             _disposed = true;
         }
@@ -94,20 +86,28 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
         {
             EnsureNotDisposed();
 
-            if (_pinnedPixels is not { IsAllocated: true } handle)
-            {
-                handle = GCHandle.Alloc(_pixels, GCHandleType.Pinned);
-                _pinnedPixels = handle;
-            }
+            var handle = GCHandle.Alloc(_pixels, GCHandleType.Pinned);
+            var address = handle.AddrOfPinnedObject();
+            var size = PixelSize;
+            var rowBytes = GetStride(size.Width, _pixelFormat);
+            var dpi = Dpi;
+            var format = _pixelFormat;
 
             _version++;
 
-            return new VelloLockedFramebuffer(
-                handle,
-                PixelSize,
-                GetStride(PixelSize.Width, _pixelFormat),
-                Dpi,
-                _pixelFormat);
+            return new LockedFramebuffer(
+                address,
+                size,
+                rowBytes,
+                dpi,
+                format,
+                () =>
+                {
+                    if (handle.IsAllocated)
+                    {
+                        handle.Free();
+                    }
+                });
         }
     }
 
@@ -137,46 +137,6 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
     private static int GetStride(int width, PixelFormat format)
     {
         return width * (format.Equals(PixelFormat.Rgba8888) ? 4 : 4);
-    }
-
-    private sealed class VelloLockedFramebuffer : ILockedFramebuffer
-    {
-        private GCHandle _handle;
-        private bool _disposed;
-
-        public VelloLockedFramebuffer(GCHandle handle, PixelSize size, int rowBytes, Vector dpi, PixelFormat format)
-        {
-            _handle = handle;
-            Size = size;
-            RowBytes = rowBytes;
-            Dpi = dpi;
-            Format = format;
-        }
-
-        public IntPtr Address => _handle.AddrOfPinnedObject();
-
-        public PixelSize Size { get; }
-
-        public int RowBytes { get; }
-
-        public Vector Dpi { get; }
-
-        public PixelFormat Format { get; }
-
-        public void Dispose()
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (_handle.IsAllocated)
-            {
-                _handle.Free();
-            }
-
-            _disposed = true;
-        }
     }
 
     public static VelloBitmapImpl Create(PixelSize size, Vector dpi)
@@ -458,3 +418,4 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
         }
     }
 }
+
