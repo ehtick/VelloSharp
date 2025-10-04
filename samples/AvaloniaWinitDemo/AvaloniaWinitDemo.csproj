@@ -18,10 +18,10 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Native" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.ReactiveUI" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Native" />
     <PackageReference Include="Avalonia.Win32" />
     <PackageReference Include="Avalonia.X11" />
     <PackageReference Include="Dotnet.Bundle" />

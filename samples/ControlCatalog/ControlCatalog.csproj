@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IncludeAvaloniaGenerators>true</IncludeAvaloniaGenerators>
+    <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="**/*.xaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    <AvaloniaResource Include="**/*.xaml">
+      <SubType>Designer</SubType>
+    </AvaloniaResource>
+    <AvaloniaResource Include="Assets/*" />
+    <AvaloniaResource Include="Assets/Fonts/*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Assets/image1.png" />
+    <None Remove="Assets/image2.png" />
+    <None Remove="Assets/image3.png" />
+    <None Remove="Assets/image4.png" />
+    <None Remove="Assets/image5.png" />
+    <None Remove="Assets/image6.png" />
+    <None Remove="Assets/image7.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/Fonts/SourceSansPro-Bold.ttf" />
+    <EmbeddedResource Include="Assets/Fonts/SourceSansPro-BoldItalic.ttf" />
+    <EmbeddedResource Include="Assets/Fonts/SourceSansPro-Italic.ttf" />
+    <EmbeddedResource Include="Assets/Fonts/SourceSansPro-Regular.ttf" />
+    <EmbeddedResource Include="Pages/teapot.bin" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" />
+    <PackageReference Include="Avalonia.Themes.Simple" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.ReactiveUI" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../SampleControls/ControlSamples.csproj" />
+  </ItemGroup>
+</Project>
