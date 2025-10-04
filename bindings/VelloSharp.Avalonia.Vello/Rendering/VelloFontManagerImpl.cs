@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using Avalonia.Media;
 using Avalonia.Platform;
 using VelloSharp;
@@ -145,11 +146,27 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
             return false;
         }
 
+        var metadata = ParseFontMetadata(fontData);
+        var familyName = string.IsNullOrWhiteSpace(metadata.FamilyName) ? EmbeddedFamilyName : metadata.FamilyName;
+        var style = metadata.Style;
+        var weight = metadata.Weight;
+        var stretch = metadata.Stretch;
+
+        if (fontSimulations.HasFlag(FontSimulations.Oblique) && style == FontStyle.Normal)
+        {
+            style = FontStyle.Italic;
+        }
+
+        if (fontSimulations.HasFlag(FontSimulations.Bold) && (int)weight < (int)FontWeight.Bold)
+        {
+            weight = FontWeight.Bold;
+        }
+
         glyphTypeface = new VelloGlyphTypeface(
-            EmbeddedFamilyName,
-            fontSimulations.HasFlag(FontSimulations.Oblique) ? FontStyle.Italic : FontStyle.Normal,
-            fontSimulations.HasFlag(FontSimulations.Bold) ? FontWeight.Bold : FontWeight.Normal,
-            FontStretch.Normal,
+            familyName,
+            style,
+            weight,
+            stretch,
             fontData,
             simulations: fontSimulations);
         return true;
@@ -300,4 +317,229 @@ internal sealed class VelloFontManagerImpl : IFontManagerImpl
         stream.CopyTo(ms);
         return ms.ToArray();
     }
+
+    private static FontMetadata ParseFontMetadata(byte[] fontData)
+    {
+        if (fontData is not { Length: >= 12 })
+        {
+            return new FontMetadata(EmbeddedFamilyName, FontStyle.Normal, FontWeight.Normal, FontStretch.Normal);
+        }
+
+        var tables = ParseTableDirectory(fontData);
+        var familyName = ParseFamilyName(fontData, tables) ?? EmbeddedFamilyName;
+        var (style, weight, stretch) = ParseOs2(fontData, tables);
+        return new FontMetadata(familyName, style, weight, stretch);
+    }
+
+    private static Dictionary<uint, (int Offset, int Length)> ParseTableDirectory(ReadOnlySpan<byte> data)
+    {
+        var tables = new Dictionary<uint, (int Offset, int Length)>();
+
+        if (data.Length < 12)
+        {
+            return tables;
+        }
+
+        var numTables = ReadUInt16BE(data.Slice(4, 2));
+        const int recordSize = 16;
+        var recordsOffset = 12;
+
+        for (var i = 0; i < numTables; i++)
+        {
+            var entryStart = recordsOffset + i * recordSize;
+            if (entryStart + recordSize > data.Length)
+            {
+                break;
+            }
+
+            var tag = ReadUInt32BE(data.Slice(entryStart, 4));
+            var offset = ReadUInt32BE(data.Slice(entryStart + 8, 4));
+            var length = ReadUInt32BE(data.Slice(entryStart + 12, 4));
+
+            if (offset > int.MaxValue || length > int.MaxValue)
+            {
+                continue;
+            }
+
+            var intOffset = (int)offset;
+            var intLength = (int)length;
+
+            if (intOffset < 0 || intLength <= 0 || intOffset + intLength > data.Length)
+            {
+                continue;
+            }
+
+            tables[tag] = (intOffset, intLength);
+        }
+
+        return tables;
+    }
+
+    private static string? ParseFamilyName(ReadOnlySpan<byte> data, IReadOnlyDictionary<uint, (int Offset, int Length)> tables)
+    {
+        if (!tables.TryGetValue(MakeTag("name"), out var entry))
+        {
+            return null;
+        }
+
+        var span = data.Slice(entry.Offset, entry.Length);
+        if (span.Length < 6)
+        {
+            return null;
+        }
+
+        var count = ReadUInt16BE(span.Slice(2, 2));
+        var stringOffset = ReadUInt16BE(span.Slice(4, 2));
+        var recordsStart = 6;
+        string? fallback = null;
+
+        for (var i = 0; i < count; i++)
+        {
+            var recordPos = recordsStart + i * 12;
+            if (recordPos + 12 > span.Length)
+            {
+                break;
+            }
+
+            var record = span.Slice(recordPos, 12);
+            var platformId = ReadUInt16BE(record.Slice(0, 2));
+            var languageId = ReadUInt16BE(record.Slice(4, 2));
+            var nameId = ReadUInt16BE(record.Slice(6, 2));
+            var length = ReadUInt16BE(record.Slice(8, 2));
+            var offset = ReadUInt16BE(record.Slice(10, 2));
+
+            if (nameId != 1)
+            {
+                continue;
+            }
+
+            var stringPos = stringOffset + offset;
+            if (stringPos + length > span.Length)
+            {
+                continue;
+            }
+
+            var nameSpan = span.Slice(stringPos, length);
+            string name;
+
+            if (platformId == 0 || platformId == 3)
+            {
+                name = Encoding.BigEndianUnicode.GetString(nameSpan);
+            }
+            else
+            {
+                name = Encoding.ASCII.GetString(nameSpan);
+            }
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            if ((platformId == 3 && languageId == 0x0409) || platformId == 0)
+            {
+                return name;
+            }
+
+            fallback ??= name;
+        }
+
+        return fallback;
+    }
+
+    private static (FontStyle Style, FontWeight Weight, FontStretch Stretch) ParseOs2(ReadOnlySpan<byte> data, IReadOnlyDictionary<uint, (int Offset, int Length)> tables)
+    {
+        var style = FontStyle.Normal;
+        var weight = FontWeight.Normal;
+        var stretch = FontStretch.Normal;
+
+        if (!tables.TryGetValue(MakeTag("OS/2"), out var entry))
+        {
+            return (style, weight, stretch);
+        }
+
+        if (entry.Offset < 0 || entry.Length <= 0 || entry.Offset + entry.Length > data.Length)
+        {
+            return (style, weight, stretch);
+        }
+
+        var span = data.Slice(entry.Offset, entry.Length);
+
+        if (span.Length >= 8)
+        {
+            var weightClass = ReadUInt16BE(span.Slice(4, 2));
+            var clampedWeight = Math.Clamp((int)weightClass, 1, 1000);
+            weight = (FontWeight)clampedWeight;
+
+            var widthClass = ReadUInt16BE(span.Slice(6, 2));
+            stretch = WidthClassToStretch(Math.Clamp((int)widthClass, 1, 9));
+        }
+
+        if (span.Length >= 64)
+        {
+            var selection = ReadUInt16BE(span.Slice(62, 2));
+
+            if ((selection & 0x01) != 0)
+            {
+                style = FontStyle.Italic;
+            }
+            else if ((selection & 0x200) != 0)
+            {
+                style = FontStyle.Oblique;
+            }
+
+            if ((selection & 0x20) != 0 && (int)weight < (int)FontWeight.Bold)
+            {
+                weight = FontWeight.Bold;
+            }
+        }
+
+        return (style, weight, stretch);
+    }
+
+    private static FontStretch WidthClassToStretch(int widthClass) => widthClass switch
+    {
+        1 => FontStretch.UltraCondensed,
+        2 => FontStretch.ExtraCondensed,
+        3 => FontStretch.Condensed,
+        4 => FontStretch.SemiCondensed,
+        5 => FontStretch.Normal,
+        6 => FontStretch.SemiExpanded,
+        7 => FontStretch.Expanded,
+        8 => FontStretch.ExtraExpanded,
+        9 => FontStretch.UltraExpanded,
+        _ => FontStretch.Normal,
+    };
+
+    private static ushort ReadUInt16BE(ReadOnlySpan<byte> span)
+    {
+        if (span.Length < 2)
+        {
+            return 0;
+        }
+
+        return (ushort)((span[0] << 8) | span[1]);
+    }
+
+    private static uint ReadUInt32BE(ReadOnlySpan<byte> span)
+    {
+        if (span.Length < 4)
+        {
+            return 0;
+        }
+
+        return ((uint)span[0] << 24) | ((uint)span[1] << 16) | ((uint)span[2] << 8) | span[3];
+    }
+
+    private static uint MakeTag(string value)
+    {
+        if (value is null || value.Length != 4)
+        {
+            throw new ArgumentException("Tag value must be four characters long.", nameof(value));
+        }
+
+        return ((uint)value[0] << 24) | ((uint)value[1] << 16) | ((uint)value[2] << 8) | value[3];
+    }
+
+    private readonly record struct FontMetadata(string FamilyName, FontStyle Style, FontWeight Weight, FontStretch Stretch);
 }
