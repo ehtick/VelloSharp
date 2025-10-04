@@ -43,3 +43,6 @@
 [submodule "extern/xilem"]
 	path = extern/xilem
 	url = https://github.com/linebender/xilem.git
+[submodule "extern/winforms"]
+	path = extern/winforms
+	url = https://github.com/dotnet/winforms.git
