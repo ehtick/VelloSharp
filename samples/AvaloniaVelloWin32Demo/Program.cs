@@ -13,6 +13,11 @@ internal static class Program
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
         .UseWin32()
+        .With(new Win32PlatformOptions()
+        {
+            // TODO: Win32CompositionMode.LowLatencyDxgiSwapChain is required to enable Vello rendering.
+            CompositionMode = [Win32CompositionMode.LowLatencyDxgiSwapChain]
+        })
         .UseVello()
         .WithInterFont()
         .LogToTrace();
