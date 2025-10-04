@@ -58,6 +58,11 @@ internal static class Program
         if (OperatingSystem.IsWindows())
         {
             builder.UseWin32();
+            builder.With(new Win32PlatformOptions()
+            {
+                // TODO: Win32CompositionMode.LowLatencyDxgiSwapChain is required to enable Vello rendering.
+                CompositionMode = [Win32CompositionMode.LowLatencyDxgiSwapChain]
+            });
         }
         if (OperatingSystem.IsLinux())
         {
