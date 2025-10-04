@@ -6,6 +6,7 @@ namespace AvaloniaVelloNativeDemo;
 
 internal static class Program
 {
+    [STAThread]
     public static void Main(string[] args) => BuildAvaloniaApp()
         .UseReactiveUI()
         .StartWithClassicDesktopLifetime(args);
