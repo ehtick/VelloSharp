@@ -19,6 +19,7 @@ declare -a TARGETS=(
   "samples/AvaloniaVelloWin32Demo"
   "samples/AvaloniaVelloNativeDemo"
   "samples/VelloSharp.WithWinit"
+  "samples/WinFormsMotionMarkShim"
 )
 if [[ "$#" -gt 0 ]]; then
   TARGETS=("$@")
@@ -33,7 +34,7 @@ fi
 if [[ -n "${COPY_TARGET_FRAMEWORKS:-}" ]]; then
   read -r -a TARGET_FRAMEWORKS <<< "${COPY_TARGET_FRAMEWORKS}"
 else
-  TARGET_FRAMEWORKS=(net8.0)
+  TARGET_FRAMEWORKS=(net8.0 net8.0-windows)
 fi
 
 copy_payload() {
@@ -114,3 +115,4 @@ for ffi_dir in "${ROOT}"/packaging/VelloSharp.Native.*; do
     fi
   done
 done
+

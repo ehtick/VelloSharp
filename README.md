@@ -26,6 +26,8 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `VelloSharp.Skia` – a Skia-inspired helper layer that maps `SKCanvas`/`SKPath`-style APIs onto Vello
     primitives for easier porting of existing SkiaSharp code.
   - `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp interop, and render-path negotiation.
+  - `VelloSharp.WinForms.Core` – Windows Forms-compatible drawing surface (`Graphics`, `Pen`, `Brush`, `Region`) powered by the Vello renderer.
+  - `VelloSharp.Integration.WinForms` – WinForms control hosting, swapchain management, and shared GPU device leasing.
   - `VelloSharp.Avalonia.Winit` – Avalonia host glue that drives the winit-based surface renderer through the
     managed bindings.
   - `VelloSharp.Avalonia.Vello` – Avalonia platform abstractions that adapt Vello surfaces and inputs into
@@ -40,6 +42,7 @@ The codebase is split into native FFI crates, managed bindings, integration help
     layer.
   - `samples/AvaloniaSkiaSparseMotionMarkShim` – CPU sparse MotionMark shim that routes Vello scenes through the Velato
     Skia bridge without touching the GPU backend.
+  - `samples/WinFormsMotionMarkShim` – Windows Forms MotionMark GPU shim showcasing `VelloRenderControl`, backend switching, and DPI-aware swapchain handling.
 
 ## Quick start builds
 
@@ -72,7 +75,7 @@ dotnet build VelloSharp.sln -c Release
 ./scripts/copy-runtimes.sh
 ```
 
-Each `build-native-*` script compiles every FFI crate and stages the libraries under `artifacts/runtimes/<rid>/native/`. The copy script fans the native payloads into the managed project `bin/` folders so the samples can run immediately.
+Each `build-native-*` script compiles every FFI crate and stages the libraries under `artifacts/runtimes/<rid>/native/`. The copy script fans the native payloads into the managed project `bin/` folders so the samples can run immediately. On Windows it also mirrors the runtimes into `net8.0-windows` outputs so the WinForms shim and MotionMark sample work out of the box.
 
 ## Developer setup
 
@@ -219,6 +222,8 @@ continues to work when .NET probes `runtimes/<baseRid>/native`. When only manage
   helpers.
 - `VelloSharp.Skia` – Skia-inspired drawing primitives built on top of the Vello renderer.
 - `VelloSharp.Integration` – auxiliary helpers for Avalonia, SkiaSharp interop, and host render loops.
+- `VelloSharp.WinForms.Core` – Windows Forms drawing shim that maps System.Drawing-friendly APIs onto the Vello renderer.
+- `VelloSharp.Integration.WinForms` – WinForms control hosting, swapchain/device management, and GPU/CPU fallback services built on the core shim.
 - `VelloSharp.Avalonia.Winit` – Avalonia-facing abstractions for driving the winit surface renderer.
 - `VelloSharp.Avalonia.Vello` – Avalonia platform integration that wires Vello surfaces into desktop applications.
 
@@ -384,6 +389,43 @@ Use `Image.FromPixels` and `Scene.DrawImage` to render textures directly. Glyph 
 ## Renderer Options
 
 `Renderer` exposes an optional `RendererOptions` argument to select CPU-only rendering or limit the available anti-aliasing pipelines at creation time.
+
+## Windows Forms integration
+
+`VelloSharp.WinForms.Core` and `VelloSharp.Integration.WinForms` bring the Vello renderer to Windows Forms.
+
+- `VelloSharp.WinForms.Core` mirrors familiar `System.Drawing` drawing types (`Graphics`, `Pen`, `Brush`, `Region`, `Bitmap`, `Font`, `StringFormat`) on top of Vello scenes recorded through `VelloGraphics` and `VelloGraphicsSession`.
+- `VelloSharp.Integration.WinForms` ships the `VelloRenderControl`, shared `WinFormsGpuContext` swapchain management, DPI-aware sizing, diagnostics, and automatic CPU fallbacks when the device is lost.
+
+```csharp
+using VelloSharp.WinForms;
+using VelloSharp.WinForms.Integration;
+
+var renderControl = new VelloRenderControl
+{
+    Dock = DockStyle.Fill,
+    PreferredBackend = VelloRenderBackend.Gpu,
+    DeviceOptions = new VelloGraphicsDeviceOptions
+    {
+        Format = RenderFormat.Bgra8,
+        ColorSpace = WinFormsColorSpace.Srgb,
+    },
+};
+
+renderControl.PaintSurface += (sender, e) =>
+{
+    var scene = e.Session.Scene;
+    var path = new PathBuilder();
+    path.MoveTo(32, 32).LineTo(320, 96).LineTo(160, 240).Close();
+    scene.FillPath(path, FillRule.NonZero, Matrix3x2.Identity, RgbaColor.FromBytes(0x47, 0x91, 0xF9));
+};
+
+Controls.Add(renderControl);
+```
+
+Set `PreferredBackend` to `VelloRenderBackend.Cpu` for software rendering, and reuse `DeviceOptions` across controls to tune swapchain format, color space, MSAA, and diagnostics. A single `WinFormsGpuContext` instance is shared and reference-counted so multiple controls can share the same `wgpu` device safely.
+
+`samples/WinFormsMotionMarkShim` demonstrates continuous animation, backend switching, and DPI-aware resizing on top of these APIs. `dotnet add package VelloSharp.Integration.WinForms` pulls in both WinForms assemblies (target `net8.0-windows` with `<UseWindowsForms>true</UseWindowsForms>`) and transitively restores the required native runtimes.
 
 ## Avalonia integration
 

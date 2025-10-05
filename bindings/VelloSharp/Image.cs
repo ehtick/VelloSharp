@@ -75,6 +75,24 @@ public sealed class Image : IDisposable
         }
     }
 
+    public ImageInfo GetInfo()
+    {
+        var status = NativeMethods.vello_image_get_info(Handle, out var nativeInfo);
+        NativeHelpers.ThrowOnError(status, "Failed to query image info");
+
+        if (nativeInfo.Width == 0 || nativeInfo.Height == 0)
+        {
+            throw new InvalidOperationException("Image dimensions must be greater than zero.");
+        }
+
+        var width = checked((int)nativeInfo.Width);
+        var height = checked((int)nativeInfo.Height);
+        var stride = checked((int)nativeInfo.Stride);
+        var format = (RenderFormat)nativeInfo.Format;
+        var alpha = (ImageAlphaMode)nativeInfo.Alpha;
+        return new ImageInfo(width, height, format, alpha, stride);
+    }
+
     public void Dispose()
     {
         if (_handle != IntPtr.Zero)
@@ -93,3 +111,5 @@ public sealed class Image : IDisposable
         }
     }
 }
+
+public readonly record struct ImageInfo(int Width, int Height, RenderFormat Format, ImageAlphaMode AlphaMode, int Stride);

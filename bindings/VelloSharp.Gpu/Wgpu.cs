@@ -976,6 +976,15 @@ public sealed class WgpuAdapter : IDisposable
         }
     }
 
+    public WgpuFeature GetFeatures()
+    {
+        ThrowIfDisposed();
+        NativeHelpers.ThrowOnError(
+            NativeMethods.vello_wgpu_adapter_get_features(_handle, out var features),
+            "vello_wgpu_adapter_get_features");
+        return (WgpuFeature)features;
+    }
+
     public WgpuDevice RequestDevice(WgpuDeviceDescriptor? descriptor = null)
     {
         ThrowIfDisposed();

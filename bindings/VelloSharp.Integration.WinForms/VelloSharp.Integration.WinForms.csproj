@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>VelloSharp.Integration.WinForms</AssemblyName>
+    <RootNamespace>VelloSharp.WinForms.Integration</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Integration.WinForms</PackageId>
+    <Title>VelloSharp.Integration.WinForms</Title>
+    <Description>WinForms host integration for the VelloSharp graphics shim.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp.WinForms.Core/VelloSharp.WinForms.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
+    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+  </ItemGroup>
+</Project>

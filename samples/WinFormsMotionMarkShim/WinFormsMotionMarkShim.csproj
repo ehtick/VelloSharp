@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+    <Target Name="CopyVelloNativeAssets" AfterTargets="Build">
+    <ItemGroup>
+      <VelloNative Include="$(MSBuildProjectDirectory)\..\..\bindings\VelloSharp\bin\$(Configuration)\net8.0\runtimes\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(VelloNative)"
+          DestinationFiles="@(VelloNative->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(VelloNative)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="'%(Extension)' == '.dll'" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="../../bindings/VelloSharp.Integration.WinForms/VelloSharp.Integration.WinForms.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.WinForms.Core/VelloSharp.WinForms.Core.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../MotionMark.SceneShared/MotionMark.SceneShared.csproj" />
+  </ItemGroup>
+</Project>
+

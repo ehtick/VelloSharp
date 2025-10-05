@@ -29,7 +29,8 @@ if (-not $Targets -or $Targets.Count -eq 0) {
         'samples/AvaloniaVelloX11Demo',
         'samples/AvaloniaVelloWin32Demo',
         'samples/AvaloniaVelloNativeDemo',
-        'samples/VelloSharp.WithWinit'
+        'samples/VelloSharp.WithWinit',
+        'samples/WinFormsMotionMarkShim'
     )
 }
 
@@ -42,7 +43,7 @@ if ($env:COPY_CONFIGURATIONS) {
 if ($env:COPY_TARGET_FRAMEWORKS) {
     $targetFrameworks = ($env:COPY_TARGET_FRAMEWORKS -split '\s+') | Where-Object { $_ }
 } else {
-    $targetFrameworks = @('net8.0')
+    $targetFrameworks = @('net8.0', 'net8.0-windows')
 }
 
 function Copy-Payload {
@@ -133,3 +134,6 @@ foreach ($ffiDir in Get-ChildItem -Path $packagingRoot -Directory -Filter 'Vello
         }
     }
 }
+
+
+

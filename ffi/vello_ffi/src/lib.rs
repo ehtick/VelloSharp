@@ -4740,24 +4740,28 @@ fn power_preference_from_ffi(value: VelloWgpuPowerPreference) -> Option<PowerPre
     }
 }
 
+const FEATURE_MAPPINGS: &[(Features, u64)] = &[
+    (Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES, 1 << 0),
+    (Features::TIMESTAMP_QUERY, 1 << 1),
+    (Features::PIPELINE_STATISTICS_QUERY, 1 << 2),
+    (Features::PUSH_CONSTANTS, 1 << 3),
+    (Features::TEXTURE_COMPRESSION_BC, 1 << 4),
+    (Features::TEXTURE_COMPRESSION_ETC2, 1 << 5),
+    (Features::TEXTURE_COMPRESSION_ASTC, 1 << 6),
+    (Features::INDIRECT_FIRST_INSTANCE, 1 << 7),
+    (Features::MAPPABLE_PRIMARY_BUFFERS, 1 << 8),
+    (Features::POLYGON_MODE_LINE, 1 << 19),
+    (Features::CLEAR_TEXTURE, 1 << 23),
+    (Features::PIPELINE_CACHE, 1 << 41),
+];
+
 fn features_from_bits(bits: u64) -> Result<Features, VelloStatus> {
     if bits == 0 {
         return Ok(Features::empty());
     }
     let mut remaining = bits;
     let mut features = Features::empty();
-    const KNOWN_FEATURES: &[(u64, Features)] = &[
-        (1 << 0, Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
-        (1 << 1, Features::TIMESTAMP_QUERY),
-        (1 << 2, Features::PIPELINE_STATISTICS_QUERY),
-        (1 << 3, Features::PUSH_CONSTANTS),
-        (1 << 4, Features::TEXTURE_COMPRESSION_BC),
-        (1 << 5, Features::TEXTURE_COMPRESSION_ETC2),
-        (1 << 6, Features::TEXTURE_COMPRESSION_ASTC),
-        (1 << 7, Features::INDIRECT_FIRST_INSTANCE),
-        (1 << 8, Features::MAPPABLE_PRIMARY_BUFFERS),
-    ];
-    for (mask, feature) in KNOWN_FEATURES {
+    for (feature, mask) in FEATURE_MAPPINGS {
         if bits & mask != 0 {
             features |= *feature;
             remaining &= !mask;
@@ -4768,6 +4772,16 @@ fn features_from_bits(bits: u64) -> Result<Features, VelloStatus> {
     } else {
         Ok(features)
     }
+}
+
+fn features_to_bits(features: Features) -> u64 {
+    let mut bits = 0u64;
+    for (feature, mask) in FEATURE_MAPPINGS {
+        if features.contains(*feature) {
+            bits |= *mask;
+        }
+    }
+    bits
 }
 
 fn limits_from_preset(preset: VelloWgpuLimitsPreset, adapter: &Adapter) -> Limits {
@@ -5441,13 +5455,8 @@ pub unsafe extern "C" fn vello_wgpu_adapter_get_features(
         return VelloStatus::NullPointer;
     }
     let features = adapter.adapter.features();
-    let bits = features.bits();
-    debug_assert!(
-        bits.0.iter().skip(1).all(|&value| value == 0),
-        "wgpu feature bits exceeded 64-bit FFI surface"
-    );
     unsafe {
-        *out_features = bits.0[0];
+        *out_features = features_to_bits(features);
     }
     VelloStatus::Success
 }
@@ -5523,13 +5532,8 @@ pub unsafe extern "C" fn vello_wgpu_device_get_features(
         return VelloStatus::NullPointer;
     }
     let features = device.device.features();
-    let bits = features.bits();
-    debug_assert!(
-        bits.0.iter().skip(1).all(|&value| value == 0),
-        "wgpu feature bits exceeded 64-bit FFI surface"
-    );
     unsafe {
-        *out_features = bits.0[0];
+        *out_features = features_to_bits(features);
     }
     VelloStatus::Success
 }
