@@ -21,28 +21,29 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `ffi/accesskit_ffi` – serialises/deserialises [AccessKit](https://accesskit.dev) tree updates and action requests
     so accessibility data can flow between managed code and platform adapters.
 - Managed assemblies (under `bindings/`):
-  - `VelloSharp` – idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
+  - `VelloSharp` - idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
     the wgpu device helpers, and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
-  - `VelloSharp.Skia` – a Skia-inspired helper layer that maps `SKCanvas`/`SKPath`-style APIs onto Vello
+  - `VelloSharp.Windows.Core` - shared Windows GPU plumbing (device/queue leasing, diagnostics, swapchain helpers, D3D11 ↔ D3D9 interop) used by WinForms and WPF hosts.
+  - `VelloSharp.Integration.Wpf` - WPF controls (`VelloView`, `VelloNativeSwapChainView`) with composition-based rendering, keyed-mutex coordination, diagnostics, and backend switching.
+  - `VelloSharp.Integration.WinForms` - WinForms control hosting that now delegates GPU lifetime management to `VelloSharp.Windows.Core`.
+  - `VelloSharp.WinForms.Core` - Windows Forms drawing surface abstractions (`Graphics`, `Pen`, `Brush`, `Region`) powered by the shared renderer.
+  - `VelloSharp.Skia` - a Skia-inspired helper layer that maps `SKCanvas`/`SKPath`-style APIs onto Vello
     primitives for easier porting of existing SkiaSharp code.
-  - `VelloSharp.Integration` – optional helpers for Avalonia, SkiaSharp interop, and render-path negotiation.
-  - `VelloSharp.WinForms.Core` – Windows Forms-compatible drawing surface (`Graphics`, `Pen`, `Brush`, `Region`) powered by the Vello renderer.
-  - `VelloSharp.Integration.WinForms` – WinForms control hosting, swapchain management, and shared GPU device leasing.
-  - `VelloSharp.Avalonia.Winit` – Avalonia host glue that drives the winit-based surface renderer through the
+  - `VelloSharp.Integration` - optional helpers for Avalonia, SkiaSharp interop, and render-path negotiation.
+  - `VelloSharp.Avalonia.Winit` - Avalonia host glue that drives the winit-based surface renderer through the
     managed bindings.
-  - `VelloSharp.Avalonia.Vello` – Avalonia platform abstractions that adapt Vello surfaces and inputs into
+  - `VelloSharp.Avalonia.Vello` - Avalonia platform abstractions that adapt Vello surfaces and inputs into
     application-friendly controls.
 - Samples:
-- `samples/AvaloniaVelloWinitDemo` – minimal Avalonia desktop host covering CPU and GPU render paths through the AvaloniaNative/Vello stack.
-- `samples/AvaloniaVelloX11Demo` – Linux-focused host that locks Avalonia to the X11 platform for backend validation.
-- `samples/AvaloniaVelloWin32Demo` – Windows host configured for the Win32 platform while exercising the Vello renderer.
-- `samples/AvaloniaVelloNativeDemo` – macOS host forced onto AvaloniaNative to vet the Vello integration end-to-end.
-  - `samples/AvaloniaVelloExamples` – expanded scene catalogue with renderer option toggles and surface fallbacks.
-  - `samples/AvaloniaSkiaMotionMark` – a side-by-side Skia/Vello motion-mark visualiser built on the integration
-    layer.
-  - `samples/AvaloniaSkiaSparseMotionMarkShim` – CPU sparse MotionMark shim that routes Vello scenes through the Velato
-    Skia bridge without touching the GPU backend.
-  - `samples/WinFormsMotionMarkShim` – Windows Forms MotionMark GPU shim showcasing `VelloRenderControl`, backend switching, and DPI-aware swapchain handling.
+  - `samples/AvaloniaVelloWinitDemo` - minimal Avalonia desktop host covering CPU and GPU render paths through the AvaloniaNative/Vello stack.
+  - `samples/AvaloniaVelloX11Demo` - Linux-focused host that locks Avalonia to the X11 platform for backend validation.
+  - `samples/AvaloniaVelloWin32Demo` - Windows host configured for the Win32 platform while exercising the Vello renderer.
+  - `samples/AvaloniaVelloNativeDemo` - macOS host forced onto AvaloniaNative to vet the Vello integration end-to-end.
+  - `samples/AvaloniaVelloExamples` - expanded scene catalogue with renderer option toggles and surface fallbacks.
+  - `samples/AvaloniaSkiaMotionMark` - a side-by-side Skia/Vello motion-mark visualiser built on the integration layer.
+  - `samples/AvaloniaSkiaSparseMotionMarkShim` - CPU sparse MotionMark shim that routes Vello scenes through the Velato Skia bridge without touching the GPU backend.
+  - `samples/VelloSharp.WpfSample` - WPF composition host showcasing `VelloView`, backend toggles, diagnostics binding, and a MotionMark fast-path page driven through the new GPU render-surface API.
+  - `samples/WinFormsMotionMarkShim` - Windows Forms MotionMark GPU shim built atop the shared Windows GPU context, demonstrating `VelloRenderControl`, the `RenderSurface` fast path, backend switching, and DPI-aware swapchain handling.
 
 ## Quick start builds
 
@@ -76,6 +77,17 @@ dotnet build VelloSharp.sln -c Release
 ```
 
 Each `build-native-*` script compiles every FFI crate and stages the libraries under `artifacts/runtimes/<rid>/native/`. The copy script fans the native payloads into the managed project `bin/` folders so the samples can run immediately. On Windows it also mirrors the runtimes into `net8.0-windows` outputs so the WinForms shim and MotionMark sample work out of the box.
+
+## WPF integration
+
+`VelloSharp.Integration.Wpf` provides a composition-first hosting experience that aligns with the shared Windows GPU stack introduced in `VelloSharp.Windows.Core`. Key capabilities include:
+
+- `VelloView`, a WPF `Decorator` that renders into a `D3DImage` using shared textures, honours `RenderMode`, `PreferredBackend`, and `RenderLoopDriver`, and exposes a bindable `Diagnostics` property (frame-rate smoothing, swapchain/device reset counters, keyed mutex contention).
+- `VelloNativeSwapChainView`, an opt-in HWND swapchain host for diagnostics, exclusive full-screen scenarios, or interop with other DirectX components.
+- Automatic leasing of the shared GPU context across multiple controls, render suspension based on visibility, window state, or application activation, and keyed-mutex fallbacks with detailed diagnostics sourced from `VelloSharp.Windows.Core`.
+- Both `VelloView` and the WinForms `VelloRenderControl` expose a `RenderSurface` event (via `VelloSurfaceRenderEventArgs`) so advanced callers can feed pre-recorded scenes or custom render graphs straight into the underlying `Renderer` and target surface.
+
+The WinForms integration now consumes the very same shared Windows GPU primitives, so both `VelloRenderControl` and `VelloView` participate in the unified leasing, diagnostics, and asset-copy workflows. Refer to `samples/VelloSharp.WpfSample` for an end-to-end MVVM-friendly example that binds diagnostics, toggles render backends, and demonstrates clean suspension/resume behaviour.
 
 ## Developer setup
 
@@ -132,9 +144,12 @@ without changing the managed API surface.
   image helpers, SVG/Velato decoders, and the wgpu device/surface management APIs. Disposable wrappers and span
   validators guard the native lifetimes, and the `RendererOptions`/`RenderParams` mirrors keep behaviour in sync
   with the Rust implementation.
-- **Integration libraries** – `VelloSharp.Integration` supplies the Avalonia `VelloView`, the `SkiaRenderBridge`
-  for direct `SKSurface` rendering, and CPU/GPU render-path abstractions. `VelloSharp.Avalonia.*` layers add the
-  winit event loop bridge plus the platform abstraction that produces swapchain-backed Avalonia controls.
+- **Integration libraries** - `VelloSharp.Windows.Core` centralises Windows-specific GPU context leasing, diagnostics,
+  and swapchain/texture interop that are now consumed by both WinForms and WPF. `VelloSharp.Integration.Wpf`
+  introduces the composition-based `VelloView`, the opt-in `VelloNativeSwapChainView`, keyed-mutex management, and
+  bindable diagnostics, while `VelloSharp.Integration.WinForms` reuses the same core for `VelloRenderControl` and
+  MotionMark shims. Cross-platform glue continues to live in `VelloSharp.Integration` (Avalonia helpers, Skia bridges),
+  with `VelloSharp.Avalonia.*` layering in the winit event loop bridge and Avalonia platform abstractions.
 - **Samples and tooling** – the Avalonia demos ship with automated runtime asset copying, configurable frame
   pacing, and software/GPU fallbacks. `STATUS.md` and the plans under `docs/` track the remaining backlog for
   surface handles, validation, and additional platform glue.
