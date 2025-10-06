@@ -1,10 +1,8 @@
-using System;
-
 namespace VelloSharp.Windows;
 
 public interface IWindowsSurfaceSource
 {
-    nint WindowHandle { get; }
+    WindowsSurfaceDescriptor GetSurfaceDescriptor();
 
     WindowsSurfaceSize GetSurfaceSize();
 

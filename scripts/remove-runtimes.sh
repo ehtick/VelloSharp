@@ -15,6 +15,7 @@ else
     "samples/AvaloniaVelloWin32Demo"
     "samples/AvaloniaVelloNativeDemo"
     "samples/VelloSharp.WithWinit"
+    "samples/VelloSharp.Uno.WinAppSdkSample"
   )
 fi
 
@@ -29,7 +30,7 @@ declare -a TARGET_FRAMEWORKS
 if [[ -n "${REMOVE_RUNTIMES_TARGET_FRAMEWORKS:-}" ]]; then
   read -r -a TARGET_FRAMEWORKS <<< "${REMOVE_RUNTIMES_TARGET_FRAMEWORKS}"
 else
-  TARGET_FRAMEWORKS=(net8.0)
+  TARGET_FRAMEWORKS=(net8.0 net8.0-windows net8.0-windows10.0.19041.0)
 fi
 
 delete_directory() {

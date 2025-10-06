@@ -250,7 +250,8 @@ public class VelloNativeSwapChainHost : HwndHost, IWindowsSurfaceSource
         return new WindowsSurfaceSize(width, height);
     }
 
-    nint IWindowsSurfaceSource.WindowHandle => _hwnd;
+    WindowsSurfaceDescriptor IWindowsSurfaceSource.GetSurfaceDescriptor()
+        => _hwnd == 0 ? default : WindowsSurfaceDescriptor.FromHwnd(_hwnd);
 
     WindowsSurfaceSize IWindowsSurfaceSource.GetSurfaceSize() => GetSurfaceSize();
 

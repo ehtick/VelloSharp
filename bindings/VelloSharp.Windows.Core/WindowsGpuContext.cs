@@ -135,11 +135,11 @@ public sealed class WindowsGpuContext : IDisposable
         }
     }
 
-    public WindowsSwapChainSurface CreateSwapChainSurface(IntPtr hwnd, uint width, uint height)
+    public WindowsSwapChainSurface CreateSwapChainSurface(WindowsSurfaceDescriptor surfaceDescriptor, uint width, uint height)
     {
-        if (hwnd == IntPtr.Zero)
+        if (surfaceDescriptor.IsEmpty)
         {
-            throw new ArgumentNullException(nameof(hwnd));
+            throw new ArgumentException("Surface descriptor is empty.", nameof(surfaceDescriptor));
         }
 
         EnsureNotDisposed();
@@ -149,7 +149,7 @@ public sealed class WindowsGpuContext : IDisposable
             Width = Math.Max(width, 1),
             Height = Math.Max(height, 1),
             PresentMode = _options.PresentMode,
-            Handle = SurfaceHandle.FromWin32(hwnd),
+            Handle = CreateSurfaceHandle(surfaceDescriptor),
         };
 
         var surface = WgpuSurface.Create(_instance, descriptor);
@@ -160,7 +160,7 @@ public sealed class WindowsGpuContext : IDisposable
             var format = DetermineSurfaceFormat(surface);
             EnsureDevice();
 
-            return new WindowsSwapChainSurface(this, surface, format, _options.PresentMode, Math.Max(width, 1), Math.Max(height, 1));
+            return new WindowsSwapChainSurface(this, surface, format, _options.PresentMode, descriptor.Width, descriptor.Height);
         }
         catch
         {
@@ -168,6 +168,15 @@ public sealed class WindowsGpuContext : IDisposable
             throw;
         }
     }
+
+    private static SurfaceHandle CreateSurfaceHandle(WindowsSurfaceDescriptor descriptor)
+        => descriptor.Kind switch
+        {
+            WindowsSurfaceKind.Win32Hwnd => SurfaceHandle.FromWin32((IntPtr)descriptor.PrimaryHandle, (IntPtr)descriptor.SecondaryHandle),
+            WindowsSurfaceKind.SwapChainPanel => SurfaceHandle.FromSwapChainPanel((IntPtr)descriptor.PrimaryHandle),
+            WindowsSurfaceKind.CoreWindow => SurfaceHandle.FromCoreWindow((IntPtr)descriptor.PrimaryHandle),
+            _ => throw new NotSupportedException($"Unsupported surface kind: {descriptor.Kind}."),
+        };
 
     internal void ConfigureSurface(WgpuSurface surface, uint width, uint height, PresentMode presentMode, WgpuTextureFormat format)
     {

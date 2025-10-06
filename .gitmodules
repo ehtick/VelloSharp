@@ -49,3 +49,6 @@
 [submodule "extern/wpf"]
 	path = extern/wpf
 	url = https://github.com/dotnet/wpf.git
+[submodule "extern/uno"]
+	path = extern/uno
+	url = https://github.com/unoplatform/uno.git

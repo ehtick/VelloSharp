@@ -401,6 +401,8 @@ public enum VelloWindowHandleKind : int
     AppKit = 2,
     Wayland = 3,
     Xlib = 4,
+    SwapChainPanel = 5,
+    CoreWindow = 6,
     Headless = 100,
 }
 
@@ -1305,6 +1307,18 @@ public struct VelloXlibWindowHandle
 }
 
 [StructLayout(LayoutKind.Sequential)]
+public struct VelloSwapChainPanelHandle
+{
+    public IntPtr Panel;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct VelloCoreWindowHandle
+{
+    public IntPtr CoreWindow;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloGpuProfilerSlice
 {
     public nuint LabelOffset;
@@ -1337,6 +1351,10 @@ public struct VelloWindowHandlePayload
     public VelloWaylandWindowHandle Wayland;
     [FieldOffset(0)]
     public VelloXlibWindowHandle Xlib;
+    [FieldOffset(0)]
+    public VelloSwapChainPanelHandle SwapChainPanel;
+    [FieldOffset(0)]
+    public VelloCoreWindowHandle CoreWindow;
     [FieldOffset(0)]
     public IntPtr None;
 }

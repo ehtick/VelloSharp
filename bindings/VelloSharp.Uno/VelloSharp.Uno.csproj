@@ -1,0 +1,52 @@
+<Project Sdk="Uno.Sdk/5.2.175">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0-windows10.0.19041;net8.0-windows10.0.17763;net8.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>VelloSharp.Uno</AssemblyName>
+    <RootNamespace>VelloSharp.Uno</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Uno</PackageId>
+    <Title>VelloSharp.Uno</Title>
+    <Description>Uno Platform hosting primitives for the VelloSharp renderer.</Description>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <AppxPackage>false</AppxPackage>
+    <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' != 'net8.0'">
+    <DefineConstants>$(DefineConstants);HAS_UNO</DefineConstants>
+    <UseWinUI>true</UseWinUI>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows10.0.17763'">
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj"
+                      Condition="'$(TargetFramework)' != 'net8.0'" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net8.0'">
+    <PackageReference Include="Uno.WinUI" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <Compile Remove="Controls\VelloSwapChainPanel.cs" />
+    <Compile Remove="Controls\VelloSwapChainPresenter.cs" />
+    <Compile Remove="Controls\VelloCoreWindowHost.cs" />
+    <Compile Remove="Controls\VelloSwapChainRenderEventArgs.cs" />
+    <Compile Remove="Controls\IVelloDiagnosticsProvider.cs" />
+    <Compile Remove="Controls\VelloDiagnosticsChangedEventArgs.cs" />
+    <Compile Remove="Interop\UnoSwapChainPanelSurfaceSource.cs" />
+    <Compile Remove="Controls\VelloXamlIslandSwapChainHost.cs" />
+    <Compile Remove="Interop\UnoCoreWindowSurfaceSource.cs" />
+  </ItemGroup>
+
+</Project>
+

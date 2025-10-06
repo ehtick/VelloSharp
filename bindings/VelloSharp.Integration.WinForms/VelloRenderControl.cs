@@ -753,7 +753,8 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
         return new WindowsSurfaceSize(width, height);
     }
 
-    nint IWindowsSurfaceSource.WindowHandle => Handle;
+    WindowsSurfaceDescriptor IWindowsSurfaceSource.GetSurfaceDescriptor()
+        => Handle == IntPtr.Zero ? default : WindowsSurfaceDescriptor.FromHwnd(Handle);
 
     string? IWindowsSurfaceSource.DiagnosticsLabel => _options.DiagnosticsLabel;
 

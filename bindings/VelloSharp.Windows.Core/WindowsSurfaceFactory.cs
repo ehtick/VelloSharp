@@ -30,9 +30,15 @@ public static class WindowsSurfaceFactory
             return current;
         }
 
+        var descriptor = source.GetSurfaceDescriptor();
+        if (descriptor.IsEmpty)
+        {
+            return current;
+        }
+
         if (current is null)
         {
-            var created = lease.Context.CreateSwapChainSurface(new IntPtr(source.WindowHandle), size.Width, size.Height);
+            var created = lease.Context.CreateSwapChainSurface(descriptor, size.Width, size.Height);
             source.OnSwapChainCreated(created);
             return created;
         }

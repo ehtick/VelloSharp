@@ -217,6 +217,46 @@ public readonly struct SurfaceHandle
         });
     }
 
+    public static SurfaceHandle FromSwapChainPanel(IntPtr swapChainPanel)
+    {
+        if (swapChainPanel == IntPtr.Zero)
+        {
+            throw new ArgumentNullException(nameof(swapChainPanel));
+        }
+
+        return new SurfaceHandle(new VelloWindowHandle
+        {
+            Kind = VelloWindowHandleKind.SwapChainPanel,
+            Payload = new VelloWindowHandlePayload
+            {
+                SwapChainPanel = new VelloSwapChainPanelHandle
+                {
+                    Panel = swapChainPanel,
+                },
+            },
+        });
+    }
+
+    public static SurfaceHandle FromCoreWindow(IntPtr coreWindow)
+    {
+        if (coreWindow == IntPtr.Zero)
+        {
+            throw new ArgumentNullException(nameof(coreWindow));
+        }
+
+        return new SurfaceHandle(new VelloWindowHandle
+        {
+            Kind = VelloWindowHandleKind.CoreWindow,
+            Payload = new VelloWindowHandlePayload
+            {
+                CoreWindow = new VelloCoreWindowHandle
+                {
+                    CoreWindow = coreWindow,
+                },
+            },
+        });
+    }
+
     public static SurfaceHandle FromAppKit(IntPtr nsView)
     {
         if (nsView == IntPtr.Zero)

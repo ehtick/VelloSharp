@@ -31,6 +31,7 @@ if (-not $Targets -or $Targets.Count -eq 0) {
         'samples/AvaloniaVelloNativeDemo',
         'samples/VelloSharp.WithWinit',
         'samples/VelloSharp.WpfSample',
+        'samples/VelloSharp.Uno.WinAppSdkSample',
         'samples/WinFormsMotionMarkShim'
     )
 }
@@ -44,7 +45,7 @@ if ($env:COPY_CONFIGURATIONS) {
 if ($env:COPY_TARGET_FRAMEWORKS) {
     $targetFrameworks = ($env:COPY_TARGET_FRAMEWORKS -split '\s+') | Where-Object { $_ }
 } else {
-    $targetFrameworks = @('net8.0', 'net8.0-windows')
+    $targetFrameworks = @('net8.0', 'net8.0-windows', 'net8.0-windows10.0.19041.0')
 }
 
 function Copy-Payload {

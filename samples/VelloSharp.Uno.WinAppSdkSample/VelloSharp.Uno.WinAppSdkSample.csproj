@@ -1,0 +1,71 @@
+<Project Sdk="Uno.Sdk/5.2.175">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0-windows10.0.19041</TargetFrameworks>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net8.0-windows10.0.19041</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>VelloSharp.Uno.WinAppSdkSample</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <AppxPackage>false</AppxPackage>
+    <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
+    <DisableXamlGeneratedMain>true</DisableXamlGeneratedMain>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)'==''">x64</Platform>
+    <NoWin32Manifest>true</NoWin32Manifest>
+    <ApplicationManifest />
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Platform)'=='AnyCPU'">
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Uno.WinUI"
+                      GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp.Uno\VelloSharp.Uno.csproj" />
+  </ItemGroup>
+
+  <Target Name="_EnsureUnoWinUIPackagePath"
+          BeforeTargets="ResolveReferences">
+    <PropertyGroup Condition="'$(PkgUno_WinUI)' == ''">
+      <_UnoRepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</_UnoRepoRoot>
+      <_UnoPackagesProps>$(_UnoRepoRoot)\Directory.Packages.props</_UnoPackagesProps>
+    </PropertyGroup>
+    <XmlPeek Condition="'$(PkgUno_WinUI)' == ''"
+             XmlInputPath="$(_UnoPackagesProps)"
+             Query="/Project/ItemGroup/PackageVersion[@Include='Uno.WinUI']/@Version">
+      <Output TaskParameter="Result" PropertyName="_UnoWinUIPackageVersion" />
+    </XmlPeek>
+    <PropertyGroup Condition="'$(PkgUno_WinUI)' == '' and '$(_UnoWinUIPackageVersion)' != ''">
+      <PkgUno_WinUI>$(NuGetPackageRoot)uno.winui\$(_UnoWinUIPackageVersion)</PkgUno_WinUI>
+    </PropertyGroup>
+    <PropertyGroup>
+      <_UnoRepoRoot />
+      <_UnoPackagesProps />
+    </PropertyGroup>
+  </Target>
+
+  <ItemGroup Condition="'$(PkgUno_WinUI)' != '' AND Exists('$(PkgUno_WinUI)/lib/net8.0/Uno.UI.dll')">
+    <Reference Include="Uno.UI">
+      <HintPath>$(PkgUno_WinUI)/lib/net8.0/Uno.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Uno.Xaml">
+      <HintPath>$(PkgUno_WinUI)/lib/net8.0/Uno.Xaml.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <ReferencePath Include="$(PkgUno_WinUI)/lib/net8.0/Uno.UI.dll" />
+    <ReferencePath Include="$(PkgUno_WinUI)/lib/net8.0/Uno.Xaml.dll" />
+  </ItemGroup>
+
+</Project>

@@ -1099,6 +1099,8 @@ pub enum VelloWindowHandleKind {
     AppKit = 2,
     Wayland = 3,
     Xlib = 4,
+    SwapChainPanel = 5,
+    CoreWindow = 6,
     Headless = 100,
 }
 
@@ -1132,12 +1134,26 @@ pub struct VelloXlibWindowHandle {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloSwapChainPanelHandle {
+    pub panel: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloCoreWindowHandle {
+    pub core_window: *mut c_void,
+}
+
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub union VelloWindowHandlePayload {
     pub win32: VelloWin32WindowHandle,
     pub appkit: VelloAppKitWindowHandle,
     pub wayland: VelloWaylandWindowHandle,
     pub xlib: VelloXlibWindowHandle,
+    pub swap_chain_panel: VelloSwapChainPanelHandle,
+    pub core_window: VelloCoreWindowHandle,
     pub none: usize,
 }
 
@@ -1166,15 +1182,12 @@ pub struct VelloSurfaceDescriptor {
     pub handle: VelloWindowHandle,
 }
 
-struct RawSurfaceHandles {
-    window: RawWindowHandle,
-    display: RawDisplayHandle,
-}
-
-impl RawSurfaceHandles {
-    fn new(window: RawWindowHandle, display: RawDisplayHandle) -> Self {
-        Self { window, display }
-    }
+enum SurfaceTargetHandles {
+    Raw {
+        window: RawWindowHandle,
+        display: RawDisplayHandle,
+    },
+    SwapChainPanel(*mut c_void),
 }
 
 #[allow(trivial_numeric_casts)]
@@ -1187,7 +1200,44 @@ fn to_c_ulong(value: u64) -> Result<c_ulong, VelloStatus> {
     }
 }
 
-impl TryFrom<&VelloWindowHandle> for RawSurfaceHandles {
+#[cfg(target_os = "windows")]
+fn core_window_to_raw_handles(core_window: *mut c_void) -> Result<SurfaceTargetHandles, VelloStatus> {
+    use windows::core::{IUnknown, Interface};
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::WinRT::ICoreWindowInterop;
+
+    let ptr = NonNull::new(core_window).ok_or(VelloStatus::InvalidArgument)?;
+
+    unsafe {
+        let inspectable = IUnknown::from_raw_borrowed(&ptr.as_ptr())
+            .ok_or(VelloStatus::InvalidArgument)?
+            .clone();
+        let interop: ICoreWindowInterop = inspectable
+            .cast()
+            .map_err(|_| VelloStatus::InvalidArgument)?;
+        let hwnd: HWND = interop
+            .WindowHandle()
+            .map_err(|_| VelloStatus::InvalidArgument)?;
+        if hwnd.0.is_null() {
+            return Err(VelloStatus::InvalidArgument);
+        }
+
+        let hwnd = NonZeroIsize::new(hwnd.0 as isize).ok_or(VelloStatus::InvalidArgument)?;
+        let win32 = Win32WindowHandle::new(hwnd);
+
+        Ok(SurfaceTargetHandles::Raw {
+            window: RawWindowHandle::Win32(win32),
+            display: RawDisplayHandle::Windows(WindowsDisplayHandle::new()),
+        })
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn core_window_to_raw_handles(_core_window: *mut c_void) -> Result<SurfaceTargetHandles, VelloStatus> {
+    Err(VelloStatus::Unsupported)
+}
+
+impl TryFrom<&VelloWindowHandle> for SurfaceTargetHandles {
     type Error = VelloStatus;
 
     fn try_from(handle: &VelloWindowHandle) -> Result<Self, Self::Error> {
@@ -1202,27 +1252,27 @@ impl TryFrom<&VelloWindowHandle> for RawSurfaceHandles {
                 if let Some(hinstance) = NonZeroIsize::new(payload.hinstance as isize) {
                     win32.hinstance = Some(hinstance);
                 }
-                Ok(Self::new(
-                    RawWindowHandle::Win32(win32),
-                    RawDisplayHandle::Windows(WindowsDisplayHandle::new()),
-                ))
+                Ok(Self::Raw {
+                    window: RawWindowHandle::Win32(win32),
+                    display: RawDisplayHandle::Windows(WindowsDisplayHandle::new()),
+                })
             }
             VelloWindowHandleKind::AppKit => {
                 let payload = unsafe { handle.payload.appkit };
                 let ns_view = NonNull::new(payload.ns_view).ok_or(VelloStatus::InvalidArgument)?;
-                Ok(Self::new(
-                    RawWindowHandle::AppKit(AppKitWindowHandle::new(ns_view)),
-                    RawDisplayHandle::AppKit(AppKitDisplayHandle::new()),
-                ))
+                Ok(Self::Raw {
+                    window: RawWindowHandle::AppKit(AppKitWindowHandle::new(ns_view)),
+                    display: RawDisplayHandle::AppKit(AppKitDisplayHandle::new()),
+                })
             }
             VelloWindowHandleKind::Wayland => {
                 let payload = unsafe { handle.payload.wayland };
                 let surface = NonNull::new(payload.surface).ok_or(VelloStatus::InvalidArgument)?;
                 let display = NonNull::new(payload.display).ok_or(VelloStatus::InvalidArgument)?;
-                Ok(Self::new(
-                    RawWindowHandle::Wayland(WaylandWindowHandle::new(surface)),
-                    RawDisplayHandle::Wayland(WaylandDisplayHandle::new(display)),
-                ))
+                Ok(Self::Raw {
+                    window: RawWindowHandle::Wayland(WaylandWindowHandle::new(surface)),
+                    display: RawDisplayHandle::Wayland(WaylandDisplayHandle::new(display)),
+                })
             }
             VelloWindowHandleKind::Xlib => {
                 let payload = unsafe { handle.payload.xlib };
@@ -1235,10 +1285,19 @@ impl TryFrom<&VelloWindowHandle> for RawSurfaceHandles {
                 } else {
                     to_c_ulong(payload.visual_id)?
                 };
-                Ok(Self::new(
-                    RawWindowHandle::Xlib(window),
-                    RawDisplayHandle::Xlib(xlib_display),
-                ))
+                Ok(Self::Raw {
+                    window: RawWindowHandle::Xlib(window),
+                    display: RawDisplayHandle::Xlib(xlib_display),
+                })
+            }
+            VelloWindowHandleKind::SwapChainPanel => {
+                let payload = unsafe { handle.payload.swap_chain_panel };
+                let panel = NonNull::new(payload.panel).ok_or(VelloStatus::InvalidArgument)?;
+                Ok(Self::SwapChainPanel(panel.as_ptr()))
+            }
+            VelloWindowHandleKind::CoreWindow => {
+                let payload = unsafe { handle.payload.core_window };
+                core_window_to_raw_handles(payload.core_window)
             }
         }
     }
@@ -1549,7 +1608,7 @@ pub unsafe extern "C" fn vello_render_surface_create(
         }
 
         let ctx = unsafe { &mut *context };
-        let handles = match RawSurfaceHandles::try_from(&descriptor.handle) {
+        let handles = match SurfaceTargetHandles::try_from(&descriptor.handle) {
             Ok(handles) => handles,
             Err(status) => {
                 match status {
@@ -1561,14 +1620,15 @@ pub unsafe extern "C" fn vello_render_surface_create(
             }
         };
 
-        let surface_raw = match unsafe {
-            ctx.inner
-                .instance
-                .create_surface_unsafe(SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: handles.display,
-                    raw_window_handle: handles.window,
-                })
-        } {
+        let target = match handles {
+            SurfaceTargetHandles::Raw { window, display } => SurfaceTargetUnsafe::RawHandle {
+                raw_display_handle: display,
+                raw_window_handle: window,
+            },
+            SurfaceTargetHandles::SwapChainPanel(panel) => SurfaceTargetUnsafe::SwapChainPanel(panel),
+        };
+
+        let surface_raw = match unsafe { ctx.inner.instance.create_surface_unsafe(target) } {
             Ok(surface) => surface,
             Err(err) => {
                 set_last_error(format!("Failed to create native surface: {err}"));
@@ -7137,7 +7197,7 @@ pub unsafe extern "C" fn vello_wgpu_surface_create(
         set_last_error("Window handle is required to create a surface");
         return std::ptr::null_mut();
     }
-    let handles = match RawSurfaceHandles::try_from(&descriptor.handle) {
+    let handles = match SurfaceTargetHandles::try_from(&descriptor.handle) {
         Ok(handles) => handles,
         Err(status) => {
             match status {
@@ -7148,14 +7208,15 @@ pub unsafe extern "C" fn vello_wgpu_surface_create(
             return std::ptr::null_mut();
         }
     };
-    match unsafe {
-        instance
-            .instance
-            .create_surface_unsafe(SurfaceTargetUnsafe::RawHandle {
-                raw_display_handle: handles.display,
-                raw_window_handle: handles.window,
-            })
-    } {
+    let target = match handles {
+        SurfaceTargetHandles::Raw { window, display } => SurfaceTargetUnsafe::RawHandle {
+            raw_display_handle: display,
+            raw_window_handle: window,
+        },
+        SurfaceTargetHandles::SwapChainPanel(panel) => SurfaceTargetUnsafe::SwapChainPanel(panel),
+    };
+
+    match unsafe { instance.instance.create_surface_unsafe(target) } {
         Ok(surface) => Box::into_raw(Box::new(VelloWgpuSurfaceHandle { surface })),
         Err(err) => {
             set_last_error(format!("Failed to create surface: {err}"));
