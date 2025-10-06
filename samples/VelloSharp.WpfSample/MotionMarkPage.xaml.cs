@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
 using MotionMark.SceneShared;

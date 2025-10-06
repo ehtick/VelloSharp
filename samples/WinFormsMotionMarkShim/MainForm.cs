@@ -1,50 +1,38 @@
 using System;
 using System.Drawing;
-using System.Numerics;
 using System.Windows.Forms;
-using MotionMark.SceneShared;
 using VelloSharp;
-using VelloSharp.Windows;
 using VelloSharp.WinForms;
 using VelloSharp.WinForms.Integration;
+using WinFormsMotionMarkShim.Controls;
+using WinFormsMotionMarkShim.Rendering;
+using DrawingFont = System.Drawing.Font;
+using FormsTimer = System.Windows.Forms.Timer;
 
 namespace WinFormsMotionMarkShim;
 
 internal sealed class MainForm : Form
 {
-    private static readonly BackendOption[] s_backendOptions =
+    private static readonly MotionMarkControlPanel.RenderBackendOption[] s_backendOptions =
     {
         new("GPU (wgpu)", VelloRenderBackend.Gpu),
         new("CPU (sparse)", VelloRenderBackend.Cpu),
     };
 
-    private readonly VelloRenderControl _renderControl;
-    private MotionMarkScene _scene = new();
-    private readonly PathBuilder _pathBuilder = new();
-    private readonly StrokeStyle _strokeStyle = new()
-    {
-        LineJoin = VelloSharp.LineJoin.Bevel,
-        StartCap = VelloSharp.LineCap.Round,
-        EndCap = VelloSharp.LineCap.Round,
-        MiterLimit = 4.0,
-    };
+    private readonly MotionMarkEngine _engine = new();
+    private readonly MotionMarkControlPanel _controlsPanel;
+    private readonly ClassicRendererTabPage _classicTab;
+    private readonly FastPathRendererTabPage _fastPathTab;
+    private readonly TabControl _tabControl;
+
+    private readonly FormsTimer _animationTimer;
     private readonly VelloFont _statusFont = new("Segoe UI", 20f);
+    private readonly DrawingFont _statusOverlayFont = new("Segoe UI", 20f, FontStyle.Regular, GraphicsUnit.Pixel);
 
-    private readonly NumericUpDown _complexityInput;
-    private readonly CheckBox _animateCheckBox;
-    private readonly CheckBox _fastPathCheckBox;
-    private readonly ComboBox _backendSelector;
-    private readonly Label _backendLabel;
-    private readonly Label _elementsLabel;
-    private readonly Label _fpsLabel;
-
-    private int _complexity = 6;
-    private bool _animate = true;
-    private int _lastElementTarget;
+    private bool _isAnimationEnabled = true;
     private double _emaFps;
+    private int _lastElementTarget;
     private VelloRenderBackend _selectedBackend = VelloRenderBackend.Gpu;
-
-    private bool FastPathEnabled => _fastPathCheckBox.Checked && _selectedBackend == VelloRenderBackend.Gpu;
 
     public MainForm()
     {
@@ -52,279 +40,163 @@ internal sealed class MainForm : Form
         Icon = null;
         MinimumSize = new Size(900, 600);
 
-        var controlsPanel = new FlowLayoutPanel
+        _controlsPanel = new MotionMarkControlPanel
         {
             Dock = DockStyle.Top,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            WrapContents = false,
-            Padding = new Padding(12, 12, 12, 8),
         };
+        _controlsPanel.SetBackendOptions(s_backendOptions, _selectedBackend);
+        _controlsPanel.ComplexityChanged += OnComplexityChanged;
+        _controlsPanel.AnimationToggled += OnAnimationToggled;
+        _controlsPanel.ResetRequested += OnResetRequested;
+        _controlsPanel.BackendChanged += OnBackendChanged;
 
-        var complexityLabel = new Label
+        _engine.Complexity = _controlsPanel.Complexity;
+        _isAnimationEnabled = _controlsPanel.IsAnimationEnabled;
+
+        _classicTab = new ClassicRendererTabPage(_engine)
         {
-            AutoSize = true,
-            Text = "Complexity:",
-            Margin = new Padding(0, 6, 6, 0),
+            OverlayFont = _statusOverlayFont,
+            OverlayTextProvider = GetOverlayText,
         };
+        _classicTab.FrameRendered += OnFrameRendered;
+        _classicTab.SetAnimationEnabled(_isAnimationEnabled);
 
-        _complexityInput = new NumericUpDown
+        _fastPathTab = new FastPathRendererTabPage(_engine)
         {
-            Minimum = 1,
-            Maximum = 24,
-            Value = _complexity,
-            Width = 60,
-            Margin = new Padding(0, 2, 12, 0),
+            OverlayFont = _statusFont,
+            OverlayTextProvider = GetOverlayText,
         };
-        _complexityInput.ValueChanged += OnComplexityChanged;
+        _fastPathTab.FrameRendered += OnFrameRendered;
+        _fastPathTab.PreferredBackend = _selectedBackend;
+        _fastPathTab.SetAnimationEnabled(_isAnimationEnabled);
 
-        _animateCheckBox = new CheckBox
-        {
-            AutoSize = true,
-            Text = "Animate",
-            Checked = _animate,
-            Margin = new Padding(0, 4, 12, 0),
-        };
-        _animateCheckBox.CheckedChanged += OnAnimateChanged;
-
-        _fastPathCheckBox = new CheckBox
-        {
-            AutoSize = true,
-            Text = "Use GPU fast path",
-            Checked = true,
-            Margin = new Padding(0, 4, 12, 0),
-        };
-        _fastPathCheckBox.CheckedChanged += OnFastPathChanged;
-
-        var resetButton = new Button
-        {
-            Text = "Reset",
-            AutoSize = true,
-            Margin = new Padding(0, 2, 12, 0),
-        };
-        resetButton.Click += (_, _) => ResetScene();
-
-        var rendererLabel = new Label
-        {
-            AutoSize = true,
-            Text = "Renderer:",
-            Margin = new Padding(0, 6, 6, 0),
-        };
-
-        _backendSelector = new ComboBox
-        {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 150,
-            Margin = new Padding(0, 2, 12, 0),
-        };
-        _backendSelector.Items.AddRange(s_backendOptions);
-        _backendSelector.SelectedIndex = 0;
-        _backendSelector.SelectedIndexChanged += OnBackendSelectionChanged;
-
-        _backendLabel = new Label
-        {
-            AutoSize = true,
-            Margin = new Padding(0, 6, 12, 0),
-        };
-
-        _elementsLabel = new Label
-        {
-            AutoSize = true,
-            Text = "Elements: 0",
-            Margin = new Padding(0, 6, 12, 0),
-        };
-
-        _fpsLabel = new Label
-        {
-            AutoSize = true,
-            Text = "FPS: --",
-            Margin = new Padding(0, 6, 0, 0),
-        };
-
-        controlsPanel.Controls.Add(complexityLabel);
-        controlsPanel.Controls.Add(_complexityInput);
-        controlsPanel.Controls.Add(_animateCheckBox);
-        controlsPanel.Controls.Add(_fastPathCheckBox);
-        controlsPanel.Controls.Add(resetButton);
-        controlsPanel.Controls.Add(rendererLabel);
-        controlsPanel.Controls.Add(_backendSelector);
-        controlsPanel.Controls.Add(_backendLabel);
-        controlsPanel.Controls.Add(_elementsLabel);
-        controlsPanel.Controls.Add(_fpsLabel);
-
-        _renderControl = new VelloRenderControl
+        _tabControl = new TabControl
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.Black,
-            RenderMode = VelloRenderMode.Continuous,
         };
-        _renderControl.PaintSurface += OnPaintSurface;
-        _renderControl.RenderSurface += OnRenderSurface;
+        _tabControl.SelectedIndexChanged += OnTabSelectionChanged;
+        _tabControl.TabPages.Add(_classicTab);
+        _tabControl.TabPages.Add(_fastPathTab);
 
-        SetBackend(VelloRenderBackend.Gpu, updateSelector: false);
+        Controls.Add(_tabControl);
+        Controls.Add(_controlsPanel);
 
-        Controls.Add(_renderControl);
-        Controls.Add(controlsPanel);
+        _animationTimer = new FormsTimer { Interval = 16 };
+        _animationTimer.Tick += OnAnimationTick;
+
+        UpdateBackendStatusLabel();
+        ResetScene();
+
+        if (_isAnimationEnabled)
+        {
+            _animationTimer.Start();
+        }
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _renderControl.PaintSurface -= OnPaintSurface;
-            _renderControl.RenderSurface -= OnRenderSurface;
+            _animationTimer.Tick -= OnAnimationTick;
+            _animationTimer.Stop();
+            _animationTimer.Dispose();
+
+            _controlsPanel.ComplexityChanged -= OnComplexityChanged;
+            _controlsPanel.AnimationToggled -= OnAnimationToggled;
+            _controlsPanel.ResetRequested -= OnResetRequested;
+            _controlsPanel.BackendChanged -= OnBackendChanged;
+
+            _classicTab.FrameRendered -= OnFrameRendered;
+            _fastPathTab.FrameRendered -= OnFrameRendered;
+            _tabControl.SelectedIndexChanged -= OnTabSelectionChanged;
+
+            _statusOverlayFont.Dispose();
             _statusFont.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
-    private void OnComplexityChanged(object? sender, EventArgs e)
+    private void OnComplexityChanged(object? sender, int complexity)
     {
-        _complexity = (int)_complexityInput.Value;
-        if (!_animate)
+        _engine.Complexity = complexity;
+
+        if (!_isAnimationEnabled)
         {
-            _renderControl.Invalidate();
+            _classicTab.InvalidateCanvas();
+            _fastPathTab.RequestRender();
         }
     }
 
-    private void OnAnimateChanged(object? sender, EventArgs e)
+    private void OnAnimationToggled(object? sender, bool enabled)
     {
-        _animate = _animateCheckBox.Checked;
-        _renderControl.RenderMode = _animate ? VelloRenderMode.Continuous : VelloRenderMode.OnDemand;
-        if (!_animate)
+        _isAnimationEnabled = enabled;
+        _classicTab.SetAnimationEnabled(enabled);
+        _fastPathTab.SetAnimationEnabled(enabled);
+
+        if (enabled)
         {
-            _renderControl.Invalidate();
+            _animationTimer.Start();
         }
+        else
+        {
+            _animationTimer.Stop();
+        }
+
+        _classicTab.InvalidateCanvas();
+        _fastPathTab.RequestRender();
     }
 
-    private void OnFastPathChanged(object? sender, EventArgs e)
+    private void OnResetRequested(object? sender, EventArgs e)
     {
-        if (_selectedBackend != VelloRenderBackend.Gpu && _fastPathCheckBox.Checked)
+        ResetScene();
+    }
+
+    private void OnBackendChanged(object? sender, VelloRenderBackend backend)
+    {
+        if (_selectedBackend == backend)
         {
-            _fastPathCheckBox.Checked = false;
             return;
         }
-
-        if (!_animate)
-        {
-            _renderControl.Invalidate();
-        }
-    }
-
-    private void OnBackendSelectionChanged(object? sender, EventArgs e)
-    {
-        if (_backendSelector.SelectedItem is BackendOption option)
-        {
-            SetBackend(option.Backend, updateSelector: false);
-        }
-    }
-
-    private void SetBackend(VelloRenderBackend backend, bool updateSelector)
-
-    {
 
         _selectedBackend = backend;
+        _fastPathTab.PreferredBackend = backend;
+        UpdateBackendStatusLabel();
 
-        _renderControl.PreferredBackend = backend;
+        _classicTab.InvalidateCanvas();
+        _fastPathTab.RequestRender();
+    }
 
+    private void OnTabSelectionChanged(object? sender, EventArgs e)
+    {
+        UpdateBackendStatusLabel();
 
-
-        if (updateSelector)
-
+        if (_tabControl.SelectedTab == _classicTab)
         {
-
-            var match = Array.FindIndex(s_backendOptions, option => option.Backend == backend);
-
-            if (match >= 0 && _backendSelector.SelectedIndex != match)
-
-            {
-
-                _backendSelector.SelectedIndex = match;
-
-            }
-
+            _classicTab.InvalidateCanvas();
         }
-
-
-
-        UpdateBackendLabel();
-
-        if (!_animate)
+        else
         {
-            _renderControl.Invalidate();
+            _fastPathTab.RequestRender();
         }
     }
 
-    private void UpdateBackendLabel()
+    private void OnAnimationTick(object? sender, EventArgs e)
     {
-        _backendLabel.Text = $"Selected: {GetBackendDisplayName()}";
-    }
-
-    private void ResetScene()
-    {
-        _scene = new MotionMarkScene();
-        _pathBuilder.Clear();
-        _emaFps = 0;
-        _fpsLabel.Text = "FPS: --";
-        if (!_animate)
-        {
-            _renderControl.Invalidate();
-        }
-    }
-
-    private void OnPaintSurface(object? sender, VelloPaintSurfaceEventArgs e)
-    {
-        if (FastPathEnabled && _selectedBackend == VelloRenderBackend.Gpu)
+        if (!_isAnimationEnabled)
         {
             return;
         }
 
-        var graphics = e.GetGraphics();
-        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        graphics.Clear(Color.Black);
+        _classicTab.InvalidateCanvas();
+    }
 
+    private void OnFrameRendered(object? sender, MotionMarkFrameEventArgs e)
+    {
         UpdateFps(e.Delta, e.IsAnimationFrame);
 
-        var width = (float)e.Session.Width;
-        var height = (float)e.Session.Height;
-        if (width <= 0 || height <= 0)
-        {
-            return;
-        }
-
-        var scene = e.Session.Scene;
-        scene.Reset();
-        var target = PopulateScene(scene, width, height);
-
-        DrawOverlay(graphics, target);
-    }
-
-    private void OnRenderSurface(object? sender, VelloSurfaceRenderEventArgs e)
-    {
-        if (!FastPathEnabled)
-        {
-            return;
-        }
-
-        var width = (float)e.PixelSize.Width;
-        var height = (float)e.PixelSize.Height;
-        if (width <= 0 || height <= 0)
-        {
-            return;
-        }
-
-        e.Scene.Reset();
-        PopulateScene(e.Scene, width, height);
-        UpdateFps(e.Delta, e.IsAnimationFrame);
-        e.RenderScene(e.Scene);
-    }
-
-    private void DrawOverlay(VelloGraphics graphics, int target)
-    {
-        var fpsText = _emaFps > 0 ? $"{_emaFps:0.0}" : "--";
-        var statusText = $"{GetBackendDisplayName()}  Complexity {_complexity}  Elements {target:N0}  FPS {fpsText}";
-        graphics.DrawString(statusText, _statusFont, Color.White, new PointF(16f, 16f));
+        _lastElementTarget = e.ElementTarget;
+        _controlsPanel.SetElementsStatus($"Elements: {_lastElementTarget:N0}");
     }
 
     private void UpdateFps(TimeSpan delta, bool isAnimationFrame)
@@ -335,108 +207,59 @@ internal sealed class MainForm : Form
         }
 
         var sample = 1.0 / delta.TotalSeconds;
-        if (double.IsFinite(sample))
+        if (!double.IsFinite(sample))
         {
-            _emaFps = _emaFps <= 0 ? sample : (_emaFps * 0.9) + (sample * 0.1);
+            return;
         }
 
+        _emaFps = _emaFps <= 0 ? sample : (_emaFps * 0.9) + (sample * 0.1);
+        _controlsPanel.SetFpsStatus($"FPS: {_emaFps:0.0}");
+    }
+
+    private string GetOverlayText(MotionMarkOverlayRequest request)
+    {
         var fpsText = _emaFps > 0 ? $"{_emaFps:0.0}" : "--";
-        _fpsLabel.Text = $"FPS: {fpsText}";
+        var backendText = request.IsFastPathActive ? "GPU (fast path)" : GetBackendDisplayName();
+        var elementsText = request.ElementTarget.ToString("N0");
+        return $"{backendText}  Complexity {_engine.Complexity}  Elements {elementsText}  FPS {fpsText}";
     }
 
-    private int PopulateScene(Scene scene, float width, float height)
+    private void ResetScene()
     {
-        var target = _scene.PrepareFrame(_complexity);
-        _lastElementTarget = target;
-        _elementsLabel.Text = $"Elements: {target:N0}";
+        _engine.ResetScene();
+        _classicTab.ResetAnimationState();
+        _classicTab.SetAnimationEnabled(_isAnimationEnabled);
+        _fastPathTab.SetAnimationEnabled(_isAnimationEnabled);
 
-        var transform = CreateMotionMarkTransform(width, height);
-        var elements = _scene.Elements;
+        _emaFps = 0;
+        _lastElementTarget = 0;
 
-        if (elements.Length > 0)
+        _controlsPanel.SetElementsStatus("Elements: 0");
+        _controlsPanel.SetFpsStatus("FPS: --");
+
+        if (_isAnimationEnabled)
         {
-            var builder = _pathBuilder;
-            builder.Clear();
-
-            for (var i = 0; i < elements.Length; i++)
-            {
-                ref readonly var element = ref elements[i];
-                if (builder.Count == 0)
-                {
-                    builder.MoveTo(element.Start.X, element.Start.Y);
-                }
-
-                switch (element.Type)
-                {
-                    case MotionMarkScene.ElementType.Line:
-                        builder.LineTo(element.End.X, element.End.Y);
-                        break;
-                    case MotionMarkScene.ElementType.Quadratic:
-                        builder.QuadraticTo(element.Control1.X, element.Control1.Y, element.End.X, element.End.Y);
-                        break;
-                    case MotionMarkScene.ElementType.Cubic:
-                        builder.CubicTo(
-                            element.Control1.X,
-                            element.Control1.Y,
-                            element.Control2.X,
-                            element.Control2.Y,
-                            element.End.X,
-                            element.End.Y);
-                        break;
-                }
-
-                var strokeBreak = element.IsSplit || i == elements.Length - 1;
-                if (strokeBreak)
-                {
-                    _strokeStyle.Width = Math.Max(0.5, element.Width);
-                    scene.StrokePath(builder, _strokeStyle, transform, ToRgba(element.Color));
-                    builder.Clear();
-                }
-            }
+            _animationTimer.Stop();
+            _animationTimer.Start();
+        }
+        else
+        {
+            _animationTimer.Stop();
         }
 
-        return target;
+        _classicTab.InvalidateCanvas();
+        _fastPathTab.RequestRender();
     }
 
-    private static Matrix3x2 CreateMotionMarkTransform(float width, float height)
+    private void UpdateBackendStatusLabel()
     {
-        if (width <= 0 || height <= 0)
-        {
-            return Matrix3x2.Identity;
-        }
+        var text = _tabControl.SelectedTab == _fastPathTab && _selectedBackend == VelloRenderBackend.Gpu
+            ? "Selected: GPU (fast path)"
+            : $"Selected: {GetBackendDisplayName()}";
 
-        var scale = Math.Min(width / MotionMarkScene.CanvasWidth, height / MotionMarkScene.CanvasHeight);
-        if (scale <= 0f)
-        {
-            scale = 1f;
-        }
-
-        var scaledWidth = MotionMarkScene.CanvasWidth * scale;
-        var scaledHeight = MotionMarkScene.CanvasHeight * scale;
-        var translate = new Vector2((width - scaledWidth) * 0.5f, (height - scaledHeight) * 0.5f);
-
-        return Matrix3x2.CreateScale(scale) * Matrix3x2.CreateTranslation(translate);
+        _controlsPanel.SetBackendStatus(text);
     }
-
-    private static RgbaColor ToRgba(Color color)
-        => RgbaColor.FromBytes(color.R, color.G, color.B, color.A);
 
     private string GetBackendDisplayName()
         => _selectedBackend == VelloRenderBackend.Gpu ? "GPU" : "CPU (sparse)";
-
-    private sealed class BackendOption
-    {
-        public BackendOption(string name, VelloRenderBackend backend)
-        {
-            Name = name;
-            Backend = backend;
-        }
-
-        public string Name { get; }
-        public VelloRenderBackend Backend { get; }
-
-        public override string ToString() => Name;
-    }
 }
-
-
