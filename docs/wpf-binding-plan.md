@@ -23,7 +23,7 @@
 - [x] Integrate dispatcher render loop wiring (`CompositionTarget.Rendering` and `RenderLoopDriver`) so continuous/on-demand modes drive the composition bridge.
 - [x] Manage `D3DImage` locking (`Lock → SetBackBuffer → AddDirtyRect → Unlock`) and keyed-mutex coordination through the bridge, including resize/device-loss resets.
 - [ ] Provide design-time and CPU-backend placeholders that bypass GPU interop, ensuring Blend/VS designers can instantiate the control safely.
-- [ ] Expose diagnostics (frame timing, device status) through dependency properties backed by `WindowsGpuDiagnostics`.
+- [x] Expose diagnostics (frame timing, device status) through dependency properties backed by `WindowsGpuDiagnostics`.
 
 ## Phase 4 - Optional HWND Swapchain Host
 - [x] Rename `VelloSwapChainHost` to `VelloNativeSwapChainHost` and adjust namespaces/usages so the type explicitly reads as the HWND-based implementation.
@@ -37,9 +37,9 @@
 - [ ] Ensure CPU buffers marshal back to the UI thread safely and that `WriteableBitmap.AddDirtyRect` updates are throttled to avoid layout thrash.
 
 ## Phase 6 – Lifecycle, Threading, and Diagnostics
-- [ ] Acquire/release shared GPU context leases on `Loaded`/`Unloaded`, handling multiple WPF view instances safely.
-- [ ] Suspend rendering when the control is `IsVisible == false`, window minimised, or application deactivated, resuming cleanly on visibility return.
-- [ ] Publish aggregated diagnostics (fps estimate, swapchain resets, keyed mutex contention) via a bindable `Diagnostics` view-model.
+- [x] Acquire/release shared GPU context leases on `Loaded`/`Unloaded`, handling multiple WPF view instances safely.
+- [x] Suspend rendering when the control is `IsVisible == false`, window minimised, or application deactivated, resuming cleanly on visibility return.
+- [x] Publish aggregated diagnostics (fps estimate, swapchain resets, keyed mutex contention) via a bindable `Diagnostics` view-model.
 
 ## Phase 7 – Validation, Samples, and Documentation
 - [ ] Expand the WPF sample (net8.0-windows) to showcase CPU/native-host toggles and DPI stress; current build exercises the composition bridge with render-mode switching but still lacks backend swapping.

@@ -1,0 +1,59 @@
+<UserControl x:Class="VelloSharp.WpfSample.MotionMarkPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vello="clr-namespace:VelloSharp.Wpf.Integration;assembly=VelloSharp.Integration.Wpf"
+             mc:Ignorable="d">
+    <Grid>
+        <vello:VelloView x:Name="MotionMarkView"
+                          PreferredBackend="Gpu"
+                          RenderMode="Continuous"
+                          RenderLoopDriver="CompositionTarget"
+                          Focusable="False" />
+
+        <Border HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                Margin="16"
+                Padding="12"
+                CornerRadius="8"
+                Background="#66000000">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,0,0,8"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="Complexity"
+                               Foreground="White"
+                               FontSize="13"
+                               Margin="0,0,8,0" />
+                    <Slider x:Name="ComplexitySlider"
+                            Width="160"
+                            Minimum="1"
+                            Maximum="24"
+                            Value="6"
+                            ValueChanged="OnComplexityChanged" />
+                    <TextBlock x:Name="ComplexityValue"
+                               Foreground="White"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               Margin="8,0,0,0"
+                               Text="6" />
+                </StackPanel>
+
+                <CheckBox x:Name="AnimateToggle"
+                          Content="Animate"
+                          IsChecked="True"
+                          Foreground="White"
+                          Checked="OnAnimateToggled"
+                          Unchecked="OnAnimateToggled" />
+
+                <TextBlock x:Name="StatusText"
+                           Foreground="White"
+                           FontFamily="Consolas"
+                           FontSize="13"
+                           Margin="0,8,0,0"
+                           Text="Elements: 0    FPS: --" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

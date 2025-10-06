@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\\..\\bindings\\VelloSharp.Integration.Wpf\\VelloSharp.Integration.Wpf.csproj" />
+    <ProjectReference Include="..\\MotionMark.SceneShared\\MotionMark.SceneShared.csproj" />
   </ItemGroup>
 </Project>

@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Windows.Forms;
 using MotionMark.SceneShared;
 using VelloSharp;
+using VelloSharp.Windows;
 using VelloSharp.WinForms;
 using VelloSharp.WinForms.Integration;
 
@@ -31,6 +32,7 @@ internal sealed class MainForm : Form
 
     private readonly NumericUpDown _complexityInput;
     private readonly CheckBox _animateCheckBox;
+    private readonly CheckBox _fastPathCheckBox;
     private readonly ComboBox _backendSelector;
     private readonly Label _backendLabel;
     private readonly Label _elementsLabel;
@@ -41,6 +43,8 @@ internal sealed class MainForm : Form
     private int _lastElementTarget;
     private double _emaFps;
     private VelloRenderBackend _selectedBackend = VelloRenderBackend.Gpu;
+
+    private bool FastPathEnabled => _fastPathCheckBox.Checked && _selectedBackend == VelloRenderBackend.Gpu;
 
     public MainForm()
     {
@@ -82,6 +86,15 @@ internal sealed class MainForm : Form
             Margin = new Padding(0, 4, 12, 0),
         };
         _animateCheckBox.CheckedChanged += OnAnimateChanged;
+
+        _fastPathCheckBox = new CheckBox
+        {
+            AutoSize = true,
+            Text = "Use GPU fast path",
+            Checked = true,
+            Margin = new Padding(0, 4, 12, 0),
+        };
+        _fastPathCheckBox.CheckedChanged += OnFastPathChanged;
 
         var resetButton = new Button
         {
@@ -131,6 +144,7 @@ internal sealed class MainForm : Form
         controlsPanel.Controls.Add(complexityLabel);
         controlsPanel.Controls.Add(_complexityInput);
         controlsPanel.Controls.Add(_animateCheckBox);
+        controlsPanel.Controls.Add(_fastPathCheckBox);
         controlsPanel.Controls.Add(resetButton);
         controlsPanel.Controls.Add(rendererLabel);
         controlsPanel.Controls.Add(_backendSelector);
@@ -145,6 +159,7 @@ internal sealed class MainForm : Form
             RenderMode = VelloRenderMode.Continuous,
         };
         _renderControl.PaintSurface += OnPaintSurface;
+        _renderControl.RenderSurface += OnRenderSurface;
 
         SetBackend(VelloRenderBackend.Gpu, updateSelector: false);
 
@@ -157,6 +172,7 @@ internal sealed class MainForm : Form
         if (disposing)
         {
             _renderControl.PaintSurface -= OnPaintSurface;
+            _renderControl.RenderSurface -= OnRenderSurface;
             _statusFont.Dispose();
         }
 
@@ -182,6 +198,20 @@ internal sealed class MainForm : Form
         }
     }
 
+    private void OnFastPathChanged(object? sender, EventArgs e)
+    {
+        if (_selectedBackend != VelloRenderBackend.Gpu && _fastPathCheckBox.Checked)
+        {
+            _fastPathCheckBox.Checked = false;
+            return;
+        }
+
+        if (!_animate)
+        {
+            _renderControl.Invalidate();
+        }
+    }
+
     private void OnBackendSelectionChanged(object? sender, EventArgs e)
     {
         if (_backendSelector.SelectedItem is BackendOption option)
@@ -190,20 +220,34 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void SetBackend(VelloRenderBackend backend, bool updateSelector)
-    {
-        _selectedBackend = backend;
-        _renderControl.PreferredBackend = backend;
-
-        if (updateSelector)
-        {
-            var match = Array.FindIndex(s_backendOptions, option => option.Backend == backend);
-            if (match >= 0 && _backendSelector.SelectedIndex != match)
-            {
-                _backendSelector.SelectedIndex = match;
-            }
-        }
-
+    private void SetBackend(VelloRenderBackend backend, bool updateSelector)
+
+    {
+
+        _selectedBackend = backend;
+
+        _renderControl.PreferredBackend = backend;
+
+
+
+        if (updateSelector)
+
+        {
+
+            var match = Array.FindIndex(s_backendOptions, option => option.Backend == backend);
+
+            if (match >= 0 && _backendSelector.SelectedIndex != match)
+
+            {
+
+                _backendSelector.SelectedIndex = match;
+
+            }
+
+        }
+
+
+
         UpdateBackendLabel();
 
         if (!_animate)
@@ -222,6 +266,7 @@ internal sealed class MainForm : Form
         _scene = new MotionMarkScene();
         _pathBuilder.Clear();
         _emaFps = 0;
+        _fpsLabel.Text = "FPS: --";
         if (!_animate)
         {
             _renderControl.Invalidate();
@@ -230,15 +275,16 @@ internal sealed class MainForm : Form
 
     private void OnPaintSurface(object? sender, VelloPaintSurfaceEventArgs e)
     {
+        if (FastPathEnabled && _selectedBackend == VelloRenderBackend.Gpu)
+        {
+            return;
+        }
+
         var graphics = e.GetGraphics();
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         graphics.Clear(Color.Black);
 
-        var target = _scene.PrepareFrame(_complexity);
-        _lastElementTarget = target;
-        _elementsLabel.Text = $"Elements: {target:N0}";
-
-        UpdateFps(e);
+        UpdateFps(e.Delta, e.IsAnimationFrame);
 
         var width = (float)e.Session.Width;
         var height = (float)e.Session.Height;
@@ -247,8 +293,64 @@ internal sealed class MainForm : Form
             return;
         }
 
-        var transform = CreateMotionMarkTransform(width, height);
         var scene = e.Session.Scene;
+        scene.Reset();
+        var target = PopulateScene(scene, width, height);
+
+        DrawOverlay(graphics, target);
+    }
+
+    private void OnRenderSurface(object? sender, VelloSurfaceRenderEventArgs e)
+    {
+        if (!FastPathEnabled)
+        {
+            return;
+        }
+
+        var width = (float)e.PixelSize.Width;
+        var height = (float)e.PixelSize.Height;
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        e.Scene.Reset();
+        PopulateScene(e.Scene, width, height);
+        UpdateFps(e.Delta, e.IsAnimationFrame);
+        e.RenderScene(e.Scene);
+    }
+
+    private void DrawOverlay(VelloGraphics graphics, int target)
+    {
+        var fpsText = _emaFps > 0 ? $"{_emaFps:0.0}" : "--";
+        var statusText = $"{GetBackendDisplayName()}  Complexity {_complexity}  Elements {target:N0}  FPS {fpsText}";
+        graphics.DrawString(statusText, _statusFont, Color.White, new PointF(16f, 16f));
+    }
+
+    private void UpdateFps(TimeSpan delta, bool isAnimationFrame)
+    {
+        if (!isAnimationFrame || delta <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var sample = 1.0 / delta.TotalSeconds;
+        if (double.IsFinite(sample))
+        {
+            _emaFps = _emaFps <= 0 ? sample : (_emaFps * 0.9) + (sample * 0.1);
+        }
+
+        var fpsText = _emaFps > 0 ? $"{_emaFps:0.0}" : "--";
+        _fpsLabel.Text = $"FPS: {fpsText}";
+    }
+
+    private int PopulateScene(Scene scene, float width, float height)
+    {
+        var target = _scene.PrepareFrame(_complexity);
+        _lastElementTarget = target;
+        _elementsLabel.Text = $"Elements: {target:N0}";
+
+        var transform = CreateMotionMarkTransform(width, height);
         var elements = _scene.Elements;
 
         if (elements.Length > 0)
@@ -293,35 +395,7 @@ internal sealed class MainForm : Form
             }
         }
 
-        DrawOverlay(graphics, target);
-    }
-
-    private void DrawOverlay(VelloGraphics graphics, int target)
-    {
-        var fpsText = _emaFps > 0 ? $"{_emaFps:0.0}" : "--";
-        _fpsLabel.Text = $"FPS: {fpsText}";
-
-        var statusText = $"{GetBackendDisplayName()}  Complexity {_complexity}  Elements {target:N0}  FPS {fpsText}";
-        graphics.DrawString(statusText, _statusFont, Color.White, new PointF(16f, 16f));
-    }
-
-    private void UpdateFps(VelloPaintSurfaceEventArgs e)
-    {
-        if (!e.IsAnimationFrame)
-        {
-            return;
-        }
-
-        if (e.Delta <= TimeSpan.Zero)
-        {
-            return;
-        }
-
-        var sample = 1.0 / e.Delta.TotalSeconds;
-        if (double.IsFinite(sample))
-        {
-            _emaFps = _emaFps <= 0 ? sample : (_emaFps * 0.9) + (sample * 0.1);
-        }
+        return target;
     }
 
     private static Matrix3x2 CreateMotionMarkTransform(float width, float height)

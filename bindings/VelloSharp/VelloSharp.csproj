@@ -141,8 +141,12 @@ RuntimeIdentifier = rid;
           Condition="'$(DesignTimeBuild)' != 'true' and '$(VelloRuntimeIdentifier)' != 'unknown' and '$(VelloSkipNativeBuild)' != 'true'">
     <ItemGroup>
       <_VelloNativeManifest Include="$(MSBuildThisFileDirectory)..\..\ffi\*\Cargo.toml">
-        <CrateName>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(Identity)'))))</CrateName>
+        <CrateName Condition="Exists('%(Identity)')">$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(Identity)'))))</CrateName>
       </_VelloNativeManifest>
+    </ItemGroup>
+
+    <ItemGroup>
+      <_VelloNativeManifest Remove="@(_VelloNativeManifest)" Condition="'%(_VelloNativeManifest.CrateName)' == ''" />
     </ItemGroup>
 
     <ItemGroup>

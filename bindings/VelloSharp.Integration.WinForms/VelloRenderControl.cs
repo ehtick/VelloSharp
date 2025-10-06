@@ -56,6 +56,8 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
     [Description("Occurs when the control is ready to record drawing commands into the current Vello scene.")]
     public event EventHandler<VelloPaintSurfaceEventArgs>? PaintSurface;
 
+    public event EventHandler<VelloSurfaceRenderEventArgs>? RenderSurface;
+
     [Category("Behavior")]
     public VelloGraphicsDeviceOptions DeviceOptions
     {
@@ -281,6 +283,9 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
     protected virtual void OnPaintSurface(VelloPaintSurfaceEventArgs args)
         => PaintSurface?.Invoke(this, args);
 
+    protected virtual void OnRenderSurface(VelloSurfaceRenderEventArgs args)
+        => RenderSurface?.Invoke(this, args);
+
     private void RenderFrame(PaintEventArgs e)
     {
         if (!IsHandleCreated || ClientSize.Width <= 0 || ClientSize.Height <= 0)
@@ -320,13 +325,14 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
 
             var (timestamp, delta) = NextFrameTiming();
             var frameId = ++_frameId;
+            var isAnimationFrame = _renderMode == VelloRenderMode.Continuous;
 
-            var args = new VelloPaintSurfaceEventArgs(session, timestamp, delta, frameId, _renderMode == VelloRenderMode.Continuous);
+            var args = new VelloPaintSurfaceEventArgs(session, timestamp, delta, frameId, isAnimationFrame);
             OnPaintSurface(args);
 
             if (_backend == VelloRenderBackend.Gpu)
             {
-                if (!RenderToSwapChain(session, logicalSize))
+                if (!RenderToSwapChain(session, logicalSize, timestamp, delta, frameId, isAnimationFrame))
                 {
                     session.Complete();
                 }
@@ -432,7 +438,7 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
         _swapChain = WindowsSurfaceFactory.EnsureSwapChainSurface(_gpuLease, this, _swapChain, size);
     }
 
-    private bool RenderToSwapChain(VelloGraphicsSession session, Size logicalSize)
+    private bool RenderToSwapChain(VelloGraphicsSession session, Size logicalSize, TimeSpan timestamp, TimeSpan delta, long frameId, bool isAnimationFrame)
     {
         if (_gpuLease is null || _swapChain is null)
         {
@@ -459,7 +465,32 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
                 _options.GetAntialiasingMode(),
                 _options.Format);
 
-            _gpuLease.Context.Renderer.RenderSurface(session.Scene, textureView, renderParams, _swapChain.Format);
+            var renderParamsToUse = renderParams;
+            if (RenderSurface is not null)
+            {
+                var surfaceArgs = new VelloSurfaceRenderEventArgs(
+                    _gpuLease,
+                    session.Scene,
+                    textureView,
+                    _swapChain.Format,
+                    renderParams,
+                    new WindowsSurfaceSize(pixelWidth, pixelHeight),
+                    timestamp,
+                    delta,
+                    frameId,
+                    isAnimationFrame);
+                OnRenderSurface(surfaceArgs);
+                renderParamsToUse = surfaceArgs.RenderParams;
+                if (!surfaceArgs.Handled)
+                {
+                    _gpuLease.Context.Renderer.RenderSurface(session.Scene, textureView, renderParamsToUse, _swapChain.Format);
+                }
+            }
+            else
+            {
+                _gpuLease.Context.Renderer.RenderSurface(session.Scene, textureView, renderParamsToUse, _swapChain.Format);
+            }
+
             surfaceTexture.Present();
             _gpuLease.Context.RecordPresentation();
             session.Complete();

@@ -4,69 +4,79 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vello="clr-namespace:VelloSharp.Wpf.Integration;assembly=VelloSharp.Integration.Wpf"
+        xmlns:local="clr-namespace:VelloSharp.WpfSample"
         mc:Ignorable="d"
-        Title="VelloSharp WPF Sample" Height="480" Width="820"
+        Title="VelloSharp WPF Sample"
+        Height="520"
+        Width="860"
         Background="#FF101319">
-    <Grid>
-        <vello:VelloView x:Name="VelloViewControl"
-                          PreferredBackend="Gpu"
-                          RenderMode="Continuous"
-                          RenderLoopDriver="CompositionTarget"
-                          Focusable="False" />
+    <TabControl>
+        <TabItem Header="Composition View">
+            <Grid Background="Transparent">
+                <vello:VelloView x:Name="VelloViewControl"
+                                  PreferredBackend="Gpu"
+                                  RenderMode="Continuous"
+                                  RenderLoopDriver="CompositionTarget"
+                                  Focusable="False" />
 
-        <Border HorizontalAlignment="Left"
-                VerticalAlignment="Top"
-                Margin="16"
-                Padding="12"
-                CornerRadius="8"
-                Background="#66000000">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal"
-                            Margin="0,0,0,8">
-                    <CheckBox x:Name="ContinuousToggle"
-                              Content="Continuous"
-                              IsChecked="True"
-                              Foreground="White"
-                              Checked="OnContinuousToggleChecked"
-                              Unchecked="OnContinuousToggleUnchecked" />
-                    <Button x:Name="RenderOnceButton"
-                            Content="Render Once"
-                            Margin="8,0,0,0"
-                            Padding="12,4"
-                            IsEnabled="False"
-                            Click="OnRenderOnceClick" />
-                </StackPanel>
-                <TextBlock x:Name="ModeText"
-                           Text="Mode: Continuous"
-                           FontFamily="Consolas"
-                           FontSize="13"
-                           Foreground="White"
-                           Margin="0,0,0,4" />
-                <TextBlock x:Name="FpsText"
-                           Text="FPS: --"
-                           FontFamily="Consolas"
-                           FontSize="16"
-                           Foreground="White"
-                           Margin="0,0,0,4" />
-                <TextBlock x:Name="FrameInfoText"
-                           Text="Δ: -- ms"
-                           FontFamily="Consolas"
-                           FontSize="13"
-                           Foreground="White"
-                           Margin="0,0,0,2" />
-                <TextBlock x:Name="SurfaceInfoText"
-                           Text="Surface: --"
-                           FontFamily="Consolas"
-                           FontSize="13"
-                           Foreground="White" />
-                <TextBlock Text="Host: Composition (D3DImage bridge)"
-                           FontFamily="Consolas"
-                           FontSize="12"
-                           Foreground="White"
-                           MaxWidth="280"
-                           TextWrapping="Wrap"
-                           Margin="0,4,0,0" />
-            </StackPanel>
-        </Border>
-    </Grid>
+                <Border HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="16"
+                        Padding="12"
+                        CornerRadius="8"
+                        Background="#66000000">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal"
+                                    Margin="0,0,0,8">
+                            <CheckBox x:Name="ContinuousToggle"
+                                      Content="Continuous"
+                                      IsChecked="True"
+                                      Foreground="White"
+                                      Checked="OnContinuousToggleChecked"
+                                      Unchecked="OnContinuousToggleUnchecked" />
+                            <Button x:Name="RenderOnceButton"
+                                    Content="Render Once"
+                                    Margin="8,0,0,0"
+                                    Padding="12,4"
+                                    IsEnabled="False"
+                                    Click="OnRenderOnceClick" />
+                        </StackPanel>
+                        <TextBlock x:Name="ModeText"
+                                   Text="Mode: Continuous"
+                                   FontFamily="Consolas"
+                                   FontSize="13"
+                                   Foreground="White"
+                                   Margin="0,0,0,4" />
+                        <TextBlock x:Name="FpsText"
+                                   Text="FPS: --"
+                                   FontFamily="Consolas"
+                                   FontSize="16"
+                                   Foreground="White"
+                                   Margin="0,0,0,4" />
+                        <TextBlock x:Name="FrameInfoText"
+                                   Text="Δ: -- ms"
+                                   FontFamily="Consolas"
+                                   FontSize="13"
+                                   Foreground="White"
+                                   Margin="0,0,0,2" />
+                        <TextBlock x:Name="SurfaceInfoText"
+                                   Text="Surface: --"
+                                   FontFamily="Consolas"
+                                   FontSize="13"
+                                   Foreground="White" />
+                        <TextBlock Text="Host: Composition (D3DImage bridge)"
+                                   FontFamily="Consolas"
+                                   FontSize="12"
+                                   Foreground="White"
+                                   MaxWidth="280"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </TabItem>
+        <TabItem Header="MotionMark Fast Path">
+            <local:MotionMarkPage />
+        </TabItem>
+    </TabControl>
 </Window>

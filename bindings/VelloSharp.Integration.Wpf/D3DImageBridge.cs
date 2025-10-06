@@ -16,7 +16,6 @@ internal sealed class D3DImageBridge : IDisposable
     private readonly object _sync = new();
     private readonly WindowsGpuDiagnostics _diagnostics;
 
-    private WindowsGpuContextLease? _lease;
     private SharedGpuTexture? _sharedTexture;
     private D3D9ExDeviceManagerLease? _d3d9Lease;
     private D3DImageBackBuffer? _backBuffer;
@@ -76,7 +75,6 @@ internal sealed class D3DImageBridge : IDisposable
 
             if (width == 0 || height == 0)
             {
-                lease.Dispose();
                 return false;
             }
 
@@ -96,7 +94,6 @@ internal sealed class D3DImageBridge : IDisposable
                 d3dLease = D3D9ExDeviceManager.Acquire(shared.AdapterLuid, _diagnostics);
                 backBuffer = d3dLease.Manager.AcquireBackBuffer(shared);
 
-                _lease = lease;
                 _sharedTexture = shared;
                 _d3d9Lease = d3dLease;
                 _backBuffer = backBuffer;
@@ -112,7 +109,6 @@ internal sealed class D3DImageBridge : IDisposable
                 backBuffer?.Dispose();
                 d3dLease?.Dispose();
                 shared?.Dispose();
-                lease.Dispose();
                 _pixelSize = WindowsSurfaceSize.Empty;
                 throw;
             }
@@ -302,9 +298,6 @@ internal sealed class D3DImageBridge : IDisposable
         backBuffer?.Dispose();
         d3d9Lease?.Dispose();
         sharedTexture?.Dispose();
-
-        _lease?.Dispose();
-        _lease = null;
 
         _pixelSize = WindowsSurfaceSize.Empty;
     }
