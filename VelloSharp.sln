@@ -73,8 +73,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Integration.Skia
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ControlCatalog", "samples\ControlCatalog\ControlCatalog.csproj", "{3B671B07-2374-4E26-984E-94A340BEC351}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SampleControls", "SampleControls", "{6C5222EF-7E1E-1A11-42FE-7246F4FFC38D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ControlSamples", "samples\SampleControls\ControlSamples.csproj", "{6B9833AE-4542-478A-B7F5-B3EBB8132CBA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ControlCatalog.NetCore", "samples\ControlCatalog.NetCore\ControlCatalog.NetCore.csproj", "{426F65E3-9C15-421A-B403-9A6012A5E5BD}"
@@ -91,7 +89,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.WinForms.Core", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Integration.WinForms", "bindings\VelloSharp.Integration.WinForms\VelloSharp.Integration.WinForms.csproj", "{9D32A5B8-B8C5-4FAF-8CE0-32D63168F228}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Integration.Wpf", "bindings\\VelloSharp.Integration.Wpf\\VelloSharp.Integration.Wpf.csproj", "{6FA38499-DF66-48F7-A662-62863C31440A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Integration.Wpf", "bindings\VelloSharp.Integration.Wpf\VelloSharp.Integration.Wpf.csproj", "{6FA38499-DF66-48F7-A662-62863C31440A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.WinForms.Tests", "tests\VelloSharp.WinForms.Tests\VelloSharp.WinForms.Tests.csproj", "{1CC6E740-B7A1-4EBE-ABED-D6DD148C10A1}"
 EndProject
@@ -703,7 +701,6 @@ Global
 		{7765C0A2-AF60-43BA-94BB-9B07E478A2DC} = {CA58B814-9F53-47BD-95B2-74A68310614A}
 		{92B64509-28E3-4425-B444-A8AF07410243} = {CA58B814-9F53-47BD-95B2-74A68310614A}
 		{3B671B07-2374-4E26-984E-94A340BEC351} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
-		{6C5222EF-7E1E-1A11-42FE-7246F4FFC38D} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{6B9833AE-4542-478A-B7F5-B3EBB8132CBA} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{426F65E3-9C15-421A-B403-9A6012A5E5BD} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{82FEAED1-EFAF-4F48-B069-814A26518271} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
