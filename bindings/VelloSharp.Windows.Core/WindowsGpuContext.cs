@@ -1,19 +1,19 @@
 using System;
 using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
-public sealed class WinFormsGpuContext : IDisposable
+public sealed class WindowsGpuContext : IDisposable
 {
     private static readonly object SharedSync = new();
-    private static WinFormsGpuContext? SharedInstance;
+    private static WindowsGpuContext? SharedInstance;
     private static int SharedRefCount;
 
     private readonly object _sync = new();
     private readonly VelloGraphicsDeviceOptions _options;
     private readonly RendererOptions _baseRendererOptions;
     private readonly WgpuInstance _instance;
-    private readonly WinFormsGpuResourcePool _resourcePool;
+    private readonly WindowsGpuResourcePool _resourcePool;
 
     private WgpuAdapter? _adapter;
     private WgpuDevice? _device;
@@ -22,17 +22,21 @@ public sealed class WinFormsGpuContext : IDisposable
     private WgpuFeature _deviceFeatures;
     private bool _disposed;
 
-    public WinFormsGpuDiagnostics Diagnostics { get; } = new();
+    public WindowsGpuDiagnostics Diagnostics { get; } = new();
 
-    private WinFormsGpuContext(VelloGraphicsDeviceOptions options)
+    private WindowsGpuContext(VelloGraphicsDeviceOptions options)
     {
         _options = options;
         _baseRendererOptions = options.RendererOptions ?? new RendererOptions();
-        _instance = new WgpuInstance();
-        _resourcePool = new WinFormsGpuResourcePool();
+        var instanceOptions = new WgpuInstanceOptions
+        {
+            Backends = WgpuBackend.Dx12,
+        };
+        _instance = new WgpuInstance(instanceOptions);
+        _resourcePool = new WindowsGpuResourcePool();
     }
 
-    public static WinFormsGpuContextLease Acquire(VelloGraphicsDeviceOptions? options = null)
+    public static WindowsGpuContextLease Acquire(VelloGraphicsDeviceOptions? options = null)
     {
         var normalized = options ?? VelloGraphicsDeviceOptions.Default;
 
@@ -40,14 +44,14 @@ public sealed class WinFormsGpuContext : IDisposable
         {
             if (SharedInstance is null)
             {
-                SharedInstance = new WinFormsGpuContext(normalized);
+                SharedInstance = new WindowsGpuContext(normalized);
                 SharedRefCount = 1;
-                return new WinFormsGpuContextLease(SharedInstance);
+                return new WindowsGpuContextLease(SharedInstance);
             }
 
             SharedInstance.EnsureCompatibleOptions(normalized);
             SharedRefCount++;
-            return new WinFormsGpuContextLease(SharedInstance);
+            return new WindowsGpuContextLease(SharedInstance);
         }
     }
 
@@ -75,7 +79,7 @@ public sealed class WinFormsGpuContext : IDisposable
 
     public VelloGraphicsDeviceOptions Options => _options;
 
-    internal WinFormsGpuResourcePool ResourcePool => _resourcePool;
+    internal WindowsGpuResourcePool ResourcePool => _resourcePool;
 
     public WgpuAdapter Adapter
     {
@@ -131,7 +135,7 @@ public sealed class WinFormsGpuContext : IDisposable
         }
     }
 
-    public WinFormsSwapChainSurface CreateSwapChainSurface(IntPtr hwnd, uint width, uint height)
+    public WindowsSwapChainSurface CreateSwapChainSurface(IntPtr hwnd, uint width, uint height)
     {
         if (hwnd == IntPtr.Zero)
         {
@@ -156,7 +160,7 @@ public sealed class WinFormsGpuContext : IDisposable
             var format = DetermineSurfaceFormat(surface);
             EnsureDevice();
 
-            return new WinFormsSwapChainSurface(this, surface, format, _options.PresentMode, Math.Max(width, 1), Math.Max(height, 1));
+            return new WindowsSwapChainSurface(this, surface, format, _options.PresentMode, Math.Max(width, 1), Math.Max(height, 1));
         }
         catch
         {
@@ -194,7 +198,10 @@ public sealed class WinFormsGpuContext : IDisposable
 
     internal void RecordDeviceReset(string? reason = null) => Diagnostics.RecordDeviceReset(reason);
 
-    private void EnsureAdapter(WgpuSurface surface)
+    private void EnsureAdapter()
+        => EnsureAdapter(null);
+
+    private void EnsureAdapter(WgpuSurface? surface)
     {
         lock (_sync)
         {
@@ -215,6 +222,8 @@ public sealed class WinFormsGpuContext : IDisposable
 
     private void EnsureDevice()
     {
+        EnsureAdapter();
+
         lock (_sync)
         {
             if (_device is not null)
@@ -228,26 +237,38 @@ public sealed class WinFormsGpuContext : IDisposable
             }
 
             var adapterFeatures = _adapter.GetFeatures();
-            var requiredFeatures = WgpuFeature.None;
-            if (_options.EnablePipelineCaching && adapterFeatures.HasFlag(WgpuFeature.PipelineCache))
+            var requestPipelineCache = _options.EnablePipelineCaching && adapterFeatures.HasFlag(WgpuFeature.PipelineCache);
+
+            while (true)
             {
-                requiredFeatures |= WgpuFeature.PipelineCache;
+                var descriptor = new WgpuDeviceDescriptor
+                {
+                    Label = _options.DiagnosticsLabel ?? "vello.windows.device",
+                    RequiredFeatures = requestPipelineCache ? WgpuFeature.PipelineCache : WgpuFeature.None,
+                    Limits = WgpuLimitsPreset.Default,
+                };
+
+                try
+                {
+                    _device = _adapter.RequestDevice(descriptor);
+                    _deviceFeatures = _device.GetFeatures();
+                    _queue = _device.GetQueue();
+
+                    var supportsPipelineCache = requestPipelineCache && _deviceFeatures.HasFlag(WgpuFeature.PipelineCache);
+                    var pipelineCache = supportsPipelineCache
+                        ? _resourcePool.EnsurePipelineCache(_device, _deviceFeatures, _options, Diagnostics)
+                        : null;
+
+                    var rendererOptions = ComposeRendererOptions(pipelineCache);
+                    _renderer = new WgpuRenderer(_device, rendererOptions);
+                    break;
+                }
+                catch (InvalidOperationException) when (requestPipelineCache)
+                {
+                    Diagnostics.RecordDeviceReset("Pipeline cache feature unsupported; retrying without optional features.");
+                    requestPipelineCache = false;
+                }
             }
-
-            var descriptor = new WgpuDeviceDescriptor
-            {
-                Label = _options.DiagnosticsLabel ?? "vello.winforms.device",
-                RequiredFeatures = requiredFeatures,
-                Limits = WgpuLimitsPreset.Default,
-            };
-
-            _device = _adapter.RequestDevice(descriptor);
-            _deviceFeatures = _device.GetFeatures();
-            _queue = _device.GetQueue();
-
-            var pipelineCache = _resourcePool.EnsurePipelineCache(_device, _deviceFeatures, _options, Diagnostics);
-            var rendererOptions = ComposeRendererOptions(pipelineCache);
-            _renderer = new WgpuRenderer(_device, rendererOptions);
         }
     }
 
@@ -281,27 +302,27 @@ public sealed class WinFormsGpuContext : IDisposable
     {
         if (options.Format != _options.Format)
         {
-            throw new InvalidOperationException("The WinForms GPU context has already been initialised with a different render format.");
+            throw new InvalidOperationException("The Windows GPU context has already been initialised with a different render format.");
         }
 
         if (options.ColorSpace != _options.ColorSpace)
         {
-            throw new InvalidOperationException("The WinForms GPU context has already been initialised with a different color space.");
+            throw new InvalidOperationException("The Windows GPU context has already been initialised with a different color space.");
         }
 
         if (options.PresentMode != _options.PresentMode)
         {
-            throw new InvalidOperationException("The WinForms GPU context has already been initialised with a different present mode.");
+            throw new InvalidOperationException("The Windows GPU context has already been initialised with a different present mode.");
         }
 
         if (options.GetAntialiasingMode() != _options.GetAntialiasingMode())
         {
-            throw new InvalidOperationException("The WinForms GPU context has already been initialised with a different antialiasing mode.");
+            throw new InvalidOperationException("The Windows GPU context has already been initialised with a different antialiasing mode.");
         }
 
         if (options.EnablePipelineCaching != _options.EnablePipelineCaching)
         {
-            throw new InvalidOperationException("The WinForms GPU context has already been initialised with different pipeline caching semantics.");
+            throw new InvalidOperationException("The Windows GPU context has already been initialised with different pipeline caching semantics.");
         }
     }
 
@@ -309,7 +330,7 @@ public sealed class WinFormsGpuContext : IDisposable
     {
         if (_disposed)
         {
-            throw new ObjectDisposedException(nameof(WinFormsGpuContext));
+            throw new ObjectDisposedException(nameof(WindowsGpuContext));
         }
     }
 
@@ -354,3 +375,4 @@ public sealed class WinFormsGpuContext : IDisposable
         }
     }
 }
+

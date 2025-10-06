@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
 public sealed class VelloGraphicsSession : IDisposable
 {

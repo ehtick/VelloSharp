@@ -334,7 +334,28 @@ internal static partial class NativeMethods
         IntPtr adapter,
         WgpuDeviceDescriptorNative* descriptor);
 
-    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_destroy")]
+        [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_create_shared_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_wgpu_device_create_shared_texture(
+        IntPtr device,
+        VelloSharedTextureDesc* desc,
+        out IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_shared_texture_acquire_mutex")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_shared_texture_acquire_mutex(IntPtr handle, ulong key, uint timeoutMilliseconds);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_shared_texture_release_mutex")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_shared_texture_release_mutex(IntPtr handle, ulong key);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_shared_texture_flush")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_shared_texture_flush(IntPtr handle);
+    [LibraryImport(LibraryName, EntryPoint = "vello_shared_texture_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_shared_texture_destroy(IntPtr handle);
+[LibraryImport(LibraryName, EntryPoint = "vello_wgpu_device_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_device_destroy(IntPtr device);
 
@@ -790,3 +811,5 @@ internal static partial class NativeMethods
         float fontSize,
         out VelloFontMetricsNative metrics);
 }
+
+

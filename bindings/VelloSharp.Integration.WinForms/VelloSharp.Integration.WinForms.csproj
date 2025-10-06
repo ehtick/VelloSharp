@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../VelloSharp.WinForms.Core/VelloSharp.WinForms.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
   </ItemGroup>

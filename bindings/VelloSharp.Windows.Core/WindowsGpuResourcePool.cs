@@ -2,15 +2,15 @@ using System;
 using System.Collections.Generic;
 using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
-internal sealed class WinFormsGpuResourcePool
+internal sealed class WindowsGpuResourcePool
 {
     private readonly object _sync = new();
     private readonly Dictionary<ulong, Stack<WgpuBuffer>> _stagingBuffers = new();
     private WgpuPipelineCache? _pipelineCache;
 
-    internal WgpuPipelineCache? EnsurePipelineCache(WgpuDevice device, WgpuFeature deviceFeatures, VelloGraphicsDeviceOptions options, WinFormsGpuDiagnostics diagnostics)
+    internal WgpuPipelineCache? EnsurePipelineCache(WgpuDevice device, WgpuFeature deviceFeatures, VelloGraphicsDeviceOptions options, WindowsGpuDiagnostics diagnostics)
     {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(options);
@@ -38,7 +38,7 @@ internal sealed class WinFormsGpuResourcePool
             diagnostics.RecordPipelineCacheMiss();
 
             var label = string.IsNullOrWhiteSpace(options.DiagnosticsLabel)
-                ? "vello.winforms.pipeline_cache"
+                ? "vello.windows.pipeline_cache"
                 : $"{options.DiagnosticsLabel}.pipeline_cache";
 
             var descriptor = new WgpuPipelineCacheDescriptor(label, ReadOnlyMemory<byte>.Empty, fallback: true);
@@ -47,7 +47,7 @@ internal sealed class WinFormsGpuResourcePool
         }
     }
 
-    internal WinFormsGpuBufferLease RentUploadBuffer(WgpuDevice device, ulong minimumSize, WinFormsGpuDiagnostics diagnostics)
+    internal WindowsGpuBufferLease RentUploadBuffer(WgpuDevice device, ulong minimumSize, WindowsGpuDiagnostics diagnostics)
     {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(diagnostics);
@@ -65,12 +65,12 @@ internal sealed class WinFormsGpuResourcePool
             {
                 var buffer = pool.Pop();
                 diagnostics.RecordStagingBufferRent(bucketSize, hit: true);
-                return new WinFormsGpuBufferLease(this, buffer, bucketSize, diagnostics);
+                return new WindowsGpuBufferLease(this, buffer, bucketSize, diagnostics);
             }
 
             var descriptor = new WgpuBufferDescriptor
             {
-                Label = $"vello.winforms.staging.{bucketSize}",
+                Label = $"vello.windows.staging.{bucketSize}",
                 Usage = WgpuBufferUsage.CopySrc | WgpuBufferUsage.CopyDst | WgpuBufferUsage.MapRead,
                 Size = bucketSize,
                 MappedAtCreation = false,
@@ -79,11 +79,11 @@ internal sealed class WinFormsGpuResourcePool
             var created = device.CreateBuffer(descriptor);
             diagnostics.RecordStagingBufferAllocation(bucketSize);
             diagnostics.RecordStagingBufferRent(bucketSize, hit: false);
-            return new WinFormsGpuBufferLease(this, created, bucketSize, diagnostics);
+            return new WindowsGpuBufferLease(this, created, bucketSize, diagnostics);
         }
     }
 
-    internal void ReturnUploadBuffer(WgpuBuffer buffer, ulong bucketSize, WinFormsGpuDiagnostics diagnostics)
+    internal void ReturnUploadBuffer(WgpuBuffer buffer, ulong bucketSize, WindowsGpuDiagnostics diagnostics)
     {
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentNullException.ThrowIfNull(diagnostics);
@@ -141,3 +141,4 @@ internal sealed class WinFormsGpuResourcePool
         return size;
     }
 }
+

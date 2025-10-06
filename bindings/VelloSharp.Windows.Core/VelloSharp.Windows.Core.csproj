@@ -1,24 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyName>VelloSharp.WinForms.Core</AssemblyName>
-    <RootNamespace>VelloSharp.WinForms</RootNamespace>
+    <AssemblyName>VelloSharp.Windows.Core</AssemblyName>
+    <RootNamespace>VelloSharp.Windows</RootNamespace>
     <IsPackable>true</IsPackable>
-    <PackageId>VelloSharp.WinForms.Core</PackageId>
-    <Title>VelloSharp.WinForms.Core</Title>
-    <Description>Core WinForms graphics abstraction layer powered by VelloSharp.</Description>
+    <PackageId>VelloSharp.Windows.Core</PackageId>
+    <Title>VelloSharp.Windows.Core</Title>
+    <Description>Shared Windows graphics infrastructure for VelloSharp integrations.</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Rendering/VelloSharp.Rendering.csproj" />
     <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Direct3D9" />
   </ItemGroup>
 </Project>

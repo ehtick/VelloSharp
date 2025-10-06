@@ -13,6 +13,7 @@ internal enum VelloStatus
     RenderError = 4,
     MapFailed = 5,
     Unsupported = 6,
+    Timeout = 7,
 }
 
 internal enum AccessKitStatus : int
@@ -1377,3 +1378,4 @@ internal struct VelloGlyphRunOptions
     public float BrushAlpha;
     public VelloStrokeStyle StrokeStyle;
 }
+

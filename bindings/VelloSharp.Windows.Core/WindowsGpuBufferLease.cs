@@ -1,16 +1,16 @@
 using System;
 using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
-internal sealed class WinFormsGpuBufferLease : IDisposable
+internal sealed class WindowsGpuBufferLease : IDisposable
 {
-    private readonly WinFormsGpuResourcePool _pool;
-    private readonly WinFormsGpuDiagnostics _diagnostics;
+    private readonly WindowsGpuResourcePool _pool;
+    private readonly WindowsGpuDiagnostics _diagnostics;
     private WgpuBuffer? _buffer;
     private readonly ulong _bucketSize;
 
-    internal WinFormsGpuBufferLease(WinFormsGpuResourcePool pool, WgpuBuffer buffer, ulong bucketSize, WinFormsGpuDiagnostics diagnostics)
+    internal WindowsGpuBufferLease(WindowsGpuResourcePool pool, WgpuBuffer buffer, ulong bucketSize, WindowsGpuDiagnostics diagnostics)
     {
         _pool = pool ?? throw new ArgumentNullException(nameof(pool));
         _buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
@@ -18,7 +18,7 @@ internal sealed class WinFormsGpuBufferLease : IDisposable
         _diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
     }
 
-    public WgpuBuffer Buffer => _buffer ?? throw new ObjectDisposedException(nameof(WinFormsGpuBufferLease));
+    public WgpuBuffer Buffer => _buffer ?? throw new ObjectDisposedException(nameof(WindowsGpuBufferLease));
 
     public ulong BucketSize => _bucketSize;
 

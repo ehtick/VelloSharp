@@ -46,3 +46,6 @@
 [submodule "extern/winforms"]
 	path = extern/winforms
 	url = https://github.com/dotnet/winforms.git
+[submodule "extern/wpf"]
+	path = extern/wpf
+	url = https://github.com/dotnet/wpf.git

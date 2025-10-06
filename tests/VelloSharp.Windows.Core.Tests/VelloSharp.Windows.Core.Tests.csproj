@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
-    <LangVersion>latest</LangVersion>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../bindings/VelloSharp.WinForms.Core/VelloSharp.WinForms.Core.csproj" />
-    <ProjectReference Include="../../bindings/VelloSharp.Integration.WinForms/VelloSharp.Integration.WinForms.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Integration.Wpf/VelloSharp.Integration.Wpf.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
   </ItemGroup>
 

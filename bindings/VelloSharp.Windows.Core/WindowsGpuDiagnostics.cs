@@ -1,8 +1,10 @@
+using System;
 using System.Threading;
+using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
-public sealed class WinFormsGpuDiagnostics
+public sealed class WindowsGpuDiagnostics
 {
     private long _surfaceConfigurations;
     private long _swapChainPresentations;
@@ -18,6 +20,12 @@ public sealed class WinFormsGpuDiagnostics
     private long _glyphAtlasBytesPeak;
     private long _glyphAtlasAllocations;
     private long _glyphAtlasReleases;
+    private long _adapterMismatches;
+    private long _lastExpectedAdapterLuid;
+    private long _lastActualAdapterLuid;
+    private long _keyedMutexTimeouts;
+    private long _keyedMutexFallbacks;
+    private long _sharedTextureFailures;
     private string? _lastError;
     private int _lastSurfaceWidth;
     private int _lastSurfaceHeight;
@@ -49,6 +57,24 @@ public sealed class WinFormsGpuDiagnostics
     public long GlyphAtlasAllocations => Interlocked.Read(ref _glyphAtlasAllocations);
 
     public long GlyphAtlasReleases => Interlocked.Read(ref _glyphAtlasReleases);
+
+    public long AdapterMismatchCount => Interlocked.Read(ref _adapterMismatches);
+
+    public long KeyedMutexTimeouts => Interlocked.Read(ref _keyedMutexTimeouts);
+
+    public long KeyedMutexFallbacks => Interlocked.Read(ref _keyedMutexFallbacks);
+
+    public long SharedTextureFailures => Interlocked.Read(ref _sharedTextureFailures);
+
+    public (AdapterLuid Expected, AdapterLuid Actual) LastAdapterMismatch
+    {
+        get
+        {
+            var expected = Interlocked.Read(ref _lastExpectedAdapterLuid);
+            var actual = Interlocked.Read(ref _lastActualAdapterLuid);
+            return (UnpackLuid(expected), UnpackLuid(actual));
+        }
+    }
 
     public string? LastError => Interlocked.CompareExchange(ref _lastError, null, null);
 
@@ -115,6 +141,34 @@ public sealed class WinFormsGpuDiagnostics
         Interlocked.Add(ref _glyphAtlasBytesInUse, -(long)bytes);
     }
 
+    internal void RecordAdapterMismatch(AdapterLuid expected, AdapterLuid actual)
+    {
+        Interlocked.Increment(ref _adapterMismatches);
+        Interlocked.Exchange(ref _lastExpectedAdapterLuid, PackLuid(expected));
+        Interlocked.Exchange(ref _lastActualAdapterLuid, PackLuid(actual));
+    }
+
+    internal void RecordKeyedMutexTimeout()
+    {
+        Interlocked.Increment(ref _keyedMutexTimeouts);
+        Interlocked.Exchange(ref _lastError, "Keyed mutex acquisition timed out.");
+    }
+
+    internal void RecordKeyedMutexFallback(string? reason = null)
+    {
+        Interlocked.Increment(ref _keyedMutexFallbacks);
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            Interlocked.Exchange(ref _lastError, reason);
+        }
+    }
+
+    internal void RecordSharedTextureFailure(string message)
+    {
+        Interlocked.Increment(ref _sharedTextureFailures);
+        Interlocked.Exchange(ref _lastError, message);
+    }
+
     private static void UpdatePeak(ref long target, long candidate)
     {
         while (true)
@@ -131,4 +185,10 @@ public sealed class WinFormsGpuDiagnostics
             }
         }
     }
+
+    private static long PackLuid(AdapterLuid luid)
+        => ((long)luid.High << 32) | luid.Low;
+
+    private static AdapterLuid UnpackLuid(long value)
+        => new((int)(value >> 32), (uint)(value & 0xFFFF_FFFF));
 }

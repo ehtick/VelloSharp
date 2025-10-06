@@ -2887,10 +2887,12 @@ public sealed class WgpuTexture : IDisposable
 {
     private IntPtr _handle;
     private bool _disposed;
+    private readonly bool _ownsHandle;
 
-    internal WgpuTexture(IntPtr handle)
+    internal WgpuTexture(IntPtr handle, bool ownsHandle = true)
     {
         _handle = handle;
+        _ownsHandle = ownsHandle;
     }
 
     internal IntPtr Handle
@@ -2969,7 +2971,11 @@ public sealed class WgpuTexture : IDisposable
 
         if (_handle != IntPtr.Zero)
         {
-            NativeMethods.vello_wgpu_texture_destroy(_handle);
+            if (_ownsHandle)
+            {
+                NativeMethods.vello_wgpu_texture_destroy(_handle);
+            }
+
             _handle = IntPtr.Zero;
         }
 
@@ -2979,7 +2985,7 @@ public sealed class WgpuTexture : IDisposable
 
     ~WgpuTexture()
     {
-        if (_handle != IntPtr.Zero)
+        if (_handle != IntPtr.Zero && _ownsHandle)
         {
             NativeMethods.vello_wgpu_texture_destroy(_handle);
         }
@@ -3480,10 +3486,12 @@ public sealed class WgpuTextureView : IDisposable
 {
     private IntPtr _handle;
     private bool _disposed;
+    private readonly bool _ownsHandle;
 
-    internal WgpuTextureView(IntPtr handle)
+    internal WgpuTextureView(IntPtr handle, bool ownsHandle = true)
     {
         _handle = handle;
+        _ownsHandle = ownsHandle;
     }
 
     internal IntPtr Handle
@@ -3504,7 +3512,11 @@ public sealed class WgpuTextureView : IDisposable
 
         if (_handle != IntPtr.Zero)
         {
-            NativeMethods.vello_wgpu_texture_view_destroy(_handle);
+            if (_ownsHandle)
+            {
+                NativeMethods.vello_wgpu_texture_view_destroy(_handle);
+            }
+
             _handle = IntPtr.Zero;
         }
 
@@ -3514,7 +3526,7 @@ public sealed class WgpuTextureView : IDisposable
 
     ~WgpuTextureView()
     {
-        if (_handle != IntPtr.Zero)
+        if (_handle != IntPtr.Zero && _ownsHandle)
         {
             NativeMethods.vello_wgpu_texture_view_destroy(_handle);
         }
@@ -3823,3 +3835,7 @@ public readonly struct GpuProfilerFrame
     public double TotalMilliseconds { get; }
     public IReadOnlyList<GpuProfilerSlice> Slices { get; }
 }
+
+
+
+

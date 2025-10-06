@@ -93,6 +93,7 @@
     <PackageVersion Include="VelloSharp.Native.Winit.osx-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Winit.win-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Winit.win-x64" Version="$(VelloNativePackageVersion)" />
-    <PackageVersion Include="Xunit.StaFact" Version="3.0.13" />
+    <PackageVersion Include="Xunit.StaFact" Version="1.2.69" />
+    <PackageVersion Include="Vortice.Direct3D9" Version="2.3.0" />
   </ItemGroup>
 </Project>

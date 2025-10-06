@@ -7,11 +7,12 @@ using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using VelloSharp;
+using VelloSharp.Windows;
 using VelloSharp.WinForms;
 
 namespace VelloSharp.WinForms.Integration;
 
-public class VelloRenderControl : Control
+public class VelloRenderControl : Control, IWindowsSurfaceSource
 {
     private const int WmSize = 0x0005;
     private const int WmPaint = 0x000F;
@@ -22,8 +23,8 @@ public class VelloRenderControl : Control
 
     private VelloGraphicsDevice? _device;
     private VelloGraphicsDeviceOptions _options = VelloGraphicsDeviceOptions.Default;
-    private WinFormsGpuContextLease? _gpuLease;
-    private WinFormsSwapChainSurface? _swapChain;
+    private WindowsGpuContextLease? _gpuLease;
+    private WindowsSwapChainSurface? _swapChain;
     private RenderLoop? _renderLoop;
     private readonly Stopwatch _frameStopwatch = new();
     private TimeSpan _lastFrameTimestamp;
@@ -407,15 +408,13 @@ public class VelloRenderControl : Control
         }
         catch (DllNotFoundException ex)
         {
-            _gpuLease?.Context.RecordDeviceReset(ex.Message);
-            ResetGpuResources();
+            ResetGpuResources(ex.Message);
             return false;
         }
         catch (Exception ex)
         {
-            _gpuLease?.Context.RecordDeviceReset(ex.Message);
             Debug.WriteLine($"[VelloRenderControl] Failed to initialise GPU swap chain: {ex}");
-            ResetGpuResources();
+            ResetGpuResources(ex.Message);
             return false;
         }
     }
@@ -428,16 +427,9 @@ public class VelloRenderControl : Control
             return;
         }
 
-        _gpuLease ??= WinFormsGpuContext.Acquire(_options);
-
-        if (_swapChain is null)
-        {
-            _swapChain = _gpuLease.Context.CreateSwapChainSurface(Handle, pixelWidth, pixelHeight);
-        }
-        else
-        {
-            _swapChain.Configure(pixelWidth, pixelHeight);
-        }
+        _gpuLease ??= WindowsGpuContext.Acquire(_options);
+        var size = new WindowsSurfaceSize(pixelWidth, pixelHeight);
+        _swapChain = WindowsSurfaceFactory.EnsureSwapChainSurface(_gpuLease, this, _swapChain, size);
     }
 
     private bool RenderToSwapChain(VelloGraphicsSession session, Size logicalSize)
@@ -475,15 +467,13 @@ public class VelloRenderControl : Control
         }
         catch (DllNotFoundException ex)
         {
-            _gpuLease.Context.RecordDeviceReset(ex.Message);
-            ResetGpuResources();
+            ResetGpuResources(ex.Message);
             return false;
         }
         catch (Exception ex)
         {
-            _gpuLease.Context.RecordDeviceReset(ex.Message);
             Debug.WriteLine($"[VelloRenderControl] GPU render failed, falling back to CPU path: {ex}");
-            ResetGpuResources();
+            ResetGpuResources(ex.Message);
             return false;
         }
     }
@@ -599,18 +589,28 @@ public class VelloRenderControl : Control
         }
     }
 
-    private void ResetGpuResources()
+    private void ResetGpuResources(string? deviceLossReason = null)
     {
-        if (_gpuLease is { } lease)
+        if (_swapChain is not null)
         {
-            lease.Context.RecordDeviceReset();
+            WindowsSurfaceFactory.ReleaseSwapChain(this, _swapChain);
+            _swapChain = null;
         }
 
-        _swapChain?.Dispose();
-        _swapChain = null;
+        if (_gpuLease is { } lease)
+        {
+            if (deviceLossReason is not null)
+            {
+                WindowsSurfaceFactory.HandleDeviceLoss(lease.Context, this, deviceLossReason);
+            }
+            else
+            {
+                lease.Context.RecordDeviceReset();
+            }
 
-        _gpuLease?.Dispose();
-        _gpuLease = null;
+            lease.Dispose();
+            _gpuLease = null;
+        }
 
         ResetTiming();
     }
@@ -716,6 +716,36 @@ public class VelloRenderControl : Control
         }
     }
 
+    WindowsSurfaceSize IWindowsSurfaceSource.GetSurfaceSize()
+    {
+        var (width, height) = GetPixelSize(ClientSize);
+        return new WindowsSurfaceSize(width, height);
+    }
+
+    nint IWindowsSurfaceSource.WindowHandle => Handle;
+
+    string? IWindowsSurfaceSource.DiagnosticsLabel => _options.DiagnosticsLabel;
+
+    void IWindowsSurfaceSource.OnSwapChainCreated(WindowsSwapChainSurface surface)
+    {
+        _swapChain = surface;
+    }
+
+    void IWindowsSurfaceSource.OnSwapChainResized(WindowsSwapChainSurface surface, WindowsSurfaceSize size)
+    {
+        _swapChain = surface;
+    }
+
+    void IWindowsSurfaceSource.OnSwapChainDestroyed()
+    {
+        _swapChain = null;
+    }
+
+    void IWindowsSurfaceSource.OnDeviceLost(string? reason)
+    {
+        // no-op; WinForms path will attempt to recreate resources on demand.
+    }
+
     private sealed class RenderLoop : IDisposable
     {
         private readonly VelloRenderControl _owner;
@@ -787,14 +817,6 @@ public class VelloRenderControl : Control
         }
     }
 }
-
-
-
-
-
-
-
-
 
 
 

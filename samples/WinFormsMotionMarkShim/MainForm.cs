@@ -230,7 +230,7 @@ internal sealed class MainForm : Form
 
     private void OnPaintSurface(object? sender, VelloPaintSurfaceEventArgs e)
     {
-        var graphics = e.Graphics;
+        var graphics = e.GetGraphics();
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         graphics.Clear(Color.Black);
 

@@ -1,28 +1,28 @@
 using System;
 using VelloSharp;
-using VelloSharp.WinForms;
+using VelloSharp.Windows;
 using Xunit;
 
 namespace VelloSharp.WinForms.Tests;
 
-public class WinFormsGpuContextTests
+public class WindowsGpuContextTests
 {
     [Fact]
     public void AcquireReleaseCreatesFreshContext()
     {
-        WinFormsGpuContextLease lease1 = null;
-        WinFormsGpuContextLease lease2 = null;
+        WindowsGpuContextLease lease1 = null;
+        WindowsGpuContextLease lease2 = null;
 
         try
         {
             try
             {
-                lease1 = WinFormsGpuContext.Acquire();
+                lease1 = WindowsGpuContext.Acquire();
                 var context1 = lease1.Context;
                 lease1.Dispose();
                 lease1 = null;
 
-                lease2 = WinFormsGpuContext.Acquire();
+                lease2 = WindowsGpuContext.Acquire();
                 var context2 = lease2.Context;
 
                 Assert.NotSame(context1, context2);
@@ -46,19 +46,19 @@ public class WinFormsGpuContextTests
         var srgbOptions = new VelloGraphicsDeviceOptions
         {
             Format = RenderFormat.Bgra8,
-            ColorSpace = WinFormsColorSpace.Srgb,
+            ColorSpace = WindowsColorSpace.Srgb,
         };
 
         Assert.Equal(WgpuTextureFormat.Bgra8UnormSrgb, srgbOptions.GetSwapChainFormat());
 
-        var linearOptions = srgbOptions with { ColorSpace = WinFormsColorSpace.Linear };
+        var linearOptions = srgbOptions with { ColorSpace = WindowsColorSpace.Linear };
         Assert.Equal(WgpuTextureFormat.Bgra8Unorm, linearOptions.GetSwapChainFormat());
     }
 
     [Fact]
     public void DiagnosticsTrackResourcePooling()
     {
-        var diagnostics = new WinFormsGpuDiagnostics();
+        var diagnostics = new WindowsGpuDiagnostics();
         diagnostics.RecordPipelineCacheMiss();
         diagnostics.RecordPipelineCacheHit();
         diagnostics.RecordStagingBufferAllocation(512);

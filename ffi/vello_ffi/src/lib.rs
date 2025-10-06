@@ -28,11 +28,6 @@ use harfrust::{
 };
 use once_cell::sync::Lazy;
 use parley::FontContext;
-use vello::kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2};
-use vello::peniko::{
-    self, BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
-    Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
-};
 use png::{BitDepth, ColorType, Compression, Decoder, Encoder};
 use raw_window_handle::{
     AppKitDisplayHandle, AppKitWindowHandle, RawDisplayHandle, RawWindowHandle,
@@ -50,6 +45,11 @@ use swash::{
     zeno::Verb,
 };
 use velato::{self, Composition as VelatoComposition, Renderer as VelatoRenderer};
+use vello::kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2};
+use vello::peniko::{
+    self, BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
+    Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
+};
 use vello::{
     AaConfig, AaSupport, Glyph, RenderParams, Renderer, RendererOptions, Scene,
     util::{RenderContext, RenderSurface},
@@ -62,6 +62,10 @@ use wgpu::{
     TextureAspect, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
     TextureViewDimension, util::TextureBlitter,
 };
+
+#[cfg(target_os = "windows")]
+#[cfg(target_os = "windows")]
+mod windows_shared_texture;
 
 #[cfg(feature = "trace-paths")]
 macro_rules! trace_path {
@@ -85,6 +89,7 @@ pub enum VelloStatus {
     RenderError = 4,
     MapFailed = 5,
     Unsupported = 6,
+    Timeout = 7,
 }
 
 thread_local! {
@@ -2509,6 +2514,26 @@ pub struct VelloWgpuAdapterHandle {
 pub struct VelloWgpuDeviceHandle {
     device: Device,
     queue: Queue,
+}
+#[repr(C)]
+pub struct VelloSharedTextureDesc {
+    pub width: u32,
+    pub height: u32,
+    pub label: *const c_char,
+    pub use_keyed_mutex: bool,
+}
+
+#[repr(C)]
+pub struct VelloSharedTextureHandle {
+    pub texture: *mut c_void,
+    pub shared_handle: *mut c_void,
+    pub keyed_mutex: *mut c_void,
+    pub wgpu_texture: *mut VelloWgpuTextureHandle,
+    pub adapter_luid_low: u32,
+    pub adapter_luid_high: i32,
+    pub width: u32,
+    pub height: u32,
+    pub reserved: *mut c_void,
 }
 
 #[repr(C)]
@@ -7886,3 +7911,34 @@ pub unsafe extern "C" fn vello_scene_draw_glyph_run(
 
     VelloStatus::Success
 }
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub unsafe extern "C" fn vello_wgpu_device_create_shared_texture(
+    device: *mut VelloWgpuDeviceHandle,
+    desc: *const VelloSharedTextureDesc,
+    out_handle: *mut *mut VelloSharedTextureHandle,
+) -> VelloStatus {
+    if out_handle.is_null() {
+        set_last_error("Null out_handle passed to vello_wgpu_device_create_shared_texture");
+        return VelloStatus::NullPointer;
+    }
+
+    *out_handle = std::ptr::null_mut();
+    set_last_error("Shared texture interop is only supported on Windows builds");
+    VelloStatus::Unsupported
+}
+
+#[cfg(not(target_os = "windows"))]
+#[no_mangle]
+pub unsafe extern "C" fn vello_shared_texture_destroy(handle: *mut VelloSharedTextureHandle) {
+    if !handle.is_null() {
+        drop(Box::from_raw(handle));
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[cfg(target_os = "windows")]
+pub use windows_shared_texture::{
+    vello_shared_texture_destroy, vello_wgpu_device_create_shared_texture,
+};

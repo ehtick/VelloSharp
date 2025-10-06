@@ -65,8 +65,8 @@ public class VelloRenderControlTests
         control.PaintSurface += (_, args) =>
         {
             callCount++;
-            var g1 = args.Graphics;
-            var g2 = args.Graphics;
+            var g1 = args.GetGraphics();
+            var g2 = args.GetGraphics();
             graphicsCached = ReferenceEquals(g1, g2);
             g1.Clear(Color.CornflowerBlue);
             timestamp = args.Timestamp;
@@ -115,7 +115,7 @@ public class VelloRenderControlTests
         control.PaintSurface += (_, args) =>
         {
             animationFlag = args.IsAnimationFrame;
-            args.Graphics.Clear(Color.DarkRed);
+            args.GetGraphics().Clear(Color.DarkRed);
             control.RenderMode = VelloRenderMode.OnDemand;
         };
 

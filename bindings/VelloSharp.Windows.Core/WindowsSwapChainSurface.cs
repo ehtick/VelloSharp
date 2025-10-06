@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
-public sealed class WinFormsSwapChainSurface : IDisposable
+public sealed class WindowsSwapChainSurface : IDisposable
 {
-    private readonly WinFormsGpuContext _context;
+    private readonly WindowsGpuContext _context;
     private readonly WgpuSurface _surface;
     private readonly WgpuTextureFormat _format;
     private readonly PresentMode _presentMode;
@@ -13,7 +13,7 @@ public sealed class WinFormsSwapChainSurface : IDisposable
     private uint _height;
     private bool _disposed;
 
-    internal WinFormsSwapChainSurface(WinFormsGpuContext context, WgpuSurface surface, WgpuTextureFormat format, PresentMode presentMode, uint width, uint height)
+    internal WindowsSwapChainSurface(WindowsGpuContext context, WgpuSurface surface, WgpuTextureFormat format, PresentMode presentMode, uint width, uint height)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _surface = surface ?? throw new ArgumentNullException(nameof(surface));
@@ -70,7 +70,7 @@ public sealed class WinFormsSwapChainSurface : IDisposable
     {
         if (_disposed)
         {
-            throw new ObjectDisposedException(nameof(WinFormsSwapChainSurface));
+            throw new ObjectDisposedException(nameof(WindowsSwapChainSurface));
         }
     }
 }

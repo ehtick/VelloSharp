@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$ArtifactsDir,
     [string[]]$Targets
@@ -30,6 +30,7 @@ if (-not $Targets -or $Targets.Count -eq 0) {
         'samples/AvaloniaVelloWin32Demo',
         'samples/AvaloniaVelloNativeDemo',
         'samples/VelloSharp.WithWinit',
+        'samples/VelloSharp.WpfSample',
         'samples/WinFormsMotionMarkShim'
     )
 }

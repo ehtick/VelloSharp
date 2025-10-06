@@ -1,7 +1,7 @@
 using System;
 using VelloSharp;
 
-namespace VelloSharp.WinForms;
+namespace VelloSharp.Windows;
 
 public sealed record class VelloGraphicsDeviceOptions
 {
@@ -13,7 +13,7 @@ public sealed record class VelloGraphicsDeviceOptions
 
     public RenderFormat Format { get; init; } = RenderFormat.Bgra8;
 
-    public WinFormsColorSpace ColorSpace { get; init; } = WinFormsColorSpace.Srgb;
+    public WindowsColorSpace ColorSpace { get; init; } = WindowsColorSpace.Srgb;
 
     public PresentMode PresentMode { get; init; } = PresentMode.AutoVsync;
 
@@ -38,9 +38,9 @@ public sealed record class VelloGraphicsDeviceOptions
     {
         return Format switch
         {
-            RenderFormat.Rgba8 when ColorSpace == WinFormsColorSpace.Srgb => WgpuTextureFormat.Rgba8UnormSrgb,
+            RenderFormat.Rgba8 when ColorSpace == WindowsColorSpace.Srgb => WgpuTextureFormat.Rgba8UnormSrgb,
             RenderFormat.Rgba8 => WgpuTextureFormat.Rgba8Unorm,
-            RenderFormat.Bgra8 when ColorSpace == WinFormsColorSpace.Srgb => WgpuTextureFormat.Bgra8UnormSrgb,
+            RenderFormat.Bgra8 when ColorSpace == WindowsColorSpace.Srgb => WgpuTextureFormat.Bgra8UnormSrgb,
             RenderFormat.Bgra8 => WgpuTextureFormat.Bgra8Unorm,
             _ => WgpuTextureFormat.Bgra8UnormSrgb,
         };

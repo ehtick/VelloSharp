@@ -392,12 +392,14 @@ Use `Image.FromPixels` and `Scene.DrawImage` to render textures directly. Glyph 
 
 ## Windows Forms integration
 
-`VelloSharp.WinForms.Core` and `VelloSharp.Integration.WinForms` bring the Vello renderer to Windows Forms.
+`VelloSharp.Windows.Core`, `VelloSharp.WinForms.Core`, and `VelloSharp.Integration.WinForms` bring the Vello renderer to Windows Forms.
 
+- `VelloSharp.Windows.Core` centralises HWND-compatible `wgpu` device management, swapchain configuration, staging buffers, and diagnostics for Windows targets.
 - `VelloSharp.WinForms.Core` mirrors familiar `System.Drawing` drawing types (`Graphics`, `Pen`, `Brush`, `Region`, `Bitmap`, `Font`, `StringFormat`) on top of Vello scenes recorded through `VelloGraphics` and `VelloGraphicsSession`.
-- `VelloSharp.Integration.WinForms` ships the `VelloRenderControl`, shared `WinFormsGpuContext` swapchain management, DPI-aware sizing, diagnostics, and automatic CPU fallbacks when the device is lost.
+- `VelloSharp.Integration.WinForms` ships the `VelloRenderControl`, shared `WindowsGpuContext` swapchain management, DPI-aware sizing, diagnostics, and automatic CPU fallbacks when the device is lost.
 
 ```csharp
+using VelloSharp.Windows;
 using VelloSharp.WinForms;
 using VelloSharp.WinForms.Integration;
 
@@ -408,7 +410,7 @@ var renderControl = new VelloRenderControl
     DeviceOptions = new VelloGraphicsDeviceOptions
     {
         Format = RenderFormat.Bgra8,
-        ColorSpace = WinFormsColorSpace.Srgb,
+        ColorSpace = WindowsColorSpace.Srgb,
     },
 };
 
@@ -423,7 +425,7 @@ renderControl.PaintSurface += (sender, e) =>
 Controls.Add(renderControl);
 ```
 
-Set `PreferredBackend` to `VelloRenderBackend.Cpu` for software rendering, and reuse `DeviceOptions` across controls to tune swapchain format, color space, MSAA, and diagnostics. A single `WinFormsGpuContext` instance is shared and reference-counted so multiple controls can share the same `wgpu` device safely.
+Set `PreferredBackend` to `VelloRenderBackend.Cpu` for software rendering, and reuse `DeviceOptions` across controls to tune swapchain format, color space, MSAA, and diagnostics. A single `WindowsGpuContext` instance is shared and reference-counted so multiple controls can share the same `wgpu` device safely.
 
 `samples/WinFormsMotionMarkShim` demonstrates continuous animation, backend switching, and DPI-aware resizing on top of these APIs. `dotnet add package VelloSharp.Integration.WinForms` pulls in both WinForms assemblies (target `net8.0-windows` with `<UseWindowsForms>true</UseWindowsForms>`) and transitively restores the required native runtimes.
 
@@ -684,3 +686,7 @@ license text (`LICENSE`) so the published artifacts match the source tree.
 To honour upstream obligations, the packages also embed the MIT/Apache-2.0 notices from the Linebender components the
 FFI layer depends on (`vello`, `kurbo`, `peniko`, `wgpu`, etc.). Vendored submodules retain their original licenses—
 refer to each directory for the exact terms.
+
+
+
+

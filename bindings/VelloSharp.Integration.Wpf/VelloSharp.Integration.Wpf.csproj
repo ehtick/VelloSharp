@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>VelloSharp.Integration.Wpf</AssemblyName>
+    <RootNamespace>VelloSharp.Wpf.Integration</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Integration.Wpf</PackageId>
+    <Title>VelloSharp.Integration.Wpf</Title>
+    <Description>WPF hosting primitives for the VelloSharp renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
+    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+  </ItemGroup>
+</Project>

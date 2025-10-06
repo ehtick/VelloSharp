@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,6 +19,7 @@ declare -a TARGETS=(
   "samples/AvaloniaVelloWin32Demo"
   "samples/AvaloniaVelloNativeDemo"
   "samples/VelloSharp.WithWinit"
+  "samples/VelloSharp.WpfSample"
   "samples/WinFormsMotionMarkShim"
 )
 if [[ "$#" -gt 0 ]]; then

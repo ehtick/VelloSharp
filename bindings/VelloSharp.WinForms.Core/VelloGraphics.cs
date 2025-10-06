@@ -7,6 +7,7 @@ using System.Numerics;
 using System.Text;
 using VelloSharp;
 using VelloSharp.Text;
+using VelloSharp.Windows;
 
 namespace VelloSharp.WinForms;
 
