@@ -242,11 +242,11 @@ struct CompositionState {
     panes: Vec<CompositionPane>,
 }
 
-struct ResolvedPane<'a> {
+struct ResolvedPane {
     id: String,
     height_ratio: f64,
     share_x_with_primary: bool,
-    series: Vec<(u32, &'a SeriesState)>,
+    series_ids: Vec<u32>,
 }
 
 /// Rendering engine maintaining per-series state and double-buffered scenes.
@@ -261,6 +261,8 @@ pub struct ChartEngine {
     next_buffer: usize,
     frame_counter: u64,
     last_buffer: usize,
+    scene_invalidated: bool,
+    last_dimensions: (u32, u32),
 }
 
 impl ChartEngine {
@@ -276,6 +278,8 @@ impl ChartEngine {
             next_buffer: 0,
             frame_counter: 0,
             last_buffer: 0,
+            scene_invalidated: true,
+            last_dimensions: (0, 0),
         }
     }
 
@@ -288,15 +292,23 @@ impl ChartEngine {
         I: IntoIterator<Item = ChartSample>,
     {
         let visible_duration = self.options.visible_duration_seconds;
+        let mut mutated = false;
         for sample in iter {
             let state = self.ensure_series_state(sample.series_id);
-            state.add(
+            let outcome = state.add(
                 SeriesPoint {
                     timestamp_seconds: sample.timestamp_seconds,
                     value: sample.value,
                 },
                 visible_duration,
             );
+            if !matches!(outcome, AddOutcome::Unchanged) {
+                mutated = true;
+            }
+        }
+
+        if mutated {
+            self.scene_invalidated = true;
         }
 
         tracing::debug!(series = self.series.len(), "ingested streaming samples");
@@ -325,23 +337,48 @@ impl ChartEngine {
 
     fn apply_series_override(&mut self, spec: SeriesOverrideSpec) {
         let state = self.ensure_series_state(spec.series_id);
+        let mut changed = false;
 
         match spec.label {
-            OverrideValue::Set(label) => state.style.label = Some(label),
-            OverrideValue::Clear => state.style.label = None,
+            OverrideValue::Set(label) => {
+                state.style.label = Some(label);
+                changed = true;
+            }
+            OverrideValue::Clear => {
+                state.style.label = None;
+                changed = true;
+            }
             OverrideValue::Unchanged => {}
         }
 
         match spec.stroke_width {
-            OverrideValue::Set(width) => state.style.stroke_width = Some(width),
-            OverrideValue::Clear => state.style.stroke_width = None,
+            OverrideValue::Set(width) => {
+                state.style.stroke_width = Some(width);
+                changed = true;
+            }
+            OverrideValue::Clear => {
+                state.style.stroke_width = None;
+                changed = true;
+            }
             OverrideValue::Unchanged => {}
         }
 
         match spec.color {
-            OverrideValue::Set(color) => state.style.color = Some(color),
-            OverrideValue::Clear => state.style.color = None,
+            OverrideValue::Set(color) => {
+                state.style.color = Some(color);
+                changed = true;
+            }
+            OverrideValue::Clear => {
+                state.style.color = None;
+                changed = true;
+            }
             OverrideValue::Unchanged => {}
+        }
+
+        if changed {
+            state.needs_rebuild = true;
+            state.mark_full_dirty();
+            self.scene_invalidated = true;
         }
     }
 
@@ -360,6 +397,8 @@ impl ChartEngine {
                 state.set_definition(SeriesDefinition::default());
             }
         }
+
+        self.scene_invalidated = true;
     }
 
     fn configure_composition(&mut self, panes: Option<Vec<CompositionPane>>) {
@@ -367,6 +406,7 @@ impl ChartEngine {
             .filter(|p| !p.is_empty())
             .map(|panes| CompositionState { panes })
             .unwrap_or_default();
+        self.scene_invalidated = true;
     }
 
     fn set_palette(&mut self, palette: &[Color]) {
@@ -375,9 +415,24 @@ impl ChartEngine {
         } else {
             palette.to_vec()
         };
+
+        for state in self.series.values_mut() {
+            state.needs_rebuild = true;
+            state.mark_full_dirty();
+        }
+
+        self.scene_invalidated = true;
     }
 
     fn render_internal(&mut self, width: u32, height: u32) -> &FrameBuffer {
+        if self.last_dimensions != (width, height) {
+            self.scene_invalidated = true;
+        }
+
+        if !self.scene_invalidated {
+            return &self.frame_buffers[self.last_buffer];
+        }
+
         let width = width.max(1);
         let height = height.max(1);
         let buffer_index = self.next_buffer;
@@ -463,7 +518,7 @@ impl ChartEngine {
                         id: "primary".to_string(),
                         height_ratio: 1.0,
                         share_x_with_primary: true,
-                        series: Vec::new(),
+                        series_ids: Vec::new(),
                     });
                 }
 
@@ -484,7 +539,7 @@ impl ChartEngine {
                 for (index, resolved) in resolved_panes.into_iter().enumerate() {
                     let share_axis = resolved.share_x_with_primary;
                     let pane_id = resolved.id;
-                    let mut pane_series = resolved.series;
+                    let pane_series = resolved.series_ids;
 
                     let normalized_ratio = if effective_ratio_sum > 0.0 {
                         resolved.height_ratio.max(0.0) / effective_ratio_sum
@@ -516,16 +571,18 @@ impl ChartEngine {
                     let mut pane_max = f64::NEG_INFINITY;
                     let mut pane_has_series = false;
 
-                    for (_, state) in &pane_series {
-                        let span = state.span();
-                        if span.is_empty() {
-                            continue;
-                        }
+                    for series_id in &pane_series {
+                        if let Some(state) = self.series.get(series_id) {
+                            let span = state.span();
+                            if span.is_empty() {
+                                continue;
+                            }
 
-                        pane_has_series = true;
-                        let (series_min, series_max) = value_bounds(span);
-                        pane_min = pane_min.min(series_min);
-                        pane_max = pane_max.max(series_max);
+                            pane_has_series = true;
+                            let (series_min, series_max) = value_bounds(span);
+                            pane_min = pane_min.min(series_min);
+                            pane_max = pane_max.max(series_max);
+                        }
                     }
 
                     if !pane_has_series {
@@ -563,112 +620,128 @@ impl ChartEngine {
                         time_axis_pane_index = Some(pane_snapshots.len());
                     }
 
-                    for (series_id, state) in &pane_series {
+                    let mut pane_dirty: Option<DirtyBounds> = None;
+
+                    for series_id in &pane_series {
                         if band_lower_ids.contains(series_id) {
                             continue;
                         }
-                        let span = state.span();
-                        if span.is_empty() {
-                            continue;
-                        }
 
-                        let series_color = state
-                            .style
-                            .color
-                            .unwrap_or_else(|| color_for_series(&self.options, state.palette_slot));
-
-                        let definition = &state.definition;
-                        let base_stroke = definition
-                            .stroke_width
-                            .unwrap_or(self.options.stroke_width)
-                            .max(MIN_STROKE_WIDTH);
-                        let stroke_width = state
-                            .style
-                            .stroke_width
-                            .unwrap_or(base_stroke)
-                            .max(MIN_STROKE_WIDTH);
-                        let default_fill = match definition.kind {
-                            SeriesKind::Band => 0.25,
-                            SeriesKind::Heatmap => 0.85,
-                            _ => 0.0,
+                        let (series_kind, band_lower_id) = match self.series.get(series_id) {
+                            Some(state) => (state.definition.kind, state.definition.band_lower_id),
+                            None => continue,
                         };
-                        let fill_opacity = definition.fill_opacity.unwrap_or(default_fill);
-                        let marker_size = definition.marker_size.unwrap_or(4.0).max(0.5);
-                        let fallback_bar_width = if span.len() > 1 {
-                            window / span.len() as f64
+
+                        let lower_series_span: Option<Vec<SeriesPoint>> = if series_kind == SeriesKind::Band {
+                            band_lower_id.and_then(|lower_id| {
+                                self.series
+                                    .get(&lower_id)
+                                    .map(|lower_state| lower_state.span().to_vec())
+                            })
                         } else {
-                            window * 0.05
+                            None
                         };
-                        let bar_width_seconds = definition
-                            .bar_width_seconds
-                            .unwrap_or(fallback_bar_width)
-                            .max(window * 0.001);
-                        let baseline_value = definition.baseline.unwrap_or(pane_min);
 
-                        let (paths, label_anchor) = match definition.kind {
-                            SeriesKind::Line => render_line_series(
-                                &mut buffer.scene,
-                                span,
-                                series_color,
-                                &pane_plot_area,
-                                range_start,
-                                window,
-                                pane_min,
-                                pane_value_range,
-                                stroke_width,
-                                fill_opacity,
-                                baseline_value,
-                            ),
-                            SeriesKind::Area => render_area_series(
-                                &mut buffer.scene,
-                                span,
-                                series_color,
-                                &pane_plot_area,
-                                range_start,
-                                window,
-                                pane_min,
-                                pane_value_range,
-                                stroke_width,
-                                fill_opacity.max(0.05),
-                                baseline_value,
-                            ),
-                            SeriesKind::Scatter => render_scatter_series(
-                                &mut buffer.scene,
-                                span,
-                                series_color,
-                                &pane_plot_area,
-                                range_start,
-                                window,
-                                pane_min,
-                                pane_value_range,
-                                marker_size,
-                            ),
-                            SeriesKind::Bar => render_bar_series(
-                                &mut buffer.scene,
-                                span,
-                                series_color,
-                                &pane_plot_area,
-                                range_start,
-                                window,
-                                pane_min,
-                                pane_value_range,
-                                bar_width_seconds,
-                                baseline_value,
-                            ),
-                            SeriesKind::Band => {
-                                if let Some(lower_id) = definition.band_lower_id {
-                                    if let Some((_, lower_state)) =
-                                        pane_series.iter().find(|(id, _)| *id == lower_id)
-                                    {
-                                        let lower_span = lower_state.span();
-                                        if !lower_span.is_empty() {
+                        if let Some(state) = self.series.get_mut(series_id) {
+                            let span = state.span();
+                            if span.is_empty() {
+                                continue;
+                            }
+
+                            let series_color = state
+                                .style
+                                .color
+                                .unwrap_or_else(|| color_for_series(&self.options, state.palette_slot));
+
+                            let definition = state.definition.clone();
+                            let base_stroke = definition
+                                .stroke_width
+                                .unwrap_or(self.options.stroke_width)
+                                .max(MIN_STROKE_WIDTH);
+                            let stroke_width = state
+                                .style
+                                .stroke_width
+                                .unwrap_or(base_stroke)
+                                .max(MIN_STROKE_WIDTH);
+                            let default_fill = match definition.kind {
+                                SeriesKind::Band => 0.25,
+                                SeriesKind::Heatmap => 0.85,
+                                _ => 0.0,
+                            };
+                            let fill_opacity = definition.fill_opacity.unwrap_or(default_fill);
+                            let marker_size = definition.marker_size.unwrap_or(4.0).max(0.5);
+                            let fallback_bar_width = if span.len() > 1 {
+                                window / span.len() as f64
+                            } else {
+                                window * 0.05
+                            };
+                            let bar_width_seconds = definition
+                                .bar_width_seconds
+                                .unwrap_or(fallback_bar_width)
+                                .max(window * 0.001);
+                            let baseline_value = definition.baseline.unwrap_or(pane_min);
+
+                            if state.needs_rebuild {
+                                state.cached_scene.reset();
+                                let (paths, label_anchor) = match definition.kind {
+                                    SeriesKind::Line => render_line_series(
+                                        &mut state.cached_scene,
+                                        span,
+                                        series_color,
+                                        &pane_plot_area,
+                                        range_start,
+                                        window,
+                                        pane_min,
+                                        pane_value_range,
+                                        stroke_width,
+                                        fill_opacity,
+                                        baseline_value,
+                                    ),
+                                    SeriesKind::Area => render_area_series(
+                                        &mut state.cached_scene,
+                                        span,
+                                        series_color,
+                                        &pane_plot_area,
+                                        range_start,
+                                        window,
+                                        pane_min,
+                                        pane_value_range,
+                                        stroke_width,
+                                        fill_opacity.max(0.05),
+                                        baseline_value,
+                                    ),
+                                    SeriesKind::Scatter => render_scatter_series(
+                                        &mut state.cached_scene,
+                                        span,
+                                        series_color,
+                                        &pane_plot_area,
+                                        range_start,
+                                        window,
+                                        pane_min,
+                                        pane_value_range,
+                                        marker_size,
+                                    ),
+                                    SeriesKind::Bar => render_bar_series(
+                                        &mut state.cached_scene,
+                                        span,
+                                        series_color,
+                                        &pane_plot_area,
+                                        range_start,
+                                        window,
+                                        pane_min,
+                                        pane_value_range,
+                                        bar_width_seconds,
+                                        baseline_value,
+                                    ),
+                                    SeriesKind::Band => {
+                                        if let Some(lower_span) = lower_series_span.as_deref() {
                                             let band_fill = if fill_opacity > 0.0 {
                                                 fill_opacity
                                             } else {
                                                 0.25
                                             };
                                             render_band_series(
-                                                &mut buffer.scene,
+                                                &mut state.cached_scene,
                                                 span,
                                                 lower_span,
                                                 series_color,
@@ -683,44 +756,52 @@ impl ChartEngine {
                                         } else {
                                             (0, None)
                                         }
-                                    } else {
-                                        (0, None)
                                     }
+                                    SeriesKind::Heatmap => {
+                                        let bucket_count = definition.heatmap_bucket_count.unwrap_or(1);
+                                        render_heatmap_series(
+                                            &mut state.cached_scene,
+                                            span,
+                                            series_color,
+                                            &pane_plot_area,
+                                            range_start,
+                                            window,
+                                            definition.heatmap_bucket_index.unwrap_or(0),
+                                            bucket_count,
+                                            pane_min,
+                                            pane_value_range,
+                                        )
+                                    }
+                                };
+                                state.cached_paths = paths;
+                                state.label_anchor = label_anchor;
+                                state.needs_rebuild = false;
+                            }
+
+                            encoded_paths += state.cached_paths;
+                            buffer.scene.append(&state.cached_scene, None);
+
+                            if let (Some(label), Some(anchor)) =
+                                (state.style.label.as_deref(), state.label_anchor)
+                            {
+                                encoded_paths += draw_series_label(
+                                    &mut buffer.scene,
+                                    label,
+                                    series_color,
+                                    anchor,
+                                    chart_width,
+                                    chart_height,
+                                    &pane_plot_area,
+                                );
+                            }
+
+                            if let Some(bounds) = state.take_dirty() {
+                                if let Some(existing) = pane_dirty.as_mut() {
+                                    existing.merge(&bounds);
                                 } else {
-                                    (0, None)
+                                    pane_dirty = Some(bounds);
                                 }
                             }
-                            SeriesKind::Heatmap => {
-                                let bucket_count = definition.heatmap_bucket_count.unwrap_or(1);
-                                render_heatmap_series(
-                                    &mut buffer.scene,
-                                    span,
-                                    series_color,
-                                    &pane_plot_area,
-                                    range_start,
-                                    window,
-                                    definition.heatmap_bucket_index.unwrap_or(0),
-                                    bucket_count,
-                                    pane_min,
-                                    pane_value_range,
-                                )
-                            }
-                        };
-
-                        encoded_paths += paths;
-
-                        if let (Some(label), Some(anchor)) =
-                            (state.style.label.as_deref(), label_anchor)
-                        {
-                            encoded_paths += draw_series_label(
-                                &mut buffer.scene,
-                                label,
-                                series_color,
-                                anchor,
-                                chart_width,
-                                chart_height,
-                                &pane_plot_area,
-                            );
                         }
                     }
 
@@ -731,7 +812,8 @@ impl ChartEngine {
                         value_min: pane_min,
                         value_max: pane_max,
                         axis_layout,
-                        series: pane_series,
+                        series_ids: pane_series,
+                        dirty: pane_dirty,
                     });
                 }
             } else {
@@ -747,7 +829,8 @@ impl ChartEngine {
                     value_min: 0.0,
                     value_max: 1.0,
                     axis_layout: None,
-                    series: Vec::new(),
+                    series_ids: Vec::new(),
+                    dirty: None,
                 });
             }
 
@@ -768,10 +851,9 @@ impl ChartEngine {
                 &plot_area,
                 time_axis_layout,
                 &pane_snapshots,
+                &self.series,
                 &self.options,
             );
-            self.last_buffer = buffer_index;
-
             let cpu_time_ms = cpu_start.elapsed().as_secs_f32() * 1_000.0;
             let stats = FrameStats {
                 cpu_time_ms,
@@ -794,6 +876,9 @@ impl ChartEngine {
             buffer.stats = stats;
             buffer.version = self.frame_counter;
             self.frame_counter = self.frame_counter.wrapping_add(1);
+            self.last_dimensions = (width, height);
+            self.scene_invalidated = false;
+            self.last_buffer = buffer_index;
         }
 
         &self.frame_buffers[buffer_index]
@@ -821,18 +906,15 @@ impl ChartEngine {
 }
 
 impl CompositionState {
-    fn resolve<'a>(&'a self, series: &'a HashMap<u32, SeriesState>) -> Vec<ResolvedPane<'a>> {
+    fn resolve(&self, series: &HashMap<u32, SeriesState>) -> Vec<ResolvedPane> {
         if self.panes.is_empty() {
-            let mut ordered: Vec<_> = series.iter().collect();
-            ordered.sort_by(|a, b| a.0.cmp(b.0));
+            let mut ordered: Vec<_> = series.keys().copied().collect();
+            ordered.sort_unstable();
             return vec![ResolvedPane {
                 id: "primary".to_string(),
                 height_ratio: 1.0,
                 share_x_with_primary: true,
-                series: ordered
-                    .into_iter()
-                    .map(|(id, state)| (**id, state))
-                    .collect(),
+                series_ids: ordered,
             }];
         }
 
@@ -847,9 +929,9 @@ impl CompositionState {
             };
             let mut pane_series = Vec::with_capacity(pane.series_ids.len());
             for series_id in &pane.series_ids {
-                if let Some(state) = series.get(series_id) {
+                if series.contains_key(series_id) {
                     assigned.insert(*series_id);
-                    pane_series.push((*series_id, state));
+                    pane_series.push(*series_id);
                 }
             }
 
@@ -857,32 +939,28 @@ impl CompositionState {
                 id: pane.id.clone(),
                 height_ratio: ratio,
                 share_x_with_primary: pane.share_x_with_primary,
-                series: pane_series,
+                series_ids: pane_series,
             });
         }
 
         let mut unassigned: Vec<_> = series
-            .iter()
-            .filter(|(id, _)| !assigned.contains(*id))
+            .keys()
+            .filter(|id| !assigned.contains(id))
+            .copied()
             .collect();
-        unassigned.sort_by(|a, b| a.0.cmp(b.0));
+        unassigned.sort_unstable();
 
         if resolved.is_empty() {
             return vec![ResolvedPane {
                 id: "primary".to_string(),
                 height_ratio: 1.0,
                 share_x_with_primary: true,
-                series: unassigned
-                    .into_iter()
-                    .map(|(id, state)| (**id, state))
-                    .collect(),
+                series_ids: unassigned,
             }];
         }
 
         if let Some(first) = resolved.first_mut() {
-            for (id, state) in unassigned {
-                first.series.push((*id, state));
-            }
+            first.series_ids.extend(unassigned);
         }
 
         resolved
@@ -951,14 +1029,15 @@ impl FrameBuffer {
     }
 }
 
-struct PaneSnapshot<'a> {
+struct PaneSnapshot {
     id: String,
     share_x_with_primary: bool,
     plot_area: PlotArea,
     value_min: f64,
     value_max: f64,
     axis_layout: Option<AxisLayout>,
-    series: Vec<(u32, &'a SeriesState)>,
+    series_ids: Vec<u32>,
+    dirty: Option<DirtyBounds>,
 }
 
 struct PaneMetadataRecord {
@@ -967,6 +1046,10 @@ struct PaneMetadataRecord {
     plot_area: PlotArea,
     value_min: f64,
     value_max: f64,
+    dirty_time_min: f64,
+    dirty_time_max: f64,
+    dirty_value_min: f64,
+    dirty_value_max: f64,
     value_ticks: Vec<VelloChartAxisTickMetadata>,
     value_labels: Vec<CString>,
 }
@@ -996,14 +1079,51 @@ struct SeriesStyle {
     color: Option<Color>,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+struct DirtyBounds {
+    time_min: f64,
+    time_max: f64,
+    value_min: f64,
+    value_max: f64,
+}
+
+impl DirtyBounds {
+    fn new(timestamp: f64, value: f64) -> Self {
+        Self {
+            time_min: timestamp,
+            time_max: timestamp,
+            value_min: value,
+            value_max: value,
+        }
+    }
+
+    fn expand(&mut self, timestamp: f64, value: f64) {
+        self.time_min = self.time_min.min(timestamp);
+        self.time_max = self.time_max.max(timestamp);
+        self.value_min = self.value_min.min(value);
+        self.value_max = self.value_max.max(value);
+    }
+
+    fn merge(&mut self, other: &DirtyBounds) {
+        self.time_min = self.time_min.min(other.time_min);
+        self.time_max = self.time_max.max(other.time_max);
+        self.value_min = self.value_min.min(other.value_min);
+        self.value_max = self.value_max.max(other.value_max);
+    }
+}
+
 #[derive(Debug)]
 struct SeriesState {
     points: Vec<SeriesPoint>,
-    start_index: usize,
     latest_timestamp: f64,
     style: SeriesStyle,
     definition: SeriesDefinition,
     palette_slot: usize,
+    cached_scene: Scene,
+    cached_paths: u32,
+    label_anchor: Option<Point>,
+    needs_rebuild: bool,
+    dirty: Option<DirtyBounds>,
 }
 
 #[derive(Default)]
@@ -1035,7 +1155,7 @@ impl FrameMetadata {
         self.pane_structs.clear();
     }
 
-    fn update<'a>(
+    fn update(
         &mut self,
         range_start: f64,
         range_end: f64,
@@ -1043,7 +1163,8 @@ impl FrameMetadata {
         value_max: f64,
         plot_area: &PlotArea,
         time_axis_layout: Option<&AxisLayout>,
-        panes: &[PaneSnapshot<'a>],
+        panes: &[PaneSnapshot],
+        series_map: &HashMap<u32, SeriesState>,
         options: &EngineOptions,
     ) {
         self.range_start = range_start;
@@ -1072,9 +1193,11 @@ impl FrameMetadata {
 
         let mut band_lower_ids: HashSet<u32> = HashSet::new();
         for pane in panes {
-            for (_, state) in &pane.series {
-                if let Some(lower_id) = state.definition.band_lower_id {
-                    band_lower_ids.insert(lower_id);
+            for series_id in &pane.series_ids {
+                if let Some(state) = series_map.get(series_id) {
+                    if let Some(lower_id) = state.definition.band_lower_id {
+                        band_lower_ids.insert(lower_id);
+                    }
                 }
             }
         }
@@ -1116,6 +1239,10 @@ impl FrameMetadata {
                 plot_area: pane.plot_area,
                 value_min: pane.value_min,
                 value_max: pane.value_max,
+                dirty_time_min: f64::NAN,
+                dirty_time_max: f64::NAN,
+                dirty_value_min: f64::NAN,
+                dirty_value_max: f64::NAN,
                 value_ticks: Vec::new(),
                 value_labels: Vec::new(),
             };
@@ -1149,6 +1276,10 @@ impl FrameMetadata {
                 plot_height: record.plot_area.height,
                 value_min: record.value_min,
                 value_max: record.value_max,
+                dirty_time_min: record.dirty_time_min,
+                dirty_time_max: record.dirty_time_max,
+                dirty_value_min: record.dirty_value_min,
+                dirty_value_max: record.dirty_value_max,
                 value_ticks: record.value_ticks.as_ptr(),
                 value_tick_count: record.value_ticks.len(),
             });
@@ -1156,7 +1287,7 @@ impl FrameMetadata {
 
         let mut series_seen = HashSet::new();
         for (pane_index, pane) in panes.iter().enumerate() {
-            for (series_id, state) in &pane.series {
+            for series_id in &pane.series_ids {
                 if !series_seen.insert(*series_id) {
                     continue;
                 }
@@ -1164,6 +1295,11 @@ impl FrameMetadata {
                 if band_lower_ids.contains(series_id) {
                     continue;
                 }
+
+                let state = match series_map.get(series_id) {
+                    Some(state) => state,
+                    None => continue,
+                };
 
                 let color = state
                     .style
@@ -1301,6 +1437,10 @@ struct VelloChartPaneMetadata {
     plot_height: f64,
     value_min: f64,
     value_max: f64,
+    dirty_time_min: f64,
+    dirty_time_max: f64,
+    dirty_value_min: f64,
+    dirty_value_max: f64,
     value_ticks: *const VelloChartAxisTickMetadata,
     value_tick_count: usize,
 }
@@ -1516,46 +1656,101 @@ impl SeriesDefinitionSpec {
     }
 }
 
+enum AddOutcome {
+    Appended,
+    Inserted,
+    Updated,
+    Unchanged,
+}
+
 impl SeriesState {
     fn new(palette_slot: usize, definition: SeriesDefinition) -> Self {
         Self {
             points: Vec::with_capacity(1_024),
-            start_index: 0,
             latest_timestamp: 0.0,
             style: SeriesStyle::default(),
             definition,
             palette_slot,
+            cached_scene: Scene::new(),
+            cached_paths: 0,
+            label_anchor: None,
+            needs_rebuild: true,
+            dirty: None,
         }
     }
 
     fn set_definition(&mut self, definition: SeriesDefinition) {
         self.definition = definition;
+        self.needs_rebuild = true;
+        self.mark_full_dirty();
     }
 
-    fn add(&mut self, sample: SeriesPoint, window_seconds: f64) {
-        self.points.push(sample);
-        self.latest_timestamp = sample.timestamp_seconds;
+    fn add(&mut self, sample: SeriesPoint, window_seconds: f64) -> AddOutcome {
+        let outcome = match self
+            .points
+            .binary_search_by(|point| point.timestamp_seconds.total_cmp(&sample.timestamp_seconds))
+        {
+            Ok(index) => {
+                if (self.points[index].value - sample.value).abs() < f64::EPSILON {
+                    return AddOutcome::Unchanged;
+                }
 
-        if window_seconds > 0.0 {
-            let cutoff = self.latest_timestamp - window_seconds;
-            while self.start_index < self.points.len()
-                && self.points[self.start_index].timestamp_seconds < cutoff
-            {
-                self.start_index += 1;
+                self.points[index] = sample;
+                AddOutcome::Updated
             }
+            Err(index) => {
+                let outcome = if index == self.points.len() {
+                    AddOutcome::Appended
+                } else {
+                    AddOutcome::Inserted
+                };
+                self.points.insert(index, sample);
+                outcome
+            }
+        };
 
-            if self.start_index > 512 && self.start_index > self.points.len() / 2 {
-                self.points.drain(..self.start_index);
-                self.start_index = 0;
+        self.latest_timestamp = self.latest_timestamp.max(sample.timestamp_seconds);
+        self.extend_dirty(sample.timestamp_seconds, sample.value);
+        self.needs_rebuild = true;
+
+        if window_seconds > 0.0 && !self.points.is_empty() {
+            let cutoff = self.latest_timestamp - window_seconds;
+            let retain_start = self
+                .points
+                .partition_point(|point| point.timestamp_seconds < cutoff);
+            if retain_start > 0 {
+                self.points.drain(..retain_start);
             }
         }
+
+        outcome
     }
 
     fn span(&self) -> &[SeriesPoint] {
-        if self.start_index >= self.points.len() {
-            &[]
+        &self.points
+    }
+
+    fn take_dirty(&mut self) -> Option<DirtyBounds> {
+        self.dirty.take()
+    }
+
+    fn mark_full_dirty(&mut self) {
+        if let (Some(first), Some(last)) = (self.points.first(), self.points.last()) {
+            let mut bounds = DirtyBounds::new(first.timestamp_seconds, first.value);
+            bounds.expand(last.timestamp_seconds, last.value);
+            for point in &self.points {
+                bounds.expand(point.timestamp_seconds, point.value);
+            }
+            self.dirty = Some(bounds);
         } else {
-            &self.points[self.start_index..]
+            self.dirty = None;
+        }
+    }
+
+    fn extend_dirty(&mut self, timestamp: f64, value: f64) {
+        match &mut self.dirty {
+            Some(bounds) => bounds.expand(timestamp, value),
+            None => self.dirty = Some(DirtyBounds::new(timestamp, value)),
         }
     }
 }
@@ -3279,3 +3474,14 @@ pub extern "C" fn vello_chart_engine_set_trace_callback(
 
     VelloChartEngineStatus::Success
 }
+
+
+
+
+
+
+
+
+
+
+

@@ -191,6 +191,28 @@ public sealed class CompositionAnnotationLayer
     public AnnotationZOrder ZOrder { get; }
 
     public List<ChartAnnotation> Annotations { get; } = new();
+
+    public ISet<string> TargetPaneIds { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public CompositionAnnotationLayer ForPanes(params string[] paneIds)
+    {
+        if (paneIds is null)
+        {
+            throw new ArgumentNullException(nameof(paneIds));
+        }
+
+        foreach (var paneId in paneIds)
+        {
+            if (string.IsNullOrWhiteSpace(paneId))
+            {
+                continue;
+            }
+
+            TargetPaneIds.Add(paneId);
+        }
+
+        return this;
+    }
 }
 
 /// <summary>

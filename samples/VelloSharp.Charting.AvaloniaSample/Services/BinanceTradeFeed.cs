@@ -98,6 +98,7 @@ public sealed class BinanceTradeFeed : IAsyncDisposable
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
         if (!root.TryGetProperty("p", out var priceToken) ||
+            !root.TryGetProperty("q", out var quantityToken) ||
             !root.TryGetProperty("E", out var eventTimeToken) ||
             !root.TryGetProperty("s", out var symbolToken))
         {
@@ -109,11 +110,16 @@ public sealed class BinanceTradeFeed : IAsyncDisposable
             return;
         }
 
+        if (!double.TryParse(quantityToken.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var quantity))
+        {
+            quantity = 0d;
+        }
+
         var eventTime = eventTimeToken.GetInt64();
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var latency = Math.Max(0, now - eventTime);
 
-        var update = new TradeUpdate(symbolToken.GetString() ?? "BTCUSDT", price, eventTime, latency);
+        var update = new TradeUpdate(symbolToken.GetString() ?? "BTCUSDT", price, quantity, eventTime, latency);
         TradeReceived?.Invoke(update);
     }
 

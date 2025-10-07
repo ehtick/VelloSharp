@@ -53,6 +53,16 @@
                       VerticalAlignment="Center">
             <TextBlock Foreground="#8FA2C3"
                        FontSize="12"
+                       Text="Scenario" />
+            <ComboBox x:Name="ScenarioSelector"
+                      Width="180"
+                      HorizontalContentAlignment="Stretch" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6"
+                      VerticalAlignment="Center">
+            <TextBlock Foreground="#8FA2C3"
+                       FontSize="12"
                        Text="Theme" />
             <ComboBox x:Name="ThemeSelector"
                       Width="160"

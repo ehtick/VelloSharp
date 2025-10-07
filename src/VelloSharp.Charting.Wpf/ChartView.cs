@@ -368,7 +368,9 @@ public sealed class ChartView : ContentControl, IDisposable
             return;
         }
 
-        if (!_engine.Options.ShowAxes && (_legend is null) && (_annotations is null || _annotations.Count == 0))
+        var hasCompositionAnnotations = _composition?.AnnotationLayers.Count > 0;
+        var hasInlineAnnotations = _annotations is { Count: > 0 };
+        if (!_engine.Options.ShowAxes && _legend is null && !hasInlineAnnotations && !hasCompositionAnnotations)
         {
             return;
         }
@@ -391,6 +393,7 @@ public sealed class ChartView : ContentControl, IDisposable
             devicePixelRatio,
             _theme,
             _legend,
+            _composition,
             _annotations,
             _engine.Options.ShowAxes);
     }

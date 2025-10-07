@@ -33,6 +33,19 @@ public sealed class ChartOverlayRenderer : IDisposable
         bool ShareXAxisWithPrimary,
         IReadOnlyList<ChartFrameMetadata.AxisTickMetadata> ValueTicks);
 
+    private sealed class PaneAnnotations
+    {
+        public PaneAnnotations(string paneId)
+        {
+            PaneId = paneId;
+        }
+
+        public string PaneId { get; }
+        public List<ChartAnnotation> BelowSeries { get; } = new();
+        public List<ChartAnnotation> Overlay { get; } = new();
+        public List<ChartAnnotation> AboveSeries { get; } = new();
+    }
+
     public void Render(
         VScene scene,
         ChartFrameMetadata metadata,
@@ -41,6 +54,7 @@ public sealed class ChartOverlayRenderer : IDisposable
         double devicePixelRatio,
         ChartTheme theme,
         LegendDefinition? legendDefinition = null,
+        ChartComposition? composition = null,
         IReadOnlyList<ChartAnnotation>? annotations = null,
         bool renderAxes = true)
     {
@@ -55,6 +69,7 @@ public sealed class ChartOverlayRenderer : IDisposable
 
         var plotArea = new LayoutRect(metadata.PlotLeft, metadata.PlotTop, metadata.PlotWidth, metadata.PlotHeight);
         var paneViews = BuildPaneViews(metadata);
+        var paneAnnotations = BuildPaneAnnotations(paneViews, composition, annotations);
 
         var leftThickness = Math.Max(metadata.PlotLeft, 0d);
         var bottomThickness = Math.Max(height - (metadata.PlotTop + metadata.PlotHeight), 0d);
@@ -150,11 +165,65 @@ public sealed class ChartOverlayRenderer : IDisposable
                 new[] { valueAxis.Build(leftLayout, _tickRegistry) });
 
             var paneResult = _axisRenderer.Render(paneSurface);
+            paneAnnotations.TryGetValue(pane.Index, out var annotationsForPane);
 
             if (renderAxes)
             {
                 _gridlineRenderer.Render(scene, paneResult, pane.Bounds, theme);
+            }
+
+            if (annotationsForPane?.BelowSeries.Count > 0)
+            {
+                _annotationRenderer.RenderPane(
+                    scene,
+                    metadata,
+                    plotArea,
+                    pane.Id,
+                    pane.Bounds,
+                    pane.ValueMin,
+                    pane.ValueMax,
+                    pane.ValueTicks,
+                    theme,
+                    annotationsForPane.BelowSeries);
+            }
+
+            if (renderAxes)
+            {
                 DrawAxes(scene, paneResult);
+            }
+
+            if (annotationsForPane?.Overlay.Count > 0)
+            {
+                _annotationRenderer.RenderPane(
+                    scene,
+                    metadata,
+                    plotArea,
+                    pane.Id,
+                    pane.Bounds,
+                    pane.ValueMin,
+                    pane.ValueMax,
+                    pane.ValueTicks,
+                    theme,
+                    annotationsForPane.Overlay);
+            }
+
+            if (annotationsForPane?.AboveSeries.Count > 0)
+            {
+                _annotationRenderer.RenderPane(
+                    scene,
+                    metadata,
+                    plotArea,
+                    pane.Id,
+                    pane.Bounds,
+                    pane.ValueMin,
+                    pane.ValueMax,
+                    pane.ValueTicks,
+                    theme,
+                    annotationsForPane.AboveSeries);
+            }
+
+            if (renderAxes)
+            {
                 DrawAxisLabels(scene, paneResult);
             }
 
@@ -181,11 +250,6 @@ public sealed class ChartOverlayRenderer : IDisposable
                 Array.Empty<AxisRenderModel>());
             var legendVisual = _legendRenderer.Render(legendDefinition, legendSurface, theme);
             DrawLegend(scene, legendVisual, theme);
-        }
-
-        if (annotations is { Count: > 0 })
-        {
-            _annotationRenderer.Render(scene, annotations, plotArea, metadata, theme);
         }
     }
 
@@ -221,6 +285,114 @@ public sealed class ChartOverlayRenderer : IDisposable
         }
 
         return panes;
+    }
+
+    private static Dictionary<int, PaneAnnotations> BuildPaneAnnotations(
+        IReadOnlyList<PaneView> panes,
+        ChartComposition? composition,
+        IReadOnlyList<ChartAnnotation>? annotations)
+    {
+        var lookup = new Dictionary<int, PaneAnnotations>(panes.Count);
+        var idLookup = new Dictionary<string, PaneView>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pane in panes)
+        {
+            lookup[pane.Index] = new PaneAnnotations(pane.Id);
+            idLookup[pane.Id] = pane;
+        }
+
+        if (composition is not null)
+        {
+            foreach (var layer in composition.AnnotationLayers)
+            {
+                if (layer.Annotations.Count == 0)
+                {
+                    continue;
+                }
+
+                IEnumerable<string> targets = layer.TargetPaneIds.Count > 0
+                    ? layer.TargetPaneIds
+                    : idLookup.Keys;
+
+                foreach (var annotation in layer.Annotations)
+                {
+                    if (annotation is null)
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(annotation.TargetPaneId))
+                    {
+                        if (idLookup.TryGetValue(annotation.TargetPaneId, out var pane))
+                        {
+                            AddAnnotation(lookup, pane.Index, layer.ZOrder, annotation);
+                        }
+                        continue;
+                    }
+
+                    foreach (var target in targets)
+                    {
+                        if (idLookup.TryGetValue(target, out var pane))
+                        {
+                            AddAnnotation(lookup, pane.Index, layer.ZOrder, annotation);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (annotations is { Count: > 0 })
+        {
+            foreach (var annotation in annotations)
+            {
+                if (annotation is null)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(annotation.TargetPaneId))
+                {
+                    if (idLookup.TryGetValue(annotation.TargetPaneId, out var pane))
+                    {
+                        AddAnnotation(lookup, pane.Index, AnnotationZOrder.Overlay, annotation);
+                    }
+                    continue;
+                }
+
+                if (panes.Count > 0)
+                {
+                    AddAnnotation(lookup, panes[0].Index, AnnotationZOrder.Overlay, annotation);
+                }
+            }
+        }
+
+        return lookup;
+    }
+
+    private static void AddAnnotation(
+        IDictionary<int, PaneAnnotations> lookup,
+        int paneIndex,
+        AnnotationZOrder zOrder,
+        ChartAnnotation annotation)
+    {
+        if (!lookup.TryGetValue(paneIndex, out var bucket))
+        {
+            bucket = new PaneAnnotations($"pane-{paneIndex}");
+            lookup[paneIndex] = bucket;
+        }
+
+        switch (zOrder)
+        {
+            case AnnotationZOrder.BelowSeries:
+                bucket.BelowSeries.Add(annotation);
+                break;
+            case AnnotationZOrder.AboveSeries:
+                bucket.AboveSeries.Add(annotation);
+                break;
+            default:
+                bucket.Overlay.Add(annotation);
+                break;
+        }
     }
 
     private void DrawAxes(VScene scene, AxisRenderResult result)
@@ -388,5 +560,6 @@ public sealed class ChartOverlayRenderer : IDisposable
     public void Dispose()
     {
         _textRenderer.Dispose();
+        _annotationRenderer.Dispose();
     }
 }

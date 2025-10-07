@@ -194,6 +194,10 @@ internal struct VelloChartPaneMetadata
     public double PlotHeight;
     public double ValueMin;
     public double ValueMax;
+    public double DirtyTimeMin;
+    public double DirtyTimeMax;
+    public double DirtyValueMin;
+    public double DirtyValueMax;
     public nint ValueTicks;
     public nuint ValueTickCount;
 }
@@ -254,3 +258,4 @@ internal struct VelloChartSeriesDefinition
     public uint HeatmapBucketIndex;
     public uint HeatmapBucketCount;
 }
+

@@ -144,6 +144,11 @@ public sealed class ChartFrameMetadata
                     }
                 }
 
+                var dirtyTimeMin = double.IsNaN(pane.DirtyTimeMin) ? (double?)null : pane.DirtyTimeMin;
+                var dirtyTimeMax = double.IsNaN(pane.DirtyTimeMax) ? (double?)null : pane.DirtyTimeMax;
+                var dirtyValueMin = double.IsNaN(pane.DirtyValueMin) ? (double?)null : pane.DirtyValueMin;
+                var dirtyValueMax = double.IsNaN(pane.DirtyValueMax) ? (double?)null : pane.DirtyValueMax;
+
                 panes[i] = new PaneMetadata(
                     id,
                     share,
@@ -153,6 +158,10 @@ public sealed class ChartFrameMetadata
                     pane.PlotHeight,
                     pane.ValueMin,
                     pane.ValueMax,
+                    dirtyTimeMin,
+                    dirtyTimeMax,
+                    dirtyValueMin,
+                    dirtyValueMax,
                     paneTicks);
             }
         }
@@ -227,5 +236,11 @@ public sealed class ChartFrameMetadata
         double PlotHeight,
         double ValueMin,
         double ValueMax,
+        double? DirtyTimeMin,
+        double? DirtyTimeMax,
+        double? DirtyValueMin,
+        double? DirtyValueMax,
         IReadOnlyList<AxisTickMetadata> ValueTicks);
 }
+
+

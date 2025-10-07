@@ -25,6 +25,24 @@ internal sealed class TextRenderer : IDisposable
         _font = new FontResource(LoadEmbeddedFont());
     }
 
+    public TextMetrics Measure(string text, float fontSize)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return TextMetrics.Empty;
+        }
+
+        EnsureNotDisposed();
+
+        var shaping = Shape(text, fontSize);
+        if (shaping.Glyphs.Length == 0)
+        {
+            return TextMetrics.Empty;
+        }
+
+        return new TextMetrics(shaping.Advance, shaping.LineHeight, shaping.Ascender);
+    }
+
     public void Draw(
         VScene scene,
         AxisLabelVisual label,
@@ -164,6 +182,12 @@ internal sealed class TextRenderer : IDisposable
     }
 
     private readonly record struct GlyphRunShape(Glyph[] Glyphs, float Advance, float Ascender, float Descender, float LineHeight);
+    public readonly record struct TextMetrics(double Width, double LineHeight, double Ascender)
+    {
+        public static TextMetrics Empty { get; } = new(0d, 0d, 0d);
+
+        public bool IsEmpty => Width <= 0d || LineHeight <= 0d;
+    }
 
     private sealed class FontResource : IDisposable
     {

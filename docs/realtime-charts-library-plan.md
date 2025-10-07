@@ -119,7 +119,7 @@
  - [x] Layout manager module with constraint-based sizing and overlap avoidance.
  - [x] Axes rendering components with tick generation (fixed, dynamic, algorithmic) and smart labeling.
  - [x] Styling API (fluent builder or declarative JSON/YAML schema) with serialization/deserialization support.
-- [ ] Gallery of reference layouts demonstrating dark/light themes and adaptive resizing.
+- [x] Gallery of reference layouts demonstrating dark/light themes and adaptive resizing.
 
 ### Phase 2 Progress Snapshot (Week 1)
 - Introduced `src/VelloSharp.Charting` library hosting reusable scale abstractions (linear, logarithmic, time, ordinal) with normalized projection/unprojection APIs.
@@ -134,21 +134,28 @@
 
 ## Phase 3 – Core Chart Primitives and Composition (5–7 weeks)
 **Objectives**
-- [ ] Implement reusable primitives: line series, area series, bar/column, scatter/markers **(ready)**; polyline bands, heatmaps, and custom geometry overlays **(pending)**.
-- [ ] Design chart composition API enabling multiple panes, synchronized axes, stacked/overlaid series, and annotation layers.
-- [ ] Support real-time data handling: incremental point addition, rolling windows, backfill updates, and efficient redraw strategies (dirty rects, instancing).
+- [x] Implement reusable primitives: line, area, bar/column, scatter, polyline band, and heatmap series wired through the FFI (`ffi/chart-engine/src/lib.rs`, `src/VelloSharp.ChartEngine/ChartSeriesDefinition.cs`).
+- [ ] Deliver custom geometry/overlay primitives (e.g., VWAP clouds, anchored patterns) once requirements land.
+- [x] Design the chart composition API for multiple panes, synchronized axes, stacked/overlaid series, and annotation layers (`src/VelloSharp.ChartEngine/ChartComposition.cs`).
+- [x] Enable incremental ingestion and rolling windows for real-time feeds via `ChartEngine.PumpData` and `SeriesState` pruning (`src/VelloSharp.ChartEngine/ChartEngine.cs`, `ffi/chart-engine/src/lib.rs`).
+- [x] Add backfill reconciliation plus dirty-rect/instancing optimisations to minimise redraw cost (`ffi/chart-engine/src/lib.rs`, regression tests under `tests/VelloSharp.Charting.Tests/Engine`).
 - [ ] Integrate data-driven styling (value-based coloring, gradient fills, threshold markers).
 
 **Deliverables**
 - [x] `ChartSeries` hierarchy with GPU-friendly geometry buffers and attribute bindings.
-- [ ] Annotation framework (lines, zones, callouts, Fibonacci tools) with snapping and persistence.
-- [ ] Sample scenarios: live price tick chart, volume histogram, rolling heatmap.
-- [ ] Automated rendering tests capturing pixel diffs across configurations.
+- [x] Annotation framework (lines, zones, callouts, Fibonacci tools) with snapping and persistence.
+- [x] Live price tick scenario wired to Binance WebSocket feed (`samples/VelloSharp.Charting.AvaloniaSample/MainWindow.axaml.cs`); add remaining volume/heatmap showcases.
+- [x] Volume histogram scenario highlighting stacked panes with dynamic volume overlays and value-driven styling.
+- [x] Rolling heatmap scenario showcasing density visualisation with adaptive bucket annotations.
+- [x] Automated rendering tests capturing pixel diffs across configurations.
 ### Phase 3 Progress Snapshot (Week 1)
-- Introduced `ChartSeriesDefinition` hierarchy with line, area, bar, and scatter primitives wired through the native engine.
+- Introduced `ChartSeriesDefinition` hierarchy with line, area, bar, scatter, band, and heatmap primitives wired through the native engine.
 - Expanded the Avalonia sample to stream latency, spike markers, and scaled delta bars alongside price data.
 - Refreshed legend rendering so markers adapt to series kind visibility (line/area/scatter/bar).
-- Outlined the composition blueprint API under `src/VelloSharp.Charting/Composition` to describe multi-pane layouts and annotation layers.
+- Added the composition builder under `src/VelloSharp.ChartEngine/ChartComposition.cs` to model multi-pane layouts and annotation layers.
+- Implemented pane-aware annotations covering horizontal/vertical guides, shaded zones, and callouts with snap modes.
+- Added a headless rendering regression harness (`tests/VelloSharp.Charting.Tests/Rendering/ChartRenderingRegressionTests.cs`) that produces pixel baselines for overlays and multi-pane compositions.
+- Added engine-level coverage for multi-pane metadata, band series, heatmap buckets, and backfill/dirty-region behaviour (`tests/VelloSharp.Charting.Tests/Engine/ChartEngineSeriesTests.cs`).
 
 
 ## Phase 4 – Advanced Financial and Enterprise Chart Types (6–8 weeks)

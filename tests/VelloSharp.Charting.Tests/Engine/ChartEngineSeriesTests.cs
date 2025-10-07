@@ -153,8 +153,80 @@ public sealed class ChartEngineSeriesTests : IDisposable
         Assert.True(heatmap.FillOpacity > 0);
     }
 
-    public void Dispose()
+    [Fact]
+    public void BackfillUpdatesDirtyBounds()
+    {
+        using var engine = new ChartEngine.ChartEngine(new ChartEngineOptions
+        {
+            VisibleDuration = TimeSpan.FromSeconds(30),
+            ShowAxes = false,
+        });
+
+        engine.ConfigureSeries(new ChartSeriesDefinition[]
+        {
+            new LineSeriesDefinition(0),
+        });
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        engine.PumpData(new[]
+        {
+            new ChartSamplePoint(0, now - 2, 100.0),
+            new ChartSamplePoint(0, now - 1, 101.0),
+        });
+
+        using var scene = new VelloSharp.Scene();
+        engine.Render(scene, 640, 360);
+
+        engine.PumpData(new[]
+        {
+            new ChartSamplePoint(0, now - 1, 107.5),
+        });
+
+        engine.Render(scene, 640, 360);
+        var metadata = engine.GetFrameMetadata();
+        var pane = Assert.Single(metadata.Panes);
+
+        Assert.NotNull(pane.DirtyTimeMin);
+        Assert.NotNull(pane.DirtyTimeMax);
+        Assert.Equal(now - 1, pane.DirtyTimeMin!.Value, 3);
+        Assert.Equal(now - 1, pane.DirtyTimeMax!.Value, 3);
+        Assert.NotNull(pane.DirtyValueMax);
+        Assert.True(pane.DirtyValueMax!.Value >= 107.5);
+    }
+
+    [Fact]
+    public void RenderWithoutChangesReusesPreviousFrame()
+    {
+        using var engine = new ChartEngine.ChartEngine(new ChartEngineOptions
+        {
+            VisibleDuration = TimeSpan.FromSeconds(10),
+            ShowAxes = false,
+        });
+
+        engine.ConfigureSeries(new ChartSeriesDefinition[]
+        {
+            new LineSeriesDefinition(0),
+        });
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        engine.PumpData(new[]
+        {
+            new ChartSamplePoint(0, now - 1, 50.0),
+            new ChartSamplePoint(0, now, 52.0),
+        });
+
+        using var scene = new VelloSharp.Scene();
+        engine.Render(scene, 800, 400);
+        var firstStats = engine.LastFrameStats;
+
+        engine.Render(scene, 800, 400);
+        var secondStats = engine.LastFrameStats;
+
+        Assert.Equal(firstStats.Timestamp, secondStats.Timestamp);
+        Assert.Equal(firstStats.EncodedPaths, secondStats.EncodedPaths);
+    }    public void Dispose()
     {
         _engine.Dispose();
     }
 }
+

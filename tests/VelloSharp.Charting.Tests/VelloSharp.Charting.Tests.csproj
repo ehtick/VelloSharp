@@ -17,4 +17,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Baselines\**\*.ppm" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

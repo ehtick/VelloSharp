@@ -10,7 +10,8 @@
 
 - **ChartComposition** – container describing panes and annotation layers.
 - **ChartPaneDefinition** – identifies a pane, the series it renders, whether it shares the primary X axis, and its height ratio.
-- **CompositionAnnotationLayer** – annotation collection rendered either below, over, or above the active panes.
+- **CompositionAnnotationLayer** – annotation collection rendered either below, over, or above the active panes. Layers can scope annotations to specific panes via `ForPanes`.
+- **ChartAnnotation** – discriminated hierarchy for horizontal/vertical guides, shaded zones, time ranges, and callouts with optional snapping helpers.
 - **ChartCompositionBuilder** – fluent builder used to create compositions without manual list wiring.
 
 ## Example
@@ -37,7 +38,21 @@ var composition = ChartComposition.Create(builder =>
         zOrder: AnnotationZOrder.AboveSeries,
         layer =>
         {
-            layer.Annotations.Add(new ChartAnnotation(AnnotationKind.VerticalLine, value: 172_800, "Event window"));
+            layer.ForPanes("price");
+
+            layer.Annotations.Add(new TimeRangeAnnotation(sessionStartSeconds, sessionEndSeconds, "Morning session")
+            {
+                Fill = new ChartColor(0x3A, 0xB8, 0xFF, 0x24),
+                Border = new ChartColor(0x3A, 0xB8, 0xFF, 0x80),
+            });
+
+            layer.Annotations.Add(new CalloutAnnotation(sessionEndSeconds, breakoutPrice, "Breakout")
+            {
+                TargetPaneId = "price",
+                PointerLength = 10.0,
+                Color = new ChartColor(0xF4, 0x5E, 0x8C, 0xFF),
+                Background = new ChartColor(0x10, 0x15, 0x1F, 0xE6),
+            });
         });
 });
 ```
