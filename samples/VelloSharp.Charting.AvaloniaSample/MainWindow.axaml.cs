@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -109,7 +110,8 @@ public sealed partial class MainWindow : Window
         ThemeSelector.SelectedItem = _activeTheme;
         _suppressThemeSelection = false;
 
-        ScenarioSelector.DisplayMemberPath = nameof(ScenarioDescriptor.Name);
+        ScenarioSelector.ItemTemplate = new FuncDataTemplate<ScenarioDescriptor>(
+            (descriptor, _) => new TextBlock { Text = descriptor.Name });
         ScenarioSelector.ItemsSource = _scenarioOptions;
         ScenarioSelector.SelectionChanged += OnScenarioSelectionChanged;
         _suppressScenarioSelection = true;
