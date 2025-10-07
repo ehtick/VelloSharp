@@ -287,24 +287,16 @@ public sealed class ChartView : ContentControl
             return;
         }
 
-        void Request()
+        Dispatcher.UIThread.Post(() =>
         {
-            if (_renderLoopActive && !_isDetached)
+            if (!_renderLoopActive || _isDetached)
             {
-                _surfaceView.RequestRender();
+                return;
             }
-        }
 
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            Request();
-        }
-        else
-        {
-            Dispatcher.UIThread.Post(Request);
-        }
-
-        _engine.ScheduleRender(OnScheduledTick);
+            _surfaceView.RequestRender();
+            _engine.ScheduleRender(OnScheduledTick);
+        }, DispatcherPriority.Render);
     }
 
     private void OnRenderFrame(VelloRenderFrameContext context)
