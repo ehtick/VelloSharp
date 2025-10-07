@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using VelloSharp.ChartEngine;
-using VelloSharp.Charting.Annotations;
+using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Layout;
 using VelloSharp.Charting.Styling;
 using VScene = VelloSharp.Scene;

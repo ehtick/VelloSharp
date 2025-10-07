@@ -55,6 +55,12 @@ internal static partial class NativeMethods
         VelloChartSeriesDefinition* definitions,
         nuint count);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_chart_engine_set_composition")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloChartEngineStatus vello_chart_engine_set_composition(
+        nint handle,
+        VelloChartComposition* composition);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_chart_engine_apply_series_overrides")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial VelloChartEngineStatus vello_chart_engine_apply_series_overrides(
@@ -159,6 +165,40 @@ internal struct VelloChartAxisTickMetadata
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloChartCompositionPane
+{
+    public nint Id;
+    public nuint IdLength;
+    public double HeightRatio;
+    public uint ShareXAxisWithPrimary;
+    public nint SeriesIds;
+    public nuint SeriesIdCount;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloChartComposition
+{
+    public nint Panes;
+    public nuint PaneCount;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloChartPaneMetadata
+{
+    public nint Id;
+    public nuint IdLength;
+    public uint ShareXAxisWithPrimary;
+    public double PlotLeft;
+    public double PlotTop;
+    public double PlotWidth;
+    public double PlotHeight;
+    public double ValueMin;
+    public double ValueMax;
+    public nint ValueTicks;
+    public nuint ValueTickCount;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloChartSeriesMetadataNative
 {
     public uint SeriesId;
@@ -171,6 +211,10 @@ internal struct VelloChartSeriesMetadataNative
     public double MarkerSize;
     public double BarWidthSeconds;
     public double Baseline;
+    public uint PaneIndex;
+    public uint BandLowerSeriesId;
+    public uint HeatmapBucketIndex;
+    public uint HeatmapBucketCount;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -190,6 +234,8 @@ internal struct VelloChartFrameMetadata
     public nuint ValueTickCount;
     public nint Series;
     public nuint SeriesCount;
+    public nint Panes;
+    public nuint PaneCount;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -204,4 +250,7 @@ internal struct VelloChartSeriesDefinition
     public double StrokeWidth;
     public double MarkerSize;
     public double BarWidthSeconds;
+    public uint BandLowerSeriesId;
+    public uint HeatmapBucketIndex;
+    public uint HeatmapBucketCount;
 }

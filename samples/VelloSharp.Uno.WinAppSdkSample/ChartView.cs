@@ -8,7 +8,7 @@ using VelloSharp.ChartData;
 using VelloSharp.ChartEngine;
 using VelloSharp.ChartRuntime;
 using VelloSharp.ChartRuntime.Windows.WinUI;
-using VelloSharp.Charting.Annotations;
+using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Legend;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;

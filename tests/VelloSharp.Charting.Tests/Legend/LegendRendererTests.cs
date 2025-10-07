@@ -5,6 +5,7 @@ using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Scales;
 using VelloSharp.Charting.Styling;
 using VelloSharp.Charting.Ticks;
+using VelloSharp.ChartEngine;
 using Xunit;
 
 namespace VelloSharp.Charting.Tests.Legend;
@@ -25,8 +26,8 @@ public sealed class LegendRendererTests
             LegendPosition.InsideTopRight,
             new[]
             {
-                new LegendItem("Series A", ChartTheme.Light.Palette.Series[0]),
-                new LegendItem("Series B", ChartTheme.Light.Palette.Series[1]),
+                new LegendItem("Series A", ChartTheme.Light.Palette.Series[0], ChartSeriesKind.Line, 1.5, 0.2, 4),
+                new LegendItem("Series B", ChartTheme.Light.Palette.Series[1], ChartSeriesKind.Line, 1.5, 0.2, 4),
             });
 
         var visual = new LegendRenderer().Render(legend, surface, ChartTheme.Light);
@@ -51,9 +52,9 @@ public sealed class LegendRendererTests
             LegendPosition.OutsideBottom,
             new[]
             {
-                new LegendItem("Ask", ChartTheme.Light.Palette.Series[0]),
-                new LegendItem("Bid", ChartTheme.Light.Palette.Series[1]),
-                new LegendItem("Last", ChartTheme.Light.Palette.Series[2]),
+                new LegendItem("Ask", ChartTheme.Light.Palette.Series[0], ChartSeriesKind.Line, 1.5, 0.2, 4),
+                new LegendItem("Bid", ChartTheme.Light.Palette.Series[1], ChartSeriesKind.Line, 1.5, 0.2, 4),
+                new LegendItem("Last", ChartTheme.Light.Palette.Series[2], ChartSeriesKind.Line, 1.5, 0.2, 4),
             });
 
         var visual = new LegendRenderer().Render(legend, surface, ChartTheme.Dark);

@@ -1,11 +1,11 @@
 using VelloSharp.ChartEngine;
-using VelloSharp.Charting.Styling;
+using ChartRgbaColor = VelloSharp.Charting.Styling.RgbaColor;
 
 namespace VelloSharp.Charting.Legend;
 
 public readonly record struct LegendItem(
     string Label,
-    RgbaColor Color,
+    ChartRgbaColor Color,
     ChartSeriesKind Kind,
     double StrokeWidth,
     double FillOpacity,

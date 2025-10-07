@@ -5,6 +5,7 @@ using VelloSharp.Charting.Axis;
 using VelloSharp.Charting.Layout;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
+using ChartRgbaColor = VelloSharp.Charting.Styling.RgbaColor;
 
 namespace VelloSharp.Charting.Legend;
 

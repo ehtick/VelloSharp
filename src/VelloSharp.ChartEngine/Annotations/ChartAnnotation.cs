@@ -1,4 +1,4 @@
-namespace VelloSharp.Charting.Annotations;
+namespace VelloSharp.ChartEngine.Annotations;
 
 public enum AnnotationKind
 {

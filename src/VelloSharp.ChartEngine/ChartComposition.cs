@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using VelloSharp.Charting.Annotations;
+using VelloSharp.ChartEngine.Annotations;
 
-namespace VelloSharp.Charting.Composition;
+namespace VelloSharp.ChartEngine;
 
 /// <summary>
 /// Declarative description of a multi-pane chart including shared axes and overlay layers.

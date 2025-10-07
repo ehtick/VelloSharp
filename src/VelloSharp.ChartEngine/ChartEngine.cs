@@ -170,7 +170,7 @@ public sealed class ChartEngine : IDisposable
         }
     }
 
-    public void ConfigureSeries(ReadOnlySpan<ChartSeriesDefinition> definitions)
+    public unsafe void ConfigureSeries(ReadOnlySpan<ChartSeriesDefinition> definitions)
     {
         ThrowIfDisposed();
 
@@ -207,7 +207,77 @@ public sealed class ChartEngine : IDisposable
         }
     }
 
-    public void ApplySeriesOverrides(ReadOnlySpan<ChartSeriesOverride> overrides)
+    public unsafe void ConfigureComposition(ChartComposition? composition)
+    {
+        ThrowIfDisposed();
+
+        if (composition is null || composition.Panes.Count == 0)
+        {
+            var status = NativeMethods.vello_chart_engine_set_composition(_handle, null);
+            ThrowOnStatus(status, "vello_chart_engine_set_composition");
+            return;
+        }
+
+        var panes = composition.Panes;
+        var nativePanes = new VelloChartCompositionPane[panes.Count];
+        var pinnedHandles = new List<GCHandle>(panes.Count * 2);
+
+        try
+        {
+            for (var i = 0; i < panes.Count; i++)
+            {
+                var pane = panes[i];
+                var idBytes = Encoding.UTF8.GetBytes(pane.Id);
+                var idHandle = GCHandle.Alloc(idBytes, GCHandleType.Pinned);
+                pinnedHandles.Add(idHandle);
+
+                var seriesIds = pane.SeriesIds.Count > 0
+                    ? pane.SeriesIds.ToArray()
+                    : Array.Empty<uint>();
+
+                GCHandle? seriesHandle = null;
+                if (seriesIds.Length > 0)
+                {
+                    seriesHandle = GCHandle.Alloc(seriesIds, GCHandleType.Pinned);
+                    pinnedHandles.Add(seriesHandle.Value);
+                }
+
+                nativePanes[i] = new VelloChartCompositionPane
+                {
+                    Id = idHandle.AddrOfPinnedObject(),
+                    IdLength = (nuint)idBytes.Length,
+                    HeightRatio = pane.NormalizedRatio,
+                    ShareXAxisWithPrimary = pane.ShareXAxisWithPrimary ? 1u : 0u,
+                    SeriesIds = seriesHandle?.AddrOfPinnedObject() ?? nint.Zero,
+                    SeriesIdCount = (nuint)seriesIds.Length,
+                };
+            }
+
+            fixed (VelloChartCompositionPane* panePtr = nativePanes)
+            {
+                var compositionNative = new VelloChartComposition
+                {
+                    Panes = (nint)panePtr,
+                    PaneCount = (nuint)nativePanes.Length,
+                };
+
+                var status = NativeMethods.vello_chart_engine_set_composition(_handle, &compositionNative);
+                ThrowOnStatus(status, "vello_chart_engine_set_composition");
+            }
+        }
+        finally
+        {
+            foreach (var handle in pinnedHandles)
+            {
+                if (handle.IsAllocated)
+                {
+                    handle.Free();
+                }
+            }
+        }
+    }
+
+    public unsafe void ApplySeriesOverrides(ReadOnlySpan<ChartSeriesOverride> overrides)
     {
         ThrowIfDisposed();
 

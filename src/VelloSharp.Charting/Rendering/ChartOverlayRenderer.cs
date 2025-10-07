@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using VelloSharp.ChartEngine;
-using VelloSharp.Charting.Annotations;
+using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Axis;
 using VelloSharp.Charting.Layout;
 using VelloSharp.Charting.Legend;
@@ -24,6 +24,15 @@ public sealed class ChartOverlayRenderer : IDisposable
     private readonly GridlineRenderer _gridlineRenderer = new();
     private readonly AnnotationRenderer _annotationRenderer = new();
 
+    private readonly record struct PaneView(
+        int Index,
+        string Id,
+        LayoutRect Bounds,
+        double ValueMin,
+        double ValueMax,
+        bool ShareXAxisWithPrimary,
+        IReadOnlyList<ChartFrameMetadata.AxisTickMetadata> ValueTicks);
+
     public void Render(
         VScene scene,
         ChartFrameMetadata metadata,
@@ -39,22 +48,28 @@ public sealed class ChartOverlayRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(theme);
 
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
         var plotArea = new LayoutRect(metadata.PlotLeft, metadata.PlotTop, metadata.PlotWidth, metadata.PlotHeight);
+        var paneViews = BuildPaneViews(metadata);
+
         var leftThickness = Math.Max(metadata.PlotLeft, 0d);
         var bottomThickness = Math.Max(height - (metadata.PlotTop + metadata.PlotHeight), 0d);
 
-        var timeStart = DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Round(metadata.RangeStartSeconds * 1000.0));
-        var timeEnd = DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Round(metadata.RangeEndSeconds * 1000.0));
+        var timeStart = DateTimeOffset.FromUnixTimeMilliseconds(
+            (long)Math.Round(metadata.RangeStartSeconds * 1000.0));
+        var timeEnd = DateTimeOffset.FromUnixTimeMilliseconds(
+            (long)Math.Round(metadata.RangeEndSeconds * 1000.0));
         if (timeEnd <= timeStart)
         {
             timeEnd = timeStart.AddSeconds(1);
         }
 
         var timeScale = new TimeScale(timeStart, timeEnd);
-        var valueScale = new LinearScale(metadata.ValueMin, metadata.ValueMax);
-
         var timeTickTarget = Math.Max(metadata.TimeTicks.Count, 4);
-        var valueTickTarget = Math.Max(metadata.ValueTicks.Count, 4);
 
         var bottomAxis = new AxisDefinition<DateTimeOffset>(
             "axis-time",
@@ -64,44 +79,107 @@ public sealed class ChartOverlayRenderer : IDisposable
             theme.Axis,
             new TickGenerationOptions<DateTimeOffset> { TargetTickCount = timeTickTarget });
 
-        var leftAxis = new AxisDefinition<double>(
-            "axis-value",
-            AxisOrientation.Left,
-            Math.Max(leftThickness, 0d),
-            valueScale,
-            theme.Axis,
-            new TickGenerationOptions<double> { TargetTickCount = valueTickTarget });
+        var bottomLayoutRect = new LayoutRect(
+            plotArea.X,
+            plotArea.Y + plotArea.Height,
+            plotArea.Width,
+            Math.Max(bottomThickness, 0d));
 
         var bottomLayout = new AxisLayout(
             AxisOrientation.Bottom,
-            new LayoutRect(plotArea.X, plotArea.Y + plotArea.Height, plotArea.Width, Math.Max(bottomThickness, 0d)),
+            bottomLayoutRect,
             Math.Max(bottomThickness, 0d));
 
-        var leftLayout = new AxisLayout(
-            AxisOrientation.Left,
-            new LayoutRect(Math.Max(plotArea.X - leftThickness, 0d), plotArea.Y, Math.Max(leftThickness, 0d), plotArea.Height),
-            Math.Max(leftThickness, 0d));
+        var timeAxisSurface = new AxisRenderSurface(
+            plotArea,
+            new[] { bottomAxis.Build(bottomLayout, _tickRegistry) });
 
-        var axisModels = new List<AxisRenderModel>
-        {
-            bottomAxis.Build(bottomLayout, _tickRegistry),
-            leftAxis.Build(leftLayout, _tickRegistry),
-        };
-
-        var axisSurface = new AxisRenderSurface(plotArea, axisModels);
-        var axisRenderResult = _axisRenderer.Render(axisSurface);
+        var timeAxisResult = _axisRenderer.Render(timeAxisSurface);
 
         if (renderAxes)
         {
-            _gridlineRenderer.Render(scene, axisRenderResult, plotArea, theme);
-            DrawAxes(scene, axisRenderResult);
-            DrawAxisLabels(scene, axisRenderResult);
+            _gridlineRenderer.Render(scene, timeAxisResult, plotArea, theme);
+            DrawAxes(scene, timeAxisResult);
+            DrawAxisLabels(scene, timeAxisResult);
         }
 
-        var legend = legendDefinition ?? CreateLegendDefinition(metadata);
-        if (legend.Items.Count > 0)
+        var seriesByPane = new Dictionary<int, List<ChartFrameMetadata.SeriesMetadata>>(paneViews.Count);
+        foreach (var pane in paneViews)
         {
-            var legendVisual = _legendRenderer.Render(legend, axisSurface, theme);
+            seriesByPane[pane.Index] = new List<ChartFrameMetadata.SeriesMetadata>();
+        }
+
+        if (paneViews.Count > 0)
+        {
+            var fallbackIndex = paneViews[0].Index;
+            foreach (var series in metadata.Series)
+            {
+                var targetIndex = seriesByPane.ContainsKey(series.PaneIndex)
+                    ? series.PaneIndex
+                    : fallbackIndex;
+                seriesByPane[targetIndex].Add(series);
+            }
+        }
+
+        foreach (var pane in paneViews)
+        {
+            var valueScale = new LinearScale(pane.ValueMin, pane.ValueMax);
+            var valueTickTarget = Math.Max(pane.ValueTicks.Count, 4);
+
+            var valueAxis = new AxisDefinition<double>(
+                $"axis-value-{pane.Index}",
+                AxisOrientation.Left,
+                Math.Max(leftThickness, 0d),
+                valueScale,
+                theme.Axis,
+                new TickGenerationOptions<double> { TargetTickCount = valueTickTarget });
+
+            var leftLayoutRect = new LayoutRect(
+                Math.Max(pane.Bounds.X - leftThickness, 0d),
+                pane.Bounds.Y,
+                Math.Max(leftThickness, 0d),
+                pane.Bounds.Height);
+
+            var leftLayout = new AxisLayout(
+                AxisOrientation.Left,
+                leftLayoutRect,
+                Math.Max(leftThickness, 0d));
+
+            var paneSurface = new AxisRenderSurface(
+                pane.Bounds,
+                new[] { valueAxis.Build(leftLayout, _tickRegistry) });
+
+            var paneResult = _axisRenderer.Render(paneSurface);
+
+            if (renderAxes)
+            {
+                _gridlineRenderer.Render(scene, paneResult, pane.Bounds, theme);
+                DrawAxes(scene, paneResult);
+                DrawAxisLabels(scene, paneResult);
+            }
+
+            if (legendDefinition is null &&
+                seriesByPane.TryGetValue(pane.Index, out var paneSeries) &&
+                paneSeries.Count > 0)
+            {
+                var legend = CreateLegendDefinition($"legend-{pane.Id}", paneSeries);
+                if (legend.Items.Count > 0)
+                {
+                    var legendSurface = new AxisRenderSurface(
+                        pane.Bounds,
+                        Array.Empty<AxisRenderModel>());
+                    var legendVisual = _legendRenderer.Render(legend, legendSurface, theme);
+                    DrawLegend(scene, legendVisual, theme);
+                }
+            }
+        }
+
+        if (legendDefinition is not null)
+        {
+            var legendSurface = new AxisRenderSurface(
+                plotArea,
+                Array.Empty<AxisRenderModel>());
+            var legendVisual = _legendRenderer.Render(legendDefinition, legendSurface, theme);
             DrawLegend(scene, legendVisual, theme);
         }
 
@@ -109,6 +187,40 @@ public sealed class ChartOverlayRenderer : IDisposable
         {
             _annotationRenderer.Render(scene, annotations, plotArea, metadata, theme);
         }
+    }
+
+    private static List<PaneView> BuildPaneViews(ChartFrameMetadata metadata)
+    {
+        var panes = new List<PaneView>();
+        if (metadata.Panes.Count > 0)
+        {
+            for (var i = 0; i < metadata.Panes.Count; i++)
+            {
+                var pane = metadata.Panes[i];
+                var rect = new LayoutRect(pane.PlotLeft, pane.PlotTop, pane.PlotWidth, pane.PlotHeight);
+                panes.Add(new PaneView(
+                    i,
+                    string.IsNullOrEmpty(pane.Id) ? $"pane-{i}" : pane.Id,
+                    rect,
+                    pane.ValueMin,
+                    pane.ValueMax,
+                    pane.ShareXAxisWithPrimary,
+                    pane.ValueTicks));
+            }
+        }
+        else
+        {
+            panes.Add(new PaneView(
+                0,
+                "pane-primary",
+                new LayoutRect(metadata.PlotLeft, metadata.PlotTop, metadata.PlotWidth, metadata.PlotHeight),
+                metadata.ValueMin,
+                metadata.ValueMax,
+                true,
+                metadata.ValueTicks));
+        }
+
+        return panes;
     }
 
     private void DrawAxes(VScene scene, AxisRenderResult result)
@@ -146,10 +258,12 @@ public sealed class ChartOverlayRenderer : IDisposable
         }
     }
 
-    private static LegendDefinition CreateLegendDefinition(ChartFrameMetadata metadata)
+    private static LegendDefinition CreateLegendDefinition(
+        string legendId,
+        IEnumerable<ChartFrameMetadata.SeriesMetadata> seriesMetadata)
     {
-        var items = new List<LegendItem>(metadata.Series.Count);
-        foreach (var series in metadata.Series)
+        var items = new List<LegendItem>();
+        foreach (var series in seriesMetadata)
         {
             var color = ChartRgbaColor.FromChartColor(series.Color);
             var label = string.IsNullOrWhiteSpace(series.Label) ? $"Series {series.SeriesId}" : series.Label;
@@ -163,7 +277,7 @@ public sealed class ChartOverlayRenderer : IDisposable
         }
 
         return new LegendDefinition(
-            "legend-default",
+            legendId,
             LegendOrientation.Vertical,
             LegendPosition.InsideTopRight,
             items);
@@ -230,6 +344,34 @@ public sealed class ChartOverlayRenderer : IDisposable
             case ChartSeriesKind.Bar:
                 FillRectangle(scene, markerRect, item.Color);
                 break;
+
+            case ChartSeriesKind.Band:
+            {
+                var bandOpacity = item.FillOpacity <= 0 ? 0.25 : item.FillOpacity;
+                var bandFill = item.Color.WithAlpha(ToByteOpacity(bandOpacity));
+                FillRectangle(scene, markerRect, bandFill);
+
+                var topY = item.MarkerY;
+                var bottomY = item.MarkerY + size;
+                DrawLine(scene, item.MarkerX, topY, item.MarkerX + size, topY, item.Color, Math.Max(1.0, item.StrokeWidth));
+
+                var lowerOpacity = Math.Clamp(bandOpacity * 0.6 + 0.2, 0d, 1d);
+                var lowerColor = item.Color.WithAlpha(ToByteOpacity(lowerOpacity));
+                DrawLine(scene, item.MarkerX, bottomY, item.MarkerX + size, bottomY, lowerColor, Math.Max(1.0, item.StrokeWidth * 0.8));
+                break;
+            }
+
+            case ChartSeriesKind.Heatmap:
+            {
+                var heatmapOpacity = item.FillOpacity <= 0 ? 0.85 : item.FillOpacity;
+                var heatFill = item.Color.WithAlpha(ToByteOpacity(heatmapOpacity));
+                FillRectangle(scene, markerRect, heatFill);
+
+                var borderOpacity = Math.Clamp(heatmapOpacity * 0.5 + 0.2, 0d, 1d);
+                var borderColor = item.Color.WithAlpha(ToByteOpacity(borderOpacity));
+                StrokeRectangle(scene, markerRect, borderColor, 1.0);
+                break;
+            }
 
             default:
                 FillRectangle(scene, markerRect, item.Color);

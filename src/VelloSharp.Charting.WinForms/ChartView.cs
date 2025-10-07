@@ -7,7 +7,7 @@ using VelloSharp.ChartData;
 using VelloSharp.ChartEngine;
 using VelloSharp.ChartRuntime;
 using VelloSharp.ChartRuntime.Windows.WinForms;
-using VelloSharp.Charting.Annotations;
+using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Legend;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
@@ -31,6 +31,7 @@ public sealed class ChartView : UserControl
     private ChartTheme _theme = ChartTheme.Default;
     private LegendDefinition? _legend;
     private IReadOnlyList<ChartAnnotation>? _annotations;
+    private ChartComposition? _composition;
 
     public ChartView()
     {
@@ -82,6 +83,13 @@ public sealed class ChartView : UserControl
 
             _engine = value;
             _ownsEngine = false;
+            try
+            {
+                _engine.ConfigureComposition(_composition);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
 
             if (IsHandleCreated && !IsInDesignMode())
             {
@@ -153,6 +161,33 @@ public sealed class ChartView : UserControl
             }
 
             _legend = value;
+            if (!_isDisposed && !IsInDesignMode())
+            {
+                RequestRender();
+            }
+        }
+    }
+
+    [Browsable(false)]
+    public ChartComposition? Composition
+    {
+        get => _composition;
+        set
+        {
+            if (ReferenceEquals(_composition, value))
+            {
+                return;
+            }
+
+            _composition = value;
+            try
+            {
+                _engine.ConfigureComposition(_composition);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
             if (!_isDisposed && !IsInDesignMode())
             {
                 RequestRender();

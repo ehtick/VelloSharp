@@ -12,6 +12,8 @@ public enum ChartSeriesKind : uint
     Area = 1,
     Scatter = 2,
     Bar = 3,
+    Band = 4,
+    Heatmap = 5,
 }
 
 [Flags]
@@ -23,6 +25,8 @@ internal enum SeriesDefinitionFlags : uint
     StrokeWidthSet = 1 << 2,
     MarkerSizeSet = 1 << 3,
     BarWidthSet = 1 << 4,
+    BandLowerSet = 1 << 5,
+    HeatmapBucketsSet = 1 << 6,
 }
 
 /// <summary>
@@ -60,7 +64,7 @@ public abstract record ChartSeriesDefinition(uint SeriesId)
 
     internal abstract ChartSeriesKind Kind { get; }
 
-    internal void Validate()
+    protected virtual void Validate()
     {
         if (Baseline is { } baseline && !double.IsFinite(baseline))
         {
@@ -147,7 +151,13 @@ public abstract record ChartSeriesDefinition(uint SeriesId)
             definition.Flags |= SeriesDefinitionFlags.BarWidthSet;
         }
 
+        PopulateNative(ref definition);
+
         return definition;
+    }
+
+    internal virtual void PopulateNative(ref VelloChartSeriesDefinition definition)
+    {
     }
 }
 
@@ -181,4 +191,48 @@ public sealed record ScatterSeriesDefinition(uint SeriesId) : ChartSeriesDefinit
 public sealed record BarSeriesDefinition(uint SeriesId) : ChartSeriesDefinition(SeriesId)
 {
     internal override ChartSeriesKind Kind => ChartSeriesKind.Bar;
+}
+
+public sealed record PolylineBandSeriesDefinition(uint SeriesId, uint LowerSeriesId) : ChartSeriesDefinition(SeriesId)
+{
+    public uint LowerSeriesId { get; init; } = LowerSeriesId;
+
+    internal override ChartSeriesKind Kind => ChartSeriesKind.Band;
+
+    internal override void PopulateNative(ref VelloChartSeriesDefinition definition)
+    {
+        if (LowerSeriesId == SeriesId)
+        {
+            throw new ArgumentOutOfRangeException(nameof(LowerSeriesId), LowerSeriesId, "Lower series id must differ from the band series.");
+        }
+
+        definition.BandLowerSeriesId = LowerSeriesId;
+        definition.Flags |= SeriesDefinitionFlags.BandLowerSet;
+    }
+}
+
+public sealed record HeatmapSeriesDefinition(uint SeriesId) : ChartSeriesDefinition(SeriesId)
+{
+    public uint BucketIndex { get; init; }
+
+    public uint BucketCount { get; init; }
+
+    internal override ChartSeriesKind Kind => ChartSeriesKind.Heatmap;
+
+    internal override void PopulateNative(ref VelloChartSeriesDefinition definition)
+    {
+        if (BucketCount == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(BucketCount), BucketCount, "Bucket count must be greater than zero.");
+        }
+
+        if (BucketIndex >= BucketCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(BucketIndex), BucketIndex, "Bucket index must be less than the bucket count.");
+        }
+
+        definition.HeatmapBucketIndex = BucketIndex;
+        definition.HeatmapBucketCount = BucketCount;
+        definition.Flags |= SeriesDefinitionFlags.HeatmapBucketsSet;
+    }
 }

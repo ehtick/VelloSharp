@@ -20,7 +20,8 @@ public sealed class ChartFrameMetadata
         double plotHeight,
         AxisTickMetadata[] timeTicks,
         AxisTickMetadata[] valueTicks,
-        SeriesMetadata[] series)
+        SeriesMetadata[] series,
+        PaneMetadata[] panes)
     {
         RangeStartSeconds = rangeStartSeconds;
         RangeEndSeconds = rangeEndSeconds;
@@ -33,6 +34,7 @@ public sealed class ChartFrameMetadata
         TimeTicks = timeTicks;
         ValueTicks = valueTicks;
         Series = series;
+        Panes = panes;
     }
 
     /// <summary>
@@ -90,6 +92,11 @@ public sealed class ChartFrameMetadata
     /// </summary>
     public IReadOnlyList<SeriesMetadata> Series { get; }
 
+    /// <summary>
+    /// Gets pane metadata describing layout and axis information.
+    /// </summary>
+    public IReadOnlyList<PaneMetadata> Panes { get; }
+
     internal static unsafe ChartFrameMetadata FromNative(in VelloChartFrameMetadata native)
     {
         var timeTicks = new AxisTickMetadata[(int)native.TimeTickCount];
@@ -116,6 +123,40 @@ public sealed class ChartFrameMetadata
             }
         }
 
+        var panes = new PaneMetadata[(int)native.PaneCount];
+        if (native.PaneCount > 0 && native.Panes != IntPtr.Zero)
+        {
+            var panePtr = (VelloChartPaneMetadata*)native.Panes;
+            for (var i = 0; i < panes.Length; i++)
+            {
+                var pane = panePtr[i];
+                var id = Marshal.PtrToStringUTF8(pane.Id, (int)pane.IdLength) ?? string.Empty;
+                var share = pane.ShareXAxisWithPrimary != 0;
+                var paneTicks = new AxisTickMetadata[(int)pane.ValueTickCount];
+                if (pane.ValueTickCount > 0 && pane.ValueTicks != IntPtr.Zero)
+                {
+                    var paneTickPtr = (VelloChartAxisTickMetadata*)pane.ValueTicks;
+                    for (var j = 0; j < paneTicks.Length; j++)
+                    {
+                        var tick = paneTickPtr[j];
+                        var label = Marshal.PtrToStringUTF8(tick.Label, (int)tick.LabelLength) ?? string.Empty;
+                        paneTicks[j] = new AxisTickMetadata(tick.Position, label);
+                    }
+                }
+
+                panes[i] = new PaneMetadata(
+                    id,
+                    share,
+                    pane.PlotLeft,
+                    pane.PlotTop,
+                    pane.PlotWidth,
+                    pane.PlotHeight,
+                    pane.ValueMin,
+                    pane.ValueMax,
+                    paneTicks);
+            }
+        }
+
         var series = new SeriesMetadata[(int)native.SeriesCount];
         if (native.SeriesCount > 0 && native.Series != IntPtr.Zero)
         {
@@ -137,7 +178,11 @@ public sealed class ChartFrameMetadata
                     item.FillOpacity,
                     item.MarkerSize,
                     item.BarWidthSeconds,
-                    item.Baseline);
+                    item.Baseline,
+                    (int)item.PaneIndex,
+                    item.BandLowerSeriesId,
+                    item.HeatmapBucketIndex,
+                    item.HeatmapBucketCount);
             }
         }
 
@@ -152,7 +197,8 @@ public sealed class ChartFrameMetadata
             native.PlotHeight,
             timeTicks,
             valueTicks,
-            series);
+            series,
+            panes);
     }
 
     public readonly record struct AxisTickMetadata(double Position, string Label);
@@ -166,5 +212,20 @@ public sealed class ChartFrameMetadata
         double FillOpacity,
         double MarkerSize,
         double BarWidthSeconds,
-        double Baseline);
+        double Baseline,
+        int PaneIndex,
+        uint BandLowerSeriesId,
+        uint HeatmapBucketIndex,
+        uint HeatmapBucketCount);
+
+    public readonly record struct PaneMetadata(
+        string Id,
+        bool ShareXAxisWithPrimary,
+        double PlotLeft,
+        double PlotTop,
+        double PlotWidth,
+        double PlotHeight,
+        double ValueMin,
+        double ValueMax,
+        IReadOnlyList<AxisTickMetadata> ValueTicks);
 }

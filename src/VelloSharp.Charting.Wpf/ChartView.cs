@@ -10,7 +10,7 @@ using VelloSharp.ChartRuntime;
 using VelloSharp.ChartRuntime.Windows.Wpf;
 using VelloSharp.Wpf.Integration;
 using VelloSharp.Windows;
-using VelloSharp.Charting.Annotations;
+using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Legend;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
@@ -33,6 +33,7 @@ public sealed class ChartView : ContentControl, IDisposable
     private ChartTheme _theme = ChartTheme.Default;
     private LegendDefinition? _legend;
     private IReadOnlyList<ChartAnnotation>? _annotations;
+    private ChartComposition? _composition;
 
     public ChartView()
     {
@@ -79,6 +80,13 @@ public sealed class ChartView : ContentControl, IDisposable
 
             _engine = value;
             _ownsEngine = false;
+            try
+            {
+                _engine.ConfigureComposition(_composition);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
             EnsureTickSource();
             BeginSchedulerLoop();
             _surfaceView.RequestRender();
@@ -134,6 +142,32 @@ public sealed class ChartView : ContentControl, IDisposable
             }
 
             _legend = value;
+            if (_isLoaded)
+            {
+                RequestRender();
+            }
+        }
+    }
+
+    public ChartComposition? Composition
+    {
+        get => _composition;
+        set
+        {
+            if (ReferenceEquals(_composition, value))
+            {
+                return;
+            }
+
+            _composition = value;
+            try
+            {
+                _engine.ConfigureComposition(_composition);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
             if (_isLoaded)
             {
                 RequestRender();
@@ -361,3 +395,4 @@ public sealed class ChartView : ContentControl, IDisposable
             _engine.Options.ShowAxes);
     }
 }
+
