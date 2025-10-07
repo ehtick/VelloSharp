@@ -9,4 +9,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Cpu")]
 [assembly: InternalsVisibleTo("VelloSharp.Gpu")]
 [assembly: InternalsVisibleTo("VelloSharp.Text")]
+[assembly: InternalsVisibleTo("VelloSharp.ChartEngine")]
 [assembly: InternalsVisibleTo("HarfBuzzSharp")]

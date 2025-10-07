@@ -1,0 +1,104 @@
+[
+  {
+    "name": "Deep Ocean",
+    "palette": {
+      "background": "#0B111BFF",
+      "foreground": "#F0F4FFFF",
+      "axisLine": "#6FA4FFFF",
+      "axisTick": "#6FA4FFFF",
+      "gridLine": "#1D2740FF",
+      "legendBackground": "#121B2DFF",
+      "legendBorder": "#223453FF",
+      "series": [
+        "#3AB8FFFF",
+        "#5E8CFFFF",
+        "#47E2C2FF",
+        "#FF9E7BFF"
+      ]
+    },
+    "axis": {
+      "tickLength": 6,
+      "labelMargin": 6,
+      "labelTypography": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      }
+    },
+    "legend": {
+      "borderThickness": 1,
+      "markerSize": 10,
+      "itemSpacing": 6,
+      "padding": 12,
+      "labelSpacing": 6,
+      "labelTypography": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      }
+    },
+    "typography": {
+      "AxisLabel": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      },
+      "LegendLabel": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      },
+      "Body": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 12
+      }
+    }
+  },
+  {
+    "name": "Daybreak",
+    "palette": {
+      "background": "#F5F7FBFF",
+      "foreground": "#1F2430FF",
+      "axisLine": "#5A6478FF",
+      "axisTick": "#5A6478FF",
+      "gridLine": "#D4DAE6FF",
+      "legendBackground": "#FFFFFFFF",
+      "legendBorder": "#CED7EAFF",
+      "series": [
+        "#1B489BFF",
+        "#E53935FF",
+        "#009575FF",
+        "#F9A825FF"
+      ]
+    },
+    "axis": {
+      "tickLength": 6,
+      "labelMargin": 6,
+      "labelTypography": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      }
+    },
+    "legend": {
+      "borderThickness": 1,
+      "markerSize": 10,
+      "itemSpacing": 6,
+      "padding": 12,
+      "labelSpacing": 6,
+      "labelTypography": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      }
+    },
+    "typography": {
+      "AxisLabel": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      },
+      "LegendLabel": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 11
+      },
+      "Body": {
+        "fontFamily": "Segoe UI",
+        "fontSize": 12
+      }
+    }
+  }
+]

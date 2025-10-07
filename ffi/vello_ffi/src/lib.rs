@@ -1201,10 +1201,12 @@ fn to_c_ulong(value: u64) -> Result<c_ulong, VelloStatus> {
 }
 
 #[cfg(target_os = "windows")]
-fn core_window_to_raw_handles(core_window: *mut c_void) -> Result<SurfaceTargetHandles, VelloStatus> {
-    use windows::core::{IUnknown, Interface};
+fn core_window_to_raw_handles(
+    core_window: *mut c_void,
+) -> Result<SurfaceTargetHandles, VelloStatus> {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::WinRT::ICoreWindowInterop;
+    use windows::core::{IUnknown, Interface};
 
     let ptr = NonNull::new(core_window).ok_or(VelloStatus::InvalidArgument)?;
 
@@ -1233,7 +1235,9 @@ fn core_window_to_raw_handles(core_window: *mut c_void) -> Result<SurfaceTargetH
 }
 
 #[cfg(not(target_os = "windows"))]
-fn core_window_to_raw_handles(_core_window: *mut c_void) -> Result<SurfaceTargetHandles, VelloStatus> {
+fn core_window_to_raw_handles(
+    _core_window: *mut c_void,
+) -> Result<SurfaceTargetHandles, VelloStatus> {
     Err(VelloStatus::Unsupported)
 }
 
@@ -1625,7 +1629,9 @@ pub unsafe extern "C" fn vello_render_surface_create(
                 raw_display_handle: display,
                 raw_window_handle: window,
             },
-            SurfaceTargetHandles::SwapChainPanel(panel) => SurfaceTargetUnsafe::SwapChainPanel(panel),
+            SurfaceTargetHandles::SwapChainPanel(panel) => {
+                SurfaceTargetUnsafe::SwapChainPanel(panel)
+            }
         };
 
         let surface_raw = match unsafe { ctx.inner.instance.create_surface_unsafe(target) } {

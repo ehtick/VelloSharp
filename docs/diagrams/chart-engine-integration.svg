@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420">
+  <style>
+    text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; fill: #1a1a1a; }
+    .title { font-size: 18px; font-weight: bold; }
+    .box { fill: #f7f9fc; stroke: #2f6fad; stroke-width: 1.5; rx: 8; ry: 8; }
+    .box-alt { fill: #fef7f1; stroke: #c47a1a; stroke-width: 1.5; rx: 8; ry: 8; }
+    .arrow { stroke: #4a4a4a; stroke-width: 1.2; marker-end: url(#arrowhead); fill: none; }
+    .label { fill: #4a4a4a; font-size: 12px; }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#4a4a4a" />
+    </marker>
+  </defs>
+
+  <text x="360" y="32" text-anchor="middle" class="title">Chart Engine FFI Integration</text>
+
+  <rect class="box" x="60" y="70" width="240" height="260" />
+  <text x="180" y="95" text-anchor="middle" font-weight="bold">.NET Host</text>
+
+  <rect class="box-alt" x="420" y="70" width="240" height="260" />
+  <text x="540" y="95" text-anchor="middle" font-weight="bold">Rust Engine</text>
+
+  <rect x="90" y="120" width="180" height="60" class="box" />
+  <text x="180" y="145" text-anchor="middle">ChartEngine (C#)</text>
+  <text x="180" y="165" text-anchor="middle" class="label">Native wrapper + API</text>
+
+  <rect x="90" y="210" width="180" height="50" class="box" />
+  <text x="180" y="238" text-anchor="middle">Renderer Pool</text>
+  <text x="180" y="256" text-anchor="middle" class="label">GPU surface reuse</text>
+
+  <rect x="90" y="280" width="180" height="45" class="box" />
+  <text x="180" y="305" text-anchor="middle">EventSource Listener</text>
+
+  <rect x="450" y="120" width="180" height="60" class="box-alt" />
+  <text x="540" y="145" text-anchor="middle">ChartEngine (Rust)</text>
+  <text x="540" y="165" text-anchor="middle" class="label">Double-buffered scenes</text>
+
+  <rect x="450" y="210" width="180" height="50" class="box-alt" />
+  <text x="540" y="238" text-anchor="middle">Tracing Layer</text>
+  <text x="540" y="256" text-anchor="middle" class="label">Forward to callback</text>
+
+  <rect x="450" y="280" width="180" height="45" class="box-alt" />
+  <text x="540" y="305" text-anchor="middle">Scene Buffers</text>
+
+  <path class="arrow" d="M270 150 H440" />
+  <text x="355" y="140" text-anchor="middle" class="label">Options · Publish Samples · Render</text>
+
+  <path class="arrow" d="M450 310 H270" />
+  <text x="360" y="320" text-anchor="middle" class="label">Frame stats + Scene reuse</text>
+
+  <path class="arrow" d="M450 235 H270" />
+  <text x="360" y="225" text-anchor="middle" class="label">Render target pooling hints</text>
+
+  <path class="arrow" d="M540 260 V292" />
+  <text x="560" y="278" class="label">Double buffer</text>
+
+  <path class="arrow" d="M450 235 L270 295" />
+  <text x="365" y="280" class="label">Event callback</text>
+  
+  <path class="arrow" d="M180 260 V285" />
+  <text x="200" y="272" class="label">Diagnostics</text>
+</svg>

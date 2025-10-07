@@ -7,6 +7,11 @@ members = [
     "ffi/peniko_ffi",
     "ffi/winit_ffi",
     "ffi/vello_sparse_ffi",
+    "ffi/experimental/poc_line_scene",
+    "ffi/benchmarks",
+    "ffi/chart-data",
+    "ffi/chart-diagnostics",
+    "ffi/chart-engine",
 ]
 exclude = [
     "extern/Avalonia",

@@ -2,7 +2,6 @@
     x:Class="VelloSharp.Uno.WinAppSdkSample.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:VelloSharp.Uno.Controls"
     xmlns:local="using:VelloSharp.Uno.WinAppSdkSample">
     <Grid Padding="24">
         <Grid.RowDefinitions>
@@ -16,18 +15,14 @@
             <TextBlock Text="This sample wires the multi-targeted VelloSharp.Uno assembly into a WinAppSDK/WinUI 3 head and instantiates the SwapChainPanel bridge ahead of Phase 3 rendering hooks."
                        TextWrapping="WrapWholeWords" />
         </StackPanel>
-        <Grid Grid.Row="1">
-            <controls:VelloSwapChainPanel x:Name="SwapChainHost" />
-            <Border Background="#AA202020"
-                    CornerRadius="4"
-                    Margin="12"
-                    Padding="8"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top">
-                <TextBlock Text="SwapChainPanel initialised. GPU rendering will light up once Phase 3 wiring is complete."
-                           Foreground="White"
-                           TextWrapping="WrapWholeWords" />
-            </Border>
-        </Grid>
+        <Border Grid.Row="1"
+                BorderBrush="#1E2838"
+                BorderThickness="1">
+            <local:ChartView x:Name="ChartHost" />
+        </Border>
     </Grid>
 </Window>
+
+
+
+

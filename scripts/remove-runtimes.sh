@@ -14,6 +14,7 @@ else
     "samples/AvaloniaVelloX11Demo"
     "samples/AvaloniaVelloWin32Demo"
     "samples/AvaloniaVelloNativeDemo"
+    "samples/VelloSharp.Charting.AvaloniaSample"
     "samples/VelloSharp.WithWinit"
     "samples/VelloSharp.Uno.WinAppSdkSample"
   )

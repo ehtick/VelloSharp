@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartData\VelloSharp.ChartData.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartDiagnostics\VelloSharp.ChartDiagnostics.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartRuntime\VelloSharp.ChartRuntime.csproj" />
+  </ItemGroup>
+</Project>

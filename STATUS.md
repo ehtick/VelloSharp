@@ -7,7 +7,7 @@ This document captures the current state of the .NET bindings for Vello and the 
 - `VelloSharp` currently exposes only `Renderer.Render(...)` and `Scene.FillPath`/`Scene.StrokePath`. Everything else in Vello’s scene API (layers, brushes, images, text, blur primitives, gradients, glyph runs) remains inaccessible. See `VelloSharp/VelloScene.cs`, `VelloSharp/VelloRenderer.cs`.
 - Interop still relies on manual `.dylib` copies, but the `vello_ffi` layer now ships with feature-gated diagnostics, a single map/unmap readback path, and selectable RGBA/BGRA output.
 - Samples now rely on the shared Avalonia control; Skia interop and render-path utilities are provided via `VelloSharp.Integration`, while automated verification is still pending.
-- A surface-backed render path exists but is limited to Win32 and AppKit handles; Avalonia integration uses `VelloSurfaceView`, which falls back to the bitmap path when swapchain creation fails.
+- Avalonia charting now hosts `VelloSurfaceView` by default, wiring GPU swapchains with pooled surfaces and falling back to the bitmap path when swapchain acquisition fails. Wayland/X11 surface helpers are still queued.
 - GPU surfaces currently clamp to `AntialiasingMode.Area`; MSAA requests are coerced until the embedded shaders add those permutations.
 
 ## Completed
@@ -18,6 +18,7 @@ This document captures the current state of the .NET bindings for Vello and the 
 - **Integration helpers:** introduced `VelloSharp.Integration` with an Avalonia `VelloView`, `SkiaRenderBridge`, and stride/format-negotiating render-path utilities for CPU and GPU targets.
 - **Surface API prototype:** added `vello_render_context*`/`vello_render_surface*` FFI calls, managed wrappers (`VelloSurfaceContext`, `VelloSurface`, `VelloSurfaceRenderer`), and a headless smoke test that exercises the GPU pipeline without CPU readback. Avalonia gains `VelloSurfaceView`, which acquires native window handles and seamlessly falls back to the bitmap control.
 - **Surface AA guard:** surface rendering clamps anti-aliasing to `Area` to avoid runtime shader panics on current Vello builds; documentation and samples reflect the restriction.
+- **Structured diagnostics bridge:** Rust `tracing` events now flow through the chart-engine FFI into `.NET` `EventSource` with key/value payloads so hosts can forward telemetry without custom shims.
 - **Expanded native coverage:** CI now produces artifacts for Linux, macOS, Windows, Android, iOS, and WebAssembly targets and emits `VelloSharp.Native.<rid>` packages per runtime.
 
 ## Completion Plan

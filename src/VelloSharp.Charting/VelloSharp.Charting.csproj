@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp.Core\VelloSharp.Core.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.HarfBuzzSharp\HarfBuzzSharp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Fonts\Roboto-Regular.ttf" LogicalName="VelloSharp.Charting.Assets.Fonts.Roboto-Regular.ttf" />
+  </ItemGroup>
+</Project>

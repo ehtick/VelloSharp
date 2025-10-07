@@ -1,0 +1,27 @@
+@startuml ChartEngineIntegration
+title Chart Engine Integration Overview
+
+package ".NET Host" {
+  [ChartEngine (C#)] as ChartEngineSharp
+  [VelloSurfaceView] as SurfaceView
+  [Renderer Pool]
+  [Telemetry Sink]
+  [EventSource Listener]
+}
+
+package "Rust Engine (FFI)" {
+  [ChartEngine (Rust)] as ChartEngineRust
+  [Scene Buffers]
+  [Tracing Layer]
+}
+
+ChartEngineSharp --> ChartEngineRust : Options\nPublish Samples
+ChartEngineRust --> ChartEngineSharp : Frame Stats\nScene Handle
+ChartEngineRust --> [Scene Buffers] : Double-buffered scenes
+ChartEngineRust --> [Tracing Layer] : tracing::debug!
+[Tracing Layer] --> [EventSource Listener] : Structured callback bridge
+ChartEngineSharp --> SurfaceView : Submit scenes
+SurfaceView --> [Renderer Pool] : Acquire/release GPU surfaces
+ChartEngineSharp --> [Telemetry Sink] : Record diagnostics
+
+@enduml

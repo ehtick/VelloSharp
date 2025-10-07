@@ -10,14 +10,51 @@ $root = Split-Path -Parent $PSScriptRoot
 
 $ffiDir = Join-Path $root "ffi"
 $libs = @()
+function Get-PackageName([string]$cargoToml) {
+    if (-not (Test-Path $cargoToml -PathType Leaf)) {
+        return $null
+    }
+
+    foreach ($line in Get-Content -Path $cargoToml) {
+        if ($line -match '^\s*name\s*=\s*"([^"]+)"') {
+            return $Matches[1]
+        }
+    }
+
+    return $null
+}
+
+function Has-NativeLibrary([string]$cargoToml) {
+    if (-not (Test-Path $cargoToml -PathType Leaf)) {
+        return $false
+    }
+
+    $content = Get-Content -Path $cargoToml -Raw
+    return $content -match 'crate-type\s*=\s*\[[^\]]*"(cdylib|staticlib)"'
+}
+
 if (Test-Path $ffiDir) {
     $libs = Get-ChildItem -Path $ffiDir -Directory |
-        Where-Object { Test-Path (Join-Path $_.FullName "Cargo.toml") } |
+        Where-Object {
+            $cargoToml = Join-Path $_.FullName "Cargo.toml"
+            (Test-Path $cargoToml) -and (Has-NativeLibrary $cargoToml)
+        } |
         Sort-Object Name |
-        ForEach-Object { $_.Name }
+        ForEach-Object {
+            Get-PackageName (Join-Path $_.FullName "Cargo.toml")
+        } |
+        Where-Object { $_ }
 }
 if ($libs.Count -eq 0) {
-    $libs = @("accesskit_ffi", "vello_ffi", "kurbo_ffi", "peniko_ffi", "winit_ffi")
+    $libs = @(
+        "accesskit_ffi",
+        "vello_ffi",
+        "kurbo_ffi",
+        "peniko_ffi",
+        "winit_ffi",
+        "vello_sparse_ffi",
+        "vello_chart_engine"
+    )
 }
 $profileArgs = @()
 switch -Regex ($Profile) {

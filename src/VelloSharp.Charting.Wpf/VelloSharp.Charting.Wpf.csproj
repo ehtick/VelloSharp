@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VelloSharp.Charting\VelloSharp.Charting.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartRuntime\VelloSharp.ChartRuntime.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartRuntime.Windows\VelloSharp.ChartRuntime.Windows.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration.Wpf\VelloSharp.Integration.Wpf.csproj" />
+  </ItemGroup>
+
+</Project>

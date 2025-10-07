@@ -1,0 +1,250 @@
+using System;
+using System.Collections.Generic;
+using VelloSharp.ChartEngine;
+using VelloSharp.Charting.Annotations;
+using VelloSharp.Charting.Axis;
+using VelloSharp.Charting.Layout;
+using VelloSharp.Charting.Legend;
+using VelloSharp.Charting.Rendering.Text;
+using VelloSharp.Charting.Scales;
+using VelloSharp.Charting.Styling;
+using VelloSharp.Charting.Ticks;
+using static VelloSharp.Charting.Rendering.SceneDrawing;
+using VScene = VelloSharp.Scene;
+using ChartRgbaColor = VelloSharp.Charting.Styling.RgbaColor;
+
+namespace VelloSharp.Charting.Rendering;
+
+public sealed class ChartOverlayRenderer : IDisposable
+{
+    private readonly AxisTickGeneratorRegistry _tickRegistry = AxisTickGeneratorRegistry.CreateDefault();
+    private readonly AxisRenderer _axisRenderer = new();
+    private readonly LegendRenderer _legendRenderer = new();
+    private readonly TextRenderer _textRenderer = new();
+    private readonly GridlineRenderer _gridlineRenderer = new();
+    private readonly AnnotationRenderer _annotationRenderer = new();
+
+    public void Render(
+        VScene scene,
+        ChartFrameMetadata metadata,
+        double width,
+        double height,
+        double devicePixelRatio,
+        ChartTheme theme,
+        LegendDefinition? legendDefinition = null,
+        IReadOnlyList<ChartAnnotation>? annotations = null,
+        bool renderAxes = true)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(theme);
+
+        var plotArea = new LayoutRect(metadata.PlotLeft, metadata.PlotTop, metadata.PlotWidth, metadata.PlotHeight);
+        var leftThickness = Math.Max(metadata.PlotLeft, 0d);
+        var bottomThickness = Math.Max(height - (metadata.PlotTop + metadata.PlotHeight), 0d);
+
+        var timeStart = DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Round(metadata.RangeStartSeconds * 1000.0));
+        var timeEnd = DateTimeOffset.FromUnixTimeMilliseconds((long)Math.Round(metadata.RangeEndSeconds * 1000.0));
+        if (timeEnd <= timeStart)
+        {
+            timeEnd = timeStart.AddSeconds(1);
+        }
+
+        var timeScale = new TimeScale(timeStart, timeEnd);
+        var valueScale = new LinearScale(metadata.ValueMin, metadata.ValueMax);
+
+        var timeTickTarget = Math.Max(metadata.TimeTicks.Count, 4);
+        var valueTickTarget = Math.Max(metadata.ValueTicks.Count, 4);
+
+        var bottomAxis = new AxisDefinition<DateTimeOffset>(
+            "axis-time",
+            AxisOrientation.Bottom,
+            Math.Max(bottomThickness, 0d),
+            timeScale,
+            theme.Axis,
+            new TickGenerationOptions<DateTimeOffset> { TargetTickCount = timeTickTarget });
+
+        var leftAxis = new AxisDefinition<double>(
+            "axis-value",
+            AxisOrientation.Left,
+            Math.Max(leftThickness, 0d),
+            valueScale,
+            theme.Axis,
+            new TickGenerationOptions<double> { TargetTickCount = valueTickTarget });
+
+        var bottomLayout = new AxisLayout(
+            AxisOrientation.Bottom,
+            new LayoutRect(plotArea.X, plotArea.Y + plotArea.Height, plotArea.Width, Math.Max(bottomThickness, 0d)),
+            Math.Max(bottomThickness, 0d));
+
+        var leftLayout = new AxisLayout(
+            AxisOrientation.Left,
+            new LayoutRect(Math.Max(plotArea.X - leftThickness, 0d), plotArea.Y, Math.Max(leftThickness, 0d), plotArea.Height),
+            Math.Max(leftThickness, 0d));
+
+        var axisModels = new List<AxisRenderModel>
+        {
+            bottomAxis.Build(bottomLayout, _tickRegistry),
+            leftAxis.Build(leftLayout, _tickRegistry),
+        };
+
+        var axisSurface = new AxisRenderSurface(plotArea, axisModels);
+        var axisRenderResult = _axisRenderer.Render(axisSurface);
+
+        if (renderAxes)
+        {
+            _gridlineRenderer.Render(scene, axisRenderResult, plotArea, theme);
+            DrawAxes(scene, axisRenderResult);
+            DrawAxisLabels(scene, axisRenderResult);
+        }
+
+        var legend = legendDefinition ?? CreateLegendDefinition(metadata);
+        if (legend.Items.Count > 0)
+        {
+            var legendVisual = _legendRenderer.Render(legend, axisSurface, theme);
+            DrawLegend(scene, legendVisual, theme);
+        }
+
+        if (annotations is { Count: > 0 })
+        {
+            _annotationRenderer.Render(scene, annotations, plotArea, metadata, theme);
+        }
+    }
+
+    private void DrawAxes(VScene scene, AxisRenderResult result)
+    {
+        foreach (var axis in result.Axes)
+        {
+            if (axis.Model.Orientation is not AxisOrientation.Left and not AxisOrientation.Bottom)
+            {
+                continue;
+            }
+
+            DrawLine(scene, axis.AxisLine.X1, axis.AxisLine.Y1, axis.AxisLine.X2, axis.AxisLine.Y2, axis.AxisLine.Color, 1.0);
+
+            foreach (var tick in axis.Ticks)
+            {
+                DrawLine(scene, tick.X1, tick.Y1, tick.X2, tick.Y2, tick.Color, 1.0);
+            }
+        }
+    }
+
+    private void DrawAxisLabels(VScene scene, AxisRenderResult result)
+    {
+        foreach (var axis in result.Axes)
+        {
+            if (axis.Model.Orientation is not AxisOrientation.Left and not AxisOrientation.Bottom)
+            {
+                continue;
+            }
+
+            foreach (var label in axis.Labels)
+            {
+                var fontSize = (float)label.Typography.FontSize;
+                _textRenderer.Draw(scene, label, fontSize);
+            }
+        }
+    }
+
+    private static LegendDefinition CreateLegendDefinition(ChartFrameMetadata metadata)
+    {
+        var items = new List<LegendItem>(metadata.Series.Count);
+        foreach (var series in metadata.Series)
+        {
+            var color = ChartRgbaColor.FromChartColor(series.Color);
+            var label = string.IsNullOrWhiteSpace(series.Label) ? $"Series {series.SeriesId}" : series.Label;
+            items.Add(new LegendItem(
+                label,
+                color,
+                series.Kind,
+                series.StrokeWidth,
+                series.FillOpacity,
+                series.MarkerSize));
+        }
+
+        return new LegendDefinition(
+            "legend-default",
+            LegendOrientation.Vertical,
+            LegendPosition.InsideTopRight,
+            items);
+    }
+
+    private void DrawLegend(VScene scene, LegendVisual legend, ChartTheme theme)
+    {
+        var style = theme.Legend;
+        FillRectangle(scene, legend.Bounds, style.Background);
+        if (style.BorderThickness > 0.0)
+        {
+            StrokeRectangle(scene, legend.Bounds, style.Border, style.BorderThickness);
+        }
+
+        foreach (var item in legend.Items)
+        {
+            DrawLegendMarker(scene, item, style);
+            var labelVisual = new AxisLabelVisual(
+                item.TextX,
+                item.TextY,
+                item.Label,
+                style.LabelTypography,
+                AxisOrientation.Bottom,
+                TextAlignment.Start,
+                TextAlignment.Center,
+                style.LabelTypography.FontWeight?.Equals("bold", StringComparison.OrdinalIgnoreCase) == true
+                    ? item.Color
+                    : theme.Palette.Foreground);
+
+            var fontSize = (float)style.LabelTypography.FontSize;
+            _textRenderer.Draw(scene, labelVisual, fontSize);
+        }
+    }
+
+    private static void DrawLegendMarker(VScene scene, LegendItemVisual item, LegendStyle style)
+    {
+        var size = item.MarkerSize > 0 ? item.MarkerSize : style.MarkerSize;
+        var markerRect = new LayoutRect(item.MarkerX, item.MarkerY, size, size);
+
+        switch (item.Kind)
+        {
+            case ChartSeriesKind.Line:
+                if (item.FillOpacity > 0)
+                {
+                    var fill = item.Color.WithAlpha(ToByteOpacity(item.FillOpacity));
+                    FillRectangle(scene, markerRect, fill);
+                }
+
+                var centerY = item.MarkerY + size / 2d;
+                DrawLine(scene, item.MarkerX, centerY, item.MarkerX + size, centerY, item.Color, Math.Max(1.0, item.StrokeWidth));
+                break;
+
+            case ChartSeriesKind.Area:
+                var areaFill = item.Color.WithAlpha(ToByteOpacity(item.FillOpacity <= 0 ? 0.45 : item.FillOpacity));
+                FillRectangle(scene, markerRect, areaFill);
+                DrawLine(scene, item.MarkerX, item.MarkerY, item.MarkerX + size, item.MarkerY, item.Color, Math.Max(1.0, item.StrokeWidth));
+                break;
+
+            case ChartSeriesKind.Scatter:
+                FillRectangle(scene, markerRect, item.Color);
+                StrokeRectangle(scene, markerRect, item.Color, Math.Max(1.0, item.StrokeWidth));
+                break;
+
+            case ChartSeriesKind.Bar:
+                FillRectangle(scene, markerRect, item.Color);
+                break;
+
+            default:
+                FillRectangle(scene, markerRect, item.Color);
+                break;
+        }
+    }
+
+    private static byte ToByteOpacity(double opacity)
+    {
+        var clamped = Math.Clamp(opacity, 0d, 1d);
+        return (byte)Math.Round(clamped * 255d);
+    }
+
+    public void Dispose()
+    {
+        _textRenderer.Dispose();
+    }
+}

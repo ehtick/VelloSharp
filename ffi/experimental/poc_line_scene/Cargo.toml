@@ -1,0 +1,11 @@
+[package]
+name = "poc_line_scene"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+vello = { workspace = true }
+kurbo = { workspace = true }
+peniko = { workspace = true }
+rand = { workspace = true, features = ["std_rng"] }

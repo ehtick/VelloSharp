@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
+    <ProjectReference Include="..\VelloSharp.Charting\VelloSharp.Charting.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartData\VelloSharp.ChartData.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartDiagnostics\VelloSharp.ChartDiagnostics.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
+  </ItemGroup>
+</Project>

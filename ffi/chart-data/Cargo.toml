@@ -1,0 +1,9 @@
+[package]
+name = "vello_chart_data"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+crossbeam-channel = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }

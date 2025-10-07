@@ -12,7 +12,7 @@
     <AppxPackage>false</AppxPackage>
     <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
     <DisableXamlGeneratedMain>true</DisableXamlGeneratedMain>
-    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN;HAS_WINUI</DefineConstants>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
@@ -32,7 +32,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\bindings\VelloSharp.Uno\VelloSharp.Uno.csproj" />
+    <ProjectReference Include="..\\..\\bindings\\VelloSharp.Uno\\VelloSharp.Uno.csproj" />
+    <ProjectReference Include="..\\..\\src\\VelloSharp.ChartData\\VelloSharp.ChartData.csproj" />
+    <ProjectReference Include="..\\..\\src\\VelloSharp.ChartEngine\\VelloSharp.ChartEngine.csproj" />
+    <ProjectReference Include="..\\..\\src\\VelloSharp.Charting\\VelloSharp.Charting.csproj" />
+    <ProjectReference Include="..\\..\\src\\VelloSharp.ChartRuntime\\VelloSharp.ChartRuntime.csproj" />
+    <ProjectReference Include="..\\..\\src\\VelloSharp.ChartRuntime.Windows\\VelloSharp.ChartRuntime.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\\..\\src\\VelloSharp.ChartRuntime.Windows\\WinUI\\WinUICompositionTickSource.cs"
+             Link="Interop\\WinUICompositionTickSource.cs" />
   </ItemGroup>
 
   <Target Name="_EnsureUnoWinUIPackagePath"
@@ -69,3 +79,7 @@
   </ItemGroup>
 
 </Project>
+
+
+
+

@@ -6,16 +6,44 @@ TARGET=${1:-x86_64-apple-darwin}
 PROFILE=${2:-release}
 SDK=${3:-}
 LIBS=()
+has_native_library() {
+  local file="$1"
+  if [[ ! -f "${file}" ]]; then
+    return 1
+  fi
+  if grep -Eq 'crate-type\s*=\s*\[[^]]*"(cdylib|staticlib)"' "${file}"; then
+    return 0
+  fi
+  return 1
+}
 FFI_DIR="${ROOT}/ffi"
 if [[ -d "${FFI_DIR}" ]]; then
+  package_name() {
+    local file="$1"
+    if [[ ! -f "${file}" ]]; then
+      return
+    fi
+    local name
+    name=$(grep -m1 '^\s*name\s*=' "${file}" | sed -E 's/.*"([^"]+)".*/\1/')
+    if [[ -n "${name}" ]]; then
+      echo "${name}"
+    fi
+  }
   while IFS= read -r dir; do
     if [[ -f "${dir}/Cargo.toml" ]]; then
-      LIBS+=("$(basename "${dir}")")
+      if has_native_library "${dir}/Cargo.toml"; then
+        pkg=$(package_name "${dir}/Cargo.toml")
+      else
+        pkg=""
+      fi
+      if [[ -n "${pkg}" ]]; then
+        LIBS+=("${pkg}")
+      fi
     fi
   done < <(find "${FFI_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
 fi
 if [[ ${#LIBS[@]} -eq 0 ]]; then
-  LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi)
+  LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi vello_sparse_ffi vello_chart_engine)
 fi
 OUT_DIR="${ROOT}/artifacts/runtimes"
 
