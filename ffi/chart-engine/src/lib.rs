@@ -1385,6 +1385,13 @@ impl FrameMetadata {
                 value_labels: Vec::new(),
             };
 
+            if let Some(bounds) = pane.dirty.as_ref() {
+                record.dirty_time_min = bounds.time_min;
+                record.dirty_time_max = bounds.time_max;
+                record.dirty_value_min = bounds.value_min;
+                record.dirty_value_max = bounds.value_max;
+            }
+
             if let Some(layout) = pane.axis_layout.as_ref() {
                 for tick in &layout.value_ticks {
                     let label = make_c_string(&tick.label);

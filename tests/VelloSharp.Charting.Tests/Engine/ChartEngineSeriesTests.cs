@@ -186,10 +186,19 @@ public sealed class ChartEngineSeriesTests : IDisposable
         var metadata = engine.GetFrameMetadata();
         var pane = Assert.Single(metadata.Panes);
 
-        Assert.Null(pane.DirtyTimeMin);
-        Assert.Null(pane.DirtyTimeMax);
-        Assert.Null(pane.DirtyValueMin);
-        Assert.Null(pane.DirtyValueMax);
+        var dirtyTimeMin = Assert.NotNull(pane.DirtyTimeMin);
+        var dirtyTimeMax = Assert.NotNull(pane.DirtyTimeMax);
+        var dirtyValueMin = Assert.NotNull(pane.DirtyValueMin);
+        var dirtyValueMax = Assert.NotNull(pane.DirtyValueMax);
+
+        Assert.True(dirtyTimeMin <= now - 1);
+        Assert.True(dirtyTimeMax >= now - 1);
+        Assert.True(dirtyValueMin <= 107.5);
+        Assert.True(dirtyValueMax >= 107.5);
+
+        engine.Render(scene, 640, 360);
+        metadata = engine.GetFrameMetadata();
+        pane = Assert.Single(metadata.Panes);
         Assert.True(pane.ValueMax >= 107.5);
     }
 
@@ -223,7 +232,9 @@ public sealed class ChartEngineSeriesTests : IDisposable
 
         Assert.Equal(firstStats.Timestamp, secondStats.Timestamp);
         Assert.Equal(firstStats.EncodedPaths, secondStats.EncodedPaths);
-    }    public void Dispose()
+    }
+
+    public void Dispose()
     {
         _engine.Dispose();
     }
