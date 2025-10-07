@@ -1294,11 +1294,14 @@ impl TryFrom<&VelloWindowHandle> for SurfaceTargetHandles {
                     display: RawDisplayHandle::Xlib(xlib_display),
                 })
             }
+            #[cfg(target_os = "windows")]
             VelloWindowHandleKind::SwapChainPanel => {
                 let payload = unsafe { handle.payload.swap_chain_panel };
                 let panel = NonNull::new(payload.panel).ok_or(VelloStatus::InvalidArgument)?;
                 Ok(Self::SwapChainPanel(panel.as_ptr()))
             }
+            #[cfg(not(target_os = "windows"))]
+            VelloWindowHandleKind::SwapChainPanel => Err(VelloStatus::Unsupported),
             VelloWindowHandleKind::CoreWindow => {
                 let payload = unsafe { handle.payload.core_window };
                 core_window_to_raw_handles(payload.core_window)
@@ -1629,8 +1632,13 @@ pub unsafe extern "C" fn vello_render_surface_create(
                 raw_display_handle: display,
                 raw_window_handle: window,
             },
+            #[cfg(target_os = "windows")]
             SurfaceTargetHandles::SwapChainPanel(panel) => {
                 SurfaceTargetUnsafe::SwapChainPanel(panel)
+            }
+            #[cfg(not(target_os = "windows"))]
+            SurfaceTargetHandles::SwapChainPanel(_) => {
+                unreachable!("SwapChainPanel handles are not available on this platform")
             }
         };
 
@@ -2124,7 +2132,7 @@ impl From<VelloBlendMix> for peniko::Mix {
             VelloBlendMix::Saturation => peniko::Mix::Saturation,
             VelloBlendMix::Color => peniko::Mix::Color,
             VelloBlendMix::Luminosity => peniko::Mix::Luminosity,
-            VelloBlendMix::Clip => peniko::Mix::Clip,
+            VelloBlendMix::Clip => unreachable!("Clip mix is handled via push_clip_layer"),
         }
     }
 }
@@ -3839,10 +3847,16 @@ pub unsafe extern "C" fn vello_scene_push_layer(
             return VelloStatus::InvalidArgument;
         }
     };
-    let blend_mode = blend_mode_from_params(&params);
-    scene
-        .inner
-        .push_layer(blend_mode, params.alpha, params.transform.into(), &path);
+    if params.mix == VelloBlendMix::Clip {
+        scene
+            .inner
+            .push_clip_layer(params.transform.into(), &path);
+    } else {
+        let blend_mode = blend_mode_from_params(&params);
+        scene
+            .inner
+            .push_layer(blend_mode, params.alpha, params.transform.into(), &path);
+    }
     VelloStatus::Success
 }
 
@@ -7219,7 +7233,12 @@ pub unsafe extern "C" fn vello_wgpu_surface_create(
             raw_display_handle: display,
             raw_window_handle: window,
         },
+        #[cfg(target_os = "windows")]
         SurfaceTargetHandles::SwapChainPanel(panel) => SurfaceTargetUnsafe::SwapChainPanel(panel),
+        #[cfg(not(target_os = "windows"))]
+        SurfaceTargetHandles::SwapChainPanel(_) => {
+            unreachable!("SwapChainPanel handles are not available on this platform")
+        }
     };
 
     match unsafe { instance.instance.create_surface_unsafe(target) } {
@@ -7980,10 +7999,10 @@ pub unsafe extern "C" fn vello_scene_draw_glyph_run(
 }
 
 #[cfg(not(target_os = "windows"))]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_wgpu_device_create_shared_texture(
-    device: *mut VelloWgpuDeviceHandle,
-    desc: *const VelloSharedTextureDesc,
+    _device: *mut VelloWgpuDeviceHandle,
+    _desc: *const VelloSharedTextureDesc,
     out_handle: *mut *mut VelloSharedTextureHandle,
 ) -> VelloStatus {
     if out_handle.is_null() {
@@ -7991,21 +8010,24 @@ pub unsafe extern "C" fn vello_wgpu_device_create_shared_texture(
         return VelloStatus::NullPointer;
     }
 
-    *out_handle = std::ptr::null_mut();
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+    }
     set_last_error("Shared texture interop is only supported on Windows builds");
     VelloStatus::Unsupported
 }
 
 #[cfg(not(target_os = "windows"))]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_shared_texture_destroy(handle: *mut VelloSharedTextureHandle) {
     if !handle.is_null() {
-        drop(Box::from_raw(handle));
+        unsafe { drop(Box::from_raw(handle)) };
     }
 }
 
 #[cfg(target_os = "windows")]
-#[cfg(target_os = "windows")]
 pub use windows_shared_texture::{
-    vello_shared_texture_destroy, vello_wgpu_device_create_shared_texture,
+    vello_shared_texture_acquire_mutex, vello_shared_texture_destroy,
+    vello_shared_texture_flush, vello_shared_texture_release_mutex,
+    vello_wgpu_device_create_shared_texture,
 };

@@ -7,7 +7,7 @@
 use std::{
     cell::RefCell,
     ffi::{CString, c_char},
-    fmt, slice, str,
+    fmt, mem, slice, str,
     sync::{Arc, OnceLock, RwLock},
     time::{Instant, SystemTime},
 };
@@ -473,10 +473,10 @@ impl ChartEngine {
                 global_max = global_max.max(series_max);
             }
 
-            let mut range_start = 0.0;
-            let mut range_end = 0.0;
-            let mut global_value_min = 0.0;
-            let mut global_value_max = 1.0;
+            let range_start;
+            let range_end;
+            let global_value_min;
+            let global_value_max;
 
             let band_lower_ids: HashSet<u32> = self
                 .series
@@ -643,8 +643,7 @@ impl ChartEngine {
                         };
 
                         if let Some(state) = self.series.get_mut(series_id) {
-                            let span = state.span();
-                            if span.is_empty() {
+                            if state.points.is_empty() {
                                 continue;
                             }
 
@@ -670,8 +669,8 @@ impl ChartEngine {
                             };
                             let fill_opacity = definition.fill_opacity.unwrap_or(default_fill);
                             let marker_size = definition.marker_size.unwrap_or(4.0).max(0.5);
-                            let fallback_bar_width = if span.len() > 1 {
-                                window / span.len() as f64
+                            let fallback_bar_width = if state.points.len() > 1 {
+                                window / state.points.len() as f64
                             } else {
                                 window * 0.05
                             };
@@ -682,100 +681,108 @@ impl ChartEngine {
                             let baseline_value = definition.baseline.unwrap_or(pane_min);
 
                             if state.needs_rebuild {
-                                state.cached_scene.reset();
-                                let (paths, label_anchor) = match definition.kind {
-                                    SeriesKind::Line => render_line_series(
-                                        &mut state.cached_scene,
-                                        span,
-                                        series_color,
-                                        &pane_plot_area,
-                                        range_start,
-                                        window,
-                                        pane_min,
-                                        pane_value_range,
-                                        stroke_width,
-                                        fill_opacity,
-                                        baseline_value,
-                                    ),
-                                    SeriesKind::Area => render_area_series(
-                                        &mut state.cached_scene,
-                                        span,
-                                        series_color,
-                                        &pane_plot_area,
-                                        range_start,
-                                        window,
-                                        pane_min,
-                                        pane_value_range,
-                                        stroke_width,
-                                        fill_opacity.max(0.05),
-                                        baseline_value,
-                                    ),
-                                    SeriesKind::Scatter => render_scatter_series(
-                                        &mut state.cached_scene,
-                                        span,
-                                        series_color,
-                                        &pane_plot_area,
-                                        range_start,
-                                        window,
-                                        pane_min,
-                                        pane_value_range,
-                                        marker_size,
-                                    ),
-                                    SeriesKind::Bar => render_bar_series(
-                                        &mut state.cached_scene,
-                                        span,
-                                        series_color,
-                                        &pane_plot_area,
-                                        range_start,
-                                        window,
-                                        pane_min,
-                                        pane_value_range,
-                                        bar_width_seconds,
-                                        baseline_value,
-                                    ),
-                                    SeriesKind::Band => {
-                                        if let Some(lower_span) = lower_series_span.as_deref() {
-                                            let band_fill = if fill_opacity > 0.0 {
-                                                fill_opacity
-                                            } else {
-                                                0.25
-                                            };
-                                            render_band_series(
-                                                &mut state.cached_scene,
-                                                span,
-                                                lower_span,
-                                                series_color,
-                                                &pane_plot_area,
-                                                range_start,
-                                                window,
-                                                pane_min,
-                                                pane_value_range,
-                                                stroke_width,
-                                                band_fill,
-                                            )
-                                        } else {
-                                            (0, None)
-                                        }
-                                    }
-                                    SeriesKind::Heatmap => {
-                                        let bucket_count = definition.heatmap_bucket_count.unwrap_or(1);
-                                        render_heatmap_series(
-                                            &mut state.cached_scene,
+                                let mut cached_scene = mem::take(&mut state.cached_scene);
+                                cached_scene.reset();
+
+                                let (paths, label_anchor) = {
+                                    let span = state.points.as_slice();
+                                    match definition.kind {
+                                        SeriesKind::Line => render_line_series(
+                                            &mut cached_scene,
                                             span,
                                             series_color,
                                             &pane_plot_area,
                                             range_start,
                                             window,
-                                            definition.heatmap_bucket_index.unwrap_or(0),
-                                            bucket_count,
                                             pane_min,
                                             pane_value_range,
-                                        )
+                                            stroke_width,
+                                            fill_opacity,
+                                            baseline_value,
+                                        ),
+                                        SeriesKind::Area => render_area_series(
+                                            &mut cached_scene,
+                                            span,
+                                            series_color,
+                                            &pane_plot_area,
+                                            range_start,
+                                            window,
+                                            pane_min,
+                                            pane_value_range,
+                                            stroke_width,
+                                            fill_opacity.max(0.05),
+                                            baseline_value,
+                                        ),
+                                        SeriesKind::Scatter => render_scatter_series(
+                                            &mut cached_scene,
+                                            span,
+                                            series_color,
+                                            &pane_plot_area,
+                                            range_start,
+                                            window,
+                                            pane_min,
+                                            pane_value_range,
+                                            marker_size,
+                                        ),
+                                        SeriesKind::Bar => render_bar_series(
+                                            &mut cached_scene,
+                                            span,
+                                            series_color,
+                                            &pane_plot_area,
+                                            range_start,
+                                            window,
+                                            pane_min,
+                                            pane_value_range,
+                                            bar_width_seconds,
+                                            baseline_value,
+                                        ),
+                                        SeriesKind::Band => {
+                                            if let Some(lower_span) = lower_series_span.as_deref() {
+                                                let band_fill = if fill_opacity > 0.0 {
+                                                    fill_opacity
+                                                } else {
+                                                    0.25
+                                                };
+                                                render_band_series(
+                                                    &mut cached_scene,
+                                                    span,
+                                                    lower_span,
+                                                    series_color,
+                                                    &pane_plot_area,
+                                                    range_start,
+                                                    window,
+                                                    pane_min,
+                                                    pane_value_range,
+                                                    stroke_width,
+                                                    band_fill,
+                                                )
+                                            } else {
+                                                (0, None)
+                                            }
+                                        }
+                                        SeriesKind::Heatmap => {
+                                            let bucket_count =
+                                                definition.heatmap_bucket_count.unwrap_or(1);
+                                            render_heatmap_series(
+                                                &mut cached_scene,
+                                                span,
+                                                series_color,
+                                                &pane_plot_area,
+                                                range_start,
+                                                window,
+                                                definition.heatmap_bucket_index.unwrap_or(0),
+                                                bucket_count,
+                                                pane_min,
+                                                pane_value_range,
+                                            )
+                                        }
                                     }
                                 };
+
                                 state.cached_paths = paths;
                                 state.label_anchor = label_anchor;
                                 state.needs_rebuild = false;
+                                state.cached_scene = cached_scene;
                             }
 
                             encoded_paths += state.cached_paths;
@@ -945,7 +952,7 @@ impl CompositionState {
 
         let mut unassigned: Vec<_> = series
             .keys()
-            .filter(|id| !assigned.contains(id))
+            .filter(|id| !assigned.contains(*id))
             .copied()
             .collect();
         unassigned.sort_unstable();
@@ -1112,7 +1119,6 @@ impl DirtyBounds {
     }
 }
 
-#[derive(Debug)]
 struct SeriesState {
     points: Vec<SeriesPoint>,
     latest_timestamp: f64,
@@ -1124,6 +1130,22 @@ struct SeriesState {
     label_anchor: Option<Point>,
     needs_rebuild: bool,
     dirty: Option<DirtyBounds>,
+}
+
+impl fmt::Debug for SeriesState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SeriesState")
+            .field("point_count", &self.points.len())
+            .field("latest_timestamp", &self.latest_timestamp)
+            .field("style", &self.style)
+            .field("definition", &self.definition)
+            .field("palette_slot", &self.palette_slot)
+            .field("cached_paths", &self.cached_paths)
+            .field("label_anchor", &self.label_anchor)
+            .field("needs_rebuild", &self.needs_rebuild)
+            .field("dirty", &self.dirty)
+            .finish()
+    }
 }
 
 #[derive(Default)]
@@ -1405,7 +1427,7 @@ struct VelloChartCompositionPane {
 }
 
 #[repr(C)]
-struct VelloChartComposition {
+pub struct VelloChartComposition {
     panes: *const VelloChartCompositionPane,
     pane_count: usize,
 }
@@ -1464,7 +1486,7 @@ struct VelloChartSeriesMetadata {
 }
 
 #[repr(C)]
-struct VelloChartFrameMetadata {
+pub struct VelloChartFrameMetadata {
     range_start: f64,
     range_end: f64,
     value_min: f64,
@@ -3256,9 +3278,12 @@ pub unsafe extern "C" fn vello_chart_engine_publish_samples(
     sample_count: usize,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (unsafe { handle.as_mut() }) else {
-        set_last_error("Null engine handle passed to publish_samples");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to publish_samples");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     let Ok(sample_slice) = slice_from_raw(samples, sample_count) else {
@@ -3276,9 +3301,12 @@ pub unsafe extern "C" fn vello_chart_engine_set_palette(
     palette_len: usize,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (unsafe { handle.as_mut() }) else {
-        set_last_error("Null engine handle passed to set_palette");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to set_palette");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     if palette_len == 0 {
@@ -3307,9 +3335,12 @@ pub unsafe extern "C" fn vello_chart_engine_set_series_definitions(
     definitions_len: usize,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (unsafe { handle.as_mut() }) else {
-        set_last_error("Null engine handle passed to set_series_definitions");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to set_series_definitions");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     let definitions = if definitions_len == 0 {
@@ -3340,9 +3371,12 @@ pub unsafe extern "C" fn vello_chart_engine_set_composition(
     composition_ptr: *const VelloChartComposition,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (handle.as_mut()) else {
-        set_last_error("Null engine handle passed to set_composition");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to set_composition");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     if composition_ptr.is_null() {
@@ -3350,9 +3384,12 @@ pub unsafe extern "C" fn vello_chart_engine_set_composition(
         return VelloChartEngineStatus::Success;
     }
 
-    let Some(composition) = composition_ptr.as_ref() else {
-        set_last_error("Invalid composition pointer passed to set_composition");
-        return VelloChartEngineStatus::NullPointer;
+    let composition = match unsafe { composition_ptr.as_ref() } {
+        Some(composition) => composition,
+        None => {
+            set_last_error("Invalid composition pointer passed to set_composition");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     if composition.pane_count == 0 || composition.panes.is_null() {
@@ -3380,9 +3417,12 @@ pub unsafe extern "C" fn vello_chart_engine_apply_series_overrides(
     overrides_len: usize,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (unsafe { handle.as_mut() }) else {
-        set_last_error("Null engine handle passed to apply_series_overrides");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to apply_series_overrides");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     if overrides_len == 0 {
@@ -3414,13 +3454,19 @@ pub unsafe extern "C" fn vello_chart_engine_render(
     out_stats: *mut VelloChartFrameStats,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (unsafe { handle.as_mut() }) else {
-        set_last_error("Null engine handle passed to render");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to render");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
-    let Some(scene_handle) = (unsafe { scene.as_mut() }) else {
-        set_last_error("Null scene handle passed to render");
-        return VelloChartEngineStatus::NullPointer;
+    let scene_handle = match unsafe { scene.as_mut() } {
+        Some(scene_handle) => scene_handle,
+        None => {
+            set_last_error("Null scene handle passed to render");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     let frame = engine.inner.render_frame(width, height);
@@ -3440,13 +3486,19 @@ pub unsafe extern "C" fn vello_chart_engine_last_frame_metadata(
     out_metadata: *mut VelloChartFrameMetadata,
 ) -> VelloChartEngineStatus {
     clear_last_error();
-    let Some(engine) = (unsafe { handle.as_mut() }) else {
-        set_last_error("Null engine handle passed to last_frame_metadata");
-        return VelloChartEngineStatus::NullPointer;
+    let engine = match unsafe { handle.as_mut() } {
+        Some(engine) => engine,
+        None => {
+            set_last_error("Null engine handle passed to last_frame_metadata");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
-    let Some(out) = (unsafe { out_metadata.as_mut() }) else {
-        set_last_error("Null metadata pointer passed to last_frame_metadata");
-        return VelloChartEngineStatus::NullPointer;
+    let out = match unsafe { out_metadata.as_mut() } {
+        Some(out) => out,
+        None => {
+            set_last_error("Null metadata pointer passed to last_frame_metadata");
+            return VelloChartEngineStatus::NullPointer;
+        }
     };
 
     let buffer_index = engine

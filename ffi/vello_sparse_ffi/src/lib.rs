@@ -395,7 +395,7 @@ impl From<VelloBlendMix> for peniko::Mix {
             VelloBlendMix::Saturation => peniko::Mix::Saturation,
             VelloBlendMix::Color => peniko::Mix::Color,
             VelloBlendMix::Luminosity => peniko::Mix::Luminosity,
-            VelloBlendMix::Clip => peniko::Mix::Clip,
+            VelloBlendMix::Clip => unreachable!("Clip mix is handled separately"),
         }
     }
 }
