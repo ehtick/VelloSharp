@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
     <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
     <ProjectReference Include="..\..\bindings\VelloSharp.HarfBuzzSharp\HarfBuzzSharp.csproj" />
+    <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
   </ItemGroup>
 
   <ItemGroup>

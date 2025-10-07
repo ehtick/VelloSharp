@@ -10,9 +10,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 vello = { workspace = true }
 vello_chart_diagnostics = { path = "../chart-diagnostics" }
+vello_composition = { path = "../composition" }
 hashbrown = { workspace = true }
-once_cell = { workspace = true }
-skrifa = { workspace = true, features = ["std"] }
 time = { version = "0.3", default-features = false, features = ["std"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry"] }

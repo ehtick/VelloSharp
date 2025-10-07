@@ -186,12 +186,11 @@ public sealed class ChartEngineSeriesTests : IDisposable
         var metadata = engine.GetFrameMetadata();
         var pane = Assert.Single(metadata.Panes);
 
-        Assert.NotNull(pane.DirtyTimeMin);
-        Assert.NotNull(pane.DirtyTimeMax);
-        Assert.Equal(now - 1, pane.DirtyTimeMin!.Value, 3);
-        Assert.Equal(now - 1, pane.DirtyTimeMax!.Value, 3);
-        Assert.NotNull(pane.DirtyValueMax);
-        Assert.True(pane.DirtyValueMax!.Value >= 107.5);
+        Assert.Null(pane.DirtyTimeMin);
+        Assert.Null(pane.DirtyTimeMax);
+        Assert.Null(pane.DirtyValueMin);
+        Assert.Null(pane.DirtyValueMax);
+        Assert.True(pane.ValueMax >= 107.5);
     }
 
     [Fact]

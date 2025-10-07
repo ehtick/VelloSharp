@@ -7,29 +7,27 @@
 use std::{
     cell::RefCell,
     ffi::{CString, c_char},
-    fmt, mem, slice, str,
-    sync::{Arc, OnceLock, RwLock},
+    fmt, slice, str,
+    sync::{OnceLock, RwLock},
     time::{Instant, SystemTime},
 };
 
 use hashbrown::{HashMap, HashSet, hash_map::Entry};
-use once_cell::sync::Lazy;
-use skrifa::raw::{FileRef, FontRef};
-use skrifa::{
-    MetadataProvider,
-    instance::{Location, Size},
-};
-use time::OffsetDateTime;
 use tracing::Level;
 use tracing_subscriber::{
     Layer, Registry, layer::Context, layer::SubscriberExt, registry::LookupSpan,
 };
 use vello::{
-    Glyph, Scene,
+    Scene,
     kurbo::{Affine, BezPath, Circle, Line, Point, Rect, RoundedRect, Stroke},
-    peniko::{Blob, Brush, Color, ColorStop, Fill, FontData, Gradient, color::DynamicColor},
+    peniko::{Brush, Color, ColorStop, Fill, Gradient, color::DynamicColor},
 };
 use vello_chart_diagnostics::{DiagnosticsCollector, FrameStats};
+use vello_composition::{
+    AxisLayout, LabelLayout, LinearLayoutItem, PlotArea, SceneGraphCache, SceneNodeId,
+    ScalarConstraint, MIN_PLOT_DIMENSION, compute_axis_layout, compute_plot_area, label_font,
+    layout_label, solve_linear_layout,
+};
 
 const MIN_VISIBLE_DURATION_SECS: f64 = 1e-6;
 const SCENE_BUFFER_COUNT: usize = 2;
@@ -57,25 +55,12 @@ const SERIES_DEFINITION_FLAG_BAR_WIDTH_SET: u32 = 1 << 4;
 const SERIES_DEFINITION_FLAG_BAND_LOWER_SET: u32 = 1 << 5;
 const SERIES_DEFINITION_FLAG_HEATMAP_BUCKETS_SET: u32 = 1 << 6;
 
-const LABEL_FONT_BYTES: &[u8] =
-    include_bytes!("../../../extern/vello/examples/assets/roboto/Roboto-Regular.ttf");
 const LABEL_FONT_SIZE: f32 = 14.0;
 const LABEL_HORIZONTAL_PADDING: f64 = 6.0;
 const LABEL_VERTICAL_PADDING: f64 = 4.0;
 const LABEL_CORNER_RADIUS: f64 = 6.0;
 const LABEL_HORIZONTAL_OFFSET: f64 = 12.0;
 const LABEL_VERTICAL_GAP: f64 = 8.0;
-
-static LABEL_FONT: Lazy<FontData> =
-    Lazy::new(|| FontData::new(Blob::new(Arc::new(LABEL_FONT_BYTES)), 0));
-
-const PLOT_LEFT_MARGIN_RATIO: f64 = 0.12;
-const PLOT_RIGHT_MARGIN_RATIO: f64 = 0.04;
-const PLOT_TOP_MARGIN_RATIO: f64 = 0.08;
-const PLOT_BOTTOM_MARGIN_RATIO: f64 = 0.12;
-const PLOT_LEFT_MARGIN_MIN: f64 = 48.0;
-const PLOT_BOTTOM_MARGIN_MIN: f64 = 32.0;
-const MIN_PLOT_DIMENSION: f64 = 32.0;
 const AXIS_FONT_SIZE: f32 = 12.0;
 const AXIS_LABEL_LEFT_MARGIN: f64 = 10.0;
 const AXIS_LABEL_BOTTOM_MARGIN: f64 = 18.0;
@@ -256,6 +241,8 @@ pub struct ChartEngine {
     series_definitions: HashMap<u32, SeriesDefinition>,
     series: HashMap<u32, SeriesState>,
     composition: CompositionState,
+    scene_cache: SceneGraphCache,
+    scene_root: SceneNodeId,
     next_palette_slot: usize,
     frame_buffers: [FrameBuffer; SCENE_BUFFER_COUNT],
     next_buffer: usize,
@@ -267,12 +254,16 @@ pub struct ChartEngine {
 
 impl ChartEngine {
     pub fn new(options: EngineOptions) -> Self {
+        let mut scene_cache = SceneGraphCache::new();
+        let scene_root = scene_cache.create_node(None);
         Self {
             options,
             diagnostics: DiagnosticsCollector::default(),
             series_definitions: HashMap::new(),
             series: HashMap::new(),
             composition: CompositionState::default(),
+            scene_cache,
+            scene_root,
             next_palette_slot: 0,
             frame_buffers: std::array::from_fn(|_| FrameBuffer::new()),
             next_buffer: 0,
@@ -294,15 +285,19 @@ impl ChartEngine {
         let visible_duration = self.options.visible_duration_seconds;
         let mut mutated = false;
         for sample in iter {
-            let state = self.ensure_series_state(sample.series_id);
-            let outcome = state.add(
-                SeriesPoint {
+            let (outcome, scene_node) = {
+                let state = self.ensure_series_state(sample.series_id);
+                let outcome = state.add(SeriesPoint {
                     timestamp_seconds: sample.timestamp_seconds,
                     value: sample.value,
-                },
-                visible_duration,
-            );
+                }, visible_duration);
+                let node = state.scene_node;
+                (outcome, node)
+            };
+
             if !matches!(outcome, AddOutcome::Unchanged) {
+                self.scene_cache
+                    .mark_dirty(scene_node, sample.timestamp_seconds, sample.value);
                 mutated = true;
             }
         }
@@ -318,7 +313,22 @@ impl ChartEngine {
         match self.series.entry(series_id) {
             Entry::Occupied(mut entry) => {
                 if let Some(definition) = self.series_definitions.get(&series_id).cloned() {
-                    entry.get_mut().set_definition(definition);
+                    let (node, dirty) = {
+                        let state = entry.get_mut();
+                        let node = state.scene_node;
+                        let dirty = state.set_definition(definition);
+                        (node, dirty)
+                    };
+
+                    if let Some(bounds) = dirty {
+                        self.scene_cache.mark_dirty_bounds(
+                            node,
+                            bounds.time_min,
+                            bounds.time_max,
+                            bounds.value_min,
+                            bounds.value_max,
+                        );
+                    }
                 }
                 entry.into_mut()
             }
@@ -330,7 +340,10 @@ impl ChartEngine {
                     .get(&series_id)
                     .cloned()
                     .unwrap_or_default();
-                vacant.insert(SeriesState::new(slot, definition))
+                let scene_node = self
+                    .scene_cache
+                    .create_node(Some(self.scene_root));
+                vacant.insert(SeriesState::new(slot, definition, scene_node))
             }
         }
     }
@@ -377,7 +390,16 @@ impl ChartEngine {
 
         if changed {
             state.needs_rebuild = true;
-            state.mark_full_dirty();
+            let node = state.scene_node;
+            if let Some(bounds) = state.mark_full_dirty() {
+                self.scene_cache.mark_dirty_bounds(
+                    node,
+                    bounds.time_min,
+                    bounds.time_max,
+                    bounds.value_min,
+                    bounds.value_max,
+                );
+            }
             self.scene_invalidated = true;
         }
     }
@@ -388,13 +410,31 @@ impl ChartEngine {
             self.series_definitions
                 .insert(series_id, definition.clone());
             if let Some(state) = self.series.get_mut(&series_id) {
-                state.set_definition(definition);
+                let node = state.scene_node;
+                if let Some(bounds) = state.set_definition(definition.clone()) {
+                    self.scene_cache.mark_dirty_bounds(
+                        node,
+                        bounds.time_min,
+                        bounds.time_max,
+                        bounds.value_min,
+                        bounds.value_max,
+                    );
+                }
             }
         }
 
         for (series_id, state) in self.series.iter_mut() {
             if !self.series_definitions.contains_key(series_id) {
-                state.set_definition(SeriesDefinition::default());
+                let node = state.scene_node;
+                if let Some(bounds) = state.set_definition(SeriesDefinition::default()) {
+                    self.scene_cache.mark_dirty_bounds(
+                        node,
+                        bounds.time_min,
+                        bounds.time_max,
+                        bounds.value_min,
+                        bounds.value_max,
+                    );
+                }
             }
         }
 
@@ -418,7 +458,16 @@ impl ChartEngine {
 
         for state in self.series.values_mut() {
             state.needs_rebuild = true;
-            state.mark_full_dirty();
+            let node = state.scene_node;
+            if let Some(bounds) = state.mark_full_dirty() {
+                self.scene_cache.mark_dirty_bounds(
+                    node,
+                    bounds.time_min,
+                    bounds.time_max,
+                    bounds.value_min,
+                    bounds.value_max,
+                );
+            }
         }
 
         self.scene_invalidated = true;
@@ -533,39 +582,98 @@ impl ChartEngine {
                     pane_count as f64
                 };
 
-                let mut current_top = plot_area.top;
-                let mut remaining_height = plot_area.height;
+                let pane_rects: Vec<PlotArea> = if pane_count == 0 {
+                    Vec::new()
+                } else {
+                    let mut layout_items = Vec::with_capacity(pane_count);
+                    for resolved in &resolved_panes {
+                        let ratio = if resolved.height_ratio.is_finite() && resolved.height_ratio > 0.0 {
+                            resolved.height_ratio
+                        } else {
+                            1.0
+                        };
 
-                for (index, resolved) in resolved_panes.into_iter().enumerate() {
+                        let min_height = MIN_PLOT_DIMENSION.min(plot_area.height);
+                        let preferred_ratio = if effective_ratio_sum > 0.0 {
+                            ratio.max(0.0) / effective_ratio_sum
+                        } else {
+                            1.0 / pane_count as f64
+                        };
+                        let preferred_height =
+                            (plot_area.height * preferred_ratio).max(min_height);
+                        let constraint =
+                            ScalarConstraint::new(min_height, preferred_height, plot_area.height);
+
+                        layout_items
+                            .push(LinearLayoutItem::new(constraint).with_weight(ratio.max(0.0)));
+                    }
+
+                    let solved = solve_linear_layout(&layout_items, plot_area.height, 0.0);
+                    if solved.len() == pane_count {
+                        resolved_panes
+                            .iter()
+                            .zip(solved.iter())
+                            .map(|(_pane, slot)| {
+                                let mut pane_height =
+                                    slot.length.max(MIN_PLOT_DIMENSION.min(plot_area.height));
+                                pane_height = pane_height.min(plot_area.height);
+                                let mut pane_top = plot_area.top + slot.offset;
+                                let bottom_limit = plot_area.top + plot_area.height;
+                                if pane_top + pane_height > bottom_limit {
+                                    pane_top = (bottom_limit - pane_height).max(plot_area.top);
+                                }
+                                PlotArea {
+                                    left: plot_area.left,
+                                    top: pane_top,
+                                    width: plot_area.width,
+                                    height: pane_height,
+                                }
+                            })
+                            .collect()
+                    } else {
+                        let mut current_top = plot_area.top;
+                        let mut remaining_height = plot_area.height;
+                        let mut fallback = Vec::with_capacity(pane_count);
+
+                        for (index, resolved) in resolved_panes.iter().enumerate() {
+                            let normalized_ratio = if effective_ratio_sum > 0.0 {
+                                resolved.height_ratio.max(0.0) / effective_ratio_sum
+                            } else {
+                                1.0 / pane_count as f64
+                            };
+
+                            let tentative_height = if index + 1 == pane_count {
+                                remaining_height
+                            } else {
+                                (plot_area.height * normalized_ratio).min(remaining_height)
+                            };
+
+                            let pane_height = tentative_height
+                                .max(MIN_PLOT_DIMENSION.min(plot_area.height))
+                                .min(remaining_height.max(1.0));
+
+                            fallback.push(PlotArea {
+                                left: plot_area.left,
+                                top: current_top,
+                                width: plot_area.width,
+                                height: pane_height,
+                            });
+
+                            current_top += pane_height;
+                            remaining_height =
+                                (plot_area.top + plot_area.height - current_top).max(0.0);
+                        }
+
+                        fallback
+                    }
+                };
+
+                for (resolved, pane_plot_area) in
+                    resolved_panes.into_iter().zip(pane_rects.into_iter())
+                {
                     let share_axis = resolved.share_x_with_primary;
                     let pane_id = resolved.id;
                     let pane_series = resolved.series_ids;
-
-                    let normalized_ratio = if effective_ratio_sum > 0.0 {
-                        resolved.height_ratio.max(0.0) / effective_ratio_sum
-                    } else {
-                        1.0 / pane_count as f64
-                    };
-
-                    let tentative_height = if index + 1 == pane_count {
-                        remaining_height
-                    } else {
-                        (plot_area.height * normalized_ratio).min(remaining_height)
-                    };
-
-                    let pane_height = tentative_height
-                        .max(MIN_PLOT_DIMENSION.min(plot_area.height))
-                        .min(remaining_height.max(1.0));
-
-                    let pane_plot_area = PlotArea {
-                        left: plot_area.left,
-                        top: current_top,
-                        width: plot_area.width,
-                        height: pane_height,
-                    };
-
-                    current_top += pane_height;
-                    remaining_height = (plot_area.top + plot_area.height - current_top).max(0.0);
 
                     let mut pane_min = f64::INFINITY;
                     let mut pane_max = f64::NEG_INFINITY;
@@ -614,6 +722,7 @@ impl ChartEngine {
                         range_end,
                         pane_min,
                         pane_max,
+                        6,
                     ));
 
                     if time_axis_pane_index.is_none() && share_axis {
@@ -632,25 +741,25 @@ impl ChartEngine {
                             None => continue,
                         };
 
-                        let lower_series_span: Option<Vec<SeriesPoint>> = if series_kind == SeriesKind::Band {
-                            band_lower_id.and_then(|lower_id| {
-                                self.series
-                                    .get(&lower_id)
-                                    .map(|lower_state| lower_state.span().to_vec())
-                            })
-                        } else {
-                            None
-                        };
+                        let lower_series_span: Option<Vec<SeriesPoint>> =
+                            if series_kind == SeriesKind::Band {
+                                band_lower_id.and_then(|lower_id| {
+                                    self.series
+                                        .get(&lower_id)
+                                        .map(|lower_state| lower_state.span().to_vec())
+                                })
+                            } else {
+                                None
+                            };
 
                         if let Some(state) = self.series.get_mut(series_id) {
                             if state.points.is_empty() {
                                 continue;
                             }
 
-                            let series_color = state
-                                .style
-                                .color
-                                .unwrap_or_else(|| color_for_series(&self.options, state.palette_slot));
+                            let series_color = state.style.color.unwrap_or_else(|| {
+                                color_for_series(&self.options, state.palette_slot)
+                            });
 
                             let definition = state.definition.clone();
                             let base_stroke = definition
@@ -681,112 +790,120 @@ impl ChartEngine {
                             let baseline_value = definition.baseline.unwrap_or(pane_min);
 
                             if state.needs_rebuild {
-                                let mut cached_scene = mem::take(&mut state.cached_scene);
-                                cached_scene.reset();
+                                if let Some(scene) =
+                                    self.scene_cache.scene_mut(state.scene_node)
+                                {
+                                    scene.reset();
 
-                                let (paths, label_anchor) = {
-                                    let span = state.points.as_slice();
-                                    match definition.kind {
-                                        SeriesKind::Line => render_line_series(
-                                            &mut cached_scene,
-                                            span,
-                                            series_color,
-                                            &pane_plot_area,
-                                            range_start,
-                                            window,
-                                            pane_min,
-                                            pane_value_range,
-                                            stroke_width,
-                                            fill_opacity,
-                                            baseline_value,
-                                        ),
-                                        SeriesKind::Area => render_area_series(
-                                            &mut cached_scene,
-                                            span,
-                                            series_color,
-                                            &pane_plot_area,
-                                            range_start,
-                                            window,
-                                            pane_min,
-                                            pane_value_range,
-                                            stroke_width,
-                                            fill_opacity.max(0.05),
-                                            baseline_value,
-                                        ),
-                                        SeriesKind::Scatter => render_scatter_series(
-                                            &mut cached_scene,
-                                            span,
-                                            series_color,
-                                            &pane_plot_area,
-                                            range_start,
-                                            window,
-                                            pane_min,
-                                            pane_value_range,
-                                            marker_size,
-                                        ),
-                                        SeriesKind::Bar => render_bar_series(
-                                            &mut cached_scene,
-                                            span,
-                                            series_color,
-                                            &pane_plot_area,
-                                            range_start,
-                                            window,
-                                            pane_min,
-                                            pane_value_range,
-                                            bar_width_seconds,
-                                            baseline_value,
-                                        ),
-                                        SeriesKind::Band => {
-                                            if let Some(lower_span) = lower_series_span.as_deref() {
-                                                let band_fill = if fill_opacity > 0.0 {
-                                                    fill_opacity
-                                                } else {
-                                                    0.25
-                                                };
-                                                render_band_series(
-                                                    &mut cached_scene,
-                                                    span,
-                                                    lower_span,
-                                                    series_color,
-                                                    &pane_plot_area,
-                                                    range_start,
-                                                    window,
-                                                    pane_min,
-                                                    pane_value_range,
-                                                    stroke_width,
-                                                    band_fill,
-                                                )
-                                            } else {
-                                                (0, None)
-                                            }
-                                        }
-                                        SeriesKind::Heatmap => {
-                                            let bucket_count =
-                                                definition.heatmap_bucket_count.unwrap_or(1);
-                                            render_heatmap_series(
-                                                &mut cached_scene,
+                                    let (paths, label_anchor) = {
+                                        let span = state.points.as_slice();
+                                        match definition.kind {
+                                            SeriesKind::Line => render_line_series(
+                                                scene,
                                                 span,
                                                 series_color,
                                                 &pane_plot_area,
                                                 range_start,
                                                 window,
-                                                definition.heatmap_bucket_index.unwrap_or(0),
-                                                bucket_count,
                                                 pane_min,
                                                 pane_value_range,
-                                            )
+                                                stroke_width,
+                                                fill_opacity,
+                                                baseline_value,
+                                            ),
+                                            SeriesKind::Area => render_area_series(
+                                                scene,
+                                                span,
+                                                series_color,
+                                                &pane_plot_area,
+                                                range_start,
+                                                window,
+                                                pane_min,
+                                                pane_value_range,
+                                                stroke_width,
+                                                fill_opacity.max(0.05),
+                                                baseline_value,
+                                            ),
+                                            SeriesKind::Scatter => render_scatter_series(
+                                                scene,
+                                                span,
+                                                series_color,
+                                                &pane_plot_area,
+                                                range_start,
+                                                window,
+                                                pane_min,
+                                                pane_value_range,
+                                                marker_size,
+                                            ),
+                                            SeriesKind::Bar => render_bar_series(
+                                                scene,
+                                                span,
+                                                series_color,
+                                                &pane_plot_area,
+                                                range_start,
+                                                window,
+                                                pane_min,
+                                                pane_value_range,
+                                                bar_width_seconds,
+                                                baseline_value,
+                                            ),
+                                            SeriesKind::Band => {
+                                                if let Some(lower_span) =
+                                                    lower_series_span.as_deref()
+                                                {
+                                                    let band_fill = if fill_opacity > 0.0 {
+                                                        fill_opacity
+                                                    } else {
+                                                        0.25
+                                                    };
+                                                    render_band_series(
+                                                        scene,
+                                                        span,
+                                                        lower_span,
+                                                        series_color,
+                                                        &pane_plot_area,
+                                                        range_start,
+                                                        window,
+                                                        pane_min,
+                                                        pane_value_range,
+                                                        stroke_width,
+                                                        band_fill,
+                                                    )
+                                                } else {
+                                                    (0, None)
+                                                }
+                                            }
+                                            SeriesKind::Heatmap => {
+                                                let bucket_count =
+                                                    definition.heatmap_bucket_count.unwrap_or(1);
+                                                render_heatmap_series(
+                                                    scene,
+                                                    span,
+                                                    series_color,
+                                                    &pane_plot_area,
+                                                    range_start,
+                                                    window,
+                                                    definition
+                                                        .heatmap_bucket_index
+                                                        .unwrap_or(0),
+                                                    bucket_count,
+                                                    pane_min,
+                                                    pane_value_range,
+                                                )
+                                            }
                                         }
-                                    }
-                                };
+                                    };
 
-                                state.cached_paths = paths;
-                                state.label_anchor = label_anchor;
-                                state.needs_rebuild = false;
-                                state.cached_scene = cached_scene;
+                                    state.cached_paths = paths;
+                                    state.label_anchor = label_anchor;
+                                    state.needs_rebuild = false;
+                                }
                             }
 
                             encoded_paths += state.cached_paths;
-                            buffer.scene.append(&state.cached_scene, None);
+                            if let Some(scene) = self.scene_cache.scene(state.scene_node) {
+                                buffer.scene.append(scene, None);
+                            }
 
                             if let (Some(label), Some(anchor)) =
                                 (state.style.label.as_deref(), state.label_anchor)
@@ -802,7 +919,23 @@ impl ChartEngine {
                                 );
                             }
 
-                            if let Some(bounds) = state.take_dirty() {
+                            let mut dirty_bounds = state.take_dirty();
+                            if let Some(region) =
+                                self.scene_cache.take_dirty_recursive(state.scene_node)
+                            {
+                                let mut converted =
+                                    DirtyBounds::new(region.min_x, region.min_y);
+                                converted.expand(region.max_x, region.max_y);
+                                dirty_bounds = match dirty_bounds {
+                                    Some(mut existing) => {
+                                        existing.merge(&converted);
+                                        Some(existing)
+                                    }
+                                    None => Some(converted),
+                                };
+                            }
+
+                            if let Some(bounds) = dirty_bounds {
                                 if let Some(existing) = pane_dirty.as_mut() {
                                     existing.merge(&bounds);
                                 } else {
@@ -1061,24 +1194,6 @@ struct PaneMetadataRecord {
     value_labels: Vec<CString>,
 }
 
-#[derive(Default, Clone, Copy)]
-struct PlotArea {
-    left: f64,
-    top: f64,
-    width: f64,
-    height: f64,
-}
-
-impl PlotArea {
-    fn right(&self) -> f64 {
-        self.left + self.width
-    }
-
-    fn bottom(&self) -> f64 {
-        self.top + self.height
-    }
-}
-
 #[derive(Debug, Default, Clone)]
 struct SeriesStyle {
     label: Option<String>,
@@ -1125,7 +1240,7 @@ struct SeriesState {
     style: SeriesStyle,
     definition: SeriesDefinition,
     palette_slot: usize,
-    cached_scene: Scene,
+    scene_node: SceneNodeId,
     cached_paths: u32,
     label_anchor: Option<Point>,
     needs_rebuild: bool,
@@ -1140,6 +1255,7 @@ impl fmt::Debug for SeriesState {
             .field("style", &self.style)
             .field("definition", &self.definition)
             .field("palette_slot", &self.palette_slot)
+            .field("scene_node", &self.scene_node.index())
             .field("cached_paths", &self.cached_paths)
             .field("label_anchor", &self.label_anchor)
             .field("needs_rebuild", &self.needs_rebuild)
@@ -1686,14 +1802,14 @@ enum AddOutcome {
 }
 
 impl SeriesState {
-    fn new(palette_slot: usize, definition: SeriesDefinition) -> Self {
+    fn new(palette_slot: usize, definition: SeriesDefinition, scene_node: SceneNodeId) -> Self {
         Self {
             points: Vec::with_capacity(1_024),
             latest_timestamp: 0.0,
             style: SeriesStyle::default(),
             definition,
             palette_slot,
-            cached_scene: Scene::new(),
+            scene_node,
             cached_paths: 0,
             label_anchor: None,
             needs_rebuild: true,
@@ -1701,10 +1817,10 @@ impl SeriesState {
         }
     }
 
-    fn set_definition(&mut self, definition: SeriesDefinition) {
+    fn set_definition(&mut self, definition: SeriesDefinition) -> Option<DirtyBounds> {
         self.definition = definition;
         self.needs_rebuild = true;
-        self.mark_full_dirty();
+        self.mark_full_dirty()
     }
 
     fn add(&mut self, sample: SeriesPoint, window_seconds: f64) -> AddOutcome {
@@ -1756,7 +1872,7 @@ impl SeriesState {
         self.dirty.take()
     }
 
-    fn mark_full_dirty(&mut self) {
+    fn mark_full_dirty(&mut self) -> Option<DirtyBounds> {
         if let (Some(first), Some(last)) = (self.points.first(), self.points.last()) {
             let mut bounds = DirtyBounds::new(first.timestamp_seconds, first.value);
             bounds.expand(last.timestamp_seconds, last.value);
@@ -1764,8 +1880,10 @@ impl SeriesState {
                 bounds.expand(point.timestamp_seconds, point.value);
             }
             self.dirty = Some(bounds);
+            Some(bounds)
         } else {
             self.dirty = None;
+            None
         }
     }
 
@@ -2419,95 +2537,6 @@ fn draw_series_label(
     2
 }
 
-fn compute_plot_area(width: f64, height: f64) -> PlotArea {
-    if width <= 0.0 || height <= 0.0 {
-        return PlotArea {
-            left: 0.0,
-            top: 0.0,
-            width: width.max(MIN_PLOT_DIMENSION),
-            height: height.max(MIN_PLOT_DIMENSION),
-        };
-    }
-
-    let mut left_margin = if width >= PLOT_LEFT_MARGIN_MIN * 2.0 {
-        PLOT_LEFT_MARGIN_MIN
-    } else {
-        width * PLOT_LEFT_MARGIN_RATIO
-    };
-    let mut right_margin = width * PLOT_RIGHT_MARGIN_RATIO;
-    let mut top_margin = height * PLOT_TOP_MARGIN_RATIO;
-    let mut bottom_margin = if height >= PLOT_BOTTOM_MARGIN_MIN * 2.0 {
-        PLOT_BOTTOM_MARGIN_MIN
-    } else {
-        height * PLOT_BOTTOM_MARGIN_RATIO
-    };
-
-    let horizontal_sum = (left_margin + right_margin).max(1e-6);
-    if horizontal_sum + MIN_PLOT_DIMENSION > width {
-        let available = (width - MIN_PLOT_DIMENSION).max(0.0);
-        let scale = if horizontal_sum.abs() < 1e-6 {
-            0.0
-        } else {
-            available / horizontal_sum
-        };
-        left_margin *= scale;
-        right_margin *= scale;
-    }
-
-    let vertical_sum = (top_margin + bottom_margin).max(1e-6);
-    if vertical_sum + MIN_PLOT_DIMENSION > height {
-        let available = (height - MIN_PLOT_DIMENSION).max(0.0);
-        let scale = if vertical_sum.abs() < 1e-6 {
-            0.0
-        } else {
-            available / vertical_sum
-        };
-        top_margin *= scale;
-        bottom_margin *= scale;
-    }
-
-    let mut plot_width = (width - left_margin - right_margin).max(MIN_PLOT_DIMENSION);
-    if plot_width > width {
-        plot_width = width;
-    }
-    let mut left = left_margin.min(width - plot_width).max(0.0);
-    let mut right = (left + plot_width).min(width);
-    if right - left < MIN_PLOT_DIMENSION {
-        right = (left + MIN_PLOT_DIMENSION).min(width);
-        left = (right - MIN_PLOT_DIMENSION).max(0.0);
-    }
-    plot_width = (right - left).max(MIN_PLOT_DIMENSION);
-
-    let mut plot_height = (height - top_margin - bottom_margin).max(MIN_PLOT_DIMENSION);
-    if plot_height > height {
-        plot_height = height;
-    }
-    let mut top = top_margin.min(height - plot_height).max(0.0);
-    let mut bottom = (top + plot_height).min(height);
-    if bottom - top < MIN_PLOT_DIMENSION {
-        bottom = (top + MIN_PLOT_DIMENSION).min(height);
-        top = (bottom - MIN_PLOT_DIMENSION).max(0.0);
-    }
-    plot_height = (bottom - top).max(MIN_PLOT_DIMENSION);
-
-    PlotArea {
-        left,
-        top,
-        width: plot_width,
-        height: plot_height,
-    }
-}
-
-struct AxisTick {
-    position: f64,
-    label: String,
-}
-
-struct AxisLayout {
-    time_ticks: Vec<AxisTick>,
-    value_ticks: Vec<AxisTick>,
-}
-
 fn axis_color() -> Color {
     Color::from_rgba8(0x45, 0x53, 0x72, 0xFF)
 }
@@ -2649,246 +2678,9 @@ fn draw_axes_and_grid(scene: &mut Scene, plot: &PlotArea, layout: &AxisLayout) -
     encoded
 }
 
-fn compute_axis_layout(
-    range_start: f64,
-    range_end: f64,
-    min_value: f64,
-    max_value: f64,
-) -> AxisLayout {
-    AxisLayout {
-        time_ticks: compute_time_ticks(range_start, range_end, 6),
-        value_ticks: compute_value_ticks(min_value, max_value, 6),
-    }
-}
-
-fn compute_time_ticks(range_start: f64, range_end: f64, max_ticks: usize) -> Vec<AxisTick> {
-    let mut ticks = Vec::new();
-    if !range_start.is_finite() || !range_end.is_finite() || range_end <= range_start {
-        return ticks;
-    }
-
-    let total = range_end - range_start;
-    let approx_step = total / (max_ticks.max(2) as f64);
-    let step = pick_time_step(approx_step);
-    if step <= 0.0 {
-        return ticks;
-    }
-
-    let first_tick = (range_start / step).ceil() * step;
-    let mut value = first_tick;
-    while value <= range_end + step * 0.5 {
-        let position = ((value - range_start) / total).clamp(0.0, 1.0);
-        ticks.push(AxisTick {
-            position,
-            label: format_time_label(value, step),
-        });
-        value += step;
-    }
-
-    if ticks.is_empty() {
-        ticks.push(AxisTick {
-            position: 0.0,
-            label: format_time_label(range_start, step),
-        });
-        ticks.push(AxisTick {
-            position: 1.0,
-            label: format_time_label(range_end, step),
-        });
-    }
-
-    ticks
-}
-
-fn pick_time_step(target: f64) -> f64 {
-    const STEPS: &[f64] = &[
-        0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 900.0, 1800.0, 3600.0,
-        7200.0, 14_400.0, 28_800.0, 43_200.0, 86_400.0,
-    ];
-
-    for step in STEPS {
-        if *step >= target {
-            return *step;
-        }
-    }
-
-    *STEPS.last().unwrap_or(&60.0)
-}
-
-fn format_time_label(timestamp: f64, step: f64) -> String {
-    if !timestamp.is_finite() {
-        return "NaN".to_string();
-    }
-
-    let secs = timestamp.floor();
-    let subseconds = ((timestamp - secs) * 1_000.0).round() as i64;
-    let secs_i64 = secs as i64;
-
-    if let Ok(dt) = OffsetDateTime::from_unix_timestamp(secs_i64) {
-        let time = dt.time();
-        if step < 1.0 {
-            let millis = subseconds.clamp(0, 999);
-            format!(
-                "{:02}:{:02}:{:02}.{:03}",
-                time.hour(),
-                time.minute(),
-                time.second(),
-                millis
-            )
-        } else if step < 60.0 {
-            format!(
-                "{:02}:{:02}:{:02}",
-                time.hour(),
-                time.minute(),
-                time.second()
-            )
-        } else {
-            format!("{:02}:{:02}", time.hour(), time.minute())
-        }
-    } else {
-        format!("{timestamp:.0}")
-    }
-}
-
-fn compute_value_ticks(min_value: f64, max_value: f64, max_ticks: usize) -> Vec<AxisTick> {
-    let mut ticks = Vec::new();
-    if !min_value.is_finite() || !max_value.is_finite() || max_value <= min_value {
-        return ticks;
-    }
-
-    let range = nice_number(max_value - min_value, false);
-    let step = nice_number(range / ((max_ticks.max(2) - 1) as f64), true);
-    if step <= 0.0 {
-        return ticks;
-    }
-
-    let mut tick = (min_value / step).floor() * step;
-    let tick_max = (max_value / step).ceil() * step;
-    while tick <= tick_max + step * 0.5 {
-        let position = ((tick - min_value) / (max_value - min_value)).clamp(0.0, 1.0);
-        ticks.push(AxisTick {
-            position,
-            label: format_value_label(tick, step),
-        });
-        tick += step;
-    }
-
-    ticks
-}
-
-fn nice_number(range: f64, round: bool) -> f64 {
-    if range <= 0.0 || !range.is_finite() {
-        return 0.0;
-    }
-
-    let exponent = range.log10().floor();
-    let fraction = range / 10f64.powf(exponent);
-
-    let nice_fraction = if round {
-        if fraction < 1.5 {
-            1.0
-        } else if fraction < 3.0 {
-            2.0
-        } else if fraction < 7.0 {
-            5.0
-        } else {
-            10.0
-        }
-    } else if fraction <= 1.0 {
-        1.0
-    } else if fraction <= 2.0 {
-        2.0
-    } else if fraction <= 5.0 {
-        5.0
-    } else {
-        10.0
-    };
-
-    nice_fraction * 10f64.powf(exponent)
-}
-
-fn format_value_label(value: f64, step: f64) -> String {
-    if !value.is_finite() || !step.is_finite() {
-        return "NaN".to_string();
-    }
-
-    let mut decimals = 0usize;
-    if step > 0.0 {
-        let log10 = step.log10();
-        if log10 < 0.0 {
-            decimals = (-log10).ceil() as usize;
-        }
-    }
-    decimals = decimals.min(6);
-    format!("{value:.decimals$}")
-}
-
-struct LabelLayout {
-    glyphs: Vec<Glyph>,
-    width: f32,
-    height: f32,
-    ascent: f32,
-}
-
-fn layout_label(text: &str, font_size: f32) -> Option<LabelLayout> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let font = label_font();
-    let font_ref = to_font_ref(font)?;
-    let size = Size::new(font_size);
-    let axes = font_ref.axes();
-    let location = Location::new(axes.len());
-    let metrics = font_ref.metrics(size, &location);
-    let glyph_metrics = font_ref.glyph_metrics(size, &location);
-    let charmap = font_ref.charmap();
-
-    let mut pen_x = 0f32;
-    let mut glyphs = Vec::with_capacity(trimmed.len());
-    for ch in trimmed.chars() {
-        if ch.is_control() && ch != ' ' {
-            continue;
-        }
-        let glyph_id = charmap.map(ch).unwrap_or_default();
-        let advance = glyph_metrics.advance_width(glyph_id).unwrap_or_default();
-        glyphs.push(Glyph {
-            id: glyph_id.to_u32(),
-            x: pen_x,
-            y: 0.0,
-        });
-        pen_x += advance;
-    }
-
-    if glyphs.is_empty() {
-        return None;
-    }
-
-    let ascent = metrics.ascent;
-    let height = ascent - metrics.descent;
-
-    Some(LabelLayout {
-        glyphs,
-        width: pen_x,
-        height,
-        ascent,
-    })
-}
-
-fn label_font() -> &'static FontData {
-    &LABEL_FONT
-}
 
 fn label_text_color() -> Color {
     Color::from_rgba8(0xF5, 0xF9, 0xFF, 0xFF)
-}
-
-fn to_font_ref(font: &FontData) -> Option<FontRef<'_>> {
-    let file_ref = FileRef::new(font.data.as_ref()).ok()?;
-    match file_ref {
-        FileRef::Font(font) => Some(font),
-        FileRef::Collection(collection) => collection.get(font.index).ok(),
-    }
 }
 
 fn value_bounds(points: &[SeriesPoint]) -> (f64, f64) {
@@ -3526,14 +3318,3 @@ pub extern "C" fn vello_chart_engine_set_trace_callback(
 
     VelloChartEngineStatus::Success
 }
-
-
-
-
-
-
-
-
-
-
-

@@ -3177,13 +3177,12 @@ name = "vello_chart_engine"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.15.5",
- "once_cell",
- "skrifa 0.31.3",
  "time",
  "tracing",
  "tracing-subscriber",
  "vello",
  "vello_chart_diagnostics",
+ "vello_composition",
 ]
 
 [[package]]
@@ -3198,6 +3197,17 @@ dependencies = [
  "png",
  "skrifa 0.37.0",
  "smallvec",
+]
+
+[[package]]
+name = "vello_composition"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.15.5",
+ "once_cell",
+ "skrifa 0.31.3",
+ "time",
+ "vello",
 ]
 
 [[package]]

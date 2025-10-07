@@ -18,6 +18,7 @@
 - **Core Engine**: Rust-powered Vello scene graph orchestrated through VelloSharp bindings, exposing deterministic command buffers for drawing primitives, text, and GPU-backed gradients.
 - **Data and State Model**: Lock-free, frame-coherent data pipeline that separates ingestion, transformation, and rendering-ready datasets using time-indexed data structures and ring buffers.
 - **Layout and Styling System**: Declarative chart specification composed of scales, axes, panels, series, annotations, and interaction layers. Supports theming and adaptive styling per DPI and color scheme.
+- **Shared Composition Stack**: Reusable layout, text shaping, and scene-diff crates (Rust + .NET) powering both charting surfaces and higher-level controls (TreeDataGrid, editors) with deterministic frame budgeting.
 - **Interop Layer**: Platform adapters that host a Vello surface, translate UI framework input events into engine commands, and manage swapchain surfaces or texture interop where needed.
 - **Extensibility**: Plugin model for new chart types, data feeds, analytics overlays, and export providers without forking the rendering core.
 
@@ -114,23 +115,30 @@
  - [x] Develop layout engine for axes, grids, panels, legends, labels, and viewports with responsive sizing and DPI awareness.
  - [x] Introduce styling subsystem: theming tokens, palette management, typography profiles, and animation presets.
 - [x] Add text shaping pipeline leveraging Vello text stack or Harfbuzz integration via VelloSharp for multi-language support.
+- [x] Extract layout, typography, and composition primitives into shared `ffi/composition` crate with managed adapters for reuse in TreeDataGrid and future controls.
+- [x] Publish integration blueprint aligning chart composition APIs with TreeDataGrid requirements (`docs/specs/shared-composition-contract.md`).
 
 **Deliverables**
  - [x] Layout manager module with constraint-based sizing and overlap avoidance.
  - [x] Axes rendering components with tick generation (fixed, dynamic, algorithmic) and smart labeling.
  - [x] Styling API (fluent builder or declarative JSON/YAML schema) with serialization/deserialization support.
 - [x] Gallery of reference layouts demonstrating dark/light themes and adaptive resizing.
+- [x] Shared composition libraries (`ffi/composition`, `src/VelloSharp.Composition`) with initial regression tests covering label layout, linear layout, and scene cache dirty tracking; automate perf parity benchmarking in a follow-up milestone.
+- [x] Guidance doc covering composable primitives for charts, TreeDataGrid, and editors (`docs/guides/composition-reuse.md`).
 
 ### Phase 2 Progress Snapshot (Week 1)
 - Introduced `src/VelloSharp.Charting` library hosting reusable scale abstractions (linear, logarithmic, time, ordinal) with normalized projection/unprojection APIs.
 - Added coordinate transformation utilities (`Coordinates/CoordinateTransformer.cs`) and unit conversion helpers, enabling consistent mapping between data space and render targets.
 - Created validation test suite (`tests/VelloSharp.Charting.Tests`) covering numerical, temporal, and categorical projections plus round-trip conversions.
 - Built DPI-aware layout engine (`Layout/ChartLayoutEngine.cs`) that arranges axes/panels and computes plot regions from viewport + device pixel ratio inputs.
+- Bootstrapped shared composition crate (`ffi/composition`) and managed adapter (`src/VelloSharp.Composition`) to host plot-area heuristics, text layout services, and reusable scene cache APIs (including dirty-bounds propagation) consumed by charting and TreeDataGrid roadmaps; formalised the reuse boundaries in `docs/specs/shared-composition-contract.md`.
 - Added tick generators for linear, time, and ordinal scales (`Ticks/*Generator.cs`) to produce normalized positions and labels for axis rendering.
 - Established axis composition pipeline linking layout outputs, tick generation, and styling tokens for forthcoming renderers (`Axis/*`, `Ticks/AxisTickGeneratorRegistry.cs`).
 - Introduced theme-aware axis styling and typography tokens (`Styling/*`) with runtime configuration for tick generator selection (`Axis/AxisDefinition*.cs`).
 - Implemented axis/legend renderers (`Rendering/AxisRenderer.cs`, `Legend/LegendRenderer.cs`) that consume `AxisRenderSurface`, emit drawable visuals, and honor light/dark palette variants.
 - Documented layout gallery presets in  `docs/guides/layout-gallery.md` for dark/light adaptive sizing. 
+- Unified overlay text measurement with `CompositionInterop.MeasureLabel` and added shared golden metric coverage (Rust + .NET) validating layout, typography, and scene cache outputs across charts/TDG.
+- Hardened automated native packaging for test runs (cargo build + copy of `vello_composition` / `vello_chart_engine`) to keep `dotnet test` green and ready for CI performance gating.
 
 ## Phase 3 – Core Chart Primitives and Composition (5–7 weeks)
 **Objectives**
@@ -139,6 +147,7 @@
 - [x] Design the chart composition API for multiple panes, synchronized axes, stacked/overlaid series, and annotation layers (`src/VelloSharp.ChartEngine/ChartComposition.cs`).
 - [x] Enable incremental ingestion and rolling windows for real-time feeds via `ChartEngine.PumpData` and `SeriesState` pruning (`src/VelloSharp.ChartEngine/ChartEngine.cs`, `ffi/chart-engine/src/lib.rs`).
 - [x] Add backfill reconciliation plus dirty-rect/instancing optimisations to minimise redraw cost (`ffi/chart-engine/src/lib.rs`, regression tests under `tests/VelloSharp.Charting.Tests/Engine`).
+- [ ] Expose composable render layers, material registries, and scene partitioning hooks consumable by TreeDataGrid and forthcoming editor controls.
 - [ ] Integrate data-driven styling (value-based coloring, gradient fills, threshold markers).
 
 **Deliverables**
@@ -148,6 +157,7 @@
 - [x] Volume histogram scenario highlighting stacked panes with dynamic volume overlays and value-driven styling.
 - [x] Rolling heatmap scenario showcasing density visualisation with adaptive bucket annotations.
 - [x] Automated rendering tests capturing pixel diffs across configurations.
+- [ ] Public render-hook API specimens and documentation demonstrating TreeDataGrid cell visual reuse.
 ### Phase 3 Progress Snapshot (Week 1)
 - Introduced `ChartSeriesDefinition` hierarchy with line, area, bar, scatter, band, and heatmap primitives wired through the native engine.
 - Expanded the Avalonia sample to stream latency, spike markers, and scaled delta bars alongside price data.
@@ -216,6 +226,7 @@
 - [ ] **Localization and Internationalization**: Ensure text rendering, number/date formatting, and RTL layouts are supported from the core.
 - [ ] **Plugin Marketplace Readiness**: Define extension manifest format, sandboxing rules, and validation pipeline for third-party add-ons.
 - [ ] **Community and Support**: Establish samples, templates, and starter kits; plan for GitHub Discussions, issue triage, and commercial support offerings.
+- [ ] **Shared Control Composition**: Coordinate with TreeDataGrid and forthcoming editor controls to keep composition/text stacks aligned, share benchmarks, and publish joint regression suites.
 
 ## Milestones and Governance
 - [ ] **M0**: Architecture sign-off, metrics defined.

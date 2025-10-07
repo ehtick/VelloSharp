@@ -1,0 +1,15 @@
+[package]
+name = "vello_composition"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+vello = { workspace = true }
+skrifa = { workspace = true, features = ["std"] }
+once_cell = { workspace = true }
+hashbrown = { workspace = true }
+time = { workspace = true }

@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using HarfBuzzSharp;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
+using VelloSharp.Composition;
 using VScene = VelloSharp.Scene;
 using VGlyph = VelloSharp.Glyph;
 using VGlyphRunOptions = VelloSharp.GlyphRunOptions;
@@ -33,6 +34,12 @@ internal sealed class TextRenderer : IDisposable
         }
 
         EnsureNotDisposed();
+
+        var sharedMetrics = CompositionInterop.MeasureLabel(text, fontSize);
+        if (!sharedMetrics.IsEmpty)
+        {
+            return new TextMetrics(sharedMetrics.Width, sharedMetrics.Height, sharedMetrics.Ascent);
+        }
 
         var shaping = Shape(text, fontSize);
         if (shaping.Glyphs.Length == 0)

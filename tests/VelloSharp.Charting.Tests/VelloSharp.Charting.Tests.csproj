@@ -6,7 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/VelloSharp.Composition/VelloSharp.Composition.csproj" />
     <ProjectReference Include="../../src/VelloSharp.Charting/VelloSharp.Charting.csproj" />
+    <ProjectReference Include="../../src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,4 +23,48 @@
   <ItemGroup>
     <None Include="Baselines\**\*.ppm" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <RepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RepositoryRoot>
+  </PropertyGroup>
+
+  <Target Name="BuildSharedNativeDependencies"
+          BeforeTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true'">
+    <Exec Command="cargo build -p vello_composition"
+          WorkingDirectory="$(RepositoryRoot)" />
+    <Exec Command="cargo build -p vello_chart_engine"
+          WorkingDirectory="$(RepositoryRoot)" />
+  </Target>
+
+  <Target Name="CopySharedNativeDependencies"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true'">
+    <ItemGroup>
+      <_NativeBinary Include="$(RepositoryRoot)\target\debug\vello_composition.dll"
+                     Condition="Exists('$(RepositoryRoot)\target\debug\vello_composition.dll')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_composition.so"
+                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_composition.so')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_composition.dylib"
+                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_composition.dylib')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\debug\vello_chart_engine.dll"
+                     Condition="Exists('$(RepositoryRoot)\target\debug\vello_chart_engine.dll')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_chart_engine.so"
+                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_chart_engine.so')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_chart_engine.dylib"
+                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_chart_engine.dylib')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_NativeBinary)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_NativeBinary)"
+          DestinationFolder="$(OutDir)runtimes\$(RuntimeIdentifier)\native"
+          Condition="'$(RuntimeIdentifier)'!=''"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_NativeBinary)"
+          DestinationFolder="$(OutDir)runtimes\win-x64\native"
+          Condition="'$(RuntimeIdentifier)'=='' and Exists('$(OutDir)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

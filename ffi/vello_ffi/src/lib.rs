@@ -3848,9 +3848,7 @@ pub unsafe extern "C" fn vello_scene_push_layer(
         }
     };
     if params.mix == VelloBlendMix::Clip {
-        scene
-            .inner
-            .push_clip_layer(params.transform.into(), &path);
+        scene.inner.push_clip_layer(params.transform.into(), &path);
     } else {
         let blend_mode = blend_mode_from_params(&params);
         scene
@@ -8027,7 +8025,6 @@ pub unsafe extern "C" fn vello_shared_texture_destroy(handle: *mut VelloSharedTe
 
 #[cfg(target_os = "windows")]
 pub use windows_shared_texture::{
-    vello_shared_texture_acquire_mutex, vello_shared_texture_destroy,
-    vello_shared_texture_flush, vello_shared_texture_release_mutex,
-    vello_wgpu_device_create_shared_texture,
+    vello_shared_texture_acquire_mutex, vello_shared_texture_destroy, vello_shared_texture_flush,
+    vello_shared_texture_release_mutex, vello_wgpu_device_create_shared_texture,
 };

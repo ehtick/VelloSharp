@@ -1,0 +1,49 @@
+@startuml
+title TreeDataGrid Motion Study – Scroll, Expand, Edit (120 Hz Budget)
+
+participant User as U
+participant HostControl as Host
+participant "TDG Input Router" as Input
+participant "Composition Runtime" as Runtime
+participant "GPU Presenter" as GPU
+database "Data Adapter" as Data
+
+== High-Velocity Scroll ==
+U -> Host: PointerWheel(delta=+2400px/s)
+Host -> Input: Enqueue(TdgPointerEvent)
+Input -> Runtime: Dispatch pointer event (t=0ms)
+Runtime -> Runtime: Update viewport + virtualization window\n(Δt = 0.9ms CPU)
+Runtime -> Data: PrefetchAsync(hint=+2 pages) [async]
+Runtime -> GPU: Submit scene diff (Δt = 2.4ms CPU, 3.0ms GPU)
+GPU -> Host: Present frame (t=6.2ms, budget 8.33ms)
+note right of GPU
+Frame occupancy 74%; cache hits 92%.
+end note
+
+== Group Expand ==
+U -> Host: PointerUp on expander
+Host -> Input: Enqueue(TdgPointerEvent(kind=ExpandRequest))
+Input -> Runtime: Dispatch expand (t=0ms)
+Runtime -> Runtime: Materialize children (Δt = 1.1ms)
+Runtime -> GPU: Submit morph animation (Δt = 1.9ms CPU, 2.5ms GPU)
+Runtime -> Data: FetchAsync(child_window=32) [async, overlapped]
+GPU -> Host: Present frame (t=6.0ms)
+note right
+Morph animation uses easing over 120Hz ticks (5 frames).
+end note
+
+== In-Place Edit Commit ==
+U -> Host: KeyDown(Enter) within editable cell
+Host -> Input: Enqueue(TdgKeyboardEvent(command=CommitEdit))
+Input -> Runtime: Dispatch edit commit
+Runtime -> Runtime: Apply optimistic patch (Δt = 0.8ms)
+Runtime -> GPU: Submit scene diff (Δt = 1.6ms CPU, 2.1ms GPU)
+Runtime -> Data: Push delta to adapter (Δt = 0.5ms async)
+Data --> Runtime: Ack commit (t=12ms) [async]
+Runtime -> GPU: No-op (state already reconciled)
+GPU -> Host: Present frame (t=4.9ms)
+note top of Data
+Adapter returns validation status or patch rollback instructions.
+end note
+
+@enduml
