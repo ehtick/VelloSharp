@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using VelloSharp.ChartDiagnostics;
+using VelloSharp.Composition;
+using VelloSharp.Composition.Controls;
 using VelloSharp.TreeDataGrid;
 using VelloSharp.TreeDataGrid.Composition;
 using VelloSharp.TreeDataGrid.Rendering;
@@ -9,6 +11,7 @@ Console.WriteLine("VelloSharp TreeDataGrid Phase 2 Sample");
 Console.WriteLine("=======================================\n");
 
 using var dataModel = new TreeDataModel();
+using var virtualizer = new TreeVirtualizationScheduler();
 var roots = new[]
 {
     new TreeNodeDescriptor(1, TreeRowKind.GroupHeader, 28f, hasChildren: true),
@@ -39,7 +42,6 @@ if (dataModel.TryDequeueMaterialization(out var materializationNode))
 var metadata = dataModel.GetMetadata(headerNode);
 Console.WriteLine($"Header node expanded={metadata.IsExpanded} height={metadata.Height}");
 
-using var virtualizer = new TreeVirtualizationScheduler();
 var rowMetrics = new[]
 {
     new TreeRowMetric(headerNode, metadata.Height),
@@ -58,14 +60,17 @@ var layoutDefinitions = new[]
 using var animator = new TreeColumnLayoutAnimator();
 var animatedSlots = animator.Animate(layoutDefinitions, availableWidth: 720.0, spacing: 12.0).ToArray();
 var columnSnapshot = virtualizer.UpdateColumns(layoutDefinitions, availableWidth: 720.0, spacing: 12.0);
+var columnSpans = columnSnapshot.Spans.Span.ToArray();
+var totalWidth = columnSpans.Sum(span => span.Width);
 
-var plan = virtualizer.Plan(new TreeViewportMetrics(
+var viewportMetrics = new TreeViewportMetrics(
     RowScrollOffset: 0.0,
     RowViewportHeight: 48.0,
     RowOverscan: 16.0,
     ColumnScrollOffset: 0.0,
     ColumnViewportWidth: 480.0,
-    ColumnOverscan: 48.0));
+    ColumnOverscan: 48.0);
+var plan = virtualizer.Plan(viewportMetrics);
 
 Console.WriteLine("\nVirtualization plan:");
 foreach (var row in plan.ActiveRows)
@@ -85,10 +90,60 @@ for (var i = 0; i < animatedSlots.Length; i++)
 Console.WriteLine($"Column pane diff -> leading={columnSnapshot.PaneDiff.LeadingChanged}, primary={columnSnapshot.PaneDiff.PrimaryChanged}, trailing={columnSnapshot.PaneDiff.TrailingChanged}");
 Console.WriteLine($"Leading pane columns: {columnSnapshot.LeadingPane.Count}, trailing pane columns: {columnSnapshot.TrailingPane.Count}");
 
+Console.WriteLine("\nTemplated control validation:");
+var compositionRows = TreeSampleConverters.CreateVirtualRowMetrics(rowMetrics);
+var compositionColumns = TreeSampleConverters.CreateVirtualColumnStrips(columnSnapshot.Metrics.Span);
+var rowViewport = new RowViewportMetrics(viewportMetrics.RowScrollOffset, viewportMetrics.RowViewportHeight, viewportMetrics.RowOverscan);
+var columnViewport = new ColumnViewportMetrics(viewportMetrics.ColumnScrollOffset, viewportMetrics.ColumnViewportWidth, viewportMetrics.ColumnOverscan);
+
+var templatedHost = new TreeVirtualizedPanelControl
+{
+    Template = TreeTemplateFactory.CreateRowHostTemplate(),
+};
+templatedHost.TemplateApplied += (_, _) => Console.WriteLine("  Template applied for composition host.");
+templatedHost.Mount();
+
+double templatedHeight = 0;
+if (!templatedHost.ApplyTemplate())
+{
+    Console.WriteLine("  Failed to apply templated control template.");
+}
+else
+{
+    templatedHost.UpdateVirtualization(compositionRows, compositionColumns);
+    using (var compositionPlan = templatedHost.CaptureVirtualizationPlan(rowViewport, columnViewport))
+    {
+        templatedHost.SyncRows(compositionPlan.Active);
+
+        foreach (var entry in compositionPlan.Active)
+        {
+            templatedHeight += entry.Height;
+        }
+
+        Console.WriteLine($"  Active rows={compositionPlan.Active.Length} recycled={compositionPlan.Recycled.Length}");
+        Console.WriteLine($"  Window start={compositionPlan.Window.StartIndex} end={compositionPlan.Window.EndIndex} totalHeight={compositionPlan.Window.TotalHeight:F1}");
+        Console.WriteLine($"  Column slice -> primaryStart={compositionPlan.Columns.PrimaryStart} count={compositionPlan.Columns.PrimaryCount} frozenLeading={compositionPlan.Columns.FrozenLeading} frozenTrailing={compositionPlan.Columns.FrozenTrailing}");
+        Console.WriteLine($"  Telemetry -> reused={compositionPlan.Telemetry.Reused} adopted={compositionPlan.Telemetry.Adopted} allocated={compositionPlan.Telemetry.Allocated} recycled={compositionPlan.Telemetry.Recycled}");
+    }
+
+    templatedHeight = templatedHeight <= 0
+        ? viewportMetrics.RowViewportHeight
+        : templatedHeight;
+
+    var hostConstraints = new LayoutConstraints(
+        new ScalarConstraint(0, totalWidth, totalWidth),
+        new ScalarConstraint(0, templatedHeight, templatedHeight));
+
+    templatedHost.Measure(hostConstraints);
+    templatedHost.Arrange(new LayoutRect(0, 0, templatedHost.DesiredSize.Width, templatedHost.DesiredSize.Height, 0, templatedHost.DesiredSize.Height));
+
+    Console.WriteLine($"  Panel rows materialized={templatedHost.RowCount} desired={templatedHost.DesiredSize.Width:F1}x{templatedHost.DesiredSize.Height:F1}");
+}
+
+templatedHost.Unmount();
+
 using var sceneGraph = new TreeSceneGraph();
 var rootNode = sceneGraph.CreateNode();
-var columnSpans = columnSnapshot.Spans.Span.ToArray();
-var totalWidth = columnSpans.Sum(span => span.Width);
 var chromeNode = sceneGraph.CreateNode(rootNode);
 
 var rowVisual = new TreeRowVisual(
@@ -144,3 +199,151 @@ if (renderLoop.BeginFrame())
 }
 
 Console.WriteLine("\nSample complete.");
+
+internal static class TreeSampleConverters
+{
+    public static VirtualRowMetric[] CreateVirtualRowMetrics(ReadOnlySpan<TreeRowMetric> rows)
+    {
+        if (rows.IsEmpty)
+        {
+            return Array.Empty<VirtualRowMetric>();
+        }
+
+        var result = new VirtualRowMetric[rows.Length];
+        for (int i = 0; i < rows.Length; i++)
+        {
+            ref readonly var metric = ref rows[i];
+            result[i] = new VirtualRowMetric(metric.NodeId, metric.Height);
+        }
+
+        return result;
+    }
+
+    public static VirtualColumnStrip[] CreateVirtualColumnStrips(ReadOnlySpan<TreeColumnMetric> columns)
+    {
+        if (columns.IsEmpty)
+        {
+            return Array.Empty<VirtualColumnStrip>();
+        }
+
+        var result = new VirtualColumnStrip[columns.Length];
+        for (int i = 0; i < columns.Length; i++)
+        {
+            ref readonly var column = ref columns[i];
+            result[i] = new VirtualColumnStrip(column.Offset, column.Width, Map(column.Frozen), column.Key);
+        }
+
+        return result;
+    }
+
+    private static FrozenKind Map(TreeFrozenKind kind) => kind switch
+    {
+        TreeFrozenKind.Leading => FrozenKind.Leading,
+        TreeFrozenKind.Trailing => FrozenKind.Trailing,
+        _ => FrozenKind.None,
+    };
+}
+
+internal sealed class TreeVirtualizedPanelControl : TemplatedControl
+{
+    private Panel? _rowPanel;
+
+    public int RowCount => _rowPanel?.Children.Count ?? 0;
+
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        _rowPanel = (TemplateRoot as Border)?.Child as Panel;
+    }
+
+    public void SyncRows(ReadOnlySpan<RowPlanEntry> plan)
+    {
+        if (_rowPanel is null)
+        {
+            Console.WriteLine("  ! Row panel not found in template.");
+            return;
+        }
+
+        var children = _rowPanel.Children;
+
+        while (children.Count < plan.Length)
+        {
+            children.Add(new VirtualizedRowElement(children.Count));
+        }
+
+        while (children.Count > plan.Length)
+        {
+            children.RemoveAt(children.Count - 1);
+        }
+
+        for (int i = 0; i < plan.Length; i++)
+        {
+            if (children[i] is VirtualizedRowElement row)
+            {
+                row.Update(plan[i]);
+            }
+            else
+            {
+                var replacement = new VirtualizedRowElement(i);
+                replacement.Update(plan[i]);
+                children[i] = replacement;
+            }
+        }
+    }
+}
+
+internal sealed class VirtualizedRowElement : CompositionElement
+{
+    private readonly string _slotName;
+    private RowPlanEntry _entry;
+
+    public VirtualizedRowElement(int slotIndex)
+    {
+        _slotName = $"slot_{slotIndex:D2}";
+    }
+
+    public void Update(RowPlanEntry entry)
+    {
+        _entry = entry;
+    }
+
+    public override void Measure(in LayoutConstraints constraints)
+    {
+        base.Measure(constraints);
+        double width = Math.Clamp(constraints.Width.Preferred, constraints.Width.Min, constraints.Width.Max);
+        double height = Math.Max(_entry.Height, Math.Max(constraints.Height.Min, 0));
+        DesiredSize = new LayoutSize(width, height);
+    }
+
+    public override void Arrange(in LayoutRect rect)
+    {
+        base.Arrange(rect);
+        Console.WriteLine($"    {_slotName} -> node={_entry.NodeId} buffer={_entry.BufferId} action={_entry.Action} top={rect.Y:F1} height={rect.Height:F1}");
+    }
+}
+
+internal static class TreeTemplateFactory
+{
+    public static CompositionTemplate CreateRowHostTemplate() =>
+        CompositionTemplate.Create(_ =>
+        {
+            var border = new Border
+            {
+                BorderThickness = new LayoutThickness(1, 1, 1, 1),
+                Padding = new LayoutThickness(6, 6, 6, 6),
+                BorderBrush = new CompositionColor(0.32f, 0.42f, 0.72f, 0.8f),
+                Background = new CompositionColor(0.10f, 0.10f, 0.12f, 0.95f),
+            };
+
+            var panel = new Panel
+            {
+                Orientation = LayoutOrientation.Vertical,
+                Spacing = 3,
+                Padding = new LayoutThickness(4, 4, 4, 4),
+                CrossAlignment = LayoutAlignment.Stretch,
+            };
+
+            border.Child = panel;
+            return border;
+        });
+}
