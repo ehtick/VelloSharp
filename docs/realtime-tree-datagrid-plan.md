@@ -119,8 +119,8 @@ Schema application:
     - [x] Author integration tests and profiling traces ensuring animation-driven dirty regions stay bounded and do not trigger full scene re-encodes.
 
 - **Chart engine alignment**
-  - [ ] Adopt the shared animation bindings inside chart cursor/annotation transitions to validate cross-control reuse and synchronize with the charts roadmap.
-  - [ ] Capture a joint motion guideline addendum (`docs/diagrams/tdg-flows/tdg-motion-study.puml`) covering synchronized chart/TDG animations for dashboard scenarios.
+  - [x] Adopt the shared animation bindings inside chart cursor/annotation transitions to validate cross-control reuse and synchronize with the charts roadmap.
+  - [x] Capture a joint motion guideline addendum (`docs/diagrams/tdg-flows/tdg-motion-study.puml`) covering synchronized chart/TDG animations for dashboard scenarios.
 
 #### Phase 3.5 Progress Snapshot (Week 1)
 - Tree column layout transitions now run entirely on the shared timeline via `TreeColumnLayoutAnimator`, which maps offsets/widths to spring tracks, deduplicates track lifetimes, and snaps samples at rest to prevent drift before reusing buffers (`TreeVirtualizationScheduler` consumes the animator on every plan tick to keep pane diffs incremental).
@@ -129,6 +129,8 @@ Schema application:
 - Added `TreeRowAnimationProfile`/`TreeAnimationTimeline` helpers so hosts can call `TreeVirtualizationScheduler.ConfigureRowAnimations(...)` to tune easing, durations, and reduced-motion behaviour; the configuration is documented in `docs/specs/tdg-interop.md` and exercised in new reduced-motion tests.
 - The composition sample exercises the new pipeline end-to-end, wiring the animator into the scheduling loop and emitting diagnostics so teams can validate timelines alongside scene generation (`samples/VelloSharp.TreeDataGrid.CompositionSample`).
 - Charting now exposes `ChartAnimationProfile`/`ChartAnimationController` hooks through engine options, allowing dashboards to align TDG column motion with series stroke-width emphasis while honouring reduced-motion toggles; shared binding tests (`TimelineSystemInteropTests`) continue to validate the underlying timeline runtime.
+- Added chart engine coverage in `tests/VelloSharp.Charting.Tests/Engine/ChartEngineAnimationTests.cs`, confirming cursor, annotation, and reduced-motion scenarios project shared timeline state into `ChartFrameMetadata` overlays.
+- Captured a dashboard sync scenario in `docs/diagrams/tdg-flows/tdg-motion-study.puml`, highlighting shared timeline groups driving simultaneous TDG row glow and chart crosshair emphasis under reduced-motion flags.
 
 #### Ticket Backlog & Sequencing
 1. `TDG-ANIM-001` (Owner: Composition WG) – Implement the low-allocation timeline runtime in `ffi/composition` with easing/spring primitives. _Predecessor: none._

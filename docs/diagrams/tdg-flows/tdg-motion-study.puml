@@ -5,6 +5,8 @@ participant User as U
 participant HostControl as Host
 participant "TDG Input Router" as Input
 participant "Composition Runtime" as Runtime
+participant "Chart Animation Controller" as ChartAnim
+participant "Chart Engine" as Chart
 participant "GPU Presenter" as GPU
 database "Data Adapter" as Data
 
@@ -44,6 +46,20 @@ Runtime -> GPU: No-op (state already reconciled)
 GPU -> Host: Present frame (t=4.9ms)
 note top of Data
 Adapter returns validation status or patch rollback instructions.
+end note
+
+== Dashboard Sync (Chart + TDG Timeline) ==
+U -> Host: Hover row (symbol=VX01)
+Host -> Input: Enqueue(TdgPointerEvent(kind=RowHover))
+Input -> Runtime: Dispatch hover diff (t=0ms)
+Runtime -> Runtime: Route TreeRowInteractionAnimator\n(track=dashboard-motion)
+Runtime -> ChartAnim: Notify shared timeline sample (channel=CursorOpacity)
+ChartAnim -> Chart: Apply cursor emphasis + annotation glow
+Runtime -> GPU: Submit TDG scene diff (Δt = 1.7ms CPU, 2.2ms GPU)
+Chart -> GPU: Submit overlay diff (Δt = 1.1ms CPU, 1.6ms GPU)
+GPU -> Host: Present synchronized frame (t=6.4ms, Δ=120Hz cadence)
+note over Runtime, ChartAnim
+TDG row glow and chart crosshair consume the same TimelineSystem group.\nReduced-motion flag collapses both to immediate state.
 end note
 
 @enduml
