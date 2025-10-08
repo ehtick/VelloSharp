@@ -13,6 +13,7 @@ members = [
     "ffi/chart-data",
     "ffi/chart-diagnostics",
     "ffi/chart-engine",
+    "ffi/tree-datagrid",
 ]
 exclude = [
     "extern/Avalonia",

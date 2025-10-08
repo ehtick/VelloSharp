@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -8,4 +9,44 @@
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <RepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RepositoryRoot>
+    <_CargoProfileFlag Condition="'$(Configuration)'=='Debug'"></_CargoProfileFlag>
+    <_CargoProfileFlag Condition="'$(Configuration)'!='Debug'">--release</_CargoProfileFlag>
+    <_CargoProfileDir Condition="'$(Configuration)'=='Debug'">debug</_CargoProfileDir>
+    <_CargoProfileDir Condition="'$(Configuration)'!='Debug'">release</_CargoProfileDir>
+  </PropertyGroup>
+
+  <Target Name="BuildTreeDataGridNative"
+          BeforeTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true'">
+    <Exec Command="cargo build -p vello_tree_datagrid $(_CargoProfileFlag)"
+          WorkingDirectory="$(RepositoryRoot)" />
+  </Target>
+
+  <Target Name="CopyTreeDataGridNative"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true'">
+    <ItemGroup>
+      <_TreeNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_tree_datagrid.dll"
+                   Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_tree_datagrid.dll')" />
+      <_TreeNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.so"
+                   Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.so')" />
+      <_TreeNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.dylib"
+                   Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.dylib')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_TreeNative)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_TreeNative)"
+          DestinationFolder="$(OutDir)runtimes\$(RuntimeIdentifier)\native"
+          Condition="'$(RuntimeIdentifier)'!=''"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_TreeNative)"
+          DestinationFolder="$(OutDir)runtimes\win-x64\native"
+          Condition="'$(RuntimeIdentifier)'=='' and Exists('$(OutDir)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

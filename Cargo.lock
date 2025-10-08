@@ -3285,6 +3285,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vello_tree_datagrid"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.15.5",
+ "vello",
+ "vello_composition",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>vello_tree_datagrid</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.TreeDataGrid</NativePackagePrefix>
+    <NativeFriendlyName>TreeDataGrid engine (vello_tree_datagrid)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

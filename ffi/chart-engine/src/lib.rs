@@ -24,9 +24,9 @@ use vello::{
 };
 use vello_chart_diagnostics::{DiagnosticsCollector, FrameStats};
 use vello_composition::{
-    AxisLayout, LabelLayout, LinearLayoutItem, PlotArea, SceneGraphCache, SceneNodeId,
-    ScalarConstraint, MIN_PLOT_DIMENSION, compute_axis_layout, compute_plot_area, label_font,
-    layout_label, solve_linear_layout,
+    AxisLayout, LabelLayout, LinearLayoutItem, MIN_PLOT_DIMENSION, PlotArea, ScalarConstraint,
+    SceneGraphCache, SceneNodeId, compute_axis_layout, compute_plot_area, label_font, layout_label,
+    solve_linear_layout,
 };
 
 const MIN_VISIBLE_DURATION_SECS: f64 = 1e-6;
@@ -287,10 +287,13 @@ impl ChartEngine {
         for sample in iter {
             let (outcome, scene_node) = {
                 let state = self.ensure_series_state(sample.series_id);
-                let outcome = state.add(SeriesPoint {
-                    timestamp_seconds: sample.timestamp_seconds,
-                    value: sample.value,
-                }, visible_duration);
+                let outcome = state.add(
+                    SeriesPoint {
+                        timestamp_seconds: sample.timestamp_seconds,
+                        value: sample.value,
+                    },
+                    visible_duration,
+                );
                 let node = state.scene_node;
                 (outcome, node)
             };
@@ -340,9 +343,7 @@ impl ChartEngine {
                     .get(&series_id)
                     .cloned()
                     .unwrap_or_default();
-                let scene_node = self
-                    .scene_cache
-                    .create_node(Some(self.scene_root));
+                let scene_node = self.scene_cache.create_node(Some(self.scene_root));
                 vacant.insert(SeriesState::new(slot, definition, scene_node))
             }
         }
@@ -587,11 +588,12 @@ impl ChartEngine {
                 } else {
                     let mut layout_items = Vec::with_capacity(pane_count);
                     for resolved in &resolved_panes {
-                        let ratio = if resolved.height_ratio.is_finite() && resolved.height_ratio > 0.0 {
-                            resolved.height_ratio
-                        } else {
-                            1.0
-                        };
+                        let ratio =
+                            if resolved.height_ratio.is_finite() && resolved.height_ratio > 0.0 {
+                                resolved.height_ratio
+                            } else {
+                                1.0
+                            };
 
                         let min_height = MIN_PLOT_DIMENSION.min(plot_area.height);
                         let preferred_ratio = if effective_ratio_sum > 0.0 {
@@ -599,8 +601,7 @@ impl ChartEngine {
                         } else {
                             1.0 / pane_count as f64
                         };
-                        let preferred_height =
-                            (plot_area.height * preferred_ratio).max(min_height);
+                        let preferred_height = (plot_area.height * preferred_ratio).max(min_height);
                         let constraint =
                             ScalarConstraint::new(min_height, preferred_height, plot_area.height);
 
@@ -790,9 +791,7 @@ impl ChartEngine {
                             let baseline_value = definition.baseline.unwrap_or(pane_min);
 
                             if state.needs_rebuild {
-                                if let Some(scene) =
-                                    self.scene_cache.scene_mut(state.scene_node)
-                                {
+                                if let Some(scene) = self.scene_cache.scene_mut(state.scene_node) {
                                     scene.reset();
 
                                     let (paths, label_anchor) = {
@@ -883,9 +882,7 @@ impl ChartEngine {
                                                     &pane_plot_area,
                                                     range_start,
                                                     window,
-                                                    definition
-                                                        .heatmap_bucket_index
-                                                        .unwrap_or(0),
+                                                    definition.heatmap_bucket_index.unwrap_or(0),
                                                     bucket_count,
                                                     pane_min,
                                                     pane_value_range,
@@ -923,8 +920,7 @@ impl ChartEngine {
                             if let Some(region) =
                                 self.scene_cache.take_dirty_recursive(state.scene_node)
                             {
-                                let mut converted =
-                                    DirtyBounds::new(region.min_x, region.min_y);
+                                let mut converted = DirtyBounds::new(region.min_x, region.min_y);
                                 converted.expand(region.max_x, region.max_y);
                                 dirty_bounds = match dirty_bounds {
                                     Some(mut existing) => {
@@ -2684,7 +2680,6 @@ fn draw_axes_and_grid(scene: &mut Scene, plot: &PlotArea, layout: &AxisLayout) -
 
     encoded
 }
-
 
 fn label_text_color() -> Color {
     Color::from_rgba8(0xF5, 0xF9, 0xFF, 0xFF)

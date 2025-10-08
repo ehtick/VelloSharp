@@ -41,15 +41,45 @@
 - Published `docs/specs/shared-composition-contract.md` detailing API responsibilities, versioning, and performance expectations shared between charts and TDG.
 
 ### Phase 2 – TreeDataGrid Core Rendering Engine (4–5 weeks)
-- [ ] Implement hierarchical data model in Rust supporting lazy children materialization, selection state, and expansion diffs.
-- [ ] Build Vello scene generators for rows, group headers, summaries, and chrome (grid lines, backgrounds, frozen panes).
-- [ ] Integrate hybrid virtualization: windowed row scheduler, column slicer, and viewport-aware buffer reuse.
-- [ ] Implement adaptive column sizing (auto, star, pixel) with constraint propagation and animation-friendly transitions.
-- [ ] Expose high-frequency renderer loop with instrumentation hooks (frame stats, GPU timing queries).
+- **Core data model**
+  - [x] Implement hierarchical data model in Rust supporting lazy children materialization, selection state, and expansion diffs.
+  - [x] Surface managed `TreeDataModel` wrapper + FFI coverage for attach/expand/select/materialize flows.
+  - [x] Build large-tree stress harness validating diff batching, selection range breadth, and queue backpressure.
 
-### Phase 3 – Declarative Templates and Cell Customization (3 weeks)
-- [ ] Define XAML schema `Vello.Tdg.*` mirroring Avalonia primitives (TextBlock, Path, StackPanel) but targeting composition descriptors.
-- [ ] Implement XAML-to-scene compilation pipeline (parse -> expression tree -> FFI) with caching and invalidation strategy.
+- **Scene generation & caching**
+  - [x] Build Vello scene generators for rows, group headers, summaries, and chrome (grid lines, backgrounds, frozen panes).
+  - [x] Wire `TreeSceneGraph` to shared scene cache with dirty-region helpers for row + chrome nodes.
+  - [x] Connect virtualization plan output to scene graph reuse (buffer retargeting + dirty rect updates) via integration harness.
+
+- **Hybrid virtualization**
+  - [x] Integrate hybrid virtualization scheduler (windowed rows, column slicer, viewport-aware buffer reuse).
+  - [x] Expose managed `TreeVirtualizationScheduler` with plan/recycle APIs and unit coverage.
+  - [x] Add telemetry hooks surfacing reuse/adopt/allocate/recycle counts and pool sizes to managed callers.
+  - [x] Tune buffer eviction heuristics for sustained >50k row scroll scenarios without churn spikes.
+
+- **Column sizing & layout**
+  - [x] Implement adaptive column sizing modes (auto, star, pixel) with constraint propagation and animation-friendly transitions.
+  - [x] Ship `TreeColumnLayoutAnimator` damping pipeline with tests + sample usage.
+  - [x] Validate column strip outputs flowing into virtualization + scene encoding in harness.
+  - [x] Complete production wiring for freeze-aligned strip diffing across panes.
+
+- **Render loop & diagnostics**
+  - [x] Expose high-frequency renderer loop returning frame stats + vended instrumentation slots for GPU/queue timings.
+  - [x] Integrate Vello GPU timestamp summaries and publish metrics into shared diagnostics channel.
+
+- **Integration scaffolding**
+  - [x] Publish CLI composition sample exercising model → virtualization → scene + render loop handshake.
+  - [x] Author combined integration test harness stitching data model diffs through virtualization into scene graph updates.
+  - [x] Document FFI invariants, threading model, and buffer ownership ahead of Phase 3 host bindings.
+
+#### Phase 2 Progress Snapshot
+- Integrated freeze-pane column diffing into the virtualization scheduler (`TreeVirtualizationPlan.PaneDiff`) with managed helpers for per-pane spans and metrics.
+- Extended `TreeColumnStripCache` to expose leading/primary/trailing snapshots and diff union helpers so host chrome/scene updates react to freeze-band transitions.
+- Hardened samples and stress/integration tests around pane-aware virtualization telemetry and buffer reuse, ensuring plan outputs stay in sync with managed orchestration.
+
+  ### Phase 3 – Declarative Templates and Cell Customization (3 weeks)
+  - [ ] Define XAML schema `Vello.Tdg.*` mirroring Avalonia primitives (TextBlock, Path, StackPanel) but targeting composition descriptors.
+  - [ ] Implement XAML-to-scene compilation pipeline (parse -> expression tree -> FFI) with caching and invalidation strategy.
 - [ ] Provide C# fluent builders for scenarios without XAML; ensure type-safe binding to row/column contexts.
 - [ ] Introduce per-column render hooks for custom Vello drawing, including shared shader/material registries.
 

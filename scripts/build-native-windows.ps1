@@ -53,7 +53,8 @@ if ($libs.Count -eq 0) {
         "peniko_ffi",
         "winit_ffi",
         "vello_sparse_ffi",
-        "vello_chart_engine"
+        "vello_chart_engine",
+        "vello_tree_datagrid"
     )
 }
 $profileArgs = @()

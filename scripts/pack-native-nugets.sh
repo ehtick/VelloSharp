@@ -27,7 +27,7 @@ rid_seen() {
 }
 
 processed=0
-ffi_projects=(AccessKit Kurbo Peniko Vello VelloSparse Winit)
+ffi_projects=(AccessKit Kurbo Peniko Vello VelloSparse TreeDataGrid Winit)
 for native_dir in "${RUNTIMES_ROOT}"/*/native; do
   [[ -d "${native_dir}" ]] || continue
   rid="$(basename "$(dirname "${native_dir}")")"

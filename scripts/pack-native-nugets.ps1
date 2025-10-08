@@ -27,7 +27,7 @@ if (-not $OutputDir -or [string]::IsNullOrWhiteSpace($OutputDir)) {
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $outputDirAbs = (Resolve-Path $OutputDir).Path
 
-$ffiProjects = @('AccessKit', 'Kurbo', 'Peniko', 'Vello', 'VelloSparse', 'Winit')
+$ffiProjects = @('AccessKit', 'Kurbo', 'Peniko', 'Vello', 'VelloSparse', 'TreeDataGrid', 'Winit')
 $seenRids = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $processed = 0
 

@@ -137,6 +137,14 @@ impl SceneGraphCache {
         self.nodes.get(node.0).map(|node| &node.scene)
     }
 
+    pub fn scene_mut_by_index(&mut self, index: usize) -> Option<&mut Scene> {
+        self.nodes.get_mut(index).map(|node| &mut node.scene)
+    }
+
+    pub fn scene_by_index(&self, index: usize) -> Option<&Scene> {
+        self.nodes.get(index).map(|node| &node.scene)
+    }
+
     pub fn mark_dirty(&mut self, node: SceneNodeId, x: f64, y: f64) {
         if let Some(entry) = self.nodes.get_mut(node.0) {
             match &mut entry.dirty {

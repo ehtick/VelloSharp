@@ -61,18 +61,6 @@ public interface ITdgTelemetrySink
 - `TdgVirtualizationStats` reports window size, realized node counts, eviction events, and prefetch latency.
 - Back-pressure events highlight scenarios where input or data adapters fell behind, including recommended mitigation actions (drop, coalesce, extend frame budget).
 
-### Native instrumentation surface
-- `vello_tdg_virtualizer_telemetry` exposes per-frame row window lengths, buffer reuse/adopt/allocate counts, pool sizes, and eviction totals so managed telemetry sinks can reason about churn alongside virtualization plans.
-- `vello_tdg_renderer_record_gpu_summary` ingests aggregated Vello GPU profiler data (total GPU time, queue time, sample count) and feeds those numbers into the frame stats returned by `vello_tdg_renderer_end_frame`.
-- GPU timestamp summaries are written on the render thread **before** `EndFrame` is called; the engine will prefer the submitted summary over ad-hoc timings supplied via the legacy parameters.
-
-## FFI Ownership and Threading Guarantees
-- **TreeDataModel**: thread-affine to the engine's data thread. Mutation APIs (`Attach*`, `SetExpanded`, `SetSelected`) may not be invoked concurrently; read APIs (`Drain*`, `GetMetadata`) rely on caller draining diffs before resubmitting work. Callers must dispose the handle once the managed wrapper leaves scope.
-- **HybridVirtualizer / TreeVirtualizationScheduler**: thread-affine to the render scheduler. Plans are snapshot-based; after calling `vello_tdg_virtualizer_plan`, hosts should copy row/recycle plans, read telemetry via `vello_tdg_virtualizer_telemetry`, then render. Handles are reusable across frames but not sharable across threads.
-- **TreeSceneGraph**: each scene node is owned by the virtualization harness. `Encode*`/`MarkRowDirty` calls must happen on the render thread leading into Vello encoding. Dirty regions are drained via `TakeDirty` prior to presenting.
-- **TreeRenderLoop**: single-threaded render pacing primitive. Hosts enqueue GPU summaries, call `BeginFrame`, render, optionally send GPU profiler aggregates, then call `EndFrame` to produce metrics. Handles are reference-counted but should be disposed only after frames stop.
-- All FFI entry points zero out the per-thread error buffer before running; if a call fails the managed wrapper will surface the message exposed by `vello_tdg_last_error_message`.
-
 ## Threading Model
 - Surface attachment/detachment and resize callbacks happen on the UI thread.
 - Rendering and data fetch operations execute on dedicated engine threads owned by the TDG runtime.

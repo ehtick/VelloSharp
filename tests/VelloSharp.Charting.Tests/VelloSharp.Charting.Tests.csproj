@@ -26,14 +26,20 @@
 
   <PropertyGroup>
     <RepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RepositoryRoot>
+    <_CargoProfileFlag Condition="'$(Configuration)'=='Debug'"></_CargoProfileFlag>
+    <_CargoProfileFlag Condition="'$(Configuration)'!='Debug'">--release</_CargoProfileFlag>
+    <_CargoProfileDir Condition="'$(Configuration)'=='Debug'">debug</_CargoProfileDir>
+    <_CargoProfileDir Condition="'$(Configuration)'!='Debug'">release</_CargoProfileDir>
   </PropertyGroup>
 
   <Target Name="BuildSharedNativeDependencies"
           BeforeTargets="Build"
           Condition="'$(DesignTimeBuild)'!='true'">
-    <Exec Command="cargo build -p vello_composition"
+    <Exec Command="cargo build -p vello_composition $(_CargoProfileFlag)"
           WorkingDirectory="$(RepositoryRoot)" />
-    <Exec Command="cargo build -p vello_chart_engine"
+    <Exec Command="cargo build -p vello_chart_engine $(_CargoProfileFlag)"
+          WorkingDirectory="$(RepositoryRoot)" />
+    <Exec Command="cargo build -p vello_tree_datagrid $(_CargoProfileFlag)"
           WorkingDirectory="$(RepositoryRoot)" />
   </Target>
 
@@ -41,18 +47,24 @@
           AfterTargets="Build"
           Condition="'$(DesignTimeBuild)'!='true'">
     <ItemGroup>
-      <_NativeBinary Include="$(RepositoryRoot)\target\debug\vello_composition.dll"
-                     Condition="Exists('$(RepositoryRoot)\target\debug\vello_composition.dll')" />
-      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_composition.so"
-                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_composition.so')" />
-      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_composition.dylib"
-                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_composition.dylib')" />
-      <_NativeBinary Include="$(RepositoryRoot)\target\debug\vello_chart_engine.dll"
-                     Condition="Exists('$(RepositoryRoot)\target\debug\vello_chart_engine.dll')" />
-      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_chart_engine.so"
-                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_chart_engine.so')" />
-      <_NativeBinary Include="$(RepositoryRoot)\target\debug\libvello_chart_engine.dylib"
-                     Condition="Exists('$(RepositoryRoot)\target\debug\libvello_chart_engine.dylib')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_composition.dll"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_composition.dll')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_composition.so"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_composition.so')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_composition.dylib"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_composition.dylib')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_chart_engine.dll"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_chart_engine.dll')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_chart_engine.so"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_chart_engine.so')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_chart_engine.dylib"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_chart_engine.dylib')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_tree_datagrid.dll"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_tree_datagrid.dll')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.so"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.so')" />
+      <_NativeBinary Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.dylib"
+                     Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_tree_datagrid.dylib')" />
     </ItemGroup>
 
     <Copy SourceFiles="@(_NativeBinary)"
