@@ -23,6 +23,11 @@
   - FFI: `vello_composition_scene_cache_create(_node)`, `..._mark_dirty`, `..._mark_dirty_bounds`, `..._take_dirty`, `..._clear`, `..._dispose_node`.
   - Managed surface: `SceneCache` SafeHandle with `MarkDirty` and `MarkDirtyBounds` helpers.
   - Guarantees: O(1) node reuse via free-list, cascading dirty accumulation, deterministic reset semantics.
+- **Render Materials & Layers**
+  - Rust registries: `register_shader`, `register_material`, `resolve_material_color`, `resolve_material_peniko_color`.
+  - FFI: `vello_composition_shader_register/unregister`, `vello_composition_material_register/unregister`, `vello_composition_material_resolve_color`.
+  - Managed surface: `CompositionShaderRegistry`, `CompositionMaterialRegistry`, and `ScenePartitioner`/`RenderLayer` helpers that provide stable scene-node allocation for overlays, chrome, and inter-control composition.
+  - Guarantees: shared shader/material identity across controls, centralised opacity handling, and deterministic layering hooks that TreeDataGrid/editor surfaces can compose with chart scenes.
 - **Animation Timelines**
   - Rust types: `TimelineSystem`, `TimelineGroupConfig`, `EasingTrackDescriptor`, `SpringTrackDescriptor`, `TimelineSample`.
   - FFI: `vello_composition_timeline_system_create`, `..._group_create`, `..._add_easing_track`, `..._add_spring_track`, `..._tick`.
@@ -51,6 +56,7 @@
   - `vello_composition_scene_cache_mark_dirty(double x, double y)` and `..._mark_dirty_bounds(double min_x, double max_x, double min_y, double max_y)`
   - `vello_composition_scene_cache_take_dirty(SceneNodeId node, CompositionDirtyRegion* out_region)`
   - `vello_composition_scene_cache_clear(SceneNodeId node)`
+  - `vello_composition_shader_register/unregister`, `vello_composition_material_register/unregister`, `vello_composition_material_resolve_color`
   - `vello_composition_timeline_system_create/destroy`
   - `vello_composition_timeline_group_create/destroy`, `..._group_play`, `..._group_pause`, `..._group_set_speed`
   - `vello_composition_timeline_add_easing_track`, `vello_composition_timeline_add_spring_track`, `vello_composition_timeline_track_reset`, `..._track_remove`, `..._track_set_spring_target`

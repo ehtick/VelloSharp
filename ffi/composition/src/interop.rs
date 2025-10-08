@@ -8,6 +8,11 @@ use crate::animation::{
 use crate::constraints::ScalarConstraint;
 use crate::layout::{self, PlotArea};
 use crate::linear_layout::{self, LinearLayoutItem};
+use crate::materials::{
+    CompositionColor, CompositionMaterialDescriptor, CompositionShaderDescriptor,
+    register_material, register_shader, resolve_material_color, unregister_material,
+    unregister_shader,
+};
 use crate::scene_cache::{DirtyRegion, SceneGraphCache, SceneNodeId};
 use crate::text;
 
@@ -99,6 +104,66 @@ impl Default for CompositionTimelineDirtyBinding {
             min_y: 0.0,
             max_y: 0.0,
         }
+    }
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn vello_composition_shader_register(
+    handle: u32,
+    descriptor: *const CompositionShaderDescriptor,
+) -> bool {
+    if descriptor.is_null() {
+        return false;
+    }
+
+    let descriptor = unsafe { &*descriptor };
+    register_shader(handle, descriptor).is_ok()
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn vello_composition_shader_unregister(handle: u32) {
+    unregister_shader(handle);
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn vello_composition_material_register(
+    handle: u32,
+    descriptor: *const CompositionMaterialDescriptor,
+) -> bool {
+    if descriptor.is_null() {
+        return false;
+    }
+
+    let descriptor = unsafe { &*descriptor };
+    register_material(handle, descriptor).is_ok()
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn vello_composition_material_unregister(handle: u32) {
+    unregister_material(handle);
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn vello_composition_material_resolve_color(
+    handle: u32,
+    out_color: *mut CompositionColor,
+) -> bool {
+    if out_color.is_null() {
+        return false;
+    }
+
+    if let Some(color) = resolve_material_color(handle) {
+        unsafe {
+            *out_color = color;
+        }
+        true
+    } else {
+        false
     }
 }
 

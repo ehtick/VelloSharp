@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -168,6 +169,124 @@ public static class CompositionInterop
     public readonly record struct LinearLayoutResult(double Offset, double Length);
 }
 
+public readonly record struct CompositionColor(float R, float G, float B, float A = 1f)
+{
+    public CompositionColor Clamp() =>
+        new(Math.Clamp(R, 0f, 1f), Math.Clamp(G, 0f, 1f), Math.Clamp(B, 0f, 1f), Math.Clamp(A, 0f, 1f));
+
+    internal VelloCompositionColor ToNative()
+    {
+        var clamped = Clamp();
+        return new VelloCompositionColor
+        {
+            R = clamped.R,
+            G = clamped.G,
+            B = clamped.B,
+            A = clamped.A,
+        };
+    }
+
+    internal static CompositionColor FromNative(in VelloCompositionColor native) =>
+        new(native.R, native.G, native.B, native.A);
+}
+
+public enum CompositionShaderKind : uint
+{
+    Solid = 0,
+}
+
+public readonly record struct CompositionShaderDescriptor(
+    CompositionShaderKind Kind,
+    CompositionColor Solid);
+
+public static class CompositionShaderRegistry
+{
+    public static void Register(uint shaderId, CompositionShaderDescriptor descriptor)
+    {
+        if (shaderId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(shaderId), "Shader identifier must be non-zero.");
+        }
+
+        var native = new VelloCompositionShaderDescriptor
+        {
+            Kind = (VelloCompositionShaderKind)descriptor.Kind,
+            Solid = descriptor.Solid.ToNative(),
+        };
+
+        if (!NativeMethods.vello_composition_shader_register(shaderId, in native))
+        {
+            throw new InvalidOperationException("Failed to register composition shader.");
+        }
+    }
+
+    public static void Unregister(uint shaderId)
+    {
+        if (shaderId == 0)
+        {
+            return;
+        }
+
+        NativeMethods.vello_composition_shader_unregister(shaderId);
+    }
+}
+
+public readonly record struct CompositionMaterialDescriptor(uint ShaderId, float Opacity = 1f)
+{
+    internal VelloCompositionMaterialDescriptor ToNative()
+    {
+        return new VelloCompositionMaterialDescriptor
+        {
+            Shader = ShaderId,
+            Opacity = Math.Clamp(Opacity, 0f, 1f),
+        };
+    }
+}
+
+public static class CompositionMaterialRegistry
+{
+    public static void Register(uint materialId, CompositionMaterialDescriptor descriptor)
+    {
+        if (materialId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(materialId), "Material identifier must be non-zero.");
+        }
+
+        if (descriptor.ShaderId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(descriptor), "Descriptor must reference a registered shader.");
+        }
+
+        var native = descriptor.ToNative();
+        if (!NativeMethods.vello_composition_material_register(materialId, in native))
+        {
+            throw new InvalidOperationException("Failed to register composition material.");
+        }
+    }
+
+    public static void Unregister(uint materialId)
+    {
+        if (materialId == 0)
+        {
+            return;
+        }
+
+        NativeMethods.vello_composition_material_unregister(materialId);
+    }
+
+    public static bool TryResolveColor(uint materialId, out CompositionColor color)
+    {
+        if (NativeMethods.vello_composition_material_resolve_color(materialId, out var native))
+        {
+            color = CompositionColor.FromNative(native);
+            return true;
+        }
+
+        color = default;
+        return false;
+    }
+}
+
 public readonly record struct DirtyRegion(double MinX, double MaxX, double MinY, double MaxY)
 {
     public bool IsEmpty => MinX > MaxX || MinY > MaxY;
@@ -266,6 +385,123 @@ public sealed class SceneCache : SafeHandle
         if (IsInvalid)
         {
             throw new ObjectDisposedException(nameof(SceneCache));
+        }
+    }
+}
+
+[System.Diagnostics.DebuggerDisplay("{Name} (NodeId = {NodeId})")]
+public readonly struct RenderLayer
+{
+    public RenderLayer(string name, uint nodeId)
+    {
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        NodeId = nodeId;
+    }
+
+    public string Name { get; }
+    public uint NodeId { get; }
+}
+
+public sealed class ScenePartitioner
+{
+    private readonly SceneCache _cache;
+    private readonly Dictionary<string, uint> _layers;
+    private readonly object _sync = new();
+
+    public ScenePartitioner(SceneCache cache, uint rootNodeId, IEqualityComparer<string>? comparer = null)
+    {
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        if (cache.IsInvalid)
+        {
+            throw new ObjectDisposedException(nameof(SceneCache));
+        }
+
+        RootNodeId = rootNodeId;
+        _layers = new Dictionary<string, uint>(comparer ?? StringComparer.Ordinal);
+    }
+
+    public SceneCache Cache => _cache;
+
+    public uint RootNodeId { get; }
+
+    public RenderLayer RootLayer => new RenderLayer("root", RootNodeId);
+
+    public RenderLayer GetOrCreateLayer(string name, uint? parentLayerId = null)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Layer name must be provided.", nameof(name));
+        }
+
+        lock (_sync)
+        {
+            if (_layers.TryGetValue(name, out var existing))
+            {
+                return new RenderLayer(name, existing);
+            }
+
+            uint parent = parentLayerId ?? RootNodeId;
+            var nodeId = _cache.CreateNode(parent);
+            _layers[name] = nodeId;
+            return new RenderLayer(name, nodeId);
+        }
+    }
+
+    public bool TryGetLayer(string name, out RenderLayer layer)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            layer = default;
+            return false;
+        }
+
+        lock (_sync)
+        {
+            if (_layers.TryGetValue(name, out var nodeId))
+            {
+                layer = new RenderLayer(name, nodeId);
+                return true;
+            }
+        }
+
+        layer = default;
+        return false;
+    }
+
+    public bool RemoveLayer(string name, bool disposeNode = true)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return false;
+        }
+
+        uint nodeId;
+        lock (_sync)
+        {
+            if (!_layers.TryGetValue(name, out nodeId))
+            {
+                return false;
+            }
+
+            _layers.Remove(name);
+        }
+
+        if (disposeNode)
+        {
+            _cache.DisposeNode(nodeId);
+        }
+
+        return true;
+    }
+
+    public IEnumerable<RenderLayer> EnumerateLayers()
+    {
+        lock (_sync)
+        {
+            foreach (var pair in _layers)
+            {
+                yield return new RenderLayer(pair.Key, pair.Value);
+            }
         }
     }
 }

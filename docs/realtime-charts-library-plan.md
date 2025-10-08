@@ -147,7 +147,7 @@
 - [x] Design the chart composition API for multiple panes, synchronized axes, stacked/overlaid series, and annotation layers (`src/VelloSharp.ChartEngine/ChartComposition.cs`).
 - [x] Enable incremental ingestion and rolling windows for real-time feeds via `ChartEngine.PumpData` and `SeriesState` pruning (`src/VelloSharp.ChartEngine/ChartEngine.cs`, `ffi/chart-engine/src/lib.rs`).
 - [x] Add backfill reconciliation plus dirty-rect/instancing optimisations to minimise redraw cost (`ffi/chart-engine/src/lib.rs`, regression tests under `tests/VelloSharp.Charting.Tests/Engine`).
-- [ ] Expose composable render layers, material registries, and scene partitioning hooks consumable by TreeDataGrid and forthcoming editor controls.
+- [x] Expose composable render layers, material registries, and scene partitioning hooks consumable by TreeDataGrid and forthcoming editor controls.
 - [ ] Integrate data-driven styling (value-based coloring, gradient fills, threshold markers).
 
 **Deliverables**

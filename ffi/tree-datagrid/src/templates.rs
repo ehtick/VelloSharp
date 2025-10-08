@@ -1,16 +1,16 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr, c_char};
 use std::ptr;
 use std::slice;
 
 use crate::error::{clear_last_error, set_last_error};
 use crate::render_hooks::{
-    fill_with_material, render_column_hook, resolve_column_color, MaterialHandle, RenderHookHandle,
+    MaterialHandle, RenderHookHandle, fill_with_material, render_column_hook, resolve_column_color,
 };
 use crate::types::{ColumnStrip, FrozenKind};
 use hashbrown::HashMap;
+use vello::Scene;
 use vello::kurbo::{Affine, Rect};
 use vello::peniko::{Brush, Color, Fill};
-use vello::Scene;
 use vello_composition::SceneGraphCache;
 
 #[repr(u32)]
@@ -154,25 +154,30 @@ impl TemplateProgram {
                                     }
                                 }
                                 (VelloTdgTemplateNodeKind::Rectangle, "Background") => {
-                                    if let Some(color) =
-                                        parse_color(cstr_to_str(instruction.value))
+                                    if let Some(color) = parse_color(cstr_to_str(instruction.value))
                                     {
                                         current.color = Some(color);
                                     }
                                 }
                                 (VelloTdgTemplateNodeKind::CellTemplate, "ColumnKey") => {
-                                    current.column_key =
-                                        parse_column_key(instruction, cstr_to_str(instruction.value));
+                                    current.column_key = parse_column_key(
+                                        instruction,
+                                        cstr_to_str(instruction.value),
+                                    );
                                 }
                                 (_, "Material") => {
-                                    current.material =
-                                        parse_u32_value(instruction, cstr_to_str(instruction.value))
-                                            .map(|value| value as MaterialHandle);
+                                    current.material = parse_u32_value(
+                                        instruction,
+                                        cstr_to_str(instruction.value),
+                                    )
+                                    .map(|value| value as MaterialHandle);
                                 }
                                 (_, "RenderHook") => {
-                                    current.render_hook =
-                                        parse_u32_value(instruction, cstr_to_str(instruction.value))
-                                            .map(|value| value as RenderHookHandle);
+                                    current.render_hook = parse_u32_value(
+                                        instruction,
+                                        cstr_to_str(instruction.value),
+                                    )
+                                    .map(|value| value as RenderHookHandle);
                                 }
                                 _ => {}
                             }
@@ -280,9 +285,9 @@ impl TemplateProgram {
             }
 
             if pane != VelloTdgTemplatePaneKind::Primary {
-                if let Some(config) =
-                    self.column_configs
-                        .get(&(key, VelloTdgTemplatePaneKind::Primary))
+                if let Some(config) = self
+                    .column_configs
+                    .get(&(key, VelloTdgTemplatePaneKind::Primary))
                 {
                     if self.apply_render_config(scene, column, height, config) {
                         return true;
@@ -382,7 +387,7 @@ pub unsafe extern "C" fn vello_tdg_template_program_create(
         set_last_error("null template instruction pointer");
         return ptr::null_mut();
     } else {
-        unsafe { slice::from_raw_parts(instructions_ptr, instruction_count)}
+        unsafe { slice::from_raw_parts(instructions_ptr, instruction_count) }
     };
 
     match TemplateProgram::from_instructions(instructions) {
@@ -397,7 +402,9 @@ pub unsafe extern "C" fn vello_tdg_template_program_create(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_tdg_template_program_destroy(handle: *mut TemplateProgram) {
     if !handle.is_null() {
-        unsafe { drop(Box::from_raw(handle)); }
+        unsafe {
+            drop(Box::from_raw(handle));
+        }
     }
 }
 
@@ -429,7 +436,7 @@ pub unsafe extern "C" fn vello_tdg_template_program_encode_pane(
         set_last_error("null columns pointer passed to template encode");
         return false;
     } else {
-        unsafe { slice::from_raw_parts(columns_ptr, column_len)}
+        unsafe { slice::from_raw_parts(columns_ptr, column_len) }
             .iter()
             .map(|plan| {
                 ColumnStrip::new(
@@ -461,10 +468,7 @@ fn pane_index(pane: VelloTdgTemplatePaneKind) -> usize {
     }
 }
 
-fn parse_u32_value(
-    instruction: &VelloTdgTemplateInstruction,
-    raw: Option<&str>,
-) -> Option<u32> {
+fn parse_u32_value(instruction: &VelloTdgTemplateInstruction, raw: Option<&str>) -> Option<u32> {
     match instruction.value_kind {
         VelloTdgTemplateValueKind::Number => {
             let value = instruction.number_value;
@@ -478,10 +482,7 @@ fn parse_u32_value(
     }
 }
 
-fn parse_column_key(
-    instruction: &VelloTdgTemplateInstruction,
-    raw: Option<&str>,
-) -> Option<u32> {
+fn parse_column_key(instruction: &VelloTdgTemplateInstruction, raw: Option<&str>) -> Option<u32> {
     parse_u32_value(instruction, raw)
 }
 
@@ -529,7 +530,12 @@ fn parse_color(value: Option<&str>) -> Option<Color> {
         } else {
             1.0
         };
-        return Some(Color::new([r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), a.clamp(0.0, 1.0)]));
+        return Some(Color::new([
+            r.clamp(0.0, 1.0),
+            g.clamp(0.0, 1.0),
+            b.clamp(0.0, 1.0),
+            a.clamp(0.0, 1.0),
+        ]));
     }
 
     None

@@ -7,6 +7,7 @@ mod constraints;
 mod interop;
 mod layout;
 mod linear_layout;
+mod materials;
 mod scene_cache;
 mod text;
 
@@ -30,6 +31,11 @@ pub use layout::{
     AxisLayout, AxisTick, MIN_PLOT_DIMENSION, PlotArea, compute_axis_layout, compute_plot_area,
 };
 pub use linear_layout::{LinearLayoutItem, LinearLayoutSlot, solve_linear_layout};
+pub use materials::{
+    CompositionColor, CompositionMaterialDescriptor, CompositionShaderDescriptor,
+    CompositionShaderKind, register_material, register_shader, resolve_material_color,
+    resolve_material_peniko_color, unregister_material, unregister_shader,
+};
 pub use scene_cache::{DirtyRegion, SceneGraphCache, SceneNodeId};
 pub use text::{LabelLayout, TextShaper, label_font, layout_label};
 
@@ -52,5 +58,14 @@ pub mod ffi {
         vello_composition_timeline_system_create, vello_composition_timeline_system_destroy,
         vello_composition_timeline_tick, vello_composition_timeline_track_remove,
         vello_composition_timeline_track_reset, vello_composition_timeline_track_set_spring_target,
+    };
+    pub use crate::interop::{
+        vello_composition_material_register, vello_composition_material_resolve_color,
+        vello_composition_material_unregister, vello_composition_shader_register,
+        vello_composition_shader_unregister,
+    };
+    pub use crate::materials::{
+        CompositionColor, CompositionMaterialDescriptor, CompositionShaderDescriptor,
+        CompositionShaderKind,
     };
 }

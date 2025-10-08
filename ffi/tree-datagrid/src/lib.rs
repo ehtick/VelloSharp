@@ -6,8 +6,8 @@ mod color;
 mod data_model;
 mod error;
 mod interop;
-mod renderer;
 mod render_hooks;
+mod renderer;
 mod scene;
 mod templates;
 mod types;
@@ -15,15 +15,11 @@ mod virtualization;
 
 pub use color::VelloTdgColor;
 pub use data_model::{NodeDescriptor, NodeId, RowKind, SelectionMode, TreeDataModel};
-pub use renderer::{RendererLoop, RendererOptions};
 pub use render_hooks::{
-    fill_with_material,
-    render_column_hook,
+    MaterialHandle, RenderHookHandle, ShaderHandle, fill_with_material, render_column_hook,
     resolve_column_color,
-    MaterialHandle,
-    RenderHookHandle,
-    ShaderHandle,
 };
+pub use renderer::{RendererLoop, RendererOptions};
 pub use scene::{GroupHeaderVisual, RowChromeVisual, RowVisual, SummaryVisual};
 pub use types::{ColumnStrip, FrozenColumns};
 pub use virtualization::{
@@ -59,8 +55,7 @@ pub mod ffi {
         VelloTdgMaterialDescriptor, VelloTdgRenderHookDescriptor, VelloTdgRenderHookKind,
         VelloTdgShaderDescriptor, VelloTdgShaderKind, vello_tdg_material_register,
         vello_tdg_material_unregister, vello_tdg_render_hook_register,
-        vello_tdg_render_hook_unregister, vello_tdg_shader_register,
-        vello_tdg_shader_unregister,
+        vello_tdg_render_hook_unregister, vello_tdg_shader_register, vello_tdg_shader_unregister,
     };
     pub use crate::templates::{
         TemplateProgram, VelloTdgTemplateBinding, VelloTdgTemplateInstruction,

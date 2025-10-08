@@ -2,9 +2,18 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 use once_cell::sync::Lazy;
+use vello::Scene;
 use vello::kurbo::{Affine, Rect, RoundedRect};
 use vello::peniko::{Brush, Fill};
-use vello::Scene;
+use vello_composition::{
+    CompositionColor as SharedColor, CompositionMaterialDescriptor as SharedMaterialDescriptor,
+    CompositionShaderDescriptor as SharedShaderDescriptor,
+    CompositionShaderKind as SharedShaderKind, register_material as composition_register_material,
+    register_shader as composition_register_shader,
+    resolve_material_color as composition_resolve_material_color, resolve_material_peniko_color,
+    unregister_material as composition_unregister_material,
+    unregister_shader as composition_unregister_shader,
+};
 
 use crate::color::VelloTdgColor;
 use crate::error::{clear_last_error, set_last_error};
@@ -14,10 +23,6 @@ pub type ShaderHandle = u32;
 pub type MaterialHandle = u32;
 pub type RenderHookHandle = u32;
 
-static SHADER_REGISTRY: Lazy<RwLock<HashMap<ShaderHandle, ShaderEntry>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
-static MATERIAL_REGISTRY: Lazy<RwLock<HashMap<MaterialHandle, MaterialEntry>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
 static RENDER_HOOK_REGISTRY: Lazy<RwLock<HashMap<RenderHookHandle, RenderHookEntry>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
@@ -34,39 +39,11 @@ pub struct VelloTdgShaderDescriptor {
     pub solid: VelloTdgColor,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum ShaderEntry {
-    Solid(VelloTdgColor),
-}
-
-impl ShaderEntry {
-    fn to_brush(self, opacity: f32) -> Brush {
-        match self {
-            ShaderEntry::Solid(color) => {
-                let alpha = (color.a * opacity).clamp(0.0, 1.0);
-                let tinted = VelloTdgColor {
-                    r: color.r,
-                    g: color.g,
-                    b: color.b,
-                    a: alpha,
-                };
-                Brush::Solid(tinted.to_color())
-            }
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct VelloTdgMaterialDescriptor {
     pub shader: ShaderHandle,
     pub opacity: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct MaterialEntry {
-    shader: ShaderHandle,
-    opacity: f32,
 }
 
 #[repr(u32)]
@@ -93,7 +70,14 @@ struct RenderHookEntry {
 
 impl RenderHookEntry {
     fn render(self, scene: &mut Scene, column: &ColumnStrip, height: f64) -> bool {
-        render_fill(scene, column, height, self.material, self.inset, self.radius)
+        render_fill(
+            scene,
+            column,
+            height,
+            self.material,
+            self.inset,
+            self.radius,
+        )
     }
 }
 
@@ -127,9 +111,11 @@ fn resolve_brush_and_rect(
         return None;
     }
 
-    let brush = resolve_material_brush(material)?;
+    let brush = resolve_material_peniko_color(material).map(Brush::Solid)?;
 
-    let inset = inset.clamp(0.0, column.width * 0.5).clamp(0.0, height * 0.5);
+    let inset = inset
+        .clamp(0.0, column.width * 0.5)
+        .clamp(0.0, height * 0.5);
     let rect = Rect::new(
         column.offset + inset,
         inset,
@@ -147,18 +133,6 @@ fn resolve_brush_and_rect(
     Some((brush, rect, clamped_radius))
 }
 
-fn resolve_material_brush(handle: MaterialHandle) -> Option<Brush> {
-    let materials = MATERIAL_REGISTRY.read().ok()?;
-    let entry = materials.get(&handle).copied()?;
-    drop(materials);
-
-    let shaders = SHADER_REGISTRY.read().ok()?;
-    let shader = shaders.get(&entry.shader).copied()?;
-    drop(shaders);
-
-    Some(shader.to_brush(entry.opacity.clamp(0.0, 1.0)))
-}
-
 fn register_shader_internal(
     handle: ShaderHandle,
     descriptor: &VelloTdgShaderDescriptor,
@@ -167,15 +141,21 @@ fn register_shader_internal(
         return Err("shader handle must be non-zero");
     }
 
-    let entry = match descriptor.kind {
-        VelloTdgShaderKind::Solid => ShaderEntry::Solid(descriptor.solid),
+    let kind = match descriptor.kind {
+        VelloTdgShaderKind::Solid => SharedShaderKind::Solid,
     };
 
-    let mut registry = SHADER_REGISTRY
-        .write()
-        .map_err(|_| "shader registry poisoned")?;
-    registry.insert(handle, entry);
-    Ok(())
+    let shared_descriptor = SharedShaderDescriptor {
+        kind,
+        solid: SharedColor {
+            r: descriptor.solid.r,
+            g: descriptor.solid.g,
+            b: descriptor.solid.b,
+            a: descriptor.solid.a,
+        },
+    };
+
+    composition_register_shader(handle, &shared_descriptor)
 }
 
 fn register_material_internal(
@@ -186,25 +166,12 @@ fn register_material_internal(
         return Err("material handle must be non-zero");
     }
 
-    {
-        let shaders = SHADER_REGISTRY
-            .read()
-            .map_err(|_| "shader registry poisoned")?;
-        if !shaders.contains_key(&descriptor.shader) {
-            return Err("material references unknown shader");
-        }
-    }
-
-    let entry = MaterialEntry {
+    let shared_descriptor = SharedMaterialDescriptor {
         shader: descriptor.shader,
-        opacity: descriptor.opacity.clamp(0.0, 1.0),
+        opacity: descriptor.opacity,
     };
 
-    let mut registry = MATERIAL_REGISTRY
-        .write()
-        .map_err(|_| "material registry poisoned")?;
-    registry.insert(handle, entry);
-    Ok(())
+    composition_register_material(handle, &shared_descriptor)
 }
 
 fn register_render_hook_internal(
@@ -219,13 +186,8 @@ fn register_render_hook_internal(
         return Err("unsupported render hook kind");
     }
 
-    {
-        let materials = MATERIAL_REGISTRY
-            .read()
-            .map_err(|_| "material registry poisoned")?;
-        if !materials.contains_key(&descriptor.material) {
-            return Err("render hook references unknown material");
-        }
+    if composition_resolve_material_color(descriptor.material).is_none() {
+        return Err("render hook references unknown material");
     }
 
     let entry = RenderHookEntry {
@@ -265,9 +227,10 @@ pub unsafe extern "C" fn vello_tdg_shader_register(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_tdg_shader_unregister(handle: ShaderHandle) {
     clear_last_error();
-    if let Ok(mut registry) = SHADER_REGISTRY.write() {
-        registry.remove(&handle);
+    if handle == 0 {
+        return;
     }
+    composition_unregister_shader(handle);
 }
 
 #[unsafe(no_mangle)]
@@ -294,9 +257,10 @@ pub unsafe extern "C" fn vello_tdg_material_register(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_tdg_material_unregister(handle: MaterialHandle) {
     clear_last_error();
-    if let Ok(mut registry) = MATERIAL_REGISTRY.write() {
-        registry.remove(&handle);
+    if handle == 0 {
+        return;
     }
+    composition_unregister_material(handle);
 }
 
 #[unsafe(no_mangle)]
@@ -361,24 +325,13 @@ pub fn render_column_hook(
 }
 
 pub fn resolve_column_color(material: MaterialHandle) -> Option<VelloTdgColor> {
-    let materials = MATERIAL_REGISTRY.read().ok()?;
-    let entry = materials.get(&material).copied()?;
-    drop(materials);
-
-    let shaders = SHADER_REGISTRY.read().ok()?;
-    let shader = shaders.get(&entry.shader).copied()?;
-
-    match shader {
-        ShaderEntry::Solid(color) => {
-            let alpha = (color.a * entry.opacity).clamp(0.0, 1.0);
-            Some(VelloTdgColor {
-                r: color.r,
-                g: color.g,
-                b: color.b,
-                a: alpha,
-            })
-        }
-    }
+    let color = composition_resolve_material_color(material)?;
+    Some(VelloTdgColor {
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
+    })
 }
 
 #[cfg(test)]

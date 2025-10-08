@@ -35,6 +35,35 @@ internal static partial class NativeMethods
         VelloCompositionLinearLayoutSlot* slots,
         nuint slotsLength);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_shader_register")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial bool vello_composition_shader_register(
+        uint handle,
+        in VelloCompositionShaderDescriptor descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_shader_unregister")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_composition_shader_unregister(uint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_material_register")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial bool vello_composition_material_register(
+        uint handle,
+        in VelloCompositionMaterialDescriptor descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_material_unregister")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_composition_material_unregister(uint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_material_resolve_color")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial bool vello_composition_material_resolve_color(
+        uint handle,
+        out VelloCompositionColor color);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_composition_scene_cache_create")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial nint vello_composition_scene_cache_create();
@@ -213,6 +242,34 @@ internal struct VelloCompositionDirtyRegion
     public double MaxX;
     public double MinY;
     public double MaxY;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionColor
+{
+    public float R;
+    public float G;
+    public float B;
+    public float A;
+}
+
+internal enum VelloCompositionShaderKind : uint
+{
+    Solid = 0,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionShaderDescriptor
+{
+    public VelloCompositionShaderKind Kind;
+    public VelloCompositionColor Solid;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionMaterialDescriptor
+{
+    public uint Shader;
+    public float Opacity;
 }
 
 [StructLayout(LayoutKind.Sequential)]
