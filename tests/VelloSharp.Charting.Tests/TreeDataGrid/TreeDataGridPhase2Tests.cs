@@ -43,6 +43,7 @@ public sealed class TreeDataGridPhase2Tests
         var plan = scheduler.Plan(new TreeViewportMetrics(0.0, 32.0, 8.0, 0.0, 320.0, 24.0));
         Assert.NotEmpty(plan.ActiveRows);
         Assert.True(plan.RowWindow.EndIndex > plan.RowWindow.StartIndex);
+        Assert.Equal((uint)plan.ActiveRows.Count, plan.BufferDiagnostics.Total);
     }
 
     [Fact]

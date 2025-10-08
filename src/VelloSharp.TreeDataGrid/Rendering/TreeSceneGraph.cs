@@ -12,6 +12,8 @@ public sealed class TreeSceneGraph : IDisposable
     private readonly SceneCache _sceneCache = new();
     private bool _disposed;
 
+    internal SceneCache Cache => _sceneCache;
+
     public uint CreateNode(uint? parentId = null)
     {
         ThrowIfDisposed();
@@ -239,6 +241,7 @@ public sealed class TreeSceneGraph : IDisposable
                     TreeFrozenKind.Trailing => NativeMethods.VelloTdgFrozenKind.Trailing,
                     _ => NativeMethods.VelloTdgFrozenKind.None,
                 },
+                Key = columns[i].Key,
             };
         }
     }

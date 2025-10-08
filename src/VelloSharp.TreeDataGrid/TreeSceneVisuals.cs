@@ -17,7 +17,7 @@ public readonly record struct TreeColor(float R, float G, float B, float A)
         };
 }
 
-public readonly record struct TreeColumnSpan(double Offset, double Width, TreeFrozenKind Frozen);
+public readonly record struct TreeColumnSpan(double Offset, double Width, TreeFrozenKind Frozen, uint Key = 0);
 
 public readonly record struct TreeRowVisual(
     double Width,

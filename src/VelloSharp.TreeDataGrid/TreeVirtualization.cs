@@ -23,7 +23,7 @@ public enum TreeRowAction
 
 public readonly record struct TreeRowMetric(uint NodeId, float Height);
 
-public readonly record struct TreeColumnMetric(double Offset, double Width, TreeFrozenKind Frozen);
+public readonly record struct TreeColumnMetric(double Offset, double Width, TreeFrozenKind Frozen, uint Key = 0);
 
 public readonly record struct TreeViewportMetrics(
     double RowScrollOffset,
@@ -53,7 +53,8 @@ public readonly record struct TreeVirtualizationPlan(
     IReadOnlyList<TreeRowPlanEntry> RecycledRows,
     TreeColumnSlice ColumnSlice,
     TreeRowWindow RowWindow,
-    TreeColumnPaneDiff PaneDiff);
+    TreeColumnPaneDiff PaneDiff,
+    TreeBufferAdoptionDiagnostics BufferDiagnostics);
 
 public readonly record struct TreeVirtualizationTelemetry(
     uint RowsTotal,
@@ -65,6 +66,41 @@ public readonly record struct TreeVirtualizationTelemetry(
     uint ActiveBuffers,
     uint FreeBuffers,
     uint Evicted);
+
+public readonly record struct TreeBufferAdoptionDiagnostics(
+    uint Reused,
+    uint Adopted,
+    uint Allocated)
+{
+    public uint Total => Reused + Adopted + Allocated;
+    public double AdoptionRate => Total == 0 ? 0d : Adopted / (double)Total;
+    public double AllocationRate => Total == 0 ? 0d : Allocated / (double)Total;
+
+    internal static TreeBufferAdoptionDiagnostics From(IReadOnlyList<TreeRowPlanEntry> entries)
+    {
+        uint reused = 0;
+        uint adopted = 0;
+        uint allocated = 0;
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            switch (entries[i].Action)
+            {
+                case TreeRowAction.Reuse:
+                    reused++;
+                    break;
+                case TreeRowAction.Adopt:
+                    adopted++;
+                    break;
+                case TreeRowAction.Allocate:
+                    allocated++;
+                    break;
+            }
+        }
+
+        return new TreeBufferAdoptionDiagnostics(reused, adopted, allocated);
+    }
+}
 
 internal sealed class TreeVirtualizerHandle : SafeHandle
 {
@@ -106,6 +142,7 @@ public sealed class TreeVirtualizationScheduler : IDisposable
     private TreeColumnSlice _columnSlice;
     private TreeRowWindow _rowWindow;
     private TreeColumnPaneDiff _pendingPaneDiff;
+    private TreeBufferAdoptionDiagnostics _lastPlanDiagnostics;
 
     public TreeVirtualizationScheduler()
     {
@@ -188,6 +225,7 @@ public sealed class TreeVirtualizationScheduler : IDisposable
                 Offset = columns[i].Offset,
                 Width = columns[i].Width,
                 Frozen = ToNative(columns[i].Frozen),
+                Key = columns[i].Key,
             };
         }
 
@@ -269,13 +307,16 @@ public sealed class TreeVirtualizationScheduler : IDisposable
         PopulatePlanLists();
         PopulateRecycleList();
         PopulateRowWindow();
+        var bufferDiagnostics = TreeBufferAdoptionDiagnostics.From(_rowPlan);
+        _lastPlanDiagnostics = bufferDiagnostics;
 
         return new TreeVirtualizationPlan(
             _rowPlan.ToArray(),
             _recyclePlan.ToArray(),
             _columnSlice,
             _rowWindow,
-            paneDiff);
+            paneDiff,
+            bufferDiagnostics);
     }
 
     public void Clear()
@@ -285,6 +326,7 @@ public sealed class TreeVirtualizationScheduler : IDisposable
         _columnSlice = default;
         _rowWindow = default;
         _pendingPaneDiff = default;
+        _lastPlanDiagnostics = default;
 
         bool added = false;
         try
@@ -301,6 +343,8 @@ public sealed class TreeVirtualizationScheduler : IDisposable
             }
         }
     }
+
+    public TreeBufferAdoptionDiagnostics LastPlanDiagnostics => _lastPlanDiagnostics;
 
     public TreeVirtualizationTelemetry GetTelemetry()
     {

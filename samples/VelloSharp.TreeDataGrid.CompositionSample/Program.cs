@@ -72,6 +72,7 @@ foreach (var row in plan.ActiveRows)
 }
 Console.WriteLine($"Column slice primary start={plan.ColumnSlice.PrimaryStart} count={plan.ColumnSlice.PrimaryCount}");
 Console.WriteLine($"Pane diff: leading={plan.PaneDiff.LeadingChanged}, primary={plan.PaneDiff.PrimaryChanged}, trailing={plan.PaneDiff.TrailingChanged}");
+Console.WriteLine($"Buffer diagnostics: reused={plan.BufferDiagnostics.Reused} adopted={plan.BufferDiagnostics.Adopted} allocated={plan.BufferDiagnostics.Allocated} adoptionRate={plan.BufferDiagnostics.AdoptionRate:P1}");
 
 Console.WriteLine("\nAnimated column slots:");
 for (var i = 0; i < animatedSlots.Length; i++)

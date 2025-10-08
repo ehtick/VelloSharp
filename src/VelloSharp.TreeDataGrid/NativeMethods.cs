@@ -11,6 +11,36 @@ internal static partial class NativeMethods
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_last_error_message")]
     private static partial nint vello_tdg_last_error_message_ptr();
 
+    [LibraryImport(LibraryName, EntryPoint = \ vello_tdg_shader_register\)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    internal static partial bool vello_tdg_shader_register(
+        uint handle,
+        VelloTdgShaderDescriptor descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_shader_unregister\)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_tdg_shader_unregister(uint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_material_register\)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    internal static partial bool vello_tdg_material_register(
+        uint handle,
+        VelloTdgMaterialDescriptor descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_material_unregister\)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_tdg_material_unregister(uint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_render_hook_register\)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    internal static partial bool vello_tdg_render_hook_register(
+        uint handle,
+        VelloTdgRenderHookDescriptor descriptor);
+
+    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_render_hook_unregister\)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_tdg_render_hook_unregister(uint handle);
+
     internal static string? GetLastError()
     {
         var ptr = vello_tdg_last_error_message_ptr();
@@ -237,6 +267,39 @@ internal static partial class NativeMethods
         VelloTdgColumnPlan* columns,
         nuint columnCount);
 
+    internal enum VelloTdgShaderKind : uint
+    {
+        Solid = 0,
+    }
+
+    internal enum VelloTdgRenderHookKind : uint
+    {
+        FillRounded = 0,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct VelloTdgShaderDescriptor
+    {
+        public VelloTdgShaderKind Kind;
+        public VelloTdgColor Solid;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct VelloTdgMaterialDescriptor
+    {
+        public uint Shader;
+        public float Opacity;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct VelloTdgRenderHookDescriptor
+    {
+        public VelloTdgRenderHookKind Kind;
+        public uint Material;
+        public double Inset;
+        public double Radius;
+    }
+
     internal enum VelloTdgRowKind : uint
     {
         Data = 0,
@@ -331,6 +394,7 @@ internal static partial class NativeMethods
         public double Offset;
         public double Width;
         public VelloTdgFrozenKind Frozen;
+        public uint Key;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -480,5 +544,7 @@ internal static partial class NativeMethods
         public double Offset;
         public double Width;
         public VelloTdgFrozenKind Frozen;
+        public uint Key;
+    }
     }
 }

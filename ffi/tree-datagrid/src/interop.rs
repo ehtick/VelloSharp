@@ -212,6 +212,7 @@ pub struct VelloTdgColumnPlan {
     pub offset: f64,
     pub width: f64,
     pub frozen: VelloTdgFrozenKind,
+    pub key: u32,
 }
 
 impl From<&VelloTdgColumnPlan> for ColumnStrip {
@@ -220,6 +221,7 @@ impl From<&VelloTdgColumnPlan> for ColumnStrip {
             offset: plan.offset,
             width: plan.width,
             frozen: plan.frozen.into(),
+            key: plan.key,
         }
     }
 }
@@ -355,6 +357,7 @@ pub struct VelloTdgColumnMetric {
     pub offset: f64,
     pub width: f64,
     pub frozen: VelloTdgFrozenKind,
+    pub key: u32,
 }
 
 #[repr(C)]
@@ -882,6 +885,7 @@ pub unsafe extern "C" fn vello_tdg_virtualizer_set_columns(
                 offset: column.offset,
                 width: column.width,
                 frozen: column.frozen.into(),
+                key: column.key,
             })
             .collect()
     };

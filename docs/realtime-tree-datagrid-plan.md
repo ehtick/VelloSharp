@@ -77,11 +77,58 @@
 - Extended `TreeColumnStripCache` to expose leading/primary/trailing snapshots and diff union helpers so host chrome/scene updates react to freeze-band transitions.
 - Hardened samples and stress/integration tests around pane-aware virtualization telemetry and buffer reuse, ensuring plan outputs stay in sync with managed orchestration.
 
-  ### Phase 3 – Declarative Templates and Cell Customization (3 weeks)
-  - [ ] Define XAML schema `Vello.Tdg.*` mirroring Avalonia primitives (TextBlock, Path, StackPanel) but targeting composition descriptors.
-  - [ ] Implement XAML-to-scene compilation pipeline (parse -> expression tree -> FFI) with caching and invalidation strategy.
-- [ ] Provide C# fluent builders for scenarios without XAML; ensure type-safe binding to row/column contexts.
-- [ ] Introduce per-column render hooks for custom Vello drawing, including shared shader/material registries.
+### Phase 3 – Declarative Templates and Cell Customization (3 weeks)
+- [x] Define XAML schema `Vello.Tdg.*` mirroring Avalonia primitives (TextBlock, Path, StackPanel) but targeting composition descriptors.
+- [x] Implement XAML-to-scene compilation pipeline (parse -> expression tree -> FFI) with caching and invalidation strategy.
+- [x] Provide C# fluent builders for scenarios without XAML; ensure type-safe binding to row/column contexts.
+- [x] Introduce per-column render hooks for custom Vello drawing, including shared shader/material registries.
+
+#### Phase 3 Kickoff Snapshot
+- Drafted the `Vello.Tdg.*` schema framing row, group-header, summary, and chrome templates around the freeze-aware pane slices surfaced by `TreeColumnPaneSnapshot`.
+- Aligned pane-aware template resolution with the virtualization scheduler so leading/primary/trailing content can be evaluated independently while sharing cached column metrics.
+- Captured helper requirements for batching scene nodes per pane, enabling template rendering to reuse the `TreeColumnStripCache` snapshots without re-computing span metrics.
+- Built the managed template compiler (`TreeTemplateCompiler`) that parses XAML into an intermediate expression tree, emits scene instructions, and hydrates FFI-friendly batches with per-template caching and explicit generation-based invalidation.
+- Linked template runtime to a native backend so compiled instructions hydrate pane batches through FFI without requiring XAML.
+- Added fluent C# builders (`TreeTemplateBuilder`) that generate the same instruction stream as XAML, using generics to enforce row/column binding correctness and enabling template definitions to be composed programmatically.
+
+#### Vello.Tdg Template Schema (Draft)
+| Element | Purpose | Key Attributes / Notes |
+| --- | --- | --- |
+| `Vello.Tdg.Templates` | Root resource that attaches to a `TreeDataGridHost` and fans out to row/group/summary/chrome pipelines. | `{RowTemplate}`, `{GroupHeaderTemplate}`, `{SummaryTemplate}`, `{ChromeTemplate}` |
+| `Vello.Tdg.RowTemplate` | Declarative description of a row’s content tree. | `PaneTemplates` (collection), `DefaultCell`, `AlternateCell`, `Bindings` (scoped to row data context) |
+| `Vello.Tdg.PaneTemplate` | Associates template fragments with a freeze band (`Leading`, `Primary`, `Trailing`). | `Pane` (enum), `Cells` (collection of `Vello.Tdg.CellTemplate`) |
+| `Vello.Tdg.CellTemplate` | Describes composition nodes bound to a column definition. | `ColumnKey`, `Content` (scene descriptor subtree), optional `FallbackPane` routing |
+| `Vello.Tdg.SceneNode` primitives | Thin wrappers mapping XAML-like elements (`Stack`, `Text`, `Path`, `Image`) to composition descriptors. | Schema mirrors Avalonia naming while emitting `SceneFragment` descriptors consumed by the shared renderer |
+
+Schema application:
+- Pane evaluation resolves `TreeColumnPaneSnapshot` slices into `Vello.Tdg.PaneTemplate` instances; each template receives the column span/margin metadata plus contextual bindings (row value, selection state, stripe offsets).
+- `Vello.Tdg.TemplateScope` surfaces attached properties for `RowIndex`, `Depth`, and `PaneKind`, allowing declarative triggers without bespoke code-behind.
+
+#### XAML Compilation Pipeline
+- Parsing uses an XML-aware reader that normalizes the `http://schemas.vello.dev/tdg` namespace into a `TreeTemplateSyntaxTree`, capturing attributes, text nodes, and nested elements without allocating reflection metadata.
+- Expression conversion maps schema elements to `TreeTemplateExpression` nodes, inferring binding vs. literal values (string, number, boolean, color) and preserving pane metadata for downstream rendering.
+- Instruction emission produces a compact array of `TreeTemplateInstruction` opcodes (`OpenNode`, `SetProperty`, `BindProperty`, `CloseNode`) suitable for native ingestion.
+- `TreeTemplateCompiler` hashes template content and tracks a caller-provided generation number; cached programs are reused when both hash and generation match, while `Invalidate` forcefully drops affected keys.
+- `TreeTemplateRuntime` defers realization to a backend abstraction; the default managed backend stores realized programs, while the planned FFI backend will stream instruction spans into `vello_tree_datagrid` template entry points so scene nodes remain zero-copy.
+
+#### Fluent Builder Surface
+- `TreeTemplateBuilder.Row<TRow, TColumn>` constructs row templates via chained builders (`TreeRowTemplateBuilder`, `TreePaneTemplateBuilder`, `TreeCellTemplateBuilder`) that mirror the XAML schema.
+- Binding helpers accept `Expression<Func<TRow, ...>>` / `Expression<Func<TColumn, ...>>`, emitting canonical `Row.*` and `Column.*` binding paths to keep data-context usage type-safe.
+- Builder nodes (`Stack`, `Text`, `Rectangle`, `ContentPresenter`) feed directly into the expression/ instruction pipeline, ensuring parity with XAML while enabling template composition from code or configuration.
+- Caching reuses the same generation-aware pipeline: fluent definitions compile to `TreeTemplateExpression`, which hashes structurally before emitting instructions, so code-built templates participate in the same diff heuristics.
+
+#### Runtime Integration
+- Added `TreeTemplateNativeBackend` to compile instruction streams into native template programs and encode freeze-aware pane batches inside `SceneGraph`.
+- `TreeTemplateRuntime` now tracks backend ownership, supports repeated execution with new bindings/pane batches, and disposes native programs safely.
+- Native FFI (`vello_tdg_template_program_*`) caches template atoms, parses lightweight pane metadata, and seeds placeholder scenes so managed virtualization can validate pane hydration without XAML.
+#### Pane Snapshot Mapping
+- `TreeColumnStripSnapshot` now feeds template resolution by producing three `TreeColumnPaneSnapshot` values (leading/primary/trailing). The managed helper (`TreeTemplatePaneBatcher`) batches these snapshots into reusable scene descriptors so template runs can stream directly into the `TreeSceneGraph`.
+- Each pane batch contains the ordered `TreeColumnSpan` slice, `TreeColumnMetric` slice, and a lazily created `SceneBatchId`. Freeze bands therefore render deterministically even when scheduler diffing only invalidates a subset of panes.
+- Pane batches expose `Span<TreeColumnSpan>` for hot-path renderers while preserving allocations via pooled buffers tied to scheduler telemetry.
+
+#### Upcoming Work
+- Wire the schema into the planned XAML compiler, validating that template fragments emit the same `SceneFragment` structures as the fluent builders.
+- Expand managed tests to cover pane-aware template swapping and the diagnostics pipeline introduced for buffer adoption/allocation heuristics.
 
 ### Phase 4 – Interaction, Editing, and Accessibility (3–4 weeks)
 - [ ] Implement pointer routing (hit testing, hover, drag, context actions) unified with chart engine input router.

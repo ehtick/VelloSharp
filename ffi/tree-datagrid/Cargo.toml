@@ -11,3 +11,4 @@ crate-type = ["cdylib", "rlib"]
 hashbrown = { workspace = true }
 vello = { workspace = true }
 vello_composition = { path = "../composition" }
+once_cell = { workspace = true }

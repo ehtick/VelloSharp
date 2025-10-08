@@ -124,8 +124,9 @@ public sealed class TreeColumnStripCache
             ref readonly var slot = ref slots[index];
             var frozen = definition.Frozen;
 
-            _spans[index] = new TreeColumnSpan(slot.Offset, slot.Width, frozen);
-            _metrics[index] = new TreeColumnMetric(slot.Offset, slot.Width, frozen);
+            var key = definition.Key;
+            _spans[index] = new TreeColumnSpan(slot.Offset, slot.Width, frozen, key);
+            _metrics[index] = new TreeColumnMetric(slot.Offset, slot.Width, frozen, key);
 
             switch (frozen)
             {

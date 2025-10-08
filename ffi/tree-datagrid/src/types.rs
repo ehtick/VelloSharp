@@ -10,14 +10,16 @@ pub struct ColumnStrip {
     pub offset: f64,
     pub width: f64,
     pub frozen: FrozenKind,
+    pub key: u32,
 }
 
 impl ColumnStrip {
-    pub fn new(offset: f64, width: f64, frozen: FrozenKind) -> Self {
+    pub fn new(offset: f64, width: f64, frozen: FrozenKind, key: u32) -> Self {
         Self {
             offset,
             width,
             frozen,
+            key,
         }
     }
 }
