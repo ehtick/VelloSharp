@@ -35,6 +35,57 @@ internal static partial class NativeMethods
         VelloCompositionLinearLayoutSlot* slots,
         nuint slotsLength);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_stack_layout")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nuint vello_composition_stack_layout(
+        in VelloCompositionStackLayoutOptions options,
+        VelloCompositionStackLayoutChild* children,
+        nuint childCount,
+        double availableWidth,
+        double availableHeight,
+        VelloCompositionLayoutRect* rects,
+        nuint rectLen);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_wrap_layout")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nuint vello_composition_wrap_layout(
+        in VelloCompositionWrapLayoutOptions options,
+        VelloCompositionWrapLayoutChild* children,
+        nuint childCount,
+        double availableWidth,
+        double availableHeight,
+        VelloCompositionLayoutRect* rects,
+        nuint rectLen,
+        VelloCompositionWrapLayoutLine* lines,
+        nuint lineLen,
+        nuint* outLineCount);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_grid_layout")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nuint vello_composition_grid_layout(
+        VelloCompositionGridTrack* columns,
+        nuint columnsLen,
+        VelloCompositionGridTrack* rows,
+        nuint rowsLen,
+        in VelloCompositionGridLayoutOptions options,
+        VelloCompositionGridLayoutChild* children,
+        nuint childCount,
+        double availableWidth,
+        double availableHeight,
+        VelloCompositionLayoutRect* rects,
+        nuint rectLen);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_dock_layout")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nuint vello_composition_dock_layout(
+        in VelloCompositionDockLayoutOptions options,
+        VelloCompositionDockLayoutChild* children,
+        nuint childCount,
+        double availableWidth,
+        double availableHeight,
+        VelloCompositionLayoutRect* rects,
+        nuint rectLen);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_composition_shader_register")]
     [return: MarshalAs(UnmanagedType.I1)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -198,6 +249,74 @@ internal static partial class NativeMethods
         nint cache,
         VelloCompositionTimelineSample* samples,
         nuint samplesLength);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial nint vello_composition_virtualizer_create();
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_composition_virtualizer_destroy(nint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_clear")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_composition_virtualizer_clear(nint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_set_rows")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial void vello_composition_virtualizer_set_rows(
+        nint handle,
+        VelloCompositionVirtualRowMetric* rows,
+        nuint rowsLen);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_set_columns")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial void vello_composition_virtualizer_set_columns(
+        nint handle,
+        VelloCompositionVirtualColumnStrip* columns,
+        nuint columnsLen);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_plan")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_composition_virtualizer_plan(
+        nint handle,
+        VelloCompositionRowViewportMetrics rowMetrics,
+        VelloCompositionColumnViewportMetrics columnMetrics);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_copy_plan")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nuint vello_composition_virtualizer_copy_plan(
+        nint handle,
+        VelloCompositionRowPlanEntry* entries,
+        nuint entryLen);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_copy_recycle")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nuint vello_composition_virtualizer_copy_recycle(
+        nint handle,
+        VelloCompositionRowPlanEntry* entries,
+        nuint entryLen);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_window")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial bool vello_composition_virtualizer_window(
+        nint handle,
+        out VelloCompositionRowWindow window);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_column_slice")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial bool vello_composition_virtualizer_column_slice(
+        nint handle,
+        out VelloCompositionColumnSlice slice);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_composition_virtualizer_telemetry")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial bool vello_composition_virtualizer_telemetry(
+        nint handle,
+        out VelloCompositionVirtualizerTelemetry telemetry);
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -233,6 +352,167 @@ internal struct VelloCompositionLinearLayoutSlot
 {
     public double Offset;
     public double Length;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionScalarConstraint
+{
+    public double Min;
+    public double Preferred;
+    public double Max;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionLayoutConstraints
+{
+    public VelloCompositionScalarConstraint Width;
+    public VelloCompositionScalarConstraint Height;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionLayoutThickness
+{
+    public double Left;
+    public double Top;
+    public double Right;
+    public double Bottom;
+}
+
+internal enum VelloCompositionLayoutOrientation : uint
+{
+    Horizontal = 0,
+    Vertical = 1,
+}
+
+internal enum VelloCompositionLayoutAlignment : uint
+{
+    Start = 0,
+    Center = 1,
+    End = 2,
+    Stretch = 3,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionLayoutRect
+{
+    public double X;
+    public double Y;
+    public double Width;
+    public double Height;
+    public double PrimaryOffset;
+    public double PrimaryLength;
+    public uint LineIndex;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionStackLayoutChild
+{
+    public VelloCompositionLayoutConstraints Constraints;
+    public double Weight;
+    public VelloCompositionLayoutThickness Margin;
+    public VelloCompositionLayoutAlignment CrossAlignment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionStackLayoutOptions
+{
+    public VelloCompositionLayoutOrientation Orientation;
+    public double Spacing;
+    public VelloCompositionLayoutThickness Padding;
+    public VelloCompositionLayoutAlignment CrossAlignment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionWrapLayoutChild
+{
+    public VelloCompositionLayoutConstraints Constraints;
+    public VelloCompositionLayoutThickness Margin;
+    public uint LineBreak;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionWrapLayoutOptions
+{
+    public VelloCompositionLayoutOrientation Orientation;
+    public double ItemSpacing;
+    public double LineSpacing;
+    public VelloCompositionLayoutThickness Padding;
+    public VelloCompositionLayoutAlignment LineAlignment;
+    public VelloCompositionLayoutAlignment CrossAlignment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionWrapLayoutLine
+{
+    public uint LineIndex;
+    public uint Start;
+    public uint Count;
+    public double PrimaryOffset;
+    public double PrimaryLength;
+}
+
+internal enum VelloCompositionGridTrackKind : uint
+{
+    Fixed = 0,
+    Auto = 1,
+    Star = 2,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionGridTrack
+{
+    public VelloCompositionGridTrackKind Kind;
+    public double Value;
+    public double Min;
+    public double Max;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionGridLayoutChild
+{
+    public VelloCompositionLayoutConstraints Constraints;
+    public ushort Column;
+    public ushort ColumnSpan;
+    public ushort Row;
+    public ushort RowSpan;
+    public VelloCompositionLayoutThickness Margin;
+    public VelloCompositionLayoutAlignment HorizontalAlignment;
+    public VelloCompositionLayoutAlignment VerticalAlignment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionGridLayoutOptions
+{
+    public VelloCompositionLayoutThickness Padding;
+    public double ColumnSpacing;
+    public double RowSpacing;
+}
+
+internal enum VelloCompositionDockSide : uint
+{
+    Left = 0,
+    Top = 1,
+    Right = 2,
+    Bottom = 3,
+    Fill = 4,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionDockLayoutChild
+{
+    public VelloCompositionLayoutConstraints Constraints;
+    public VelloCompositionLayoutThickness Margin;
+    public VelloCompositionDockSide Side;
+    public VelloCompositionLayoutAlignment HorizontalAlignment;
+    public VelloCompositionLayoutAlignment VerticalAlignment;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionDockLayoutOptions
+{
+    public VelloCompositionLayoutThickness Padding;
+    public double Spacing;
+    public uint LastChildFill;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -366,11 +646,99 @@ internal struct VelloCompositionTimelineSpringTrackDesc
 [StructLayout(LayoutKind.Sequential)]
 internal struct VelloCompositionTimelineSample
 {
-    public uint TrackId;
+   public uint TrackId;
+   public uint NodeId;
+   public ushort ChannelId;
+   public ushort Flags;
+   public float Value;
+   public float Velocity;
+   public float Progress;
+}
+
+internal enum VelloCompositionFrozenKind : uint
+{
+    None = 0,
+    Leading = 1,
+    Trailing = 2,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionVirtualRowMetric
+{
     public uint NodeId;
-    public ushort ChannelId;
-    public ushort Flags;
-    public float Value;
-    public float Velocity;
-    public float Progress;
+    public double Height;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionVirtualColumnStrip
+{
+    public double Offset;
+    public double Width;
+    public VelloCompositionFrozenKind Frozen;
+    public uint Key;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionRowViewportMetrics
+{
+    public double ScrollOffset;
+    public double ViewportExtent;
+    public double Overscan;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionColumnViewportMetrics
+{
+    public double ScrollOffset;
+    public double ViewportExtent;
+    public double Overscan;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionColumnSlice
+{
+    public uint PrimaryStart;
+    public uint PrimaryCount;
+    public uint FrozenLeading;
+    public uint FrozenTrailing;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionVirtualizerTelemetry
+{
+    public uint RowsTotal;
+    public uint WindowLength;
+    public uint Reused;
+    public uint Adopted;
+    public uint Allocated;
+    public uint Recycled;
+    public uint ActiveBuffers;
+    public uint FreeBuffers;
+    public uint Evicted;
+}
+
+internal enum VelloCompositionRowAction : uint
+{
+    Reuse = 0,
+    Adopt = 1,
+    Allocate = 2,
+    Recycle = 3,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionRowPlanEntry
+{
+    public uint NodeId;
+    public uint BufferId;
+    public double Top;
+    public float Height;
+    public VelloCompositionRowAction Action;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloCompositionRowWindow
+{
+    public uint StartIndex;
+    public uint EndIndex;
+    public double TotalHeight;
 }

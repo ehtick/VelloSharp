@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace VelloSharp.Composition;
 
@@ -11,6 +12,7 @@ public static class CompositionInterop
 {
     private const int StackAllocThreshold = 256;
     private const int LinearLayoutStackThreshold = 8;
+    private const int LayoutSpanStackThreshold = 16;
 
     public static PlotArea ComputePlotArea(double width, double height)
     {
@@ -167,6 +169,715 @@ public static class CompositionInterop
         double MarginTrailing = 0.0);
 
     public readonly record struct LinearLayoutResult(double Offset, double Length);
+
+    private static VelloCompositionScalarConstraint ToNative(in ScalarConstraint constraint) => new()
+    {
+        Min = constraint.Min,
+        Preferred = constraint.Preferred,
+        Max = constraint.Max,
+    };
+
+    private static VelloCompositionLayoutConstraints ToNative(in LayoutConstraints constraints) => new()
+    {
+        Width = ToNative(constraints.Width),
+        Height = ToNative(constraints.Height),
+    };
+
+    private static VelloCompositionLayoutThickness ToNative(in LayoutThickness thickness) => new()
+    {
+        Left = thickness.Left,
+        Top = thickness.Top,
+        Right = thickness.Right,
+        Bottom = thickness.Bottom,
+    };
+
+    private static VelloCompositionLayoutAlignment ToNative(LayoutAlignment alignment) =>
+        alignment switch
+        {
+            LayoutAlignment.Start => VelloCompositionLayoutAlignment.Start,
+            LayoutAlignment.Center => VelloCompositionLayoutAlignment.Center,
+            LayoutAlignment.End => VelloCompositionLayoutAlignment.End,
+            LayoutAlignment.Stretch => VelloCompositionLayoutAlignment.Stretch,
+            _ => VelloCompositionLayoutAlignment.Stretch,
+        };
+
+    private static VelloCompositionLayoutOrientation ToNative(LayoutOrientation orientation) =>
+        orientation switch
+        {
+            LayoutOrientation.Horizontal => VelloCompositionLayoutOrientation.Horizontal,
+            LayoutOrientation.Vertical => VelloCompositionLayoutOrientation.Vertical,
+            _ => VelloCompositionLayoutOrientation.Vertical,
+        };
+
+    private static VelloCompositionStackLayoutChild ToNative(in StackLayoutChild child) => new()
+    {
+        Constraints = ToNative(child.Constraints),
+        Weight = child.Weight,
+        Margin = ToNative(child.Margin),
+        CrossAlignment = ToNative(child.CrossAlignment),
+    };
+
+    private static VelloCompositionStackLayoutOptions ToNative(in StackLayoutOptions options) => new()
+    {
+        Orientation = ToNative(options.Orientation),
+        Spacing = options.Spacing,
+        Padding = ToNative(options.Padding),
+        CrossAlignment = ToNative(options.CrossAlignment),
+    };
+
+    private static VelloCompositionWrapLayoutChild ToNative(in WrapLayoutChild child) => new()
+    {
+        Constraints = ToNative(child.Constraints),
+        Margin = ToNative(child.Margin),
+        LineBreak = child.LineBreak ? 1u : 0u,
+    };
+
+    private static VelloCompositionWrapLayoutOptions ToNative(in WrapLayoutOptions options) => new()
+    {
+        Orientation = ToNative(options.Orientation),
+        ItemSpacing = options.ItemSpacing,
+        LineSpacing = options.LineSpacing,
+        Padding = ToNative(options.Padding),
+        LineAlignment = ToNative(options.LineAlignment),
+        CrossAlignment = ToNative(options.CrossAlignment),
+    };
+
+    private static VelloCompositionGridTrack ToNative(in GridTrack track) => new()
+    {
+        Kind = track.Kind switch
+        {
+            GridTrackKind.Fixed => VelloCompositionGridTrackKind.Fixed,
+            GridTrackKind.Auto => VelloCompositionGridTrackKind.Auto,
+            GridTrackKind.Star => VelloCompositionGridTrackKind.Star,
+            _ => VelloCompositionGridTrackKind.Auto,
+        },
+        Value = track.Value,
+        Min = track.Min,
+        Max = double.IsPositiveInfinity(track.Max) ? double.PositiveInfinity : track.Max,
+    };
+
+    private static VelloCompositionGridLayoutChild ToNative(in GridLayoutChild child) => new()
+    {
+        Constraints = ToNative(child.Constraints),
+        Column = child.Column,
+        ColumnSpan = child.ColumnSpan,
+        Row = child.Row,
+        RowSpan = child.RowSpan,
+        Margin = ToNative(child.Margin),
+        HorizontalAlignment = ToNative(child.HorizontalAlignment),
+        VerticalAlignment = ToNative(child.VerticalAlignment),
+    };
+
+    private static VelloCompositionGridLayoutOptions ToNative(in GridLayoutOptions options) => new()
+    {
+        Padding = ToNative(options.Padding),
+        ColumnSpacing = options.ColumnSpacing,
+        RowSpacing = options.RowSpacing,
+    };
+
+    private static VelloCompositionDockLayoutChild ToNative(in DockLayoutChild child) => new()
+    {
+        Constraints = ToNative(child.Constraints),
+        Margin = ToNative(child.Margin),
+        Side = child.Side switch
+        {
+            DockSide.Left => VelloCompositionDockSide.Left,
+            DockSide.Top => VelloCompositionDockSide.Top,
+            DockSide.Right => VelloCompositionDockSide.Right,
+            DockSide.Bottom => VelloCompositionDockSide.Bottom,
+            DockSide.Fill => VelloCompositionDockSide.Fill,
+            _ => VelloCompositionDockSide.Fill,
+        },
+        HorizontalAlignment = ToNative(child.HorizontalAlignment),
+        VerticalAlignment = ToNative(child.VerticalAlignment),
+    };
+
+    private static VelloCompositionDockLayoutOptions ToNative(in DockLayoutOptions options) => new()
+    {
+        Padding = ToNative(options.Padding),
+        Spacing = options.Spacing,
+        LastChildFill = options.LastChildFill ? 1u : 0u,
+    };
+
+    private static LayoutRect FromNative(in VelloCompositionLayoutRect rect) =>
+        new(rect.X, rect.Y, rect.Width, rect.Height, rect.PrimaryOffset, rect.PrimaryLength, rect.LineIndex);
+
+    private static VelloCompositionVirtualRowMetric ToNative(in VirtualRowMetric metric) => new()
+    {
+        NodeId = metric.NodeId,
+        Height = metric.Height,
+    };
+
+    private static VelloCompositionFrozenKind ToNative(FrozenKind kind) =>
+        kind switch
+        {
+            FrozenKind.Leading => VelloCompositionFrozenKind.Leading,
+            FrozenKind.Trailing => VelloCompositionFrozenKind.Trailing,
+            _ => VelloCompositionFrozenKind.None,
+        };
+
+    private static VelloCompositionVirtualColumnStrip ToNative(in VirtualColumnStrip strip) => new()
+    {
+        Offset = strip.Offset,
+        Width = strip.Width,
+        Frozen = ToNative(strip.Frozen),
+        Key = strip.Key,
+    };
+
+    private static VelloCompositionRowViewportMetrics ToNative(in RowViewportMetrics metrics) => new()
+    {
+        ScrollOffset = metrics.ScrollOffset,
+        ViewportExtent = metrics.ViewportExtent,
+        Overscan = metrics.Overscan,
+    };
+
+    private static VelloCompositionColumnViewportMetrics ToNative(in ColumnViewportMetrics metrics) => new()
+    {
+        ScrollOffset = metrics.ScrollOffset,
+        ViewportExtent = metrics.ViewportExtent,
+        Overscan = metrics.Overscan,
+    };
+
+    private static VirtualizerTelemetry FromNative(in VelloCompositionVirtualizerTelemetry telemetry) =>
+        new(
+            telemetry.RowsTotal,
+            telemetry.WindowLength,
+            telemetry.Reused,
+            telemetry.Adopted,
+            telemetry.Allocated,
+            telemetry.Recycled,
+            telemetry.ActiveBuffers,
+            telemetry.FreeBuffers,
+            telemetry.Evicted);
+
+    private static ColumnSlice FromNative(in VelloCompositionColumnSlice slice) =>
+        new(slice.PrimaryStart, slice.PrimaryCount, slice.FrozenLeading, slice.FrozenTrailing);
+
+    private static RowPlanEntry FromNative(in VelloCompositionRowPlanEntry entry) =>
+        new(entry.NodeId, entry.BufferId, entry.Top, entry.Height, entry.Action switch
+        {
+            VelloCompositionRowAction.Adopt => RowAction.Adopt,
+            VelloCompositionRowAction.Allocate => RowAction.Allocate,
+            VelloCompositionRowAction.Recycle => RowAction.Recycle,
+            _ => RowAction.Reuse,
+        });
+
+    private static RowWindow FromNative(in VelloCompositionRowWindow window) =>
+        new(window.StartIndex, window.EndIndex, window.TotalHeight);
+
+    public static int SolveStackLayout(
+        ReadOnlySpan<StackLayoutChild> children,
+        in StackLayoutOptions options,
+        in LayoutSize available,
+        Span<LayoutRect> results)
+    {
+        if (children.IsEmpty)
+        {
+            return 0;
+        }
+
+        if (results.Length < children.Length)
+        {
+            throw new ArgumentException("Result span is too small.", nameof(results));
+        }
+
+        int count = children.Length;
+        Span<VelloCompositionStackLayoutChild> nativeChildren = count <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionStackLayoutChild[LayoutSpanStackThreshold]
+            : new VelloCompositionStackLayoutChild[count];
+        nativeChildren = nativeChildren[..count];
+
+        for (int i = 0; i < count; i++)
+        {
+            nativeChildren[i] = ToNative(children[i]);
+        }
+
+        Span<VelloCompositionLayoutRect> nativeRects = count <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionLayoutRect[LayoutSpanStackThreshold]
+            : new VelloCompositionLayoutRect[count];
+        nativeRects = nativeRects[..count];
+
+        nuint produced;
+        var nativeOptions = ToNative(options);
+        unsafe
+        {
+            fixed (VelloCompositionStackLayoutChild* childPtr = nativeChildren)
+            fixed (VelloCompositionLayoutRect* rectPtr = nativeRects)
+            {
+                produced = NativeMethods.vello_composition_stack_layout(
+                    nativeOptions,
+                    childPtr,
+                    (nuint)count,
+                    available.Width,
+                    available.Height,
+                    rectPtr,
+                    (nuint)count);
+            }
+        }
+
+        if (produced == 0)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < (int)produced; i++)
+        {
+            results[i] = FromNative(nativeRects[i]);
+    }
+
+        return (int)produced;
+    }
+
+    public sealed class CompositionVirtualizer : SafeHandleZeroOrMinusOneIsInvalid
+    {
+        public CompositionVirtualizer()
+            : base(ownsHandle: true)
+        {
+            var ptr = NativeMethods.vello_composition_virtualizer_create();
+            if (ptr == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Failed to create composition virtualizer.");
+            }
+
+            SetHandle(ptr);
+        }
+
+        protected override bool ReleaseHandle()
+        {
+            NativeMethods.vello_composition_virtualizer_destroy(handle);
+            SetHandle(IntPtr.Zero);
+            return true;
+        }
+
+        private void ThrowIfInvalid()
+        {
+            if (IsInvalid)
+            {
+                throw new ObjectDisposedException(nameof(CompositionVirtualizer));
+            }
+        }
+
+        public void Clear()
+        {
+            ThrowIfInvalid();
+            NativeMethods.vello_composition_virtualizer_clear(handle);
+        }
+
+        public void SetRows(ReadOnlySpan<VirtualRowMetric> rows)
+        {
+            ThrowIfInvalid();
+            Span<VelloCompositionVirtualRowMetric> nativeRows = rows.Length <= LayoutSpanStackThreshold
+                ? stackalloc VelloCompositionVirtualRowMetric[LayoutSpanStackThreshold]
+                : new VelloCompositionVirtualRowMetric[rows.Length];
+            nativeRows = nativeRows[..rows.Length];
+            for (int i = 0; i < rows.Length; i++)
+            {
+                nativeRows[i] = ToNative(rows[i]);
+            }
+
+            unsafe
+            {
+                fixed (VelloCompositionVirtualRowMetric* rowPtr = nativeRows)
+                {
+                    NativeMethods.vello_composition_virtualizer_set_rows(
+                        handle,
+                        nativeRows.IsEmpty ? null : rowPtr,
+                        (nuint)rows.Length);
+                }
+            }
+        }
+
+        public void SetColumns(ReadOnlySpan<VirtualColumnStrip> columns)
+        {
+            ThrowIfInvalid();
+            Span<VelloCompositionVirtualColumnStrip> nativeColumns = columns.Length <= LayoutSpanStackThreshold
+                ? stackalloc VelloCompositionVirtualColumnStrip[LayoutSpanStackThreshold]
+                : new VelloCompositionVirtualColumnStrip[columns.Length];
+            nativeColumns = nativeColumns[..columns.Length];
+            for (int i = 0; i < columns.Length; i++)
+            {
+                nativeColumns[i] = ToNative(columns[i]);
+            }
+
+            unsafe
+            {
+                fixed (VelloCompositionVirtualColumnStrip* columnPtr = nativeColumns)
+                {
+                    NativeMethods.vello_composition_virtualizer_set_columns(
+                        handle,
+                        nativeColumns.IsEmpty ? null : columnPtr,
+                        (nuint)columns.Length);
+                }
+            }
+        }
+
+        public void Plan(in RowViewportMetrics rowMetrics, in ColumnViewportMetrics columnMetrics)
+        {
+            ThrowIfInvalid();
+            NativeMethods.vello_composition_virtualizer_plan(
+                handle,
+                ToNative(rowMetrics),
+                ToNative(columnMetrics));
+        }
+
+        public int CopyPlan(Span<RowPlanEntry> buffer)
+        {
+            ThrowIfInvalid();
+            nuint required;
+            unsafe
+            {
+                required = NativeMethods.vello_composition_virtualizer_copy_plan(handle, null, 0);
+            }
+
+            if (required == 0)
+            {
+                return 0;
+            }
+
+            int copy = Math.Min(buffer.Length, (int)required);
+            if (copy == 0)
+            {
+                return (int)required;
+            }
+
+            Span<VelloCompositionRowPlanEntry> temp = copy <= LayoutSpanStackThreshold
+                ? stackalloc VelloCompositionRowPlanEntry[LayoutSpanStackThreshold]
+                : new VelloCompositionRowPlanEntry[copy];
+            temp = temp[..copy];
+
+            unsafe
+            {
+                fixed (VelloCompositionRowPlanEntry* ptr = temp)
+                {
+                    NativeMethods.vello_composition_virtualizer_copy_plan(
+                        handle,
+                        ptr,
+                        (nuint)copy);
+                }
+            }
+
+            for (int i = 0; i < copy; i++)
+            {
+                buffer[i] = FromNative(temp[i]);
+            }
+
+            return (int)required;
+        }
+
+        public int CopyRecycle(Span<RowPlanEntry> buffer)
+        {
+            ThrowIfInvalid();
+            nuint required;
+            unsafe
+            {
+                required = NativeMethods.vello_composition_virtualizer_copy_recycle(handle, null, 0);
+            }
+
+            if (required == 0)
+            {
+                return 0;
+            }
+
+            int copy = Math.Min(buffer.Length, (int)required);
+            if (copy == 0)
+            {
+                return (int)required;
+            }
+
+            Span<VelloCompositionRowPlanEntry> temp = copy <= LayoutSpanStackThreshold
+                ? stackalloc VelloCompositionRowPlanEntry[LayoutSpanStackThreshold]
+                : new VelloCompositionRowPlanEntry[copy];
+            temp = temp[..copy];
+
+            unsafe
+            {
+                fixed (VelloCompositionRowPlanEntry* ptr = temp)
+                {
+                    NativeMethods.vello_composition_virtualizer_copy_recycle(
+                        handle,
+                        ptr,
+                        (nuint)copy);
+                }
+            }
+
+            for (int i = 0; i < copy; i++)
+            {
+                buffer[i] = FromNative(temp[i]);
+            }
+
+            return (int)required;
+        }
+
+        public bool TryGetWindow(out RowWindow window)
+        {
+            ThrowIfInvalid();
+            if (!NativeMethods.vello_composition_virtualizer_window(handle, out var native))
+            {
+                window = default;
+                return false;
+            }
+
+            window = FromNative(native);
+            return true;
+        }
+
+        public ColumnSlice GetColumnSlice()
+        {
+            ThrowIfInvalid();
+            return NativeMethods.vello_composition_virtualizer_column_slice(handle, out var slice)
+                ? FromNative(slice)
+                : default;
+        }
+
+        public VirtualizerTelemetry GetTelemetry()
+        {
+            ThrowIfInvalid();
+            return NativeMethods.vello_composition_virtualizer_telemetry(handle, out var telemetry)
+                ? FromNative(telemetry)
+                : default;
+        }
+    }
+    public static WrapLayoutSolveResult SolveWrapLayout(
+        ReadOnlySpan<WrapLayoutChild> children,
+        in WrapLayoutOptions options,
+        in LayoutSize available,
+        Span<LayoutRect> layoutBuffer,
+        Span<WrapLayoutLine> lineBuffer)
+    {
+        if (children.IsEmpty)
+        {
+            return default;
+        }
+
+        int count = children.Length;
+        Span<VelloCompositionWrapLayoutChild> nativeChildren = count <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionWrapLayoutChild[LayoutSpanStackThreshold]
+            : new VelloCompositionWrapLayoutChild[count];
+        nativeChildren = nativeChildren[..count];
+        for (int i = 0; i < count; i++)
+        {
+            nativeChildren[i] = ToNative(children[i]);
+        }
+
+        var nativeOptions = ToNative(options);
+        nuint produced;
+        nuint lineCount;
+
+        unsafe
+        {
+            fixed (VelloCompositionWrapLayoutChild* childPtr = nativeChildren)
+            {
+                produced = NativeMethods.vello_composition_wrap_layout(
+                    nativeOptions,
+                    childPtr,
+                    (nuint)count,
+                    available.Width,
+                    available.Height,
+                    null,
+                    0,
+                    null,
+                    0,
+                    &lineCount);
+            }
+        }
+
+        var rectCount = (int)produced;
+        var linesRequired = (int)lineCount;
+
+        var tempRectArray = rectCount > 0
+            ? new VelloCompositionLayoutRect[rectCount]
+            : Array.Empty<VelloCompositionLayoutRect>();
+        var tempLineArray = linesRequired > 0
+            ? new VelloCompositionWrapLayoutLine[linesRequired]
+            : Array.Empty<VelloCompositionWrapLayoutLine>();
+
+        Span<VelloCompositionLayoutRect> tempRects = tempRectArray;
+        Span<VelloCompositionWrapLayoutLine> tempLines = tempLineArray;
+
+        unsafe
+        {
+            fixed (VelloCompositionWrapLayoutChild* childPtr = nativeChildren)
+            fixed (VelloCompositionLayoutRect* rectPtr = tempRects)
+            fixed (VelloCompositionWrapLayoutLine* linePtr = tempLines)
+            {
+                NativeMethods.vello_composition_wrap_layout(
+                    nativeOptions,
+                    childPtr,
+                    (nuint)count,
+                    available.Width,
+                    available.Height,
+                    rectPtr,
+                    (nuint)tempRects.Length,
+                    linePtr,
+                    (nuint)tempLines.Length,
+                    &lineCount);
+            }
+        }
+
+        int layoutCopy = Math.Min(layoutBuffer.Length, rectCount);
+        for (int i = 0; i < layoutCopy; i++)
+        {
+            layoutBuffer[i] = FromNative(tempRects[i]);
+        }
+
+        int lineCopy = Math.Min(lineBuffer.Length, linesRequired);
+        for (int i = 0; i < lineCopy; i++)
+        {
+            var native = tempLines[i];
+            lineBuffer[i] = new WrapLayoutLine(native.LineIndex, native.Start, native.Count, native.PrimaryOffset, native.PrimaryLength);
+        }
+
+        return new WrapLayoutSolveResult(rectCount, linesRequired);
+    }
+
+    public static int SolveGridLayout(
+        ReadOnlySpan<GridTrack> columns,
+        ReadOnlySpan<GridTrack> rows,
+        ReadOnlySpan<GridLayoutChild> children,
+        in GridLayoutOptions options,
+        in LayoutSize available,
+        Span<LayoutRect> results)
+    {
+        if (children.IsEmpty)
+        {
+            return 0;
+        }
+
+        if (results.Length < children.Length)
+        {
+            throw new ArgumentException("Result span is too small.", nameof(results));
+        }
+
+        Span<VelloCompositionGridTrack> nativeColumns = columns.Length <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionGridTrack[LayoutSpanStackThreshold]
+            : new VelloCompositionGridTrack[columns.Length];
+        nativeColumns = nativeColumns[..columns.Length];
+
+        for (int i = 0; i < columns.Length; i++)
+        {
+            nativeColumns[i] = ToNative(columns[i]);
+        }
+
+        Span<VelloCompositionGridTrack> nativeRows = rows.Length <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionGridTrack[LayoutSpanStackThreshold]
+            : new VelloCompositionGridTrack[rows.Length];
+        nativeRows = nativeRows[..rows.Length];
+        for (int i = 0; i < rows.Length; i++)
+        {
+            nativeRows[i] = ToNative(rows[i]);
+        }
+
+        Span<VelloCompositionGridLayoutChild> nativeChildren = children.Length <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionGridLayoutChild[LayoutSpanStackThreshold]
+            : new VelloCompositionGridLayoutChild[children.Length];
+        nativeChildren = nativeChildren[..children.Length];
+        for (int i = 0; i < children.Length; i++)
+        {
+            nativeChildren[i] = ToNative(children[i]);
+        }
+
+        Span<VelloCompositionLayoutRect> nativeRects = children.Length <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionLayoutRect[LayoutSpanStackThreshold]
+            : new VelloCompositionLayoutRect[children.Length];
+        nativeRects = nativeRects[..children.Length];
+
+        nuint produced;
+        var nativeOptions = ToNative(options);
+        unsafe
+        {
+            fixed (VelloCompositionGridTrack* columnsPtr = nativeColumns)
+            fixed (VelloCompositionGridTrack* rowsPtr = nativeRows)
+            fixed (VelloCompositionGridLayoutChild* childPtr = nativeChildren)
+            fixed (VelloCompositionLayoutRect* rectPtr = nativeRects)
+            {
+                produced = NativeMethods.vello_composition_grid_layout(
+                    columnsPtr,
+                    (nuint)columns.Length,
+                    rowsPtr,
+                    (nuint)rows.Length,
+                    nativeOptions,
+                    childPtr,
+                    (nuint)children.Length,
+                    available.Width,
+                    available.Height,
+                    rectPtr,
+                    (nuint)children.Length);
+            }
+        }
+
+        if (produced == 0)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < (int)produced; i++)
+        {
+            results[i] = FromNative(nativeRects[i]);
+        }
+
+        return (int)produced;
+    }
+
+    public static int SolveDockLayout(
+        ReadOnlySpan<DockLayoutChild> children,
+        in DockLayoutOptions options,
+        in LayoutSize available,
+        Span<LayoutRect> results)
+    {
+        if (children.IsEmpty)
+        {
+            return 0;
+        }
+
+        if (results.Length < children.Length)
+        {
+            throw new ArgumentException("Result span is too small.", nameof(results));
+        }
+
+        Span<VelloCompositionDockLayoutChild> nativeChildren = children.Length <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionDockLayoutChild[LayoutSpanStackThreshold]
+            : new VelloCompositionDockLayoutChild[children.Length];
+        nativeChildren = nativeChildren[..children.Length];
+        for (int i = 0; i < children.Length; i++)
+        {
+            nativeChildren[i] = ToNative(children[i]);
+        }
+
+        Span<VelloCompositionLayoutRect> nativeRects = children.Length <= LayoutSpanStackThreshold
+            ? stackalloc VelloCompositionLayoutRect[LayoutSpanStackThreshold]
+            : new VelloCompositionLayoutRect[children.Length];
+        nativeRects = nativeRects[..children.Length];
+
+        var nativeOptions = ToNative(options);
+        nuint produced;
+        unsafe
+        {
+            fixed (VelloCompositionDockLayoutChild* childPtr = nativeChildren)
+            fixed (VelloCompositionLayoutRect* rectPtr = nativeRects)
+            {
+                produced = NativeMethods.vello_composition_dock_layout(
+                    nativeOptions,
+                    childPtr,
+                    (nuint)children.Length,
+                    available.Width,
+                    available.Height,
+                    rectPtr,
+                    (nuint)children.Length);
+            }
+        }
+
+        if (produced == 0)
+        {
+            return 0;
+        }
+
+        for (int i = 0; i < (int)produced; i++)
+        {
+            results[i] = FromNative(nativeRects[i]);
+        }
+
+        return (int)produced;
+    }
 }
 
 public readonly record struct CompositionColor(float R, float G, float B, float A = 1f)
