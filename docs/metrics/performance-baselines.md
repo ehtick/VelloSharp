@@ -42,6 +42,36 @@ Prototype timings collected from the shared composition spike (`ffi/composition`
 - TDG virtualization prototype sustains the 8 ms frame target (120 Hz) with 50k logical rows by keeping CPU + GPU combined under 6.7 ms at the 99th percentile.
 - Cache hit ratio above 90% confirms row/column windowing effectiveness; remaining misses map to expansion bursts captured in telemetry.
 
+## Shared Animation Timeline Microbenchmarks (Phase 3.5)
+Rust benchmark (cargo run -p chart_benchmarks --release -- timeline):
+
+```json
+{
+  "scenario": "timeline_10k_tracks",
+  "track_count": 10000,
+  "ticks": 480,
+  "total_ms": 30.0109,
+  "avg_tick_ms": 0.062480208333333336,
+  "max_tick_ms": 0.2505,
+  "samples_emitted": 4800000
+}
+```
+
+.NET benchmark (dotnet run --project benchmarks/VelloSharp.Composition.Benchmarks --configuration Release):
+
+```json
+{
+  "Scenario": "timeline_10k_tracks",
+  "TrackCount": 10000,
+  "Ticks": 480,
+  "TotalMs": 6.501,
+  "AvgTickMs": 0.013369583333333332,
+  "MaxTickMs": 0.0622
+}
+```
+
+Both runs keep the timeline sampling cost well below the ≤0.5 ms/frame target for 10k animated properties, confirming the shared runtime can power charting and TDG transitions without breaching the 8 ms frame budget.
+
 ## CI Performance Gates
 - **Charts**: fail CI if `avg_cpu_frame_ms` exceeds 4.0 ms or `p99_frame_ms` exceeds 8.0 ms for the reference `chart_benchmarks` suite. Alerts published to the shared telemetry dashboard under `FrameStats`.
 - **TreeDataGrid**: fail CI if `p99_frame_ms` exceeds 8.0 ms, `avg_gpu_frame_ms` exceeds 4.0 ms, or `cache_hit_ratio` drops below 0.90 for `tdg_virtual_grid`.

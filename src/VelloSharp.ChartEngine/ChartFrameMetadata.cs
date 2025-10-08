@@ -97,6 +97,21 @@ public sealed class ChartFrameMetadata
     /// </summary>
     public IReadOnlyList<PaneMetadata> Panes { get; }
 
+    /// <summary>
+    /// Gets the animated cursor overlay state projected from the shared animation runtime, if available.
+    /// </summary>
+    public ChartCursorOverlay? CursorOverlay { get; private set; }
+
+    /// <summary>
+    /// Gets animated annotation emphasis states for overlay renderers.
+    /// </summary>
+    public IReadOnlyList<ChartAnnotationOverlay> AnnotationOverlays { get; private set; } = Array.Empty<ChartAnnotationOverlay>();
+
+    /// <summary>
+    /// Gets streaming motion overlays describing fade, slide, and rolling shift states per series.
+    /// </summary>
+    public IReadOnlyList<ChartStreamingOverlay> StreamingOverlays { get; private set; } = Array.Empty<ChartStreamingOverlay>();
+
     internal static unsafe ChartFrameMetadata FromNative(in VelloChartFrameMetadata native)
     {
         var timeTicks = new AxisTickMetadata[(int)native.TimeTickCount];
@@ -210,6 +225,14 @@ public sealed class ChartFrameMetadata
             panes);
     }
 
+    internal void SetCursorOverlay(ChartCursorOverlay? overlay) => CursorOverlay = overlay;
+
+    internal void SetAnnotationOverlays(IReadOnlyList<ChartAnnotationOverlay> overlays)
+        => AnnotationOverlays = overlays ?? Array.Empty<ChartAnnotationOverlay>();
+
+    internal void SetStreamingOverlays(IReadOnlyList<ChartStreamingOverlay> overlays)
+        => StreamingOverlays = overlays ?? Array.Empty<ChartStreamingOverlay>();
+
     public readonly record struct AxisTickMetadata(double Position, string Label);
 
     public readonly record struct SeriesMetadata(
@@ -241,6 +264,21 @@ public sealed class ChartFrameMetadata
         double? DirtyValueMin,
         double? DirtyValueMax,
         IReadOnlyList<AxisTickMetadata> ValueTicks);
+
+    public readonly record struct ChartCursorOverlay(
+        double TimestampSeconds,
+        double Value,
+        float Opacity);
+
+    public readonly record struct ChartAnnotationOverlay(
+        string AnnotationId,
+        float Emphasis);
+
+    public readonly record struct ChartStreamingOverlay(
+        uint SeriesId,
+        float FadeOpacity,
+        float SlideOffset,
+        float RollingShiftSeconds);
 }
 
 

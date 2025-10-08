@@ -570,6 +570,7 @@ dependencies = [
  "vello_chart_data",
  "vello_chart_diagnostics",
  "vello_chart_engine",
+ "vello_composition",
 ]
 
 [[package]]

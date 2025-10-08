@@ -24,6 +24,7 @@ foreach (var diff in diffs)
 
 var headerNode = diffs.First().NodeId;
 dataModel.SetExpanded(headerNode, expanded: true);
+virtualizer.NotifyRowExpansion(headerNode, isExpanded: true);
 
 if (dataModel.TryDequeueMaterialization(out var materializationNode))
 {
@@ -54,9 +55,9 @@ var layoutDefinitions = new[]
     new TreeColumnDefinition(120, 180, 320, Weight: 1.2, Sizing: TreeColumnSizingMode.Auto, Key: 3, Frozen: TreeFrozenKind.Trailing),
 };
 
-var animator = new TreeColumnLayoutAnimator();
+using var animator = new TreeColumnLayoutAnimator();
 var animatedSlots = animator.Animate(layoutDefinitions, availableWidth: 720.0, spacing: 12.0).ToArray();
-var columnSnapshot = virtualizer.UpdateColumns(layoutDefinitions, animatedSlots);
+var columnSnapshot = virtualizer.UpdateColumns(layoutDefinitions, availableWidth: 720.0, spacing: 12.0);
 
 var plan = virtualizer.Plan(new TreeViewportMetrics(
     RowScrollOffset: 0.0,

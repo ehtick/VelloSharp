@@ -48,4 +48,9 @@ public sealed class ChartEngineOptions
     /// Optional telemetry sink used to forward frame statistics and custom metrics.
     /// </summary>
     public IChartTelemetrySink? TelemetrySink { get; init; }
+
+    /// <summary>
+    /// Animation descriptors controlling engine-wide motion presets.
+    /// </summary>
+    public ChartAnimationProfile Animations { get; init; } = ChartAnimationProfile.Default;
 }

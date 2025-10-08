@@ -10,21 +10,37 @@ namespace VelloSharp.ChartEngine;
 /// </summary>
 public sealed class ChartComposition
 {
-    internal ChartComposition(IReadOnlyList<ChartPaneDefinition> panes, IReadOnlyList<CompositionAnnotationLayer> annotationLayers)
-    {
-        Panes = panes;
-        AnnotationLayers = annotationLayers;
-    }
+internal ChartComposition(
+    IReadOnlyList<ChartPaneDefinition> panes,
+    IReadOnlyList<CompositionAnnotationLayer> annotationLayers,
+    ChartAnimationProfile animationProfile,
+    bool hasCustomAnimations)
+{
+    Panes = panes;
+    AnnotationLayers = annotationLayers;
+    Animations = animationProfile;
+    HasCustomAnimations = hasCustomAnimations;
+}
 
-    /// <summary>
-    /// Gets the ordered list of panes composing the chart.
-    /// </summary>
-    public IReadOnlyList<ChartPaneDefinition> Panes { get; }
+/// <summary>
+/// Gets the ordered list of panes composing the chart.
+/// </summary>
+public IReadOnlyList<ChartPaneDefinition> Panes { get; }
 
-    /// <summary>
-    /// Gets the overlay annotation layers applied across the composition.
-    /// </summary>
-    public IReadOnlyList<CompositionAnnotationLayer> AnnotationLayers { get; }
+/// <summary>
+/// Gets the overlay annotation layers applied across the composition.
+/// </summary>
+public IReadOnlyList<CompositionAnnotationLayer> AnnotationLayers { get; }
+
+/// <summary>
+/// Gets the animation profile applied to this composition.
+/// </summary>
+public ChartAnimationProfile Animations { get; }
+
+/// <summary>
+/// Indicates whether the composition overrides the engine-level animation profile.
+/// </summary>
+public bool HasCustomAnimations { get; }
 
     /// <summary>
     /// Creates a composition blueprint via a fluent builder.
@@ -45,6 +61,7 @@ public sealed class ChartCompositionBuilder
 {
     private readonly List<ChartPaneDefinition> _panes = new();
     private readonly List<CompositionAnnotationLayer> _annotationLayers = new();
+    private ChartAnimationProfile? _animationProfile;
 
     public ChartPaneBuilder Pane(string id)
     {
@@ -66,6 +83,12 @@ public sealed class ChartCompositionBuilder
         return this;
     }
 
+    public ChartCompositionBuilder UseAnimations(ChartAnimationProfile profile)
+    {
+        _animationProfile = profile ?? ChartAnimationProfile.Default;
+        return this;
+    }
+
     internal ChartComposition Build()
     {
         if (_panes.Count == 0)
@@ -74,7 +97,9 @@ public sealed class ChartCompositionBuilder
         }
 
         var normalized = NormalizePaneWeights(_panes);
-        return new ChartComposition(normalized, _annotationLayers.ToArray());
+        var hasCustomAnimations = _animationProfile is not null;
+        var profile = _animationProfile ?? ChartAnimationProfile.Default;
+        return new ChartComposition(normalized, _annotationLayers.ToArray(), profile, hasCustomAnimations);
     }
 
     private static IReadOnlyList<ChartPaneDefinition> NormalizePaneWeights(IEnumerable<ChartPaneDefinition> panes)

@@ -171,12 +171,22 @@
 - **Shared composition animation runtime**
   - [x] Partner with the TDG initiative to extend `ffi/composition` with a reusable animation timeline (easing curves, spring/damping, grouped timelines) that drives Vello scene updates without reallocating command buffers.
   - [x] Surface managed bindings in `src/VelloSharp.Composition` for animation builders, property tracks, and tick scheduling; ensure the APIs integrate with chart update loops without unnecessary allocations.
-  - [ ] Add Rust + .NET microbenchmarks proving ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests validating interpolation accuracy.
+  - [x] Add Rust + .NET microbenchmarks proving ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests validating interpolation accuracy.
 
 - **Chart engine adoption**
-  - [ ] Replace bespoke easing logic for cursor trails, crosshair fades, zoom transitions, and indicator overlays with the shared animation runtime; capture before/after performance metrics.
-  - [ ] Introduce motion presets for streaming data (fade/slide-in, rolling window shifts) with reduced-motion toggles and deterministic timelines for recording/playback scenarios.
-  - [ ] Expose animation descriptors through `ChartComposition`/`ChartEngineOptions` so host applications can configure durations, easing curves, and synchronize with TreeDataGrid micro-interactions.
+- [x] Replace bespoke easing logic for cursor trails, crosshair fades, zoom transitions, and indicator overlays with the shared animation runtime; capture before/after performance metrics.
+- [x] Introduce motion presets for streaming data (fade/slide-in, rolling window shifts) with reduced-motion toggles and deterministic timelines for recording/playback scenarios.
+  - [x] Introduce `ChartAnimationController` to drive series stroke-width emphasis and per-series overrides through the shared timeline runtime, wiring reduced-motion flags and scheduler ticks into chart updates.
+  - [x] Expose animation descriptors through `ChartComposition`/`ChartEngineOptions` so host applications can configure durations, easing curves, and synchronize with TreeDataGrid micro-interactions.
+    - `ChartEngineOptions.Animations` and `ChartComposition.UseAnimations(...)` ship `ChartAnimationProfile`/`ChartStreamingAnimationPreset` descriptors, wiring reduced-motion and deterministic timeline toggles into the shared controller.
+
+### Phase 3.5 Progress Snapshot (Week 1)
+- Timeline-driven series emphasis now runs through `ChartAnimationController`, pooling grouped tracks around the shared runtime and scheduling ticks alongside the render pipeline to avoid redundant command buffers (`src/VelloSharp.ChartEngine/ChartAnimationController.cs`).
+- Cursor trails, crosshair fades, and annotation emphasis now ride the shared timeline via `ChartCursorUpdate`/`AnimateAnnotation`, projecting overlay snapshots through `ChartFrameMetadata` and validated with new `ChartAnimationControllerTests` coverage (`tests/VelloSharp.Charting.Tests/ChartAnimationControllerTests.cs`).
+- Streaming motion presets now drive fade, slide-in, and rolling-window emphasis through `ChartAnimationController.AnimateStreaming`, exposing per-series values via `ChartFrameMetadata.StreamingOverlays` and covered by new streaming animation tests.
+- `ChartAnimationProfile` descriptors propagate from engine options and the composition builder, letting hosts customise easing, durations, and reduced-motion toggles in sync with TreeDataGrid micro-interactions (`src/VelloSharp.ChartEngine/ChartEngineOptions.cs`, `src/VelloSharp.ChartEngine/ChartComposition.cs`).
+- Cross-platform coverage remains green via `TimelineSystemInteropTests`, and the shared microbenchmarks logged in `docs/metrics/performance-baselines.md` confirm CPU cost stays below the 0.5 ms budget for 10k tracks.
+- Avalonia samples now consume the animation profile to highlight streaming emphasis, illustrating the path for cursor and crosshair migrations to the shared runtime (`samples/VelloSharp.Charting.AvaloniaSample`). 
 
 - **Diagnostics and tooling**
   - [ ] Emit animation telemetry (active timelines, dropped frames, CPU/GPU cost) via `VelloSharp.ChartDiagnostics` and extend the Avalonia sample with an animation inspector overlay.

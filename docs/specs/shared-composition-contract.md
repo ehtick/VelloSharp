@@ -27,6 +27,11 @@
   - Rust types: `TimelineSystem`, `TimelineGroupConfig`, `EasingTrackDescriptor`, `SpringTrackDescriptor`, `TimelineSample`.
   - FFI: `vello_composition_timeline_system_create`, `..._group_create`, `..._add_easing_track`, `..._add_spring_track`, `..._tick`.
   - Responsibilities: drive low-allocation timeline playback (easing curves, spring dynamics, grouped timelines) that can mark dirty regions and update scenes without reallocating command buffers.
+- **Micro-Interaction Surfaces**
+  - `TreeRowInteractionAnimator` (`src/VelloSharp.TreeDataGrid/Composition/TreeRowInteractionAnimator.cs`) exposes `TreeVirtualizationPlan.RowAnimations` and `TreeVirtualizationScheduler.NotifyRowExpansion`, enabling expand/collapse height easing, selection glow, and caret rotation without perturbing virtualization buffers.
+  - `TreeRowAnimationProfile`/`TreeAnimationTimeline` allow hosts to configure durations, easing, and reduced-motion behaviour via `TreeVirtualizationScheduler.ConfigureRowAnimations`, keeping TDG motion aligned with chart surfaces.
+  - `ChartAnimationController` (`src/VelloSharp.ChartEngine/ChartAnimationController.cs`) now orchestrates cursor trails and annotation emphasis through the shared runtime, projecting overlay snapshots via `ChartFrameMetadata.SetCursorOverlay/SetAnnotationOverlays`.
+  - Streaming motion presets feed `ChartFrameMetadata.StreamingOverlays`, exposing per-series fade, slide, and rolling-window emphasis derived from the shared timeline to keep dashboard motion consistent.
 - **Diagnostics Hooks**
   - Frame stats emitted via existing chart diagnostics; TDG must publish compatible payloads (`FrameStats`, `InputLatencyStats`) for joint dashboards.
   - Shared telemetry pipeline expected under `docs/metrics/performance-baselines.md`.
@@ -90,6 +95,8 @@
   - Rust unit tests for each exported function (already covering linear layout, scene cache).
   - Managed smoke tests (`CompositionInteropTests`) verifying interop wiring.
   - Scenario benchmarks stored in `docs/metrics/performance-baselines.md` for both chart and TDG workloads.
+  - Timeline interpolation golden tests (`ffi/composition/src/animation.rs`, `TimelineSystemInteropTests`) ensure easing/spring outputs remain analytically correct.
+  - Shared animation microbenchmarks (`chart_benchmarks -- timeline`, `VelloSharp.Composition.Benchmarks`) exercise 10k-property runs and record CPU overhead in the metrics baseline.
 - Any addition that impacts deterministic output (e.g., layout heuristics) requires golden image or structured snapshot tests before release.
 
 ## Versioning & Release Cadence

@@ -40,6 +40,13 @@ public readonly record struct TreeRowPlanEntry(
     float Height,
     TreeRowAction Action);
 
+public readonly record struct TreeRowAnimationSnapshot(
+    uint NodeId,
+    float AnimatedHeight,
+    float HeightFactor,
+    float SelectionGlow,
+    float CaretRotationDegrees);
+
 public readonly record struct TreeColumnSlice(
     uint PrimaryStart,
     uint PrimaryCount,
@@ -53,6 +60,7 @@ public readonly record struct TreeVirtualizationPlan(
     IReadOnlyList<TreeRowPlanEntry> RecycledRows,
     TreeColumnSlice ColumnSlice,
     TreeRowWindow RowWindow,
+    IReadOnlyList<TreeRowAnimationSnapshot> RowAnimations,
     TreeColumnPaneDiff PaneDiff,
     TreeBufferAdoptionDiagnostics BufferDiagnostics);
 
@@ -139,20 +147,52 @@ public sealed class TreeVirtualizationScheduler : IDisposable
     private readonly List<TreeRowPlanEntry> _rowPlan = new();
     private readonly List<TreeRowPlanEntry> _recyclePlan = new();
     private readonly TreeColumnStripCache _columnCache = new();
+    private readonly TreeColumnLayoutAnimator _columnAnimator = new();
+    private readonly TreeRowInteractionAnimator _rowAnimator;
+    private TreeRowAnimationProfile _rowAnimationProfile;
+    private TreeColumnDefinition[] _columnDefinitionSnapshot = Array.Empty<TreeColumnDefinition>();
+    private int _columnDefinitionCount;
     private TreeColumnSlice _columnSlice;
     private TreeRowWindow _rowWindow;
     private TreeColumnPaneDiff _pendingPaneDiff;
     private TreeBufferAdoptionDiagnostics _lastPlanDiagnostics;
+    private ArraySegment<TreeRowAnimationSnapshot> _rowAnimations = ArraySegment<TreeRowAnimationSnapshot>.Empty;
 
     public TreeVirtualizationScheduler()
     {
+        _rowAnimationProfile = TreeRowAnimationProfile.Default;
+        _rowAnimator = new TreeRowInteractionAnimator(_rowAnimationProfile);
         _handle = TreeVirtualizerHandle.Create();
+    }
+
+    public TreeRowAnimationProfile RowAnimationProfile => _rowAnimationProfile;
+
+    public void ConfigureRowAnimations(TreeRowAnimationProfile? profile)
+    {
+        var normalized = profile ?? TreeRowAnimationProfile.Default;
+        _rowAnimationProfile = normalized;
+        _rowAnimator.UpdateProfile(normalized);
+    }
+
+    public TreeColumnStripSnapshot UpdateColumns(
+        ReadOnlySpan<TreeColumnDefinition> definitions,
+        double availableWidth,
+        double spacing)
+    {
+        CaptureColumnDefinitions(definitions);
+        var slots = _columnAnimator.Animate(definitions, availableWidth, spacing);
+        var snapshot = _columnCache.Update(definitions, slots);
+        SetColumns(snapshot.Metrics.Span);
+        _pendingPaneDiff = _pendingPaneDiff.Union(snapshot.PaneDiff);
+        return snapshot;
     }
 
     public TreeColumnStripSnapshot UpdateColumns(
         ReadOnlySpan<TreeColumnDefinition> definitions,
         ReadOnlySpan<TreeColumnSlot> slots)
     {
+        CaptureColumnDefinitions(definitions);
+        _columnAnimator.Reset();
         var snapshot = _columnCache.Update(definitions, slots);
         SetColumns(snapshot.Metrics.Span);
         _pendingPaneDiff = _pendingPaneDiff.Union(snapshot.PaneDiff);
@@ -208,6 +248,13 @@ public sealed class TreeVirtualizationScheduler : IDisposable
                 ArrayPool<NativeMethods.VelloTdgRowMetric>.Shared.Return(rented);
             }
         }
+
+        _rowAnimator.UpdateRows(metrics);
+    }
+
+    public void NotifyRowExpansion(uint nodeId, bool isExpanded)
+    {
+        _rowAnimator.NotifyExpansion(nodeId, isExpanded);
     }
 
     public unsafe void SetColumns(ReadOnlySpan<TreeColumnMetric> columns)
@@ -265,6 +312,9 @@ public sealed class TreeVirtualizationScheduler : IDisposable
 
     public unsafe TreeVirtualizationPlan Plan(in TreeViewportMetrics metrics)
     {
+        _rowAnimator.Tick();
+        AdvanceColumnAnimations();
+
         NativeMethods.VelloTdgColumnSlice slice;
         bool added = false;
         try
@@ -309,12 +359,14 @@ public sealed class TreeVirtualizationScheduler : IDisposable
         PopulateRowWindow();
         var bufferDiagnostics = TreeBufferAdoptionDiagnostics.From(_rowPlan);
         _lastPlanDiagnostics = bufferDiagnostics;
+        _rowAnimations = _rowAnimator.CaptureSnapshots(_rowPlan);
 
         return new TreeVirtualizationPlan(
             _rowPlan.ToArray(),
             _recyclePlan.ToArray(),
             _columnSlice,
             _rowWindow,
+            _rowAnimations,
             paneDiff,
             bufferDiagnostics);
     }
@@ -326,7 +378,11 @@ public sealed class TreeVirtualizationScheduler : IDisposable
         _columnSlice = default;
         _rowWindow = default;
         _pendingPaneDiff = default;
+        _columnDefinitionCount = 0;
+        _columnAnimator.Reset();
         _lastPlanDiagnostics = default;
+        _rowAnimator.Reset();
+        _rowAnimations = ArraySegment<TreeRowAnimationSnapshot>.Empty;
 
         bool added = false;
         try
@@ -499,9 +555,54 @@ public sealed class TreeVirtualizationScheduler : IDisposable
         }
     }
 
+    private void AdvanceColumnAnimations()
+    {
+        if (_columnDefinitionCount == 0)
+        {
+            return;
+        }
+
+        if (!_columnAnimator.TryAdvance(out var slots))
+        {
+            return;
+        }
+
+        var snapshot = _columnCache.Update(GetDefinitionSpan(), slots);
+        SetColumns(snapshot.Metrics.Span);
+        _pendingPaneDiff = _pendingPaneDiff.Union(snapshot.PaneDiff);
+    }
+
+    private void CaptureColumnDefinitions(ReadOnlySpan<TreeColumnDefinition> definitions)
+    {
+        if (definitions.Length == 0)
+        {
+            _columnDefinitionCount = 0;
+            return;
+        }
+
+        EnsureDefinitionCapacity(definitions.Length);
+        definitions.CopyTo(_columnDefinitionSnapshot.AsSpan(0, definitions.Length));
+        _columnDefinitionCount = definitions.Length;
+    }
+
+    private void EnsureDefinitionCapacity(int required)
+    {
+        if (_columnDefinitionSnapshot.Length < required)
+        {
+            Array.Resize(
+                ref _columnDefinitionSnapshot,
+                Math.Max(required, _columnDefinitionSnapshot.Length == 0 ? 4 : _columnDefinitionSnapshot.Length * 2));
+        }
+    }
+
+    private ReadOnlySpan<TreeColumnDefinition> GetDefinitionSpan()
+        => _columnDefinitionSnapshot.AsSpan(0, _columnDefinitionCount);
+
     public void Dispose()
     {
         _handle.Dispose();
+        _columnAnimator.Dispose();
+        _rowAnimator.Dispose();
         GC.SuppressFinalize(this);
     }
 

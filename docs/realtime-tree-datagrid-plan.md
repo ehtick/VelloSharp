@@ -109,17 +109,26 @@ Schema application:
 - **Shared composition animation core**
   - [x] Extend `ffi/composition` with a low-allocation animation timeline engine (easing curves, spring/damping models, grouped timelines) that can drive Vello scene updates without reallocating command buffers. (`TDG-ANIM-001`)
   - [x] Expose managed bindings under `src/VelloSharp.Composition` for timeline creation, property tracks, and FFI-backed tick scheduling; keep APIs Span-friendly and avoid delegate boxing. (`TDG-ANIM-002`)
-  - [ ] Publish Rust + .NET benchmarks validating ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests comparing interpolated outputs against analytical expectations.
+  - [x] Publish Rust + .NET benchmarks validating ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests comparing interpolated outputs against analytical expectations.
+    - `chart_benchmarks -- timeline` (Rust) and `VelloSharp.Composition.Benchmarks` (.NET) now export timeline metrics captured in `docs/metrics/performance-baselines.md`.
 
 - **TreeDataGrid animation integration**
-  - [ ] Replace ad-hoc column resize/stripe transitions with the shared animation engine, wiring virtualization plans to reuse timeline state per buffer.
-  - [ ] Add row expand/collapse micro-interactions (height easing, selection glow, caret rotation) that run within the 8 ms frame budget and respect virtualization recycling.
-  - [ ] Surface animation configuration through managed APIs/XAML (duration presets, easing curves, reduced-motion toggles) and document interoperability expectations in `docs/specs/tdg-interop.md`.
-  - [ ] Author integration tests and profiling traces ensuring animation-driven dirty regions stay bounded and do not trigger full scene re-encodes.
+  - [x] Replace ad-hoc column resize/stripe transitions with the shared animation engine so virtualization plans reuse timeline state per buffer and avoid scene re-encodes.
+    - [x] Add row expand/collapse micro-interactions (height easing, selection glow, caret rotation) that run within the 8 ms frame budget and respect virtualization recycling.
+    - [x] Surface animation configuration through managed APIs/XAML (duration presets, easing curves, reduced-motion toggles) and document interoperability expectations in `docs/specs/tdg-interop.md`.
+    - [x] Author integration tests and profiling traces ensuring animation-driven dirty regions stay bounded and do not trigger full scene re-encodes.
 
 - **Chart engine alignment**
   - [ ] Adopt the shared animation bindings inside chart cursor/annotation transitions to validate cross-control reuse and synchronize with the charts roadmap.
   - [ ] Capture a joint motion guideline addendum (`docs/diagrams/tdg-flows/tdg-motion-study.puml`) covering synchronized chart/TDG animations for dashboard scenarios.
+
+#### Phase 3.5 Progress Snapshot (Week 1)
+- Tree column layout transitions now run entirely on the shared timeline via `TreeColumnLayoutAnimator`, which maps offsets/widths to spring tracks, deduplicates track lifetimes, and snaps samples at rest to prevent drift before reusing buffers (`TreeVirtualizationScheduler` consumes the animator on every plan tick to keep pane diffs incremental).
+- Virtualization polling activates the animator between plans so windowed panes observe continuous motion while keeping dirty regions bounded; regression coverage asserts eased transitions settle and continue during polling (`TreeDataGridPhase2Tests.ColumnAnimator_SoftensTransition` and `.Virtualizer_Plan_PollsColumnAnimator` guard behaviour).
+- Introduced `TreeRowInteractionAnimator` to drive expand/collapse micro-interactions (height easing, selection glow, caret rotation) surfaced via `TreeVirtualizationPlan.RowAnimations`; `TreeVirtualizationScheduler.NotifyRowExpansion` wires expansion events into the timeline with coverage in `TreeDataGridPhase2Tests.RowAnimator_*` and harness updates consuming the animated state.
+- Added `TreeRowAnimationProfile`/`TreeAnimationTimeline` helpers so hosts can call `TreeVirtualizationScheduler.ConfigureRowAnimations(...)` to tune easing, durations, and reduced-motion behaviour; the configuration is documented in `docs/specs/tdg-interop.md` and exercised in new reduced-motion tests.
+- The composition sample exercises the new pipeline end-to-end, wiring the animator into the scheduling loop and emitting diagnostics so teams can validate timelines alongside scene generation (`samples/VelloSharp.TreeDataGrid.CompositionSample`).
+- Charting now exposes `ChartAnimationProfile`/`ChartAnimationController` hooks through engine options, allowing dashboards to align TDG column motion with series stroke-width emphasis while honouring reduced-motion toggles; shared binding tests (`TimelineSystemInteropTests`) continue to validate the underlying timeline runtime.
 
 #### Ticket Backlog & Sequencing
 1. `TDG-ANIM-001` (Owner: Composition WG) – Implement the low-allocation timeline runtime in `ffi/composition` with easing/spring primitives. _Predecessor: none._

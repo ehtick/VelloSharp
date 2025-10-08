@@ -798,4 +798,47 @@ mod tests {
 
         assert!((value - 1.0).abs() < 0.01);
     }
+
+    #[test]
+    fn easing_track_matches_expected_curve() {
+        let mut system = TimelineSystem::new();
+        let group = system.create_group(TimelineGroupConfig::default());
+        let easing = EasingFunction::EaseInOutQuad;
+
+        let descriptor = EasingTrackDescriptor {
+            node_id: SceneNodeId(0),
+            channel_id: 0,
+            repeat: RepeatMode::Once,
+            easing,
+            start_value: 0.0,
+            end_value: 10.0,
+            duration: 1.0,
+            dirty_intent: DirtyIntent::None,
+        };
+
+        let track_id = system
+            .add_easing_track(group, descriptor)
+            .expect("track id");
+
+        let checkpoints = [0.25_f32, 0.50_f32, 0.75_f32];
+        for expected_progress in checkpoints {
+            let samples = system.tick(0.25, None);
+            let sample = samples
+                .iter()
+                .find(|sample| sample.track_id == track_id)
+                .expect("sample for track");
+
+            let expected_value = 10.0 * easing.sample(expected_progress);
+            assert!(
+                (sample.progress - expected_progress).abs() <= 1e-6,
+                "expected progress {expected_progress}, got {}",
+                sample.progress
+            );
+            assert!(
+                (sample.value - expected_value).abs() <= 1e-4,
+                "expected value {expected_value}, got {}",
+                sample.value
+            );
+        }
+    }
 }

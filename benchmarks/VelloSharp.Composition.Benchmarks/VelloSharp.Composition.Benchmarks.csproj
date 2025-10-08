@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VelloSharp.Composition\VelloSharp.Composition.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\target\release\vello_composition.dll"
+          Condition="Exists('..\..\target\release\vello_composition.dll')"
+          Link="vello_composition.dll"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

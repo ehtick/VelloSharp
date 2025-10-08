@@ -138,6 +138,11 @@ public sealed class TreeDataGridIntegrationTests
         {
             _dirtyCandidates.Clear();
             var plan = _scheduler.Plan(metrics);
+            var animationLookup = new Dictionary<uint, TreeRowAnimationSnapshot>();
+            foreach (var snapshot in plan.RowAnimations)
+            {
+                animationLookup[snapshot.NodeId] = snapshot;
+            }
 
             var chromeEncoded = false;
             if (plan.PaneDiff.Any)
@@ -161,14 +166,24 @@ public sealed class TreeDataGridIntegrationTests
             foreach (var entry in plan.ActiveRows)
             {
                 var nodeId = ResolveSceneNode(entry, ref reuse, ref adopt, ref allocate);
+                var height = entry.Height;
+                float selectionGlow = 0f;
+                if (animationLookup.TryGetValue(entry.NodeId, out var animation))
+                {
+                    height = Math.Max(animation.AnimatedHeight, 1f);
+                    selectionGlow = Math.Clamp(animation.SelectionGlow, 0f, 1f);
+                }
+
+                var selectionAlpha = 0.3f + (0.25f * selectionGlow);
+
                 var visual = new TreeRowVisual(
                     Width: _totalWidth,
-                    Height: entry.Height,
+                    Height: height,
                     Depth: 0,
                     Indent: 18.0,
                     Background: TreeColor.FromRgb(0.12f, 0.12f, 0.14f),
                     HoverBackground: TreeColor.FromRgb(0.16f, 0.16f, 0.2f, 0.4f),
-                    SelectionFill: TreeColor.FromRgb(0.2f, 0.45f, 0.8f, 0.3f),
+                    SelectionFill: TreeColor.FromRgb(0.2f, 0.45f, 0.8f, selectionAlpha),
                     Outline: TreeColor.FromRgb(0.32f, 0.54f, 0.92f),
                     OutlineWidth: 1.0f,
                     Stripe: TreeColor.FromRgb(1f, 1f, 1f, 0.04f),
@@ -177,7 +192,7 @@ public sealed class TreeDataGridIntegrationTests
                     IsHovered: false);
 
                 _sceneGraph.EncodeRow(nodeId, visual, _columnSpans);
-                _sceneGraph.MarkRowDirty(nodeId, 0.0, _totalWidth, entry.Top, entry.Top + entry.Height);
+                _sceneGraph.MarkRowDirty(nodeId, 0.0, _totalWidth, entry.Top, entry.Top + height);
                 _dirtyCandidates.Add(nodeId);
             }
 

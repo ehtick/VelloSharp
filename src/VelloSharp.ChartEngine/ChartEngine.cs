@@ -25,6 +25,7 @@ public sealed class ChartEngine : IDisposable
     private readonly ChartEngineOptions _options;
     private readonly RenderScheduler _scheduler;
     private readonly FrameDiagnosticsCollector _diagnostics;
+    private readonly ChartAnimationController _animations;
     private IChartTelemetrySink? _telemetrySink;
     private nint _handle;
     private int _disposed;
@@ -48,6 +49,12 @@ public sealed class ChartEngine : IDisposable
             _scheduler.SetTickSource(options.TickSource, options.OwnsTickSource);
         }
         _diagnostics = new FrameDiagnosticsCollector(_telemetrySink);
+        var animationProfile = options.Animations ?? ChartAnimationProfile.Default;
+        _animations = new ChartAnimationController(
+            this,
+            _scheduler,
+            NormalizeStrokeWidth(options.StrokeWidth),
+            animationProfile);
 
         var nativeOptions = new VelloChartEngineOptions
         {
@@ -174,6 +181,8 @@ public sealed class ChartEngine : IDisposable
     {
         ThrowIfDisposed();
 
+        _animations.RegisterDefinitions(definitions);
+
         if (definitions.IsEmpty)
         {
             var status = NativeMethods.vello_chart_engine_set_series_definitions(_handle, null, 0);
@@ -207,6 +216,36 @@ public sealed class ChartEngine : IDisposable
         }
     }
 
+    public void AnimateSeriesStrokeWidth(uint seriesId, double targetStrokeWidth, TimeSpan duration)
+    {
+        ThrowIfDisposed();
+        _animations.AnimateStrokeWidth(seriesId, targetStrokeWidth, duration);
+    }
+
+    public void ResetSeriesStrokeWidth(uint seriesId, TimeSpan duration)
+    {
+        ThrowIfDisposed();
+        _animations.ResetStrokeWidth(seriesId, duration);
+    }
+
+    public void AnimateCursor(ChartCursorUpdate update)
+    {
+        ThrowIfDisposed();
+        _animations.AnimateCursor(update);
+    }
+
+    public void AnimateAnnotation(string annotationId, bool highlighted, TimeSpan? duration = null)
+    {
+        ThrowIfDisposed();
+        _animations.AnimateAnnotation(annotationId, highlighted, duration);
+    }
+
+    public void AnimateStreaming(ReadOnlySpan<ChartStreamingUpdate> updates)
+    {
+        ThrowIfDisposed();
+        _animations.AnimateStreaming(updates);
+    }
+
     public unsafe void ConfigureComposition(ChartComposition? composition)
     {
         ThrowIfDisposed();
@@ -219,6 +258,9 @@ public sealed class ChartEngine : IDisposable
         }
 
         var panes = composition.Panes;
+        var engineProfile = _options.Animations ?? ChartAnimationProfile.Default;
+        var profile = composition.HasCustomAnimations ? composition.Animations : engineProfile;
+        _animations.UpdateProfile(profile);
         var nativePanes = new VelloChartCompositionPane[panes.Count];
         var pinnedHandles = new List<GCHandle>(panes.Count * 2);
 
@@ -444,7 +486,11 @@ public sealed class ChartEngine : IDisposable
         ThrowOnStatus(status, "vello_chart_engine_last_frame_metadata");
         unsafe
         {
-            return ChartFrameMetadata.FromNative(metadata);
+            var managed = ChartFrameMetadata.FromNative(metadata);
+            managed.SetCursorOverlay(_animations.GetCursorOverlaySnapshot());
+            managed.SetAnnotationOverlays(_animations.GetAnnotationSnapshots());
+            managed.SetStreamingOverlays(_animations.GetStreamingOverlaySnapshots());
+            return managed;
         }
     }
 
@@ -456,6 +502,7 @@ public sealed class ChartEngine : IDisposable
         }
 
         _scheduler.Dispose();
+        _animations.Dispose();
         _diagnostics.Dispose();
 
         if (_handle != 0)

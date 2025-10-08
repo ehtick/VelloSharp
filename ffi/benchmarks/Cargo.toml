@@ -11,3 +11,4 @@ rand = { workspace = true, features = ["std_rng"] }
 vello_chart_engine = { path = "../chart-engine" }
 vello_chart_data = { path = "../chart-data" }
 vello_chart_diagnostics = { path = "../chart-diagnostics" }
+vello_composition = { path = "../composition" }

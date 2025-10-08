@@ -48,6 +48,10 @@ public interface ITdgDataAdapter
 - Prefetch hints include scroll velocity vectors enabling the adapter to warm upcoming branches.
 - Invalidations allow hosts to notify the runtime of data source changes without tearing down the scene.
 
+## Animation Configuration
+- `TreeVirtualizationScheduler.ConfigureRowAnimations(TreeRowAnimationProfile? profile)` lets hosts tune expand/collapse micro-interactions, row glow, and caret motion through managed presets (duration, easing, reduced-motion toggles). Passing `null` restores the framework defaults.
+- `TreeRowAnimationProfile` exposes `TreeAnimationTimeline` and `TreeSpringAnimationTrack` descriptors so XAML and code-behind can align TreeDataGrid motion with other VelloSharp surfaces while honouring platform accessibility preferences.
+
 ## Diagnostics and Telemetry
 ```csharp
 public interface ITdgTelemetrySink
