@@ -7,9 +7,10 @@
 
 ## Architectural Pillars
 - **Scene-Native Rendering**: Author cells, rows, and chrome with Vello primitives; maintain zero-copy GPU command buffers with diff-friendly scene updates.
-- **Composable Layout Core**: Extract chart engine layout, typography, and composition layers into shared crates (`ffi/composition`, `src/VelloSharp.Composition`) for reuse.
+- **Composable Layout Core**: Extract chart engine layout, typography, and composition layers into shared crates (`ffi/composition`, `src/VelloSharp.Composition`) for reuse, expanding pluggable stack/wrap/grid/dock primitives and virtualization surfaces shared with charting.
 - **Hybrid Virtualization**: Combine UI virtualization (row/column windowing, non-linear indices) with data virtualization (paged adapters, async fetch) to sustain large hierarchies.
-- **Input + Interaction Fabric**: Centralise pointer, keyboard, and accessibility input routing in Rust-managed state synchronized with .NET hosts via FFI event channels.
+- **Input + Interaction Fabric**: Centralise pointer, keyboard, and accessibility input routing in Rust-managed state synchronized with .NET hosts via FFI event channels, anchored by a reusable `InputControl` base and pluggable host adapters consumable by charting and TDG-derived controls.
+- **Shared Control Toolkit**: Build ItemsControl/ListBox/TreeView experiences, templated control bases (`TemplatedControl`, `Panel`, `UserControl`), standard controls (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`), and geometry/shape primitives (`Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) plus text primitives (`TextBlock`, `AccessText`, `TextBox`) on top of TDG virtualization/composition so dashboards and charting surfaces reuse the same control stack while mirroring `Avalonia.Controls` naming and semantics.
 - **Declarative XAML Surface**: Provide Vello-aligned XAML and C# object graph that maps to scene descriptors, enabling designers to define columns, templates, and custom visuals.
 
 ## Deliverables by Phase
@@ -28,6 +29,8 @@
 
 ### Phase 1 – Shared Composition and Layout Foundations (3–4 weeks)
 - [x] Extract layout solver, constraint system, and text shaper from chart engine into `ffi/composition` crate with safe FFI surface.
+- [ ] Extend composition layout library with reusable stack, wrap, grid, and dock components plus virtualization hooks ready for charting and TDG control reuse.
+- [ ] Define shared templated control lifecycle (mount, template apply, visual tree virtualization) and expose core abstractions (`TemplatedControl`, `Panel`, `UserControl`, `Border`, `Decorator`, `Shape`) through the composition contract for downstream controls, preserving `Avalonia.Controls` behavioural parity for templates and shapes.
 - [x] Port managed adapters to `src/VelloSharp.Composition`, providing Span-friendly APIs for layout requests and rich text runs.
 - [x] Implement scene graph cache with dirty-region tracking for hierarchical nodes (point and bounds invalidation).
 - [x] Author golden tests (Rust + .NET) comparing pre/post extraction metrics for chart rendering to ensure regression-free refactor.
@@ -83,6 +86,8 @@
 - [x] Implement XAML-to-scene compilation pipeline (parse -> expression tree -> FFI) with caching and invalidation strategy.
 - [x] Provide C# fluent builders for scenarios without XAML; ensure type-safe binding to row/column contexts.
 - [x] Introduce per-column render hooks for custom Vello drawing, including shared shader/material registries.
+- [ ] Promote shared text primitives (`TextBlock`, `AccessText`, basic `TextBox`) within the template schema and composition bindings to guarantee parity with charting controls.
+- [ ] Deliver reusable control atoms (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`, `Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) and base classes (`TemplatedControl`, `Panel`, `UserControl`) built on the shared template pipeline with TDG and chart samples validating reuse, mirroring `Avalonia.Controls.*` naming/behaviour for downstream parity.
 
 #### Phase 3 Kickoff Snapshot
 - Drafted the `Vello.Tdg.*` schema framing row, group-header, summary, and chrome templates around the freeze-aware pane slices surfaced by `TreeColumnPaneSnapshot`.
@@ -165,8 +170,8 @@ Schema application:
 - Expand managed tests to cover pane-aware template swapping and the diagnostics pipeline introduced for buffer adoption/allocation heuristics.
 
 ### Phase 4 – Interaction, Editing, and Accessibility (3–4 weeks)
-- [ ] Implement pointer routing (hit testing, hover, drag, context actions) unified with chart engine input router.
-- [ ] Add keyboard navigation (arrows, page, home/end, search) and command routing for editing workflows.
+- [ ] Implement pointer routing (hit testing, hover, drag, context actions) unified with chart engine input router and surfaced through the shared `InputControl` base for reuse across derived controls.
+- [ ] Add keyboard navigation (arrows, page, home/end, search) and command routing for editing workflows via the shared `InputControl` adapter pipeline.
 - [ ] Integrate inline editors (text, combo, numeric) leveraging shared rich text layout; provide IME and clipboard support.
 - [ ] Deliver accessibility tree projections (UIA/AX) with live updates and focus tracking.
 - [ ] Build deterministic interaction recorder for regression playback and diagnostics export.
@@ -180,6 +185,7 @@ Schema application:
 ### Phase 6 – Host Integrations and Tooling (parallel, 4 weeks)
 - [ ] Deliver Avalonia host control (`VelloSharp.TreeDataGrid.Avalonia`) with swapchain management and compositor integration.
 - [ ] Add WinUI/WPF/MAUI hosts leveraging shared surface contracts; document DPI and input nuances.
+- [ ] Produce derived controls (`VelloSharp.ItemsControl`, `.ListBox`, `.TreeView`, `.Button`, `.CheckBox`, `.RadioButton`, `.DropDown`, `.TabControl`, `.Border`, `.Decorator`, `.Path`, `.Rectangle`, `.Ellipse`) backed by TreeDataGrid virtualization/composition and shared InputControl/layout/text/templated/shape primitives for charting dashboards and editor reuse.
 - [ ] Update sample gallery with TDG scenarios (financial blotter, hierarchical analytics, log viewer) demonstrating custom templates.
 - [ ] Extend benchmarking harness with TDG workloads, capturing CPU/GPU metrics and memory snapshots.
 
@@ -195,6 +201,7 @@ Schema application:
 - [ ] **Testing Strategy**: Property-based virtualization tests, golden image snapshots, and XAML template diff validation.
 - [ ] **Security & Compliance**: Ensure sandbox-safe data provider extensions, signed native binaries, and vetted dependencies.
 - [ ] **Developer Ergonomics**: Publish schematic diagrams (`docs/diagrams/tdg-architecture.puml`) and provide CLI scaffolding for new columns/templates.
+- [ ] **Shared Control Toolkit**: Track stack/wrap/grid/dock layout primitives, text controls, geometry/shape atoms, and the shared `InputControl` base as reusable packages consumed by charts, TDG, and derived ItemsControl/ListBox/TreeView surfaces.
 - [ ] **Animation System** (`TDG-ANIM-001`..`003`, `CHT-ANIM-001`): Kick-off held with Composition, TDG, and Charts owners (animation guild sync, 2025-10-08); shared backlog established to deliver the timeline engine, validate reduced-motion toggles, and guard regressions with CI perf thresholds.
 
 ## Dependencies and Risks

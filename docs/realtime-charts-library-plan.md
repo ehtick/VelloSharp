@@ -18,7 +18,7 @@
 - **Core Engine**: Rust-powered Vello scene graph orchestrated through VelloSharp bindings, exposing deterministic command buffers for drawing primitives, text, and GPU-backed gradients.
 - **Data and State Model**: Lock-free, frame-coherent data pipeline that separates ingestion, transformation, and rendering-ready datasets using time-indexed data structures and ring buffers.
 - **Layout and Styling System**: Declarative chart specification composed of scales, axes, panels, series, annotations, and interaction layers. Supports theming and adaptive styling per DPI and color scheme.
-- **Shared Composition Stack**: Reusable layout, text shaping, and scene-diff crates (Rust + .NET) powering both charting surfaces and higher-level controls (TreeDataGrid, editors) with deterministic frame budgeting.
+- **Shared Composition Stack**: Reusable layout, text shaping, virtualization, and scene-diff crates (Rust + .NET) powering both charting surfaces and higher-level controls (TreeDataGrid, editors), exposing pluggable stack/wrap/grid/dock layout primitives, shared text controls, templated control bases, geometry/shape atoms (Border, Decorator, Path, Rectangle, Ellipse, GeometryDrawing) that mirror `Avalonia.Controls`, and standard interaction primitives (Button, CheckBox, RadioButton, DropDown, TabControl, Panel, UserControl) with host-agnostic input pipelines while holding deterministic frame budgets.
 - **Interop Layer**: Platform adapters that host a Vello surface, translate UI framework input events into engine commands, and manage swapchain surfaces or texture interop where needed.
 - **Extensibility**: Plugin model for new chart types, data feeds, analytics overlays, and export providers without forking the rendering core.
 
@@ -148,6 +148,9 @@
 - [x] Enable incremental ingestion and rolling windows for real-time feeds via `ChartEngine.PumpData` and `SeriesState` pruning (`src/VelloSharp.ChartEngine/ChartEngine.cs`, `ffi/chart-engine/src/lib.rs`).
 - [x] Add backfill reconciliation plus dirty-rect/instancing optimisations to minimise redraw cost (`ffi/chart-engine/src/lib.rs`, regression tests under `tests/VelloSharp.Charting.Tests/Engine`).
 - [x] Expose composable render layers, material registries, and scene partitioning hooks consumable by TreeDataGrid and forthcoming editor controls.
+- [ ] Expand the shared composition toolkit with pluggable layout primitives (stack, wrap, grid, dock) and virtualization surfaces consumable by chart composition and TreeDataGrid host controls.
+- [ ] Surface shared text primitives (`TextBlock`, `AccessText`, basic `TextBox`) through charting controls to validate composition reuse before downstream editors adopt them.
+- [ ] Establish a templated control model (base `TemplatedControl`, `Panel`, `UserControl`) and build standard control primitives (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`) plus Avalonia-aligned geometry/shape controls (`Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) atop the shared composition/input infrastructure for reuse across chart dashboards and TDG hosts, mirroring `Avalonia.Controls` semantics.
 - [ ] Integrate data-driven styling (value-based coloring, gradient fills, threshold markers).
 
 **Deliverables**
@@ -157,6 +160,10 @@
 - [x] Volume histogram scenario highlighting stacked panes with dynamic volume overlays and value-driven styling.
 - [x] Rolling heatmap scenario showcasing density visualisation with adaptive bucket annotations.
 - [x] Automated rendering tests capturing pixel diffs across configurations.
+- [ ] Shared layout component library (`ffi/composition/layout`, `src/VelloSharp.Composition.Layout`) exposing stack/wrap/grid/dock panels with virtualization hooks and sample usage in chart surfaces.
+- [ ] Baseline charting text controls (`TextBlock`, `AccessText`, basic `TextBox`) shipping under `src/VelloSharp.Charting.Controls` with cross-control tests and TDG parity scenarios.
+- [ ] Shared templated control primitives (`TemplatedControl`, `Panel`, `UserControl`) with standard controls (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`) under `src/VelloSharp.Composition.Controls` + `src/VelloSharp.Charting.Controls`, verified via interaction/unit tests and TDG-hosted samples.
+- [ ] Shared geometry/shape control set (`Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`, `Shape`) mirroring `Avalonia.Controls` naming and behaviour, exposed via composition scene descriptors with regression coverage across chart and TDG hosts.
 - [ ] Public render-hook API specimens and documentation demonstrating TreeDataGrid cell visual reuse.
 ### Phase 3 Progress Snapshot (Week 1)
 - Introduced `ChartSeriesDefinition` hierarchy with line, area, bar, scatter, band, and heatmap primitives wired through the native engine.
@@ -214,12 +221,13 @@
 ## Phase 5 – Interaction, Tooling, and User Experience (4–6 weeks)
 **Objectives**
 - [ ] Implement interaction layer: panning, zooming (time and value axes), brushing, selection, crosshair, hover tooltips, and keyboard shortcuts.
-- [ ] Add input abstraction bridging mouse, touch, pen, and accessibility APIs across supported frameworks.
+- [ ] Add input abstraction bridging mouse, touch, pen, and accessibility APIs across supported frameworks, with pluggable keyboard/pointer adapters feeding a reusable shared `InputControl` base for charts, TreeDataGrid, and shared composition controls.
 - [ ] Integrate recording/playback for session review and deterministic testing.
 - [ ] Build export pipeline: image snapshots, vector export (SVG/PDF), data extraction APIs.
 
 **Deliverables**
 - [ ] Interaction controller with configurable gestures and performance-tuned hit testing.
+- [ ] Shared `InputControl` base and host adapters validated across charting and TreeDataGrid samples, covering keyboard/pointer pipelines and extensibility hooks.
 - [ ] Accessibility bridge for screen readers, high-contrast mode, and reduced motion.
 - [ ] Export services (sync and async) with quality presets.
 - [ ] Demo applications showcasing multi-touch, device synchronization, and enterprise report exports.
@@ -257,7 +265,7 @@
 - [ ] **Plugin Marketplace Readiness**: Define extension manifest format, sandboxing rules, and validation pipeline for third-party add-ons.
 - [ ] **Community and Support**: Establish samples, templates, and starter kits; plan for GitHub Discussions, issue triage, and commercial support offerings.
 - [ ] **Animation System** (`TDG-ANIM-001`..`003`, `CHT-ANIM-001`): Kick-off held with Composition, TDG, and Charts owners (animation guild sync, 2025-10-08) to coordinate shared timelines, honour reduced-motion preferences, and gate regressions with animation-focused perf tests.
-- [ ] **Shared Control Composition**: Coordinate with TreeDataGrid and forthcoming editor controls to keep composition/text stacks aligned, share benchmarks, and publish joint regression suites.
+- [ ] **Shared Control Composition**: Coordinate with TreeDataGrid and forthcoming editor controls to keep composition/text stacks aligned, share benchmarks, and publish joint regression suites covering shared layout panels, text primitives, geometry/shape atoms, and control primitives (`TemplatedControl`, `Panel`, `UserControl`, `Border`, `Decorator`, `Path`, `Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`) while validating `Avalonia.Controls` naming/behaviour parity.
 
 ## Milestones and Governance
 - [ ] **M0**: Architecture sign-off, metrics defined.

@@ -8,7 +8,10 @@
 ## In-Scope Consumers
 - `vello_chart_engine` (charting) and `src/VelloSharp.ChartEngine` (managed bindings).
 - TreeDataGrid native core under `ffi/composition` + TDG host adapters (`src/VelloSharp.TreeDataGrid.*` once available).
-- Future composition-based controls (editors, overlays) that rely on Vello scene generation through VelloSharp.
+- `VelloSharp.Gauges` crates and managed bindings providing industrial instrumentation surfaces.
+- Integrated SCADA/DCS visualization hosts under `src/VelloSharp.Scada.*` composed from charts, gauges, and TDG.
+- Unified visual editor runtime (`ffi/editor-*`, `src/VelloSharp.Editor.*`) authoring dashboards and controls against the shared scene graph.
+- Future composition-based controls (overlays, editors, partner extensions) that rely on Vello scene generation through VelloSharp.
 
 ## Shared Primitives
 - **Layout & Constraints**
@@ -28,6 +31,18 @@
   - FFI: `vello_composition_shader_register/unregister`, `vello_composition_material_register/unregister`, `vello_composition_material_resolve_color`.
   - Managed surface: `CompositionShaderRegistry`, `CompositionMaterialRegistry`, and `ScenePartitioner`/`RenderLayer` helpers that provide stable scene-node allocation for overlays, chrome, and inter-control composition.
   - Guarantees: shared shader/material identity across controls, centralised opacity handling, and deterministic layering hooks that TreeDataGrid/editor surfaces can compose with chart scenes.
+- **Control & Template Infrastructure**
+  - Base classes: `TemplatedControl`, `Panel`, `UserControl`, `InputControl` surfaced through `src/VelloSharp.Composition.Controls` with lifecycle hooks (`OnApplyTemplate`, template inflation, recycling) backed by FFI-safe descriptors.
+  - Standard controls: `Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`, `ItemsControl`, `ListBox`, `TreeView`, each projecting composition scenes via shared layout/text virtualization and input routing.
+  - Responsibilities: ensure template parsing/binding parity across host frameworks, guarantee virtualization-friendly visual trees, and keep interaction contracts (focus, command routing, keyboard/pointer gestures) reusable between chart dashboards and TDG-derived controls.
+- **Geometry & Shape Primitives**
+  - Controls: `Border`, `Decorator`, `Shape`, `Rectangle`, `Ellipse`, `Path`, `GeometryPresenter` (and related geometry descriptors) mirroring `Avalonia.Controls` naming, property semantics, and styling hooks.
+  - Backing types: shared geometry buffers (path figures, stroke/fill descriptors) exposed through FFI-safe spans to avoid per-frame allocations; composition scene emitters reuse material registries for brush/pen application.
+  - Guarantees: deterministic layout participation, hit-testing hooks compatible with shared `InputControl`, and parity test coverage across charting and TDG hosts to ensure dashboard scenarios reuse the same shape atoms.
+- **Editor Integration Hooks**
+  - Selection, snapping, and mutation APIs exposed via `ffi/editor-core` must operate on shared scene graph identifiers and respect dirty-region semantics defined here.
+  - Serialization descriptors for dashboards (`GaugePanel`, `ChartComposition`, `TreeDataGridHost`, etc.) map to shared templated controls; any schema evolution must include compatibility notes in this contract.
+  - Editor-specific adorners (selection rectangles, alignment guides) rely on the same geometry/material registries and must avoid introducing new rendering primitives without contract updates.
 - **Animation Timelines**
   - Rust types: `TimelineSystem`, `TimelineGroupConfig`, `EasingTrackDescriptor`, `SpringTrackDescriptor`, `TimelineSample`.
   - FFI: `vello_composition_timeline_system_create`, `..._group_create`, `..._add_easing_track`, `..._add_spring_track`, `..._tick`.
