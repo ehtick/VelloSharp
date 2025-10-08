@@ -11,33 +11,33 @@ internal static partial class NativeMethods
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_last_error_message")]
     private static partial nint vello_tdg_last_error_message_ptr();
 
-    [LibraryImport(LibraryName, EntryPoint = \ vello_tdg_shader_register\)]
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_shader_register")]
     [return: MarshalAs(UnmanagedType.I1)]
     internal static partial bool vello_tdg_shader_register(
         uint handle,
         VelloTdgShaderDescriptor descriptor);
 
-    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_shader_unregister\)]
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_shader_unregister")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_tdg_shader_unregister(uint handle);
 
-    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_material_register\)]
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_material_register")]
     [return: MarshalAs(UnmanagedType.I1)]
     internal static partial bool vello_tdg_material_register(
         uint handle,
         VelloTdgMaterialDescriptor descriptor);
 
-    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_material_unregister\)]
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_material_unregister")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_tdg_material_unregister(uint handle);
 
-    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_render_hook_register\)]
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_render_hook_register")]
     [return: MarshalAs(UnmanagedType.I1)]
     internal static partial bool vello_tdg_render_hook_register(
         uint handle,
         VelloTdgRenderHookDescriptor descriptor);
 
-    [LibraryImport(LibraryName, EntryPoint = \vello_tdg_render_hook_unregister\)]
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_render_hook_unregister")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_tdg_render_hook_unregister(uint handle);
 
@@ -199,6 +199,28 @@ internal static partial class NativeMethods
         nint handle,
         VelloTdgVirtualizerTelemetry* telemetry);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_template_program_create")]
+    internal static unsafe partial nint vello_tdg_template_program_create(
+        VelloTdgTemplateInstruction* instructions,
+        nuint instructionCount);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_template_program_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_tdg_template_program_destroy(nint handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_tdg_template_program_encode_pane")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial bool vello_tdg_template_program_encode_pane(
+        nint program,
+        nint cache,
+        uint nodeId,
+        VelloTdgTemplatePaneKind paneKind,
+        VelloTdgColumnPlan* columns,
+        nuint columnCount,
+        VelloTdgTemplateBinding* bindings,
+        nuint bindingCount);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_renderer_create")]
     internal static partial nint vello_tdg_renderer_create(VelloTdgRendererOptions options);
 
@@ -321,6 +343,48 @@ internal static partial class NativeMethods
         Add = 1,
         Toggle = 2,
         Range = 3,
+    }
+
+    internal enum VelloTdgTemplateOpCode : uint
+    {
+        OpenNode = 0,
+        CloseNode = 1,
+        SetProperty = 2,
+        BindProperty = 3,
+    }
+
+    internal enum VelloTdgTemplateNodeKind : uint
+    {
+        Templates = 0,
+        RowTemplate = 1,
+        GroupHeaderTemplate = 2,
+        SummaryTemplate = 3,
+        ChromeTemplate = 4,
+        PaneTemplate = 5,
+        CellTemplate = 6,
+        Stack = 7,
+        Text = 8,
+        Rectangle = 9,
+        Image = 10,
+        ContentPresenter = 11,
+        Unknown = 12,
+    }
+
+    internal enum VelloTdgTemplateValueKind : uint
+    {
+        String = 0,
+        Number = 1,
+        Boolean = 2,
+        Binding = 3,
+        Color = 4,
+        Unknown = 5,
+    }
+
+    internal enum VelloTdgTemplatePaneKind : uint
+    {
+        Primary = 0,
+        Leading = 1,
+        Trailing = 2,
     }
 
     internal enum VelloTdgFrozenKind : uint
@@ -476,6 +540,28 @@ internal static partial class NativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    internal struct VelloTdgTemplateInstruction
+    {
+        public VelloTdgTemplateOpCode OpCode;
+        public VelloTdgTemplateNodeKind NodeKind;
+        public VelloTdgTemplateValueKind ValueKind;
+        public IntPtr Property;
+        public IntPtr Value;
+        public double NumberValue;
+        public int BooleanValue;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct VelloTdgTemplateBinding
+    {
+        public IntPtr Path;
+        public VelloTdgTemplateValueKind Kind;
+        public double NumberValue;
+        public int BooleanValue;
+        public IntPtr StringValue;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     internal struct VelloTdgColor
     {
         public float R;
@@ -547,4 +633,3 @@ internal static partial class NativeMethods
         public uint Key;
     }
     }
-}

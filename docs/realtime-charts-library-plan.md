@@ -136,7 +136,7 @@
 - Established axis composition pipeline linking layout outputs, tick generation, and styling tokens for forthcoming renderers (`Axis/*`, `Ticks/AxisTickGeneratorRegistry.cs`).
 - Introduced theme-aware axis styling and typography tokens (`Styling/*`) with runtime configuration for tick generator selection (`Axis/AxisDefinition*.cs`).
 - Implemented axis/legend renderers (`Rendering/AxisRenderer.cs`, `Legend/LegendRenderer.cs`) that consume `AxisRenderSurface`, emit drawable visuals, and honor light/dark palette variants.
-- Documented layout gallery presets in  `docs/guides/layout-gallery.md` for dark/light adaptive sizing. 
+- Documented layout gallery presets in  `docs/guides/layout-gallery.md` for dark/light adaptive sizing.
 - Unified overlay text measurement with `CompositionInterop.MeasureLabel` and added shared golden metric coverage (Rust + .NET) validating layout, typography, and scene cache outputs across charts/TDG.
 - Hardened automated native packaging for test runs (cargo build + copy of `vello_composition` / `vello_chart_engine`) to keep `dotnet test` green and ready for CI performance gating.
 
@@ -167,6 +167,26 @@
 - Added a headless rendering regression harness (`tests/VelloSharp.Charting.Tests/Rendering/ChartRenderingRegressionTests.cs`) that produces pixel baselines for overlays and multi-pane compositions.
 - Added engine-level coverage for multi-pane metadata, band series, heatmap buckets, and backfill/dirty-region behaviour (`tests/VelloSharp.Charting.Tests/Engine/ChartEngineSeriesTests.cs`).
 
+## Phase 3.5 – High-Performance Animation System (2–3 weeks)
+- **Shared composition animation runtime**
+  - [ ] Partner with the TDG initiative to extend `ffi/composition` with a reusable animation timeline (easing curves, spring/damping, grouped timelines) that drives Vello scene updates without reallocating command buffers.
+  - [ ] Surface managed bindings in `src/VelloSharp.Composition` for animation builders, property tracks, and tick scheduling; ensure the APIs integrate with chart update loops without unnecessary allocations.
+  - [ ] Add Rust + .NET microbenchmarks proving ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests validating interpolation accuracy.
+
+- **Chart engine adoption**
+  - [ ] Replace bespoke easing logic for cursor trails, crosshair fades, zoom transitions, and indicator overlays with the shared animation runtime; capture before/after performance metrics.
+  - [ ] Introduce motion presets for streaming data (fade/slide-in, rolling window shifts) with reduced-motion toggles and deterministic timelines for recording/playback scenarios.
+  - [ ] Expose animation descriptors through `ChartComposition`/`ChartEngineOptions` so host applications can configure durations, easing curves, and synchronize with TreeDataGrid micro-interactions.
+
+- **Diagnostics and tooling**
+  - [ ] Emit animation telemetry (active timelines, dropped frames, CPU/GPU cost) via `VelloSharp.ChartDiagnostics` and extend the Avalonia sample with an animation inspector overlay.
+  - [ ] Update motion guidelines (`docs/diagrams/chart-engine-integration.svg`) to illustrate shared animation flows across chart and TDG surfaces.
+
+#### Ticket Backlog & Sequencing
+1. `TDG-ANIM-001` (Owner: Composition WG) – Deliver the shared timeline runtime in `ffi/composition`. _Dependency for all downstream animation work._
+2. `TDG-ANIM-002` (Owner: Managed Bindings) – Project managed animation builders/FFI bindings into `VelloSharp.Composition`, including diagnostics hooks. _Depends on TDG-ANIM-001._
+3. `TDG-ANIM-003` (Owner: TreeDataGrid) – Apply the shared runtime across TDG column/row animations to validate virtualization behaviour. _Depends on TDG-ANIM-002; provides baseline for dashboard parity._
+4. `CHT-ANIM-001` (Owner: Charts Engine) – Adopt the shared runtime for chart cursor, annotation, and streaming transitions; feed results into the motion guideline addendum. _Depends on TDG-ANIM-002; reviews outcomes with TDG team._
 
 ## Phase 4 – Advanced Financial and Enterprise Chart Types (6–8 weeks)
 **Objectives**
@@ -226,6 +246,7 @@
 - [ ] **Localization and Internationalization**: Ensure text rendering, number/date formatting, and RTL layouts are supported from the core.
 - [ ] **Plugin Marketplace Readiness**: Define extension manifest format, sandboxing rules, and validation pipeline for third-party add-ons.
 - [ ] **Community and Support**: Establish samples, templates, and starter kits; plan for GitHub Discussions, issue triage, and commercial support offerings.
+- [ ] **Animation System** (`TDG-ANIM-001`..`003`, `CHT-ANIM-001`): Kick-off held with Composition, TDG, and Charts owners (animation guild sync, 2025-10-08) to coordinate shared timelines, honour reduced-motion preferences, and gate regressions with animation-focused perf tests.
 - [ ] **Shared Control Composition**: Coordinate with TreeDataGrid and forthcoming editor controls to keep composition/text stacks aligned, share benchmarks, and publish joint regression suites.
 
 ## Milestones and Governance

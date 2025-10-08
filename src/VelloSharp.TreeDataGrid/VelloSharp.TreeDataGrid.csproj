@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartDiagnostics\VelloSharp.ChartDiagnostics.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

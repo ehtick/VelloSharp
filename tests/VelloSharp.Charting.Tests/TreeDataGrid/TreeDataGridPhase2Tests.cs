@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using VelloSharp.ChartDiagnostics;
 using VelloSharp.TreeDataGrid;
 using VelloSharp.TreeDataGrid.Composition;
 using VelloSharp.TreeDataGrid.Rendering;
@@ -107,7 +108,8 @@ public sealed class TreeDataGridPhase2Tests
     [Fact]
     public void RenderLoop_ProducesFrameStats()
     {
-        using var loop = new TreeRenderLoop(120f);
+        using var collector = new FrameDiagnosticsCollector();
+        using var loop = new TreeRenderLoop(120f, collector);
         if (loop.BeginFrame())
         {
             loop.RecordGpuSummary(new TreeGpuTimestampSummary(0.9f, 0.25f, 4));
@@ -115,6 +117,8 @@ public sealed class TreeDataGridPhase2Tests
             Assert.True(stats.FrameIntervalMs >= 0f);
             Assert.Equal(4u, stats.GpuSampleCount);
             Assert.True(stats.GpuTimeMs >= 0f);
+            Assert.True(collector.TryGetRecent(out var recorded));
+            Assert.True(recorded.Timestamp > DateTimeOffset.MinValue);
         }
     }
 

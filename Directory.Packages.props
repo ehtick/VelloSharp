@@ -19,6 +19,7 @@
     <PackageVersion Include="Avalonia.X11" Version="11.3.6" />
     <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
     <PackageVersion Include="SkiaSharp" Version="2.88.9" />
+    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.5" />
     <PackageVersion Include="System.Reactive" Version="6.0.1" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.2" />

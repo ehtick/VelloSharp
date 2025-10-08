@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using VelloSharp.ChartDiagnostics;
 
 namespace VelloSharp.TreeDataGrid;
 
@@ -55,8 +56,14 @@ internal sealed class TreeRendererHandle : SafeHandle
 public sealed class TreeRenderLoop : IDisposable
 {
     private readonly TreeRendererHandle _handle;
+    private readonly FrameDiagnosticsCollector _diagnostics;
+    private readonly bool _ownsDiagnostics;
+    private TreeFrameStats _lastFrameStats;
 
-    public TreeRenderLoop(float targetFps = 120f)
+    public TreeRenderLoop(
+        float targetFps = 120f,
+        FrameDiagnosticsCollector? diagnostics = null,
+        IChartTelemetrySink? telemetrySink = null)
     {
         if (!float.IsFinite(targetFps) || targetFps <= 0f)
         {
@@ -64,6 +71,30 @@ public sealed class TreeRenderLoop : IDisposable
         }
 
         _handle = TreeRendererHandle.Create(targetFps);
+        if (diagnostics is null)
+        {
+            var sink = telemetrySink ?? DashboardTelemetrySink.Instance;
+            _diagnostics = new FrameDiagnosticsCollector(sink);
+            _ownsDiagnostics = true;
+        }
+        else
+        {
+            _diagnostics = diagnostics;
+            _ownsDiagnostics = false;
+            if (telemetrySink is not null)
+            {
+                _diagnostics.SetTelemetrySink(telemetrySink);
+            }
+        }
+    }
+
+    public FrameDiagnosticsCollector Diagnostics => _diagnostics;
+
+    public TreeFrameStats LastFrameStats => _lastFrameStats;
+
+    public void SetTelemetrySink(IChartTelemetrySink? telemetrySink)
+    {
+        _diagnostics.SetTelemetrySink(telemetrySink);
     }
 
     public bool BeginFrame()
@@ -98,7 +129,7 @@ public sealed class TreeRenderLoop : IDisposable
                 TreeInterop.ThrowIfFalse(
                     NativeMethods.vello_tdg_renderer_end_frame(handle, gpuTimeMs, queueTimeMs, &stats),
                     "Renderer end frame failed");
-                return new TreeFrameStats(
+                var managed = new TreeFrameStats(
                     stats.FrameIndex,
                     stats.CpuTimeMs,
                     stats.GpuTimeMs,
@@ -106,6 +137,9 @@ public sealed class TreeRenderLoop : IDisposable
                     stats.FrameIntervalMs,
                     stats.GpuSampleCount,
                     stats.TimestampMs);
+                _lastFrameStats = managed;
+                _diagnostics.Record(ToChartFrameStats(managed));
+                return managed;
             }
         });
     }
@@ -113,7 +147,34 @@ public sealed class TreeRenderLoop : IDisposable
     public void Dispose()
     {
         _handle.Dispose();
+        if (_ownsDiagnostics)
+        {
+            _diagnostics.Dispose();
+        }
         GC.SuppressFinalize(this);
+    }
+
+    private static FrameStats ToChartFrameStats(TreeFrameStats stats)
+    {
+        static TimeSpan ToTime(float valueMs)
+            => double.IsFinite(valueMs) && valueMs > 0f
+                ? TimeSpan.FromMilliseconds(valueMs)
+                : TimeSpan.Zero;
+
+        var timestamp = stats.TimestampMs > 0
+            ? DateTimeOffset.FromUnixTimeMilliseconds(stats.TimestampMs)
+            : DateTimeOffset.UtcNow;
+
+        var encodedPaths = stats.GpuSampleCount > int.MaxValue
+            ? int.MaxValue
+            : (int)stats.GpuSampleCount;
+
+        return new FrameStats(
+            ToTime(stats.CpuTimeMs),
+            ToTime(stats.GpuTimeMs),
+            ToTime(stats.QueueTimeMs),
+            encodedPaths,
+            timestamp);
     }
 
     private T Invoke<T>(Func<nint, T> action)

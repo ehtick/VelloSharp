@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using VelloSharp.ChartDiagnostics;
 using VelloSharp.TreeDataGrid;
 using VelloSharp.TreeDataGrid.Composition;
 using VelloSharp.TreeDataGrid.Rendering;
@@ -129,12 +130,16 @@ if (sceneGraph.TryTakeDirty(chromeNode, out var chromeRegion))
     Console.WriteLine($"Chrome region captured: X={chromeRegion.MinX:F1}..{chromeRegion.MaxX:F1} Y={chromeRegion.MinY:F1}..{chromeRegion.MaxY:F1}");
 }
 
-using var renderLoop = new TreeRenderLoop(targetFps: 120f);
+using var renderLoop = new TreeRenderLoop(targetFps: 120f, telemetrySink: DashboardTelemetrySink.Instance);
 if (renderLoop.BeginFrame())
 {
     renderLoop.RecordGpuSummary(new TreeGpuTimestampSummary(0.9f, 0.2f, 5));
     var stats = renderLoop.EndFrame(gpuTimeMs: 0f, queueTimeMs: 0f);
     Console.WriteLine($"\nFrame stats: cpu={stats.CpuTimeMs:F2}ms gpu={stats.GpuTimeMs:F2}ms samples={stats.GpuSampleCount} interval={stats.FrameIntervalMs:F2}ms");
+    if (renderLoop.Diagnostics.TryGetRecent(out FrameStats diagnostics))
+    {
+        Console.WriteLine($"Diagnostics collector -> cpu={diagnostics.CpuTime.TotalMilliseconds:F2}ms gpu={diagnostics.GpuTime.TotalMilliseconds:F2}ms queue={diagnostics.QueueLatency.TotalMilliseconds:F2}ms");
+    }
 }
 
 Console.WriteLine("\nSample complete.");

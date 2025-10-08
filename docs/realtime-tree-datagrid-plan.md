@@ -65,7 +65,7 @@
 
 - **Render loop & diagnostics**
   - [x] Expose high-frequency renderer loop returning frame stats + vended instrumentation slots for GPU/queue timings.
-  - [x] Integrate Vello GPU timestamp summaries and publish metrics into shared diagnostics channel.
+  - [x] Integrate Vello GPU timestamp summaries and publish metrics into shared diagnostics channel (TreeRenderLoop now forwards stats through `FrameDiagnosticsCollector`/`VelloSharp.ChartDiagnostics`).
 
 - **Integration scaffolding**
   - [x] Publish CLI composition sample exercising model → virtualization → scene + render loop handshake.
@@ -76,6 +76,7 @@
 - Integrated freeze-pane column diffing into the virtualization scheduler (`TreeVirtualizationPlan.PaneDiff`) with managed helpers for per-pane spans and metrics.
 - Extended `TreeColumnStripCache` to expose leading/primary/trailing snapshots and diff union helpers so host chrome/scene updates react to freeze-band transitions.
 - Hardened samples and stress/integration tests around pane-aware virtualization telemetry and buffer reuse, ensuring plan outputs stay in sync with managed orchestration.
+- `TreeRenderLoop` now publishes frame stats through `FrameDiagnosticsCollector`, aligning TDG telemetry with charting dashboards and enabling shared perf gating.
 
 ### Phase 3 – Declarative Templates and Cell Customization (3 weeks)
 - [x] Define XAML schema `Vello.Tdg.*` mirroring Avalonia primitives (TextBlock, Path, StackPanel) but targeting composition descriptors.
@@ -104,12 +105,34 @@ Schema application:
 - Pane evaluation resolves `TreeColumnPaneSnapshot` slices into `Vello.Tdg.PaneTemplate` instances; each template receives the column span/margin metadata plus contextual bindings (row value, selection state, stripe offsets).
 - `Vello.Tdg.TemplateScope` surfaces attached properties for `RowIndex`, `Depth`, and `PaneKind`, allowing declarative triggers without bespoke code-behind.
 
+### Phase 3.5 – High-Performance Animation System (2–3 weeks)
+- **Shared composition animation core**
+  - [ ] Extend `ffi/composition` with a low-allocation animation timeline engine (easing curves, spring/damping models, grouped timelines) that can drive Vello scene updates without reallocating command buffers.
+  - [ ] Expose managed bindings under `src/VelloSharp.Composition` for timeline creation, property tracks, and FFI-backed tick scheduling; keep APIs Span-friendly and avoid delegate boxing.
+  - [ ] Publish Rust + .NET benchmarks validating ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests comparing interpolated outputs against analytical expectations.
+
+- **TreeDataGrid animation integration**
+  - [ ] Replace ad-hoc column resize/stripe transitions with the shared animation engine, wiring virtualization plans to reuse timeline state per buffer.
+  - [ ] Add row expand/collapse micro-interactions (height easing, selection glow, caret rotation) that run within the 8 ms frame budget and respect virtualization recycling.
+  - [ ] Surface animation configuration through managed APIs/XAML (duration presets, easing curves, reduced-motion toggles) and document interoperability expectations in `docs/specs/tdg-interop.md`.
+  - [ ] Author integration tests and profiling traces ensuring animation-driven dirty regions stay bounded and do not trigger full scene re-encodes.
+
+- **Chart engine alignment**
+  - [ ] Adopt the shared animation bindings inside chart cursor/annotation transitions to validate cross-control reuse and synchronize with the charts roadmap.
+  - [ ] Capture a joint motion guideline addendum (`docs/diagrams/tdg-flows/tdg-motion-study.puml`) covering synchronized chart/TDG animations for dashboard scenarios.
+
+#### Ticket Backlog & Sequencing
+1. `TDG-ANIM-001` (Owner: Composition WG) – Implement the low-allocation timeline runtime in `ffi/composition` with easing/spring primitives. _Predecessor: none._
+2. `TDG-ANIM-002` (Owner: Managed Bindings) – Surface animation builders and tick scheduling APIs in `VelloSharp.Composition`, including telemetry hooks. _Depends on TDG-ANIM-001._
+3. `TDG-ANIM-003` (Owner: TreeDataGrid) – Integrate timelines into column resizing, buffer reuse, and expand/collapse flows using the shared runtime. _Depends on TDG-ANIM-002._
+4. `CHT-ANIM-001` (Owner: Charts Engine) – Adopt shared animation bindings for cursor/annotation transitions and coordinate cross-control motion guidelines. _Depends on TDG-ANIM-002; informs TDG/Charts joint motion study._
+
 #### XAML Compilation Pipeline
 - Parsing uses an XML-aware reader that normalizes the `http://schemas.vello.dev/tdg` namespace into a `TreeTemplateSyntaxTree`, capturing attributes, text nodes, and nested elements without allocating reflection metadata.
 - Expression conversion maps schema elements to `TreeTemplateExpression` nodes, inferring binding vs. literal values (string, number, boolean, color) and preserving pane metadata for downstream rendering.
 - Instruction emission produces a compact array of `TreeTemplateInstruction` opcodes (`OpenNode`, `SetProperty`, `BindProperty`, `CloseNode`) suitable for native ingestion.
 - `TreeTemplateCompiler` hashes template content and tracks a caller-provided generation number; cached programs are reused when both hash and generation match, while `Invalidate` forcefully drops affected keys.
-- `TreeTemplateRuntime` defers realization to a backend abstraction; the default managed backend stores realized programs, while the planned FFI backend will stream instruction spans into `vello_tree_datagrid` template entry points so scene nodes remain zero-copy.
+- `TreeTemplateRuntime` defers realization to a backend abstraction; the default managed backend stores realized programs, while the native backend streams instruction spans into `vello_tree_datagrid` template entry points so scene nodes remain zero-copy.
 
 #### Fluent Builder Surface
 - `TreeTemplateBuilder.Row<TRow, TColumn>` constructs row templates via chained builders (`TreeRowTemplateBuilder`, `TreePaneTemplateBuilder`, `TreeCellTemplateBuilder`) that mirror the XAML schema.
@@ -127,7 +150,7 @@ Schema application:
 - Pane batches expose `Span<TreeColumnSpan>` for hot-path renderers while preserving allocations via pooled buffers tied to scheduler telemetry.
 
 #### Upcoming Work
-- Wire the schema into the planned XAML compiler, validating that template fragments emit the same `SceneFragment` structures as the fluent builders.
+- Add golden tests validating that XAML-compiled templates emit the same instruction stream and `TreeTemplateNativeBackend` output as fluent builder definitions.
 - Expand managed tests to cover pane-aware template swapping and the diagnostics pipeline introduced for buffer adoption/allocation heuristics.
 
 ### Phase 4 – Interaction, Editing, and Accessibility (3–4 weeks)
@@ -161,6 +184,7 @@ Schema application:
 - [ ] **Testing Strategy**: Property-based virtualization tests, golden image snapshots, and XAML template diff validation.
 - [ ] **Security & Compliance**: Ensure sandbox-safe data provider extensions, signed native binaries, and vetted dependencies.
 - [ ] **Developer Ergonomics**: Publish schematic diagrams (`docs/diagrams/tdg-architecture.puml`) and provide CLI scaffolding for new columns/templates.
+- [ ] **Animation System** (`TDG-ANIM-001`..`003`, `CHT-ANIM-001`): Kick-off held with Composition, TDG, and Charts owners (animation guild sync, 2025-10-08); shared backlog established to deliver the timeline engine, validate reduced-motion toggles, and guard regressions with CI perf thresholds.
 
 ## Dependencies and Risks
 - Alignment with chart engine refactor schedule; cross-team code ownership must be settled before Phase 1.
