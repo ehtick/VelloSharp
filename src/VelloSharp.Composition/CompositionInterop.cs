@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -265,6 +266,458 @@ public sealed class SceneCache : SafeHandle
         if (IsInvalid)
         {
             throw new ObjectDisposedException(nameof(SceneCache));
+        }
+    }
+}
+
+[Flags]
+public enum TimelineSampleFlags : ushort
+{
+    None = 0,
+    Active = 1 << 0,
+    Completed = 1 << 1,
+    Looped = 1 << 2,
+    PingPongReversed = 1 << 3,
+    AtRest = 1 << 4,
+}
+
+public enum TimelineRepeat
+{
+    Once = 0,
+    Loop = 1,
+    PingPong = 2,
+}
+
+public enum TimelineEasing
+{
+    Linear = 0,
+    EaseInQuad = 1,
+    EaseOutQuad = 2,
+    EaseInOutQuad = 3,
+    EaseInCubic = 4,
+    EaseOutCubic = 5,
+    EaseInOutCubic = 6,
+    EaseInQuart = 7,
+    EaseOutQuart = 8,
+    EaseInOutQuart = 9,
+    EaseInQuint = 10,
+    EaseOutQuint = 11,
+    EaseInOutQuint = 12,
+    EaseInSine = 13,
+    EaseOutSine = 14,
+    EaseInOutSine = 15,
+    EaseInExpo = 16,
+    EaseOutExpo = 17,
+    EaseInOutExpo = 18,
+    EaseInCirc = 19,
+    EaseOutCirc = 20,
+    EaseInOutCirc = 21,
+}
+
+public enum TimelineDirtyKind
+{
+    None = 0,
+    Point = 1,
+    Bounds = 2,
+}
+
+public readonly struct TimelineDirtyBinding
+{
+    public TimelineDirtyBinding(
+        TimelineDirtyKind kind,
+        double x,
+        double y,
+        double minX,
+        double maxX,
+        double minY,
+        double maxY)
+    {
+        Kind = kind;
+        X = x;
+        Y = y;
+        MinX = minX;
+        MaxX = maxX;
+        MinY = minY;
+        MaxY = maxY;
+    }
+
+    public TimelineDirtyKind Kind { get; }
+    public double X { get; }
+    public double Y { get; }
+    public double MinX { get; }
+    public double MaxX { get; }
+    public double MinY { get; }
+    public double MaxY { get; }
+
+    public static TimelineDirtyBinding None => default;
+
+    public static TimelineDirtyBinding Point(double x, double y) =>
+        new(TimelineDirtyKind.Point, x, y, 0.0, 0.0, 0.0, 0.0);
+
+    public static TimelineDirtyBinding Bounds(double minX, double maxX, double minY, double maxY) =>
+        new(TimelineDirtyKind.Bounds, 0.0, 0.0, minX, maxX, minY, maxY);
+
+    internal VelloCompositionTimelineDirtyBinding ToNative()
+    {
+        var binding = new VelloCompositionTimelineDirtyBinding
+        {
+            Kind = (VelloCompositionTimelineDirtyKind)Kind,
+            Reserved = 0,
+            X = X,
+            Y = Y,
+            MinX = MinX,
+            MaxX = MaxX,
+            MinY = MinY,
+            MaxY = MaxY,
+        };
+
+        if (Kind == TimelineDirtyKind.Bounds)
+        {
+            var minX = Math.Min(MinX, MaxX);
+            var maxX = Math.Max(MinX, MaxX);
+            var minY = Math.Min(MinY, MaxY);
+            var maxY = Math.Max(MinY, MaxY);
+            binding.MinX = minX;
+            binding.MaxX = maxX;
+            binding.MinY = minY;
+            binding.MaxY = maxY;
+        }
+
+        return binding;
+    }
+}
+
+public readonly struct TimelineGroupConfig
+{
+    public TimelineGroupConfig(float speed = 1.0f, bool autoplay = true)
+    {
+        Speed = speed;
+        Autoplay = autoplay;
+    }
+
+    public float Speed { get; }
+    public bool Autoplay { get; }
+
+    internal VelloCompositionTimelineGroupConfig ToNative() => new()
+    {
+        Speed = Speed,
+        Autoplay = Autoplay ? 1 : 0,
+    };
+}
+
+public readonly struct TimelineEasingTrackDescriptor
+{
+    public TimelineEasingTrackDescriptor(
+        uint nodeId,
+        ushort channelId,
+        float startValue,
+        float endValue,
+        float duration,
+        TimelineEasing easing,
+        TimelineRepeat repeat,
+        TimelineDirtyBinding dirtyBinding)
+    {
+        NodeId = nodeId;
+        ChannelId = channelId;
+        StartValue = startValue;
+        EndValue = endValue;
+        Duration = duration;
+        Easing = easing;
+        Repeat = repeat;
+        DirtyBinding = dirtyBinding;
+    }
+
+    public uint NodeId { get; }
+    public ushort ChannelId { get; }
+    public float StartValue { get; }
+    public float EndValue { get; }
+    public float Duration { get; }
+    public TimelineEasing Easing { get; }
+    public TimelineRepeat Repeat { get; }
+    public TimelineDirtyBinding DirtyBinding { get; }
+
+    internal VelloCompositionTimelineEasingTrackDesc ToNative() => new()
+    {
+        NodeId = NodeId,
+        ChannelId = ChannelId,
+        Reserved = 0,
+        Repeat = (VelloCompositionTimelineRepeat)Repeat,
+        Easing = (VelloCompositionTimelineEasing)Easing,
+        StartValue = StartValue,
+        EndValue = EndValue,
+        Duration = Duration,
+        DirtyBinding = DirtyBinding.ToNative(),
+    };
+}
+
+public readonly struct TimelineSpringTrackDescriptor
+{
+    public TimelineSpringTrackDescriptor(
+        uint nodeId,
+        ushort channelId,
+        float stiffness,
+        float damping,
+        float mass,
+        float startValue,
+        float initialVelocity,
+        float targetValue,
+        float restVelocity,
+        float restOffset,
+        TimelineDirtyBinding dirtyBinding)
+    {
+        NodeId = nodeId;
+        ChannelId = channelId;
+        Stiffness = stiffness;
+        Damping = damping;
+        Mass = mass;
+        StartValue = startValue;
+        InitialVelocity = initialVelocity;
+        TargetValue = targetValue;
+        RestVelocity = restVelocity;
+        RestOffset = restOffset;
+        DirtyBinding = dirtyBinding;
+    }
+
+    public uint NodeId { get; }
+    public ushort ChannelId { get; }
+    public float Stiffness { get; }
+    public float Damping { get; }
+    public float Mass { get; }
+    public float StartValue { get; }
+    public float InitialVelocity { get; }
+    public float TargetValue { get; }
+    public float RestVelocity { get; }
+    public float RestOffset { get; }
+    public TimelineDirtyBinding DirtyBinding { get; }
+
+    internal VelloCompositionTimelineSpringTrackDesc ToNative() => new()
+    {
+        NodeId = NodeId,
+        ChannelId = ChannelId,
+        Reserved = 0,
+        Stiffness = Stiffness,
+        Damping = Damping,
+        Mass = Mass,
+        StartValue = StartValue,
+        InitialVelocity = InitialVelocity,
+        TargetValue = TargetValue,
+        RestVelocity = RestVelocity,
+        RestOffset = RestOffset,
+        DirtyBinding = DirtyBinding.ToNative(),
+    };
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct TimelineSample
+{
+    public uint TrackId;
+    public uint NodeId;
+    public ushort ChannelId;
+    public TimelineSampleFlags Flags;
+    public float Value;
+    public float Velocity;
+    public float Progress;
+
+    public readonly bool IsCompleted => (Flags & TimelineSampleFlags.Completed) != 0;
+    public readonly bool IsActive => (Flags & TimelineSampleFlags.Active) != 0;
+}
+
+public sealed class TimelineSystem : SafeHandle
+{
+    public TimelineSystem()
+        : base(IntPtr.Zero, ownsHandle: true)
+    {
+        var nativeHandle = NativeMethods.vello_composition_timeline_system_create();
+        SetHandle(nativeHandle);
+        if (IsInvalid)
+        {
+            throw new InvalidOperationException("Failed to create timeline system.");
+        }
+    }
+
+    public override bool IsInvalid => handle == IntPtr.Zero;
+
+    protected override bool ReleaseHandle()
+    {
+        if (!IsInvalid)
+        {
+            NativeMethods.vello_composition_timeline_system_destroy(handle);
+            SetHandle(IntPtr.Zero);
+        }
+
+        return true;
+    }
+
+    public uint CreateGroup(TimelineGroupConfig config)
+    {
+        ThrowIfInvalid();
+        var nativeConfig = config.ToNative();
+        uint groupId = NativeMethods.vello_composition_timeline_group_create(handle, nativeConfig);
+        if (groupId == uint.MaxValue)
+        {
+            throw new InvalidOperationException("Failed to create timeline group.");
+        }
+
+        return groupId;
+    }
+
+    public void DestroyGroup(uint groupId)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_group_destroy(handle, groupId);
+    }
+
+    public void PlayGroup(uint groupId)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_group_play(handle, groupId);
+    }
+
+    public void PauseGroup(uint groupId)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_group_pause(handle, groupId);
+    }
+
+    public void SetGroupSpeed(uint groupId, float speed)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_group_set_speed(handle, groupId, speed);
+    }
+
+    public uint AddEasingTrack(uint groupId, TimelineEasingTrackDescriptor descriptor)
+    {
+        ThrowIfInvalid();
+        if (descriptor.NodeId == uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(descriptor), "Descriptor must reference a valid scene node.");
+        }
+
+        if (descriptor.Duration <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(descriptor), "Duration must be positive.");
+        }
+
+        var nativeDescriptor = descriptor.ToNative();
+        uint trackId;
+        unsafe
+        {
+            trackId = NativeMethods.vello_composition_timeline_add_easing_track(
+                handle,
+                groupId,
+                (VelloCompositionTimelineEasingTrackDesc*)Unsafe.AsPointer(ref nativeDescriptor));
+        }
+
+        if (trackId == uint.MaxValue)
+        {
+            throw new InvalidOperationException("Failed to add easing track.");
+        }
+
+        return trackId;
+    }
+
+    public uint AddSpringTrack(uint groupId, TimelineSpringTrackDescriptor descriptor)
+    {
+        ThrowIfInvalid();
+        if (descriptor.NodeId == uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(nameof(descriptor), "Descriptor must reference a valid scene node.");
+        }
+
+        if (descriptor.Stiffness <= 0f || descriptor.Mass <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(descriptor), "Spring stiffness and mass must be positive.");
+        }
+
+        var nativeDescriptor = descriptor.ToNative();
+        uint trackId;
+        unsafe
+        {
+            trackId = NativeMethods.vello_composition_timeline_add_spring_track(
+                handle,
+                groupId,
+                (VelloCompositionTimelineSpringTrackDesc*)Unsafe.AsPointer(ref nativeDescriptor));
+        }
+
+        if (trackId == uint.MaxValue)
+        {
+            throw new InvalidOperationException("Failed to add spring track.");
+        }
+
+        return trackId;
+    }
+
+    public void RemoveTrack(uint trackId)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_track_remove(handle, trackId);
+    }
+
+    public void ResetTrack(uint trackId)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_track_reset(handle, trackId);
+    }
+
+    public void SetSpringTarget(uint trackId, float targetValue)
+    {
+        ThrowIfInvalid();
+        NativeMethods.vello_composition_timeline_track_set_spring_target(handle, trackId, targetValue);
+    }
+
+    public int Tick(TimeSpan delta, SceneCache? cache, Span<TimelineSample> samples)
+    {
+        ThrowIfInvalid();
+
+        if (cache is { IsInvalid: true })
+        {
+            throw new ObjectDisposedException(nameof(SceneCache));
+        }
+
+        double seconds = delta.TotalSeconds;
+        nint cacheHandle = cache?.DangerousGetHandle() ?? IntPtr.Zero;
+
+        nuint result;
+        unsafe
+        {
+            if (samples.IsEmpty)
+            {
+                result = NativeMethods.vello_composition_timeline_tick(
+                    handle,
+                    seconds,
+                    cacheHandle,
+                    null,
+                    0);
+            }
+            else
+            {
+                fixed (TimelineSample* sampleBase = samples)
+                {
+                    result = NativeMethods.vello_composition_timeline_tick(
+                        handle,
+                        seconds,
+                        cacheHandle,
+                        (VelloCompositionTimelineSample*)sampleBase,
+                        (nuint)samples.Length);
+                }
+            }
+        }
+
+        GC.KeepAlive(cache);
+
+        if (result > int.MaxValue)
+        {
+            throw new InvalidOperationException("Timeline produced more samples than supported.");
+        }
+
+        return (int)result;
+    }
+
+    private void ThrowIfInvalid()
+    {
+        if (IsInvalid)
+        {
+            throw new ObjectDisposedException(nameof(TimelineSystem));
         }
     }
 }

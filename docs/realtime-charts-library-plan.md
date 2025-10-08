@@ -169,8 +169,8 @@
 
 ## Phase 3.5 – High-Performance Animation System (2–3 weeks)
 - **Shared composition animation runtime**
-  - [ ] Partner with the TDG initiative to extend `ffi/composition` with a reusable animation timeline (easing curves, spring/damping, grouped timelines) that drives Vello scene updates without reallocating command buffers.
-  - [ ] Surface managed bindings in `src/VelloSharp.Composition` for animation builders, property tracks, and tick scheduling; ensure the APIs integrate with chart update loops without unnecessary allocations.
+  - [x] Partner with the TDG initiative to extend `ffi/composition` with a reusable animation timeline (easing curves, spring/damping, grouped timelines) that drives Vello scene updates without reallocating command buffers.
+  - [x] Surface managed bindings in `src/VelloSharp.Composition` for animation builders, property tracks, and tick scheduling; ensure the APIs integrate with chart update loops without unnecessary allocations.
   - [ ] Add Rust + .NET microbenchmarks proving ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests validating interpolation accuracy.
 
 - **Chart engine adoption**

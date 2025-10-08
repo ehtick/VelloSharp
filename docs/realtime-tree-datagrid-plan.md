@@ -107,8 +107,8 @@ Schema application:
 
 ### Phase 3.5 – High-Performance Animation System (2–3 weeks)
 - **Shared composition animation core**
-  - [ ] Extend `ffi/composition` with a low-allocation animation timeline engine (easing curves, spring/damping models, grouped timelines) that can drive Vello scene updates without reallocating command buffers.
-  - [ ] Expose managed bindings under `src/VelloSharp.Composition` for timeline creation, property tracks, and FFI-backed tick scheduling; keep APIs Span-friendly and avoid delegate boxing.
+  - [x] Extend `ffi/composition` with a low-allocation animation timeline engine (easing curves, spring/damping models, grouped timelines) that can drive Vello scene updates without reallocating command buffers. (`TDG-ANIM-001`)
+  - [x] Expose managed bindings under `src/VelloSharp.Composition` for timeline creation, property tracks, and FFI-backed tick scheduling; keep APIs Span-friendly and avoid delegate boxing. (`TDG-ANIM-002`)
   - [ ] Publish Rust + .NET benchmarks validating ≤0.5 ms CPU overhead per frame for 10k animated properties and golden tests comparing interpolated outputs against analytical expectations.
 
 - **TreeDataGrid animation integration**

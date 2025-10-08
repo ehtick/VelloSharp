@@ -23,6 +23,10 @@
   - FFI: `vello_composition_scene_cache_create(_node)`, `..._mark_dirty`, `..._mark_dirty_bounds`, `..._take_dirty`, `..._clear`, `..._dispose_node`.
   - Managed surface: `SceneCache` SafeHandle with `MarkDirty` and `MarkDirtyBounds` helpers.
   - Guarantees: O(1) node reuse via free-list, cascading dirty accumulation, deterministic reset semantics.
+- **Animation Timelines**
+  - Rust types: `TimelineSystem`, `TimelineGroupConfig`, `EasingTrackDescriptor`, `SpringTrackDescriptor`, `TimelineSample`.
+  - FFI: `vello_composition_timeline_system_create`, `..._group_create`, `..._add_easing_track`, `..._add_spring_track`, `..._tick`.
+  - Responsibilities: drive low-allocation timeline playback (easing curves, spring dynamics, grouped timelines) that can mark dirty regions and update scenes without reallocating command buffers.
 - **Diagnostics Hooks**
   - Frame stats emitted via existing chart diagnostics; TDG must publish compatible payloads (`FrameStats`, `InputLatencyStats`) for joint dashboards.
   - Shared telemetry pipeline expected under `docs/metrics/performance-baselines.md`.
@@ -42,12 +46,21 @@
   - `vello_composition_scene_cache_mark_dirty(double x, double y)` and `..._mark_dirty_bounds(double min_x, double max_x, double min_y, double max_y)`
   - `vello_composition_scene_cache_take_dirty(SceneNodeId node, CompositionDirtyRegion* out_region)`
   - `vello_composition_scene_cache_clear(SceneNodeId node)`
+  - `vello_composition_timeline_system_create/destroy`
+  - `vello_composition_timeline_group_create/destroy`, `..._group_play`, `..._group_pause`, `..._group_set_speed`
+  - `vello_composition_timeline_add_easing_track`, `vello_composition_timeline_add_spring_track`, `vello_composition_timeline_track_reset`, `..._track_remove`, `..._track_set_spring_target`
+  - `vello_composition_timeline_tick(double delta_seconds, SceneGraphCache* cache, CompositionTimelineSample* out_samples, size_t out_len)`
 
 ## Managed Surface (C#)
 - `VelloSharp.Composition.CompositionInterop`
   - `PlotArea ComputePlotArea(double width, double height)`
   - `LabelMetrics MeasureLabel(string/ReadOnlySpan<char> text, float fontSize = 14f)`
   - `int SolveLinearLayout(ReadOnlySpan<LinearLayoutChild>, double available, double spacing, Span<LinearLayoutResult>)`
+- `VelloSharp.Composition.TimelineSystem`
+  - SafeHandle wrapper for native timeline state.
+  - `uint CreateGroup(TimelineGroupConfig config)`, `PlayGroup`, `PauseGroup`, `SetGroupSpeed`
+  - `uint AddEasingTrack(...)`, `uint AddSpringTrack(...)`, `RemoveTrack(uint trackId)`, `ResetTrack(uint trackId)`, `SetSpringTarget(uint trackId, float target)`
+  - `int Tick(TimeSpan delta, SceneCache? cache, Span<TimelineSample> samples)` returns produced sample count while optionally marking dirty regions via the provided `SceneCache`.
 - `VelloSharp.Composition.SceneCache`
   - SafeHandle wrapper for native cache lifecycle.
   - `CreateNode(uint? parentId = null)`, `DisposeNode(uint nodeId)`
@@ -93,4 +106,3 @@
 - Charts: continue migrating pane/grid layout code to consume `LinearLayoutItem`/`LayoutConstraints` directly.
 - TDG: integrate shared scene cache into virtualization scheduler; author golden/baseline tests (tracked in plan Phase 1).
 - Editors/Other Controls: draft onboarding checklist once TDG prototype confirms the contract (future `docs/guides/composition-reuse.md` deliverable).
-
