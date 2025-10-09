@@ -5,5 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Composition</PackageId>
+    <Title>VelloSharp.Composition</Title>
+    <Description>Scene composition primitives and shared infrastructure for the VelloSharp dashboard stack.</Description>
+    <PackageTags>vello;composition;graphics</PackageTags>
   </PropertyGroup>
 </Project>

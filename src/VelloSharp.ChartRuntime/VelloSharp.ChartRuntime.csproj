@@ -4,5 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.ChartRuntime</PackageId>
+    <Title>VelloSharp.ChartRuntime</Title>
+    <Description>Shared runtime services, schedulers, and execution helpers for VelloSharp charts.</Description>
+    <PackageTags>vello;charting;runtime</PackageTags>
   </PropertyGroup>
 </Project>

@@ -5,6 +5,16 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Editor</PackageId>
+    <Title>VelloSharp.Editor</Title>
+    <Description>Managed bindings for the VelloSharp visual editor, including composition tooling and runtime bridges.</Description>
+    <PackageTags>vello;editor;composition</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
+    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.Editor</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,5 +23,9 @@
     <ProjectReference Include="..\VelloSharp.Gauges\VelloSharp.Gauges.csproj" />
     <ProjectReference Include="..\VelloSharp.TreeDataGrid\VelloSharp.TreeDataGrid.csproj" />
     <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
+    <PackageReference Include="VelloSharp.Native.Editor" Version="$(VelloPackageVersion)" />
   </ItemGroup>
 </Project>

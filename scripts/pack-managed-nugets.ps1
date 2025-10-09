@@ -135,6 +135,36 @@ $packProjects = @(
         '-p:VelloRequireAllNativeAssets=false',
         "-p:VelloNativePackageIds=$nativeIds",
         "-p:RestoreAdditionalProjectSources=$NativeFeed"
+    ) },
+    @{ Path = 'src/VelloSharp.Composition/VelloSharp.Composition.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.ChartData/VelloSharp.ChartData.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.Charting/VelloSharp.Charting.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj'; Extra = @('-p:VelloSkipNativeBuild=true') },
+    @{ Path = 'src/VelloSharp.Gauges/VelloSharp.Gauges.csproj'; Extra = @(
+        '-p:VelloSkipNativeBuild=true',
+        '-p:VelloUseNativePackageDependencies=true',
+        "-p:RestoreAdditionalProjectSources=$NativeFeed"
+    ) },
+    @{ Path = 'src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj'; Extra = @(
+        '-p:VelloSkipNativeBuild=true',
+        '-p:VelloUseNativePackageDependencies=true',
+        "-p:RestoreAdditionalProjectSources=$NativeFeed"
+    ) },
+    @{ Path = 'src/VelloSharp.Editor/VelloSharp.Editor.csproj'; Extra = @(
+        '-p:VelloSkipNativeBuild=true',
+        '-p:VelloUseNativePackageDependencies=true',
+        "-p:RestoreAdditionalProjectSources=$NativeFeed"
+    ) },
+    @{ Path = 'src/VelloSharp.Scada/VelloSharp.Scada.csproj'; Extra = @(
+        '-p:VelloSkipNativeBuild=true',
+        '-p:VelloUseNativePackageDependencies=true',
+        "-p:RestoreAdditionalProjectSources=$NativeFeed"
     ) }
 )
 

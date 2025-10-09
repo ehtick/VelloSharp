@@ -7,6 +7,64 @@ for cross-platform windowing, `peniko`/`kurbo` for brush and geometry data, and 
 with [`AccessKit`](https://accesskit.dev) so scene building, surface presentation, input, accessibility, and text
 layout share a cohesive managed API while still exposing low-level control over `wgpu` devices, queues, and surfaces.
 
+## NuGet packages
+
+### Managed bindings
+
+| Package | Description | NuGet |
+| --- | --- | --- |
+| `VelloSharp` | High-level scene, renderer, font, and image APIs that wrap the entire Vello stack. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.svg)](https://www.nuget.org/packages/VelloSharp/) |
+| `VelloSharp.Core` | Shared geometry, painting, and text primitives used across all bindings. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Core.svg)](https://www.nuget.org/packages/VelloSharp.Core/) |
+| `VelloSharp.Ffi.Core` | Core P/Invoke bindings, structs, and helpers for talking to the native libraries. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Ffi.Core.svg)](https://www.nuget.org/packages/VelloSharp.Ffi.Core/) |
+| `VelloSharp.Ffi.Gpu` | GPU-centric interop surfaces that expose the renderer and wgpu entry points. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Ffi.Gpu.svg)](https://www.nuget.org/packages/VelloSharp.Ffi.Gpu/) |
+| `VelloSharp.Ffi.Sparse` | Sparse renderer bindings over `vello_sparse_ffi` for CPU-friendly render paths. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Ffi.Sparse.svg)](https://www.nuget.org/packages/VelloSharp.Ffi.Sparse/) |
+| `VelloSharp.Text` | Text shaping helpers that bridge HarfBuzzSharp-style APIs onto Vello primitives. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Text.svg)](https://www.nuget.org/packages/VelloSharp.Text/) |
+| `VelloSharp.Gpu` | Higher-level GPU utilities, AccessKit helpers, and native library bootstrap logic. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Gpu.svg)](https://www.nuget.org/packages/VelloSharp.Gpu/) |
+| `VelloSharp.Skia.Core` | Skia-inspired canvas and brush abstractions implemented on top of Vello scenes. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Skia.Core.svg)](https://www.nuget.org/packages/VelloSharp.Skia.Core/) |
+| `VelloSharp.Skia.Gpu` | Skia GPU backend powered by the native Vello renderer. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Skia.Gpu.svg)](https://www.nuget.org/packages/VelloSharp.Skia.Gpu/) |
+| `VelloSharp.Skia.Cpu` | CPU sparse rendering path for the Skia integration layer. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Skia.Cpu.svg)](https://www.nuget.org/packages/VelloSharp.Skia.Cpu/) |
+| `VelloSharp.Integration.Skia` | Utility glue for hosting Skia render trees on top of VelloSharp surfaces. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.Skia.svg)](https://www.nuget.org/packages/VelloSharp.Integration.Skia/) |
+| `VelloSharp.Avalonia.Vello` | Avalonia rendering subsystem integration for VelloSharp. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Vello.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Vello/) |
+| `VelloSharp.Avalonia.Winit` | Avalonia windowing backend that routes through winit and Vello. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Winit.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Winit/) |
+| `VelloSharp.Windows.Core` | Windows swapchain, device, and interop helpers shared by WinForms/WPF hosts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Windows.Core.svg)](https://www.nuget.org/packages/VelloSharp.Windows.Core/) |
+| `VelloSharp.WinForms.Core` | WinForms-friendly drawing abstractions and bitmap helpers. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.WinForms.Core.svg)](https://www.nuget.org/packages/VelloSharp.WinForms.Core/) |
+| `VelloSharp.Integration.WinForms` | Drop-in WinForms control that renders through the shared Vello renderer. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.WinForms.svg)](https://www.nuget.org/packages/VelloSharp.Integration.WinForms/) |
+| `VelloSharp.Integration.Wpf` | Swapchain-backed WPF controls with GPU/CPU fallback support. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.Wpf.svg)](https://www.nuget.org/packages/VelloSharp.Integration.Wpf/) |
+| `VelloSharp.Uno` | Uno Platform hosting primitives and diagnostics surface for VelloSharp. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Uno.svg)](https://www.nuget.org/packages/VelloSharp.Uno/) |
+| `VelloSharp.Composition` | Composition primitives, plotting surfaces, and shared utilities consumed by higher-level dashboards. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Composition.svg)](https://www.nuget.org/packages/VelloSharp.Composition/) |
+| `VelloSharp.ChartData` | Streaming data buses and sample buffers for real-time charts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.ChartData.svg)](https://www.nuget.org/packages/VelloSharp.ChartData/) |
+| `VelloSharp.ChartDiagnostics` | Telemetry collectors and instrumentation helpers for chart runtimes. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.ChartDiagnostics.svg)](https://www.nuget.org/packages/VelloSharp.ChartDiagnostics/) |
+| `VelloSharp.ChartRuntime` | Scheduler, tick sources, and execution helpers shared by chart hosts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.ChartRuntime.svg)](https://www.nuget.org/packages/VelloSharp.ChartRuntime/) |
+| `VelloSharp.ChartRuntime.Windows` | Windows-specific dispatcher, swapchain, and composition integrations for charts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.ChartRuntime.Windows.svg)](https://www.nuget.org/packages/VelloSharp.ChartRuntime.Windows/) |
+| `VelloSharp.ChartEngine` | High-performance chart renderer built on Vello primitives. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.ChartEngine.svg)](https://www.nuget.org/packages/VelloSharp.ChartEngine/) |
+| `VelloSharp.Charting` | Chart composition API, styling, axes, and legend utilities. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Charting.svg)](https://www.nuget.org/packages/VelloSharp.Charting/) |
+| `VelloSharp.Charting.Avalonia` | Avalonia controls and adapters that host the chart engine. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Charting.Avalonia.svg)](https://www.nuget.org/packages/VelloSharp.Charting.Avalonia/) |
+| `VelloSharp.Charting.WinForms` | WinForms chart controls backed by the shared runtime. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Charting.WinForms.svg)](https://www.nuget.org/packages/VelloSharp.Charting.WinForms/) |
+| `VelloSharp.Charting.Wpf` | WPF chart host controls with accessibility and overlay support. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Charting.Wpf.svg)](https://www.nuget.org/packages/VelloSharp.Charting.Wpf/) |
+| `VelloSharp.Editor` | Managed hooks for the editor core and composition tooling. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Editor.svg)](https://www.nuget.org/packages/VelloSharp.Editor/) |
+| `VelloSharp.Gauges` | Industrial gauge primitives backed by the native gauges runtime. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Gauges.svg)](https://www.nuget.org/packages/VelloSharp.Gauges/) |
+| `VelloSharp.Scada` | SCADA runtime, alarms, and dashboard orchestration services. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Scada.svg)](https://www.nuget.org/packages/VelloSharp.Scada/) |
+| `VelloSharp.TreeDataGrid` | Native-backed tree data grid models and render loops. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.TreeDataGrid.svg)](https://www.nuget.org/packages/VelloSharp.TreeDataGrid/) |
+
+### Native runtime packages
+
+| Package | Purpose | Supported RIDs | NuGet |
+| --- | --- | --- | --- |
+| `VelloSharp.Native.AccessKit` | Bundles the AccessKit FFI used for accessibility tree marshalling. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.AccessKit.svg)](https://www.nuget.org/packages/VelloSharp.Native.AccessKit/) |
+| `VelloSharp.Native.ChartEngine` | Ships chart-engine diagnostics and runtime helpers. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.ChartEngine.svg)](https://www.nuget.org/packages/VelloSharp.Native.ChartEngine/) |
+| `VelloSharp.Native.Composition` | Composition and scene-graph native components shared across bindings. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Composition.svg)](https://www.nuget.org/packages/VelloSharp.Native.Composition/) |
+| `VelloSharp.Native.Editor` | Editor-focused FFI that powers the unified visual editor surface. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Editor.svg)](https://www.nuget.org/packages/VelloSharp.Native.Editor/) |
+| `VelloSharp.Native.Gauges` | Industrial gauges runtime payload (`vello_gauges_core`). | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Gauges.svg)](https://www.nuget.org/packages/VelloSharp.Native.Gauges/) |
+| `VelloSharp.Native.Kurbo` | Geometry and curve helpers from `kurbo_ffi`. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Kurbo.svg)](https://www.nuget.org/packages/VelloSharp.Native.Kurbo/) |
+| `VelloSharp.Native.Peniko` | Brush and gradient runtime assets from `peniko_ffi`. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Peniko.svg)](https://www.nuget.org/packages/VelloSharp.Native.Peniko/) |
+| `VelloSharp.Native.Scada` | SCADA orchestration runtime used by dashboards and telemetry views. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Scada.svg)](https://www.nuget.org/packages/VelloSharp.Native.Scada/) |
+| `VelloSharp.Native.TreeDataGrid` | TreeDataGrid FFI for hierarchical data visualisations. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.TreeDataGrid.svg)](https://www.nuget.org/packages/VelloSharp.Native.TreeDataGrid/) |
+| `VelloSharp.Native.Vello` | Core renderer FFI (`vello_ffi`) that drives GPU and CPU pipelines. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Vello.svg)](https://www.nuget.org/packages/VelloSharp.Native.Vello/) |
+| `VelloSharp.Native.VelloSparse` | Sparse renderer runtime (`vello_sparse_ffi`) used for CPU fallbacks. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.VelloSparse.svg)](https://www.nuget.org/packages/VelloSharp.Native.VelloSparse/) |
+| `VelloSharp.Native.Winit` | Winit FFI that powers cross-platform window creation and input routing. | `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, `win-x64` | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Native.Winit.svg)](https://www.nuget.org/packages/VelloSharp.Native.Winit/) |
+
+Each native package has runtime-specific variants (for example `VelloSharp.Native.Vello.win-x64`) that are published alongside the platform-agnostic meta-package. When you reference the meta-package, `dotnet restore` automatically selects the correct RID-specific asset.
+
 The codebase is split into native FFI crates, managed bindings, integration helpers, and sample applications:
 
 - Native FFI crates (under `ffi/`):
@@ -37,10 +95,488 @@ The codebase is split into native FFI crates, managed bindings, integration help
     managed bindings.
   - `VelloSharp.Avalonia.Vello` - Avalonia platform abstractions that adapt Vello surfaces and inputs into
     application-friendly controls.
-  - `VelloSharp.Gauges` - managed bridge for the gauges runtime, providing initialization hooks over `vello_gauges_core`.
-  - `VelloSharp.Scada` - SCADA runtime shell that coordinates gauges, charts, and TreeDataGrid surfaces against `vello_scada_runtime`.
-  - `VelloSharp.Editor` - design-time editor bindings that light up the native editor core and shared composition services.
-- Samples:
+- Application assemblies (under `src/`):
+  - `VelloSharp.Composition` - composition primitives, plotting surfaces, and shared utilities consumed by higher-level dashboards.
+  - `VelloSharp.ChartData` - streaming data buses and sample buffers for real-time charts.
+  - `VelloSharp.ChartDiagnostics` - telemetry collectors and instrumentation helpers for chart runtimes.
+  - `VelloSharp.ChartRuntime` - scheduler, tick sources, and execution helpers shared by chart hosts.
+  - `VelloSharp.ChartRuntime.Windows` - Windows-specific dispatcher, swapchain, and composition integrations for charts.
+  - `VelloSharp.ChartEngine` - animation loops, color utilities, and renderer orchestrators for charts.
+  - `VelloSharp.Charting` - chart composition API, styling, axes, and legend utilities.
+  - `VelloSharp.Charting.Avalonia` - Avalonia UI controls and adapters that host the chart engine.
+  - `VelloSharp.Charting.WinForms` - WinForms chart controls backed by the shared runtime.
+  - `VelloSharp.Charting.Wpf` - WPF chart host controls with accessibility and overlay support.
+  - `VelloSharp.Gauges` - industrial gauge primitives backed by the native gauges runtime.
+  - `VelloSharp.Scada` - SCADA runtime, alarms, and dashboard orchestration services.
+  - `VelloSharp.TreeDataGrid` - interop layer around the native tree data grid renderer.
+  - `VelloSharp.Editor` - managed hooks for the editor core and composition tooling.
+
+## Managed package quickstart
+
+The managed packages are designed to be composed as needed. Use the snippets below as a starting point for each package.
+
+### VelloSharp
+
+- Builds scenes, drives the renderer, and manages images, fonts, and brushes.
+- Combine with the native packages to target GPU, CPU, or sparse pipelines.
+
+```csharp
+using System.Numerics;
+using VelloSharp;
+
+using var scene = new Scene();
+var path = new PathBuilder()
+    .MoveTo(0, 0)
+    .LineTo(128, 0)
+    .LineTo(64, 96)
+    .Close();
+scene.FillPath(path, FillRule.NonZero, Matrix3x2.Identity, RgbaColor.FromBytes(0, 128, 255, 255));
+
+using var renderer = new Renderer(128, 96);
+var buffer = new byte[128 * 96 * 4];
+var renderParams = new RenderParams(128, 96, RgbaColor.FromBytes(0, 0, 0, 255));
+renderer.Render(scene, renderParams, buffer, 128 * 4);
+```
+
+### VelloSharp.Core
+
+- Supplies shared primitives such as `PathBuilder`, `RenderParams`, gradients, and stroke styles.
+- Acts as the foundation for every other managed package.
+
+```csharp
+using System.Numerics;
+using VelloSharp;
+
+var brush = new LinearGradientBrush((0, 0), (0, 200),
+    GradientStop.At(0f, RgbaColor.FromBytes(255, 0, 0, 255)),
+    GradientStop.At(1f, RgbaColor.FromBytes(0, 0, 255, 255)));
+
+var path = new PathBuilder()
+    .MoveTo(32, 32)
+    .QuadraticTo(128, 0, 224, 128)
+    .Close();
+```
+
+### VelloSharp.Ffi.Core
+
+- Exposes raw structs/enums for window handles, colours, brushes, and status codes.
+- Useful when interoperating with native surfaces or marshalling custom handles.
+
+```csharp
+using System;
+using VelloSharp;
+
+IntPtr hwnd = /* obtain your HWND (for example via Form.Handle) */;
+IntPtr hinstance = /* retrieve the module handle associated with that window */;
+var win32Handle = SurfaceHandle.FromWin32(hwnd, hinstance);
+var descriptor = new SurfaceDescriptor
+{
+    Width = 1920,
+    Height = 1080,
+    PresentMode = PresentMode.AutoVsync,
+    Handle = win32Handle,
+};
+```
+
+### VelloSharp.Ffi.Gpu
+
+- Provides the P/Invoke entry points used by the GPU renderer (`vello_ffi`) and wgpu helpers.
+- Includes `GpuNativeHelpers.ThrowOnError` for consistent error translation.
+
+```csharp
+using System;
+using VelloSharp;
+
+var rendererHandle = NativeMethods.vello_renderer_create(800, 600);
+if (rendererHandle == IntPtr.Zero)
+{
+    throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Renderer creation failed.");
+}
+NativeMethods.vello_renderer_destroy(rendererHandle);
+```
+
+### VelloSharp.Ffi.Sparse
+
+- Direct bridge to the sparse CPU renderer (`vello_sparse_ffi`) without the managed wrapper.
+- Ideal for embedding the SIMD-aware renderer inside existing native pipelines.
+
+```csharp
+using System;
+using VelloSharp;
+
+var context = SparseNativeMethods.vello_sparse_render_context_create(640, 480);
+try
+{
+    SparseNativeHelpers.ThrowOnError(
+        SparseNativeMethods.vello_sparse_render_context_set_aliasing_threshold(context, 4),
+        nameof(SparseNativeMethods.vello_sparse_render_context_set_aliasing_threshold));
+}
+finally
+{
+    SparseNativeMethods.vello_sparse_render_context_destroy(context);
+}
+```
+
+### VelloSharp.Text
+
+- Wraps text shaping, OpenType features, and variation axes with friendly record structs.
+- Complements both the GPU and sparse renderers.
+
+```csharp
+using VelloSharp.Text;
+
+var options = VelloTextShaperOptions.CreateDefault(fontSize: 18f, isRightToLeft: false) with
+{
+    Features = new[] { new VelloOpenTypeFeature("liga", 1) },
+    VariationAxes = new[] { new VelloVariationAxisValue("wght", 600f) },
+};
+```
+
+### VelloSharp.Gpu
+
+- Adds higher-level GPU utilities, AccessKit helpers, and native library registration.
+- Automatically registers native DLLs through `NativeLibraryLoader`.
+
+```csharp
+using VelloSharp;
+
+var request = AccessKitActionRequest.FromJson("{\"type\":\"Focus\",\"action_request_id\":1}");
+using var document = request.ToJsonDocument();
+Console.WriteLine(document.RootElement.GetProperty("type").GetString());
+```
+
+### VelloSharp.Skia.Core
+
+- Recreates SkiaSharp-style APIs (`SKSurface`, `SKCanvas`, `SKPaint`, etc.) backed by Vello scenes.
+- Perfect when porting Skia drawing code onto the Vello renderer.
+
+```csharp
+using SkiaSharp;
+
+var surface = SKSurface.Create(new SKImageInfo(256, 256));
+surface.Canvas.Clear(SKColors.White);
+using var paint = new SKPaint { Color = SKColors.DarkOrange, IsAntialias = true };
+surface.Canvas.DrawCircle(128, 128, 96, paint);
+surface.Flush();
+```
+
+### VelloSharp.Skia.Gpu
+
+- Registers the GPU-enabled backend via module initialisers—no extra code required.
+- Once referenced, Skia surfaces render via Vello + wgpu automatically.
+
+```csharp
+using SkiaSharp;
+
+var gpuSurface = SKSurface.Create(new SKImageInfo(1024, 512));
+gpuSurface.Canvas.DrawRect(SKRect.Create(0, 0, 1024, 512), new SKPaint { Color = SKColors.CornflowerBlue });
+gpuSurface.Flush();
+```
+
+### VelloSharp.Skia.Cpu
+
+- Provides the sparse/CPU backend for the Skia integration.
+- Reference alongside `VelloSharp.Skia.Core` to guarantee deterministic software rendering.
+
+```csharp
+using SkiaSharp;
+
+var cpuSurface = SKSurface.Create(new SKImageInfo(400, 200));
+cpuSurface.Canvas.DrawText("CPU sparse", 20, 120, new SKPaint { Color = SKColors.Black, TextSize = 48 });
+cpuSurface.Flush();
+```
+
+### VelloSharp.Integration.Skia
+
+- Offers `SkiaRenderBridge` to stream Vello render buffers into Skia bitmaps or surfaces.
+- Ideal for hybrid dashboards that mix Skia UI with Vello scenes.
+
+```csharp
+using SkiaSharp;
+using System.Numerics;
+using VelloSharp;
+using VelloSharp.Integration.Skia;
+using VelloSharp.Rendering;
+
+using var scene = new Scene();
+scene.FillPath(new PathBuilder().MoveTo(0, 0).LineTo(256, 0).LineTo(256, 256).Close(), FillRule.NonZero, Matrix3x2.Identity, RgbaColor.Crimson);
+
+using var surface = SKSurface.Create(new SKImageInfo(256, 256));
+using var renderer = new Renderer(256, 256);
+var renderParams = new RenderParams(256, 256, RgbaColor.FromBytes(0, 0, 0, 255));
+SkiaRenderBridge.Render(surface, renderer, scene, renderParams);
+surface.Flush();
+```
+
+### VelloSharp.Avalonia.Vello
+
+- Hooks the Vello renderer into Avalonia via `AppBuilder.UseVello`.
+- Exposes `VelloPlatformOptions` for FPS caps, clear colours, and antialiasing.
+
+```csharp
+using Avalonia;
+using VelloSharp.Avalonia.Vello;
+
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .UseVello(new VelloPlatformOptions { FramesPerSecond = 120 })
+    .StartWithClassicDesktopLifetime(args);
+```
+
+### VelloSharp.Avalonia.Winit
+
+- Registers the winit windowing subsystem for Avalonia (`AppBuilder.UseWinit`).
+- Combine with `VelloSharp.Avalonia.Vello` to run entirely on winit + Vello.
+
+```csharp
+using Avalonia;
+using VelloSharp.Avalonia.Winit;
+
+AppBuilder.Configure<App>()
+    .UseWinit()
+    .StartWithClassicDesktopLifetime(args);
+```
+
+### VelloSharp.Windows.Core
+
+- Supplies `VelloGraphicsDevice`, swapchain helpers, and diagnostics events for Windows hosts.
+- Shared foundation for both WinForms and WPF integrations.
+
+```csharp
+using VelloSharp.Windows;
+
+using var device = new VelloGraphicsDevice(1920, 1080);
+using var session = device.BeginSession(1920, 1080);
+Console.WriteLine($"Surface size: {session.Width}x{session.Height}");
+```
+
+### VelloSharp.WinForms.Core
+
+- Adds WinForms-oriented helpers such as `VelloBitmap` that wrap `System.Drawing.Bitmap`.
+- Simplifies producing `ImageBrush` payloads from WinForms painting code.
+
+```csharp
+using System.Drawing;
+using VelloSharp.WinForms;
+
+var bitmap = new Bitmap(256, 256, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+using var velloBitmap = VelloBitmap.FromBitmap(bitmap);
+Console.WriteLine($"Vello image size: {velloBitmap.Width}x{velloBitmap.Height}");
+```
+
+### VelloSharp.Integration.WinForms
+
+- Ships `VelloRenderControl`, a drop-in WinForms control with render-loop management.
+- Attach to `PaintSurface` to draw scenes on demand or continuously.
+
+```csharp
+using System.Windows.Forms;
+using VelloSharp.WinForms.Integration;
+
+var control = new VelloRenderControl { Dock = DockStyle.Fill };
+control.PaintSurface += (_, e) =>
+{
+    // Build your scene with e.Session.Scene and render via e.Session.Renderer.
+};
+
+var form = new Form { Text = "VelloSharp WinForms" };
+form.Controls.Add(control);
+Application.Run(form);
+```
+
+### VelloSharp.Integration.Wpf
+
+- Provides `VelloNativeSwapChainView` for WPF swapchain hosting with GPU/CPU fallbacks.
+- Exposes events (`PaintSurface`, `RenderSurface`) for custom rendering logic.
+
+```xml
+<Window x:Class="VelloDemo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vello="clr-namespace:VelloSharp.Wpf.Integration;assembly=VelloSharp.Integration.Wpf"
+        Title="VelloSharp WPF" Height="450" Width="800">
+    <vello:VelloNativeSwapChainView RenderMode="Continuous"
+                                    PreferredBackend="Gpu"
+                                    RenderSurface="OnRenderSurface" />
+</Window>
+```
+
+### VelloSharp.Uno
+
+- Integrates Vello rendering into Uno Platform controls and diagnostics tooling.
+- Handy when projecting Vello scenes into WinUI or XAML Islands.
+
+```csharp
+using VelloSharp.Uno.Controls;
+
+var panel = new VelloSwapChainPanel();
+((IVelloDiagnosticsProvider)panel).DiagnosticsUpdated += (_, e) =>
+{
+    Console.WriteLine($"GPU presentations: {e.Diagnostics.SwapChainPresentations}");
+};
+```\n### VelloSharp.Composition
+
+- Shared composition primitives for dashboards, gauges, and SCADA shells.
+- Supplies geometry metrics and layout helpers consumed across the runtime.
+
+```csharp
+using VelloSharp.Composition;
+
+var metrics = new LabelMetrics(width: 120, height: 24, baseline: 18);
+Console.WriteLine($"Label metrics {metrics.Width}x{metrics.Height}");
+```
+
+### VelloSharp.ChartData
+
+- Lock-free data buses for streaming telemetry into chart scenes.
+- Works with `Span<T>` sources for minimal allocations.
+
+```csharp
+using VelloSharp.ChartData;
+
+var bus = new ChartDataBus(capacity: 4);
+bus.Write(new[] { 1.0f, 2.5f, 3.75f });
+if (bus.TryRead(out var slice))
+{
+    Console.WriteLine($"Slice items: {slice.ItemCount}");
+    slice.Dispose();
+}
+```
+
+### VelloSharp.ChartDiagnostics
+
+- Records frame statistics and exposes them through .NET diagnostics APIs.
+- Pipe metrics into `Meter`, `Activity`, or custom sinks.
+
+```csharp\nusing System;\nusing VelloSharp.ChartDiagnostics;
+
+using var collector = new FrameDiagnosticsCollector();
+collector.Record(new FrameStats(TimeSpan.FromMilliseconds(4.2), TimeSpan.FromMilliseconds(3.1), TimeSpan.FromMilliseconds(1.0), 128, DateTimeOffset.UtcNow));
+```
+
+### VelloSharp.ChartEngine
+
+- The real-time chart renderer built on Vello primitives.
+- Provides animation profiles, color spaces, and composition hooks.
+
+```csharp
+using VelloSharp.ChartEngine;
+
+var profile = ChartAnimationProfile.Default with { ReducedMotionEnabled = true };\nvar color = ChartColor.FromRgb(34, 139, 230);
+```
+
+### VelloSharp.Charting
+
+- High-level chart composition API, axes, legends, and styling utilities.
+- Builds on the engine to define complete dashboard layouts.
+
+```csharp
+using VelloSharp.Charting.Layout;
+
+var orientation = AxisOrientation.Left;\nConsole.WriteLine($"Axis orientation: {orientation}");
+```
+
+### VelloSharp.Charting.Avalonia
+
+- Avalonia controls (`ChartView`) that host the chart engine.
+- Integrates with Avalonia&apos;s styling, input, and dispatcher model.
+
+```csharp
+using VelloSharp.Charting.Avalonia;
+
+var chartView = new ChartView();
+```
+
+### VelloSharp.Charting.WinForms
+
+- Windows Forms control hosting the chart runtime.
+- Designed for drop-in use in existing WinForms dashboards.
+
+```csharp
+using System;
+using VelloSharp.Charting.WinForms;
+
+[STAThread]
+using var control = new ChartView();
+```
+
+### VelloSharp.Charting.Wpf
+
+- WPF `ChartView` that wires the chart engine into a swapchain-backed control.
+- Supports accessibility, composition overlays, and backend switching.
+
+```csharp
+using VelloSharp.Charting.Wpf;
+
+var control = new ChartView();
+```
+
+### VelloSharp.ChartRuntime
+
+- Scheduling primitives, frame tick sources, and render-loop helpers.
+- Shared by Avalonia, WinForms, and WPF chart hosts.
+
+```csharp
+using System;
+using VelloSharp.ChartRuntime;
+
+var scheduler = new RenderScheduler(TimeSpan.FromMilliseconds(16), TimeProvider.System);
+```
+
+### VelloSharp.ChartRuntime.Windows
+
+- Windows-specific tick sources and dispatcher integrations for charts.
+- Provides WinForms and WinUI composition helpers.
+
+```csharp
+using System.Windows.Forms;
+using VelloSharp.ChartRuntime.Windows.WinForms;
+
+using var control = new Control();
+using var tickSource = new WinFormsTickSource(control);
+```
+
+### VelloSharp.Gauges
+
+- Managed bridge to the native gauges runtime.
+- Ensure the native module is loaded before rendering gauges.
+
+```csharp
+using VelloSharp.Gauges;
+
+GaugeModule.EnsureInitialized();
+```
+
+### VelloSharp.Editor
+
+- Initializes the native editor core used by the visual editor shell.
+
+```csharp
+using VelloSharp.Editor;
+
+EditorRuntime.EnsureInitialized();
+```
+
+### VelloSharp.Scada
+
+- SCADA dashboards, alarm orchestration, and runtime shell helpers.
+
+```csharp
+using VelloSharp.Scada;
+
+ScadaRuntime.EnsureInitialized();
+```
+
+### VelloSharp.TreeDataGrid
+
+- Native-backed tree data grid model for hierarchical telemetry.
+
+```csharp
+using VelloSharp.TreeDataGrid;
+
+using var model = new TreeDataModel();
+model.AttachRoots(new[] { new TreeNodeDescriptor(1, TreeRowKind.Data, 24f, hasChildren: false) });
+```\n- Samples:
   - `samples/AvaloniaVelloWinitDemo` - minimal Avalonia desktop host covering CPU and GPU render paths through the AvaloniaNative/Vello stack.
   - `samples/AvaloniaVelloX11Demo` - Linux-focused host that locks Avalonia to the X11 platform for backend validation.
   - `samples/AvaloniaVelloWin32Demo` - Windows host configured for the Win32 platform while exercising the Vello renderer.
@@ -707,6 +1243,11 @@ license text (`LICENSE`) so the published artifacts match the source tree.
 To honour upstream obligations, the packages also embed the MIT/Apache-2.0 notices from the Linebender components the
 FFI layer depends on (`vello`, `kurbo`, `peniko`, `wgpu`, etc.). Vendored submodules retain their original licenses—
 refer to each directory for the exact terms.
+
+
+
+
+
 
 
 

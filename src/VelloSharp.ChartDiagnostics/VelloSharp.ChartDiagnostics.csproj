@@ -4,5 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.ChartDiagnostics</PackageId>
+    <Title>VelloSharp.ChartDiagnostics</Title>
+    <Description>Telemetry collection, frame statistics, and diagnostics helpers for VelloSharp chart runtimes.</Description>
+    <PackageTags>vello;charting;telemetry;diagnostics</PackageTags>
   </PropertyGroup>
 </Project>

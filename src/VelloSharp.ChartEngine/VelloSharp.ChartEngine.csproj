@@ -5,6 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.ChartEngine</PackageId>
+    <Title>VelloSharp.ChartEngine</Title>
+    <Description>Real-time chart animation and rendering engine built on the Vello renderer.</Description>
+    <PackageTags>vello;charting;rendering;animation</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />

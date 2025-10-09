@@ -6,6 +6,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Charting.Wpf</PackageId>
+    <Title>VelloSharp.Charting.Wpf</Title>
+    <Description>WPF controls, render surfaces, and tooling for the VelloSharp chart engine.</Description>
+    <PackageTags>vello;charting;wpf</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

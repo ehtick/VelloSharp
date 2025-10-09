@@ -6,6 +6,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Charting.WinForms</PackageId>
+    <Title>VelloSharp.Charting.WinForms</Title>
+    <Description>Windows Forms controls and adapters for hosting high-performance VelloSharp charts.</Description>
+    <PackageTags>vello;charting;winforms</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

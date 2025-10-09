@@ -5,10 +5,24 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Gauges</PackageId>
+    <Title>VelloSharp.Gauges</Title>
+    <Description>Industrial gauge primitives, render helpers, and animation profiles for VelloSharp dashboards.</Description>
+    <PackageTags>vello;gauges;visualization</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
+    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.Gauges</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
     <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
+    <PackageReference Include="VelloSharp.Native.Gauges" Version="$(VelloPackageVersion)" />
   </ItemGroup>
 </Project>

@@ -4,11 +4,25 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.TreeDataGrid</PackageId>
+    <Title>VelloSharp.TreeDataGrid</Title>
+    <Description>Tree-structured data models, render loops, and native interop for VelloSharp dashboards.</Description>
+    <PackageTags>vello;treedatagrid;visualization</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
+    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.TreeDataGrid</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
     <ProjectReference Include="..\VelloSharp.ChartDiagnostics\VelloSharp.ChartDiagnostics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
+    <PackageReference Include="VelloSharp.Native.TreeDataGrid" Version="$(VelloPackageVersion)" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -21,14 +35,14 @@
 
   <Target Name="BuildTreeDataGridNative"
           BeforeTargets="Build"
-          Condition="'$(DesignTimeBuild)'!='true'">
+          Condition="'$(DesignTimeBuild)'!='true' and '$(VelloSkipNativeBuild)'!='true' and '$(VelloUseNativePackageDependencies)'!='true'">
     <Exec Command="cargo build -p vello_tree_datagrid $(_CargoProfileFlag)"
           WorkingDirectory="$(RepositoryRoot)" />
   </Target>
 
   <Target Name="CopyTreeDataGridNative"
           AfterTargets="Build"
-          Condition="'$(DesignTimeBuild)'!='true'">
+          Condition="'$(DesignTimeBuild)'!='true' and '$(VelloSkipNativeBuild)'!='true' and '$(VelloUseNativePackageDependencies)'!='true'">
     <ItemGroup>
       <_TreeNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_tree_datagrid.dll"
                    Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_tree_datagrid.dll')" />

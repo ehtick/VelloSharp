@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Charting</PackageId>
+    <Title>VelloSharp.Charting</Title>
+    <Description>Composable chart primitives, data models, and rendering pipelines for VelloSharp applications.</Description>
+    <PackageTags>vello;charting;graphics</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

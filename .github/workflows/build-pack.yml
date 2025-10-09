@@ -308,6 +308,17 @@ jobs:
               integration/managed/VelloSharp.Integration.Skia.Integration/VelloSharp.Integration.Skia.Integration.csproj
               integration/managed/VelloSharp.Package.Integration/VelloSharp.Package.Integration.csproj
               integration/managed/VelloSharp.Uno.Integration/VelloSharp.Uno.Integration.csproj
+              integration/managed/VelloSharp.ChartData.Integration/VelloSharp.ChartData.Integration.csproj
+              integration/managed/VelloSharp.ChartDiagnostics.Integration/VelloSharp.ChartDiagnostics.Integration.csproj
+              integration/managed/VelloSharp.ChartEngine.Integration/VelloSharp.ChartEngine.Integration.csproj
+              integration/managed/VelloSharp.Charting.Integration/VelloSharp.Charting.Integration.csproj
+              integration/managed/VelloSharp.ChartRuntime.Integration/VelloSharp.ChartRuntime.Integration.csproj
+              integration/managed/VelloSharp.Composition.Integration/VelloSharp.Composition.Integration.csproj
+              integration/managed/VelloSharp.Gauges.Integration/VelloSharp.Gauges.Integration.csproj
+              integration/managed/VelloSharp.Editor.Integration/VelloSharp.Editor.Integration.csproj
+              integration/managed/VelloSharp.Scada.Integration/VelloSharp.Scada.Integration.csproj
+              integration/managed/VelloSharp.TreeDataGrid.Integration/VelloSharp.TreeDataGrid.Integration.csproj
+              integration/managed/VelloSharp.Charting.Avalonia.Integration/VelloSharp.Charting.Avalonia.Integration.csproj
           - os: macos-14
             native_project: integration/native/osx-arm64/VelloSharp.Native.OsxArm64.Integration.csproj
             managed_projects: |
@@ -322,6 +333,17 @@ jobs:
               integration/managed/VelloSharp.Integration.Skia.Integration/VelloSharp.Integration.Skia.Integration.csproj
               integration/managed/VelloSharp.Package.Integration/VelloSharp.Package.Integration.csproj
               integration/managed/VelloSharp.Uno.Integration/VelloSharp.Uno.Integration.csproj
+              integration/managed/VelloSharp.ChartData.Integration/VelloSharp.ChartData.Integration.csproj
+              integration/managed/VelloSharp.ChartDiagnostics.Integration/VelloSharp.ChartDiagnostics.Integration.csproj
+              integration/managed/VelloSharp.ChartEngine.Integration/VelloSharp.ChartEngine.Integration.csproj
+              integration/managed/VelloSharp.Charting.Integration/VelloSharp.Charting.Integration.csproj
+              integration/managed/VelloSharp.ChartRuntime.Integration/VelloSharp.ChartRuntime.Integration.csproj
+              integration/managed/VelloSharp.Composition.Integration/VelloSharp.Composition.Integration.csproj
+              integration/managed/VelloSharp.Gauges.Integration/VelloSharp.Gauges.Integration.csproj
+              integration/managed/VelloSharp.Editor.Integration/VelloSharp.Editor.Integration.csproj
+              integration/managed/VelloSharp.Scada.Integration/VelloSharp.Scada.Integration.csproj
+              integration/managed/VelloSharp.TreeDataGrid.Integration/VelloSharp.TreeDataGrid.Integration.csproj
+              integration/managed/VelloSharp.Charting.Avalonia.Integration/VelloSharp.Charting.Avalonia.Integration.csproj
           - os: windows-latest
             native_project: integration/native/win-x64/VelloSharp.Native.WinX64.Integration.csproj
             managed_projects: |
@@ -336,10 +358,24 @@ jobs:
               integration/managed/VelloSharp.Integration.Skia.Integration/VelloSharp.Integration.Skia.Integration.csproj
               integration/managed/VelloSharp.Package.Integration/VelloSharp.Package.Integration.csproj
               integration/managed/VelloSharp.Uno.Integration/VelloSharp.Uno.Integration.csproj
+              integration/managed/VelloSharp.ChartData.Integration/VelloSharp.ChartData.Integration.csproj
+              integration/managed/VelloSharp.ChartDiagnostics.Integration/VelloSharp.ChartDiagnostics.Integration.csproj
+              integration/managed/VelloSharp.ChartEngine.Integration/VelloSharp.ChartEngine.Integration.csproj
+              integration/managed/VelloSharp.Charting.Integration/VelloSharp.Charting.Integration.csproj
+              integration/managed/VelloSharp.ChartRuntime.Integration/VelloSharp.ChartRuntime.Integration.csproj
+              integration/managed/VelloSharp.Composition.Integration/VelloSharp.Composition.Integration.csproj
+              integration/managed/VelloSharp.Gauges.Integration/VelloSharp.Gauges.Integration.csproj
+              integration/managed/VelloSharp.Editor.Integration/VelloSharp.Editor.Integration.csproj
+              integration/managed/VelloSharp.Scada.Integration/VelloSharp.Scada.Integration.csproj
+              integration/managed/VelloSharp.TreeDataGrid.Integration/VelloSharp.TreeDataGrid.Integration.csproj
+              integration/managed/VelloSharp.Charting.Avalonia.Integration/VelloSharp.Charting.Avalonia.Integration.csproj
               integration/windows/VelloSharp.Windows.Core.Integration/VelloSharp.Windows.Core.Integration.csproj
               integration/windows/VelloSharp.WinForms.Core.Integration/VelloSharp.WinForms.Core.Integration.csproj
               integration/windows/VelloSharp.Integration.WinForms.Integration/VelloSharp.Integration.WinForms.Integration.csproj
               integration/windows/VelloSharp.Integration.Wpf.Integration/VelloSharp.Integration.Wpf.Integration.csproj
+              integration/windows/VelloSharp.Charting.WinForms.Integration/VelloSharp.Charting.WinForms.Integration.csproj
+              integration/windows/VelloSharp.Charting.Wpf.Integration/VelloSharp.Charting.Wpf.Integration.csproj
+              integration/windows/VelloSharp.ChartRuntime.Windows.Integration/VelloSharp.ChartRuntime.Windows.Integration.csproj
     steps:
       - uses: actions/checkout@v4
         with:

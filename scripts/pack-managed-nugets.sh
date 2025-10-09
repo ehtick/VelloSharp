@@ -60,6 +60,20 @@ PACK_PROJECTS=(
   "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj|-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloUseNativePackageDependencies=true -p:VelloRequireAllNativeAssets=false"
   "bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj|-p:VelloSkipNativeBuild=true"
   "bindings/VelloSharp/VelloSharp.csproj|-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloUseNativePackageDependencies=true -p:VelloRequireAllNativeAssets=false"
+  "src/VelloSharp.Composition/VelloSharp.Composition.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.ChartData/VelloSharp.ChartData.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.Charting/VelloSharp.Charting.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj|-p:VelloSkipNativeBuild=true"
+  "src/VelloSharp.Gauges/VelloSharp.Gauges.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
+  "src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
+  "src/VelloSharp.Editor/VelloSharp.Editor.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
+  "src/VelloSharp.Scada/VelloSharp.Scada.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
 )
 
 for entry in "${PACK_PROJECTS[@]}"; do
@@ -74,6 +88,13 @@ for entry in "${PACK_PROJECTS[@]}"; do
     extra_args+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED}")
   fi
 
+  if [[ "${relpath}" == "src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj" ||
+        "${relpath}" == "src/VelloSharp.Gauges/VelloSharp.Gauges.csproj" ||
+        "${relpath}" == "src/VelloSharp.Scada/VelloSharp.Scada.csproj" ||
+        "${relpath}" == "src/VelloSharp.Editor/VelloSharp.Editor.csproj" ]]; then
+    extra_args+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED}")
+  fi
+
   if (( ${#extra_args[@]} )); then
     dotnet pack "${ROOT}/${relpath}" "${COMMON_PACK_ARGS[@]}" "${extra_args[@]}"
   else
@@ -82,3 +103,5 @@ for entry in "${PACK_PROJECTS[@]}"; do
 done
 
 echo "Managed packages created in '${NUGET_OUTPUT}'."
+
+

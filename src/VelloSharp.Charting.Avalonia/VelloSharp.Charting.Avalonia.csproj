@@ -4,6 +4,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Charting.Avalonia</PackageId>
+    <Title>VelloSharp.Charting.Avalonia</Title>
+    <Description>Avalonia UI controls and services that host the VelloSharp chart engine.</Description>
+    <PackageTags>vello;charting;avalonia</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />

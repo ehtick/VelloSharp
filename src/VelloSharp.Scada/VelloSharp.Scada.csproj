@@ -5,6 +5,16 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Scada</PackageId>
+    <Title>VelloSharp.Scada</Title>
+    <Description>SCADA-view composition, alarms, and dashboard orchestration built on the VelloSharp runtime.</Description>
+    <PackageTags>vello;scada;visualization</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
+    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.Scada</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,5 +23,9 @@
     <ProjectReference Include="..\VelloSharp.Gauges\VelloSharp.Gauges.csproj" />
     <ProjectReference Include="..\VelloSharp.TreeDataGrid\VelloSharp.TreeDataGrid.csproj" />
     <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
+    <PackageReference Include="VelloSharp.Native.Scada" Version="$(VelloPackageVersion)" />
   </ItemGroup>
 </Project>

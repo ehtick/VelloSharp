@@ -4,5 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.ChartData</PackageId>
+    <Title>VelloSharp.ChartData</Title>
+    <Description>Streaming data buses, sample buffers, and snapshot helpers for VelloSharp real-time charts.</Description>
+    <PackageTags>vello;charting;data;telemetry</PackageTags>
   </PropertyGroup>
 </Project>

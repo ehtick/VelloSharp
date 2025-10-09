@@ -6,6 +6,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.ChartRuntime.Windows</PackageId>
+    <Title>VelloSharp.ChartRuntime.Windows</Title>
+    <Description>Windows-specific composition, dispatcher, and swapchain services for VelloSharp chart runtimes.</Description>
+    <PackageTags>vello;charting;windows</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
