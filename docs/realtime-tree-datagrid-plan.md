@@ -86,8 +86,8 @@
 - [x] Implement XAML-to-scene compilation pipeline (parse -> expression tree -> FFI) with caching and invalidation strategy.
 - [x] Provide C# fluent builders for scenarios without XAML; ensure type-safe binding to row/column contexts.
 - [x] Introduce per-column render hooks for custom Vello drawing, including shared shader/material registries.
-- [ ] Promote shared text primitives (`TextBlock`, `AccessText`, basic `TextBox`) within the template schema and composition bindings to guarantee parity with charting controls.
-- [ ] Deliver reusable control atoms (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`, `Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) and base classes (`TemplatedControl`, `Panel`, `UserControl`) built on the shared template pipeline with TDG and chart samples validating reuse, mirroring `Avalonia.Controls.*` naming/behaviour for downstream parity.
+- [x] Promote shared text primitives (`TextBlock`, `AccessText`, basic `TextBox`) within the template schema and composition bindings to guarantee parity with charting controls.
+- [x] Deliver reusable control atoms (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`, `Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) and base classes (`TemplatedControl`, `Panel`, `UserControl`) built on the shared template pipeline with TDG and chart samples validating reuse, mirroring `Avalonia.Controls.*` naming/behaviour for downstream parity.
 
 #### Phase 3 Kickoff Snapshot
 - Drafted the `Vello.Tdg.*` schema framing row, group-header, summary, and chrome templates around the freeze-aware pane slices surfaced by `TreeColumnPaneSnapshot`.

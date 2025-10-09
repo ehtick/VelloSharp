@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using VelloSharp.TreeDataGrid;
 using VelloSharp.TreeDataGrid.Rendering;
 using VelloSharp.TreeDataGrid.Templates;
@@ -72,6 +73,27 @@ public sealed class TreeTemplateCompilerTests
         Assert.True(first.IsValid);
         Assert.Equal(first, second);
     }
+
+    [Fact]
+    public void TextBlockBinding_ExposesBindingPath()
+    {
+        var definition = TreeTemplateBuilder.Row<PersonRow>(row =>
+            row.PrimaryPane(pane =>
+                pane.Cell("value", cell =>
+                    cell.TextBlock(text => text.BindRowContent(r => r.Name)))));
+
+        var compiler = new TreeTemplateCompiler();
+        var options = new TreeTemplateCompileOptions("Row:Primary", TreeFrozenKind.None, 3);
+        var compiled = definition.Compile(compiler, options);
+
+        var instructions = compiled.Instructions.Span.ToArray();
+        Assert.Contains(instructions, instruction =>
+            instruction.OpCode == TreeTemplateOpCode.BindProperty &&
+            string.Equals(instruction.PropertyName, "Content", StringComparison.Ordinal) &&
+            string.Equals(instruction.Value.BindingPath, "Row.Name", StringComparison.Ordinal));
+    }
+
+    private sealed record PersonRow(string Name);
 
     private sealed class FakeBackend : ITreeTemplateBackend, IDisposable
     {

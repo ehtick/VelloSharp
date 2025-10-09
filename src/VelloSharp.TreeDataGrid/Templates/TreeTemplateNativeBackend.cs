@@ -158,7 +158,7 @@ public sealed class TreeTemplateNativeBackend : ITreeTemplateBackend, IDisposabl
                     NodeKind = ConvertNodeKind(source.NodeKind),
                     ValueKind = ConvertValueKind(source.Value.Kind),
                     Property = AllocateString(source.PropertyName),
-                    Value = RequiresString(source.Value.Kind) ? AllocateString(source.Value.Raw) : IntPtr.Zero,
+                    Value = AllocateValue(source),
                     NumberValue = source.Value.Number ?? 0.0,
                     BooleanValue = source.Value.Boolean == true ? 1 : 0,
                 };
@@ -190,6 +190,18 @@ public sealed class TreeTemplateNativeBackend : ITreeTemplateBackend, IDisposabl
             var ptr = Marshal.StringToCoTaskMemUTF8(value);
             _allocated.Add(ptr);
             return ptr;
+        }
+
+        private IntPtr AllocateValue(in TreeTemplateInstruction instruction)
+        {
+            if (!RequiresString(instruction.Value.Kind))
+            {
+                return IntPtr.Zero;
+            }
+
+            return instruction.Value.Kind == TreeTemplateValueKind.Binding
+                ? AllocateString(instruction.Value.BindingPath)
+                : AllocateString(instruction.Value.Raw);
         }
     }
 
@@ -319,6 +331,8 @@ public sealed class TreeTemplateNativeBackend : ITreeTemplateBackend, IDisposabl
             TreeTemplateNodeKind.Rectangle => NativeMethods.VelloTdgTemplateNodeKind.Rectangle,
             TreeTemplateNodeKind.Image => NativeMethods.VelloTdgTemplateNodeKind.Image,
             TreeTemplateNodeKind.ContentPresenter => NativeMethods.VelloTdgTemplateNodeKind.ContentPresenter,
+            TreeTemplateNodeKind.AccessText => NativeMethods.VelloTdgTemplateNodeKind.AccessText,
+            TreeTemplateNodeKind.TextBox => NativeMethods.VelloTdgTemplateNodeKind.TextBox,
             _ => NativeMethods.VelloTdgTemplateNodeKind.Unknown,
         };
 

@@ -1,5 +1,5 @@
 namespace VelloSharp.Composition.Controls;
 
-public class UserControl : ContentControl
+public class Ellipse : Shape
 {
 }

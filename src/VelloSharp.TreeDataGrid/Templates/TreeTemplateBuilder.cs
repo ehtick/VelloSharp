@@ -191,11 +191,17 @@ public class TreeTemplateContentNodeBuilder<TRow, TColumn> : TreeTemplateNodeBui
         return this;
     }
 
-    public TreeTemplateContentNodeBuilder<TRow, TColumn> Text(
-        string content)
-        => Text(builder => builder.Content(content));
+    public TreeTemplateContentNodeBuilder<TRow, TColumn> Text(string content) =>
+        TextBlock(content);
 
     public TreeTemplateContentNodeBuilder<TRow, TColumn> Text(
+        Action<TreeTemplateLeafBuilder<TRow, TColumn>> configure) =>
+        TextBlock(configure);
+
+    public TreeTemplateContentNodeBuilder<TRow, TColumn> TextBlock(string content) =>
+        TextBlock(builder => builder.Content(content));
+
+    public TreeTemplateContentNodeBuilder<TRow, TColumn> TextBlock(
         Action<TreeTemplateLeafBuilder<TRow, TColumn>> configure)
     {
         if (configure is null)
@@ -206,6 +212,37 @@ public class TreeTemplateContentNodeBuilder<TRow, TColumn> : TreeTemplateNodeBui
         var text = new TreeTemplateLeafBuilder<TRow, TColumn>(TreeTemplateNodeKind.Text);
         configure(text);
         AddChild(text);
+        return this;
+    }
+
+    public TreeTemplateContentNodeBuilder<TRow, TColumn> AccessText(string content) =>
+        AccessText(builder => builder.Content(content));
+
+    public TreeTemplateContentNodeBuilder<TRow, TColumn> AccessText(
+        Action<TreeTemplateLeafBuilder<TRow, TColumn>> configure)
+    {
+        if (configure is null)
+        {
+            throw new ArgumentNullException(nameof(configure));
+        }
+
+        var text = new TreeTemplateLeafBuilder<TRow, TColumn>(TreeTemplateNodeKind.AccessText);
+        configure(text);
+        AddChild(text);
+        return this;
+    }
+
+    public TreeTemplateContentNodeBuilder<TRow, TColumn> TextBox(
+        Action<TreeTemplateLeafBuilder<TRow, TColumn>> configure)
+    {
+        if (configure is null)
+        {
+            throw new ArgumentNullException(nameof(configure));
+        }
+
+        var textBox = new TreeTemplateLeafBuilder<TRow, TColumn>(TreeTemplateNodeKind.TextBox);
+        configure(textBox);
+        AddChild(textBox);
         return this;
     }
 

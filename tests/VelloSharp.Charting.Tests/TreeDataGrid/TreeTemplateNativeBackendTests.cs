@@ -17,7 +17,17 @@ public sealed class TreeTemplateNativeBackendTests
         var definition = TreeTemplateBuilder.Row<PersonRow>(row =>
             row.PrimaryPane(pane =>
                 pane.Cell("value", cell =>
-                    cell.Rectangle(rect => rect.Background("#336699")))));
+                {
+                    cell.Rectangle(rect => rect.Background("#336699"));
+                    cell.TextBlock(text => text
+                        .BindRowContent(r => r.Name)
+                        .Foreground("#E6EDF7"));
+                    cell.AccessText(text => text.Content("_Details"));
+                    cell.TextBox(text => text
+                        .BindRowContent(r => r.Name)
+                        .Background("#1F2430")
+                        .Foreground("#F8FAFF"));
+                })));
 
         var compiler = new TreeTemplateCompiler();
         var compiled = definition.Compile(

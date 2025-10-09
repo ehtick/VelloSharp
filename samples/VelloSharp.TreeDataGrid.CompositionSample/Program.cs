@@ -138,6 +138,55 @@ else
     templatedHost.Arrange(new LayoutRect(0, 0, templatedHost.DesiredSize.Width, templatedHost.DesiredSize.Height, 0, templatedHost.DesiredSize.Height));
 
     Console.WriteLine($"  Panel rows materialized={templatedHost.RowCount} desired={templatedHost.DesiredSize.Width:F1}x{templatedHost.DesiredSize.Height:F1}");
+
+    var buttonSample = new Button
+    {
+        Text = "Apply Template",
+        Background = new CompositionColor(0.26f, 0.35f, 0.55f, 0.92f),
+        BorderBrush = new CompositionColor(0.38f, 0.46f, 0.64f, 1f),
+        Padding = new LayoutThickness(12, 6, 12, 6),
+    };
+    buttonSample.Mount();
+    buttonSample.Measure(new LayoutConstraints(
+        new ScalarConstraint(0, 180, 180),
+        new ScalarConstraint(0, 60, 60)));
+    Console.WriteLine($"  Button sample -> desired {buttonSample.DesiredSize.Width:F1}x{buttonSample.DesiredSize.Height:F1}");
+    buttonSample.Unmount();
+
+    var dropDownSample = new DropDown
+    {
+        PlaceholderText = "Select pane",
+    };
+    dropDownSample.Items.Add(new TextBlock { Text = "Primary", FontSize = 13f });
+    dropDownSample.Items.Add(new TextBlock { Text = "Leading", FontSize = 13f });
+    dropDownSample.Items.Add(new TextBlock { Text = "Trailing", FontSize = 13f });
+    dropDownSample.SelectedIndex = 1;
+    dropDownSample.Mount();
+    dropDownSample.Measure(new LayoutConstraints(
+        new ScalarConstraint(0, 220, 220),
+        new ScalarConstraint(0, 64, 64)));
+    var selectedItem = dropDownSample.SelectedItem as TextBlock;
+    Console.WriteLine($"  DropDown sample -> selected='{selectedItem?.Text}' width={dropDownSample.DesiredSize.Width:F1}");
+    dropDownSample.Unmount();
+
+    var tabSample = new TabControl();
+    tabSample.Items.Add(new TabItem
+    {
+        Header = "Summary",
+        Content = new TextBlock { Text = $"Rows: {compositionPlan.Active.Length}", FontSize = 12f },
+    });
+    tabSample.Items.Add(new TabItem
+    {
+        Header = "Columns",
+        Content = new TextBlock { Text = $"Leading {columnSnapshot.LeadingPane.Count} / Trailing {columnSnapshot.TrailingPane.Count}", FontSize = 12f },
+    });
+    tabSample.SelectedIndex = 0;
+    tabSample.Mount();
+    tabSample.Measure(new LayoutConstraints(
+        new ScalarConstraint(0, 320, 320),
+        new ScalarConstraint(0, 180, 180)));
+    Console.WriteLine($"  TabControl sample -> tabs={tabSample.Items.Count} desired={tabSample.DesiredSize.Width:F1}");
+    tabSample.Unmount();
 }
 
 templatedHost.Unmount();

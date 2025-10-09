@@ -367,7 +367,9 @@ internal static partial class NativeMethods
         Rectangle = 9,
         Image = 10,
         ContentPresenter = 11,
-        Unknown = 12,
+        AccessText = 12,
+        TextBox = 13,
+        Unknown = 14,
     }
 
     internal enum VelloTdgTemplateValueKind : uint

@@ -11,7 +11,24 @@ use hashbrown::HashMap;
 use vello::Scene;
 use vello::kurbo::{Affine, Rect};
 use vello::peniko::{Brush, Color, Fill};
-use vello_composition::SceneGraphCache;
+use vello_composition::{SceneGraphCache, layout_label, label_font};
+
+const DEFAULT_TEXT_FONT_SIZE: f32 = 13.0;
+const DEFAULT_TEXT_HORIZONTAL_PADDING: f64 = 8.0;
+const DEFAULT_TEXT_VERTICAL_PADDING: f64 = 4.0;
+const DEFAULT_TEXTBOX_HORIZONTAL_PADDING: f64 = 10.0;
+const DEFAULT_TEXTBOX_VERTICAL_PADDING: f64 = 6.0;
+fn default_textbox_background() -> Color {
+    Color::from_rgba8(0x24, 0x2C, 0x3A, 0xFF)
+}
+
+fn default_textbox_foreground() -> Color {
+    Color::from_rgba8(0xE4, 0xE9, 0xF2, 0xFF)
+}
+
+fn default_text_foreground() -> Color {
+    Color::from_rgba8(0xE4, 0xE9, 0xF2, 0xFF)
+}
 
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -22,6 +39,14 @@ pub enum VelloTdgTemplateOpCode {
     BindProperty = 3,
 }
 
+fn is_text_node(kind: VelloTdgTemplateNodeKind) -> bool {
+    matches!(
+        kind,
+        VelloTdgTemplateNodeKind::Text
+            | VelloTdgTemplateNodeKind::AccessText
+            | VelloTdgTemplateNodeKind::TextBox
+    )
+}
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VelloTdgTemplateNodeKind {
@@ -37,7 +62,9 @@ pub enum VelloTdgTemplateNodeKind {
     Rectangle = 9,
     Image = 10,
     ContentPresenter = 11,
-    Unknown = 12,
+    AccessText = 12,
+    TextBox = 13,
+    Unknown = 14,
 }
 
 #[repr(u32)]
@@ -103,11 +130,156 @@ struct NodeContext {
     material: Option<MaterialHandle>,
     render_hook: Option<RenderHookHandle>,
     column_key: Option<u32>,
+    text_index: Option<usize>,
 }
 
+#[derive(Clone, Debug, Default)]
+struct TextTemplateBuilder {
+    kind: VelloTdgTemplateNodeKind,
+    literal: Option<String>,
+    binding_path: Option<String>,
+    foreground: Option<Color>,
+    background: Option<Color>,
+    font_size: Option<f32>,
+}
+
+impl TextTemplateBuilder {
+    fn new(kind: VelloTdgTemplateNodeKind) -> Self {
+        Self {
+            kind,
+            ..Default::default()
+        }
+    }
+
+    fn apply_property(
+        &mut self,
+        property: &str,
+        instruction: &VelloTdgTemplateInstruction,
+        raw: Option<&str>,
+    ) {
+        match property {
+            "Content" => {
+                if let Some(value) = raw {
+                    self.literal = Some(value.to_owned());
+                }
+            }
+            "Foreground" => {
+                if let Some(color) = parse_color(raw) {
+                    self.foreground = Some(color);
+                }
+            }
+            "Background" => {
+                if let Some(color) = parse_color(raw) {
+                    self.background = Some(color);
+                }
+            }
+            "FontSize" => {
+                if let Some(size) = parse_f32_value(instruction, raw) {
+                    if size.is_finite() && size > 0.0 {
+                        self.font_size = Some(size);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn bind_property(
+        &mut self,
+        property: &str,
+        instruction: &VelloTdgTemplateInstruction,
+        raw: Option<&str>,
+    ) {
+        if property == "Content" {
+            if let Some(path) = raw {
+                if !path.is_empty() {
+                    self.binding_path = Some(path.to_owned());
+                }
+            }
+        }
+    }
+
+    fn into_template(
+        mut self,
+        pane: VelloTdgTemplatePaneKind,
+        column_key: Option<u32>,
+    ) -> Option<TextTemplate> {
+        if self.literal.is_none() && self.binding_path.is_none() {
+            return None;
+        }
+
+        let mut foreground = self.foreground;
+        let mut background = self.background;
+        let font_size = self.font_size.unwrap_or(DEFAULT_TEXT_FONT_SIZE);
+
+        match self.kind {
+            VelloTdgTemplateNodeKind::TextBox => {
+                background = background.or(Some(default_textbox_background()));
+                foreground = Some(foreground.unwrap_or(default_textbox_foreground()));
+            }
+            _ => {
+                foreground = Some(foreground.unwrap_or(default_text_foreground()));
+            }
+        }
+
+        Some(TextTemplate {
+            pane,
+            column_key,
+            literal: self.literal,
+            binding_path: self.binding_path,
+            foreground,
+            background,
+            font_size,
+            kind: self.kind,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+struct TextTemplate {
+    pane: VelloTdgTemplatePaneKind,
+    column_key: Option<u32>,
+    literal: Option<String>,
+    binding_path: Option<String>,
+    foreground: Option<Color>,
+    background: Option<Color>,
+    font_size: f32,
+    kind: VelloTdgTemplateNodeKind,
+}
+
+impl TextTemplate {
+    fn resolve_content(&self, bindings: &BindingMap) -> Option<String> {
+        if let Some(literal) = &self.literal {
+            return Some(self.normalize_content(literal.clone()));
+        }
+
+        let path = self.binding_path.as_ref()?;
+        let value = bindings.get(path)?;
+        Some(self.normalize_content(value))
+    }
+
+    fn normalize_content(&self, value: String) -> String {
+        match self.kind {
+            VelloTdgTemplateNodeKind::AccessText => normalize_access_text(&value),
+            _ => value,
+        }
+    }
+
+    fn padding(&self) -> (f64, f64) {
+        match self.kind {
+            VelloTdgTemplateNodeKind::TextBox => (
+                DEFAULT_TEXTBOX_HORIZONTAL_PADDING,
+                DEFAULT_TEXTBOX_VERTICAL_PADDING,
+            ),
+            _ => (DEFAULT_TEXT_HORIZONTAL_PADDING, DEFAULT_TEXT_VERTICAL_PADDING),
+        }
+    }
+}
 pub struct TemplateProgram {
     pane_defaults: [PaneDefaults; 3],
     column_configs: HashMap<(u32, VelloTdgTemplatePaneKind), ColumnRenderConfig>,
+    column_text: HashMap<(u32, VelloTdgTemplatePaneKind), Vec<TextTemplate>>,
+    pane_text: HashMap<VelloTdgTemplatePaneKind, Vec<TextTemplate>>,
 }
 
 impl TemplateProgram {
@@ -117,8 +289,11 @@ impl TemplateProgram {
         let mut program = TemplateProgram {
             pane_defaults: [PaneDefaults::default(); 3],
             column_configs: HashMap::new(),
+            column_text: HashMap::new(),
+            pane_text: HashMap::new(),
         };
 
+        let mut text_builders: Vec<TextTemplateBuilder> = Vec::new();
         let mut stack: Vec<NodeContext> = Vec::with_capacity(instructions.len());
         stack.push(NodeContext {
             kind: VelloTdgTemplateNodeKind::Templates,
@@ -127,65 +302,86 @@ impl TemplateProgram {
             material: None,
             render_hook: None,
             column_key: None,
+            text_index: None,
         });
 
         for instruction in instructions {
             match instruction.op_code {
                 VelloTdgTemplateOpCode::OpenNode => {
                     let parent = *stack.last().ok_or("template stack underflow")?;
-                    stack.push(NodeContext {
+                    let mut context = NodeContext {
                         kind: instruction.node_kind,
                         pane: parent.pane,
                         color: parent.color,
                         material: parent.material,
                         render_hook: parent.render_hook,
                         column_key: parent.column_key,
-                    });
+                        text_index: None,
+                    };
+
+                    if is_text_node(context.kind) {
+                        let index = text_builders.len();
+                        text_builders.push(TextTemplateBuilder::new(context.kind));
+                        context.text_index = Some(index);
+                    }
+
+                    stack.push(context);
                 }
                 VelloTdgTemplateOpCode::SetProperty => {
                     if let Some(current) = stack.last_mut() {
                         if let Some(property) = cstr_to_str(instruction.property) {
+                            let raw = cstr_to_str(instruction.value);
                             match (current.kind, property) {
                                 (VelloTdgTemplateNodeKind::PaneTemplate, "Pane") => {
-                                    if let Some(pane) =
-                                        parse_pane_kind(cstr_to_str(instruction.value))
-                                    {
+                                    if let Some(pane) = parse_pane_kind(raw) {
                                         current.pane = pane;
                                     }
                                 }
                                 (VelloTdgTemplateNodeKind::Rectangle, "Background") => {
-                                    if let Some(color) = parse_color(cstr_to_str(instruction.value))
-                                    {
+                                    if let Some(color) = parse_color(raw) {
                                         current.color = Some(color);
                                     }
                                 }
                                 (VelloTdgTemplateNodeKind::CellTemplate, "ColumnKey") => {
-                                    current.column_key = parse_column_key(
-                                        instruction,
-                                        cstr_to_str(instruction.value),
-                                    );
+                                    current.column_key =
+                                        parse_column_key(instruction, raw);
                                 }
                                 (_, "Material") => {
                                     current.material = parse_u32_value(
                                         instruction,
-                                        cstr_to_str(instruction.value),
+                                        raw,
                                     )
                                     .map(|value| value as MaterialHandle);
                                 }
                                 (_, "RenderHook") => {
                                     current.render_hook = parse_u32_value(
                                         instruction,
-                                        cstr_to_str(instruction.value),
+                                        raw,
                                     )
                                     .map(|value| value as RenderHookHandle);
                                 }
                                 _ => {}
                             }
+
+                            if let Some(index) = current.text_index {
+                                if let Some(builder) = text_builders.get_mut(index) {
+                                    builder.apply_property(property, instruction, raw);
+                                }
+                            }
                         }
                     }
                 }
                 VelloTdgTemplateOpCode::BindProperty => {
-                    // Future binding support; currently ignored.
+                    if let Some(current) = stack.last_mut() {
+                        if let Some(property) = cstr_to_str(instruction.property) {
+                            let raw = cstr_to_str(instruction.value);
+                            if let Some(index) = current.text_index {
+                                if let Some(builder) = text_builders.get_mut(index) {
+                                    builder.bind_property(property, instruction, raw);
+                                }
+                            }
+                        }
+                    }
                 }
                 VelloTdgTemplateOpCode::CloseNode => {
                     let node = stack.pop().ok_or("template stack underflow")?;
@@ -206,6 +402,28 @@ impl TemplateProgram {
 
                         if parent.column_key.is_none() && node.column_key.is_some() {
                             parent.column_key = node.column_key;
+                        }
+                    }
+
+                    if let Some(index) = node.text_index {
+                        if let Some(builder) = text_builders.get(index) {
+                            if let Some(template) =
+                                builder.clone().into_template(node.pane, node.column_key)
+                            {
+                                if let Some(key) = template.column_key {
+                                    program
+                                        .column_text
+                                        .entry((key, template.pane))
+                                        .or_insert_with(Vec::new)
+                                        .push(template);
+                                } else {
+                                    program
+                                        .pane_text
+                                        .entry(template.pane)
+                                        .or_insert_with(Vec::new)
+                                        .push(template);
+                                }
+                            }
                         }
                     }
 
@@ -253,6 +471,7 @@ impl TemplateProgram {
         scene: &mut Scene,
         pane: VelloTdgTemplatePaneKind,
         columns: &[ColumnStrip],
+        bindings: &BindingMap,
     ) {
         scene.reset();
         if columns.is_empty() {
@@ -262,11 +481,15 @@ impl TemplateProgram {
         let height = 24.0;
         for column in columns {
             if self.render_with_column_config(scene, pane, column, height) {
+                self.render_column_text(scene, pane, column, height, bindings);
                 continue;
             }
 
             self.render_with_pane_defaults(scene, pane, column, height);
+            self.render_column_text(scene, pane, column, height, bindings);
         }
+
+        self.render_pane_text(scene, pane, columns, height, bindings);
     }
 
     fn render_with_column_config(
@@ -328,6 +551,126 @@ impl TemplateProgram {
         fill_with_color(scene, column, default_color(), height);
     }
 
+    fn render_column_text(
+        &self,
+        scene: &mut Scene,
+        pane: VelloTdgTemplatePaneKind,
+        column: &ColumnStrip,
+        height: f64,
+        bindings: &BindingMap,
+    ) {
+        if let Some(templates) = self.column_text.get(&(column.key, pane)) {
+            for template in templates {
+                self.draw_text(scene, column, height, template, bindings);
+            }
+        }
+
+        if pane != VelloTdgTemplatePaneKind::Primary {
+            if let Some(templates) =
+                self.column_text
+                    .get(&(column.key, VelloTdgTemplatePaneKind::Primary))
+            {
+                for template in templates {
+                    self.draw_text(scene, column, height, template, bindings);
+                }
+            }
+        }
+    }
+
+    fn render_pane_text(
+        &self,
+        scene: &mut Scene,
+        pane: VelloTdgTemplatePaneKind,
+        columns: &[ColumnStrip],
+        height: f64,
+        bindings: &BindingMap,
+    ) {
+        if columns.is_empty() {
+            return;
+        }
+
+        let left = columns.first().map(|c| c.offset).unwrap_or(0.0);
+        let right = columns
+            .last()
+            .map(|c| c.offset + c.width)
+            .unwrap_or(left);
+        let width = (right - left).max(0.0);
+
+        if width <= 0.0 {
+            return;
+        }
+
+        let pane_strip = ColumnStrip::new(left, width, pane_to_frozen(pane), 0);
+
+        if let Some(templates) = self.pane_text.get(&pane) {
+            for template in templates {
+                self.draw_text(scene, &pane_strip, height, template, bindings);
+            }
+        }
+
+        if pane != VelloTdgTemplatePaneKind::Primary {
+            if let Some(templates) =
+                self.pane_text
+                    .get(&VelloTdgTemplatePaneKind::Primary)
+            {
+                for template in templates {
+                    self.draw_text(scene, &pane_strip, height, template, bindings);
+                }
+            }
+        }
+    }
+
+    fn draw_text(
+        &self,
+        scene: &mut Scene,
+        column: &ColumnStrip,
+        height: f64,
+        template: &TextTemplate,
+        bindings: &BindingMap,
+    ) {
+        let Some(content) = template.resolve_content(bindings) else {
+            return;
+        };
+
+        if let Some(background) = template.background {
+            fill_with_color(scene, column, background, height);
+        }
+
+        if content.trim().is_empty() {
+            return;
+        }
+
+        let layout = match layout_label(&content, template.font_size) {
+            Some(layout) => layout,
+            None => return,
+        };
+
+        let (padding_x, padding_y) = template.padding();
+        let available_width = column.width - 2.0 * padding_x;
+        if !available_width.is_finite() || available_width <= 0.0 {
+            return;
+        }
+
+        let baseline_x = column.offset + padding_x;
+        let text_height = f64::from(layout.height);
+        let ascent = f64::from(layout.ascent);
+        let mut baseline_y = (height - text_height) * 0.5 + ascent;
+        if !baseline_y.is_finite() {
+            baseline_y = ascent;
+        }
+
+        let brush_color = template
+            .foreground
+            .unwrap_or_else(default_text_foreground);
+
+        scene
+            .draw_glyphs(label_font())
+            .font_size(template.font_size)
+            .transform(Affine::translate((baseline_x, baseline_y)))
+            .brush(Brush::Solid(brush_color))
+            .draw(Fill::NonZero, layout.glyphs.into_iter());
+    }
+
     fn apply_render_config(
         &self,
         scene: &mut Scene,
@@ -355,7 +698,7 @@ impl TemplateProgram {
         false
     }
 
-    fn fill_with_material_or_fallback(
+fn fill_with_material_or_fallback(
         &self,
         scene: &mut Scene,
         column: &ColumnStrip,
@@ -373,6 +716,105 @@ impl TemplateProgram {
 
         false
     }
+}
+
+#[derive(Default)]
+struct BindingMap {
+    values: HashMap<String, BindingValue>,
+}
+
+enum BindingValue {
+    Text(String),
+    Number(f64),
+    Boolean(bool),
+}
+
+impl BindingMap {
+    fn from_slice(
+        bindings_ptr: *const VelloTdgTemplateBinding,
+        binding_len: usize,
+    ) -> Self {
+        if bindings_ptr.is_null() || binding_len == 0 {
+            return Self {
+                values: HashMap::new(),
+            };
+        }
+
+        let entries = unsafe { slice::from_raw_parts(bindings_ptr, binding_len) };
+        let mut values = HashMap::with_capacity(entries.len());
+        for entry in entries {
+            let Some(path) = cstr_to_str(entry.path) else {
+                continue;
+            };
+
+            let value = match entry.kind {
+                VelloTdgTemplateValueKind::Number => BindingValue::Number(entry.number_value),
+                VelloTdgTemplateValueKind::Boolean => BindingValue::Boolean(entry.boolean_value != 0),
+                _ => {
+                    let text = cstr_to_str(entry.string_value).unwrap_or_default();
+                    BindingValue::Text(text.to_owned())
+                }
+            };
+
+            values.insert(path.to_owned(), value);
+        }
+
+        Self { values }
+    }
+
+    fn get(&self, path: &str) -> Option<String> {
+        let value = self.values.get(path)?;
+        Some(match value {
+            BindingValue::Text(text) => text.clone(),
+            BindingValue::Number(number) => format!("{number}"),
+            BindingValue::Boolean(flag) => {
+                if *flag {
+                    String::from("True")
+                } else {
+                    String::from("False")
+                }
+            }
+        })
+    }
+}
+
+fn parse_f32_value(
+    instruction: &VelloTdgTemplateInstruction,
+    raw: Option<&str>,
+) -> Option<f32> {
+    match instruction.value_kind {
+        VelloTdgTemplateValueKind::Number => Some(instruction.number_value as f32),
+        _ => raw?.trim().parse::<f32>().ok(),
+    }
+}
+
+fn normalize_access_text(value: &str) -> String {
+    if !value.contains('_') {
+        return value.to_owned();
+    }
+
+    let mut result = String::with_capacity(value.len());
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '_' {
+            match chars.peek() {
+                Some('_') => {
+                    result.push('_');
+                    chars.next();
+                }
+                Some(_) => {
+                    if let Some(next) = chars.next() {
+                        result.push(next);
+                    }
+                }
+                None => {}
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
 }
 
 #[unsafe(no_mangle)]
@@ -416,8 +858,8 @@ pub unsafe extern "C" fn vello_tdg_template_program_encode_pane(
     pane_kind: VelloTdgTemplatePaneKind,
     columns_ptr: *const crate::interop::VelloTdgColumnPlan,
     column_len: usize,
-    _bindings_ptr: *const VelloTdgTemplateBinding,
-    _binding_len: usize,
+    bindings_ptr: *const VelloTdgTemplateBinding,
+    binding_len: usize,
 ) -> bool {
     clear_last_error();
     if program.is_null() {
@@ -456,8 +898,17 @@ pub unsafe extern "C" fn vello_tdg_template_program_encode_pane(
     };
 
     let program = unsafe { &mut *program };
-    program.encode_pane(scene, pane_kind, &columns);
+    let bindings = BindingMap::from_slice(bindings_ptr, binding_len);
+    program.encode_pane(scene, pane_kind, &columns, &bindings);
     true
+}
+
+fn pane_to_frozen(pane: VelloTdgTemplatePaneKind) -> FrozenKind {
+    match pane {
+        VelloTdgTemplatePaneKind::Leading => FrozenKind::Leading,
+        VelloTdgTemplatePaneKind::Trailing => FrozenKind::Trailing,
+        _ => FrozenKind::None,
+    }
 }
 
 fn pane_index(pane: VelloTdgTemplatePaneKind) -> usize {

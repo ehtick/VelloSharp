@@ -104,9 +104,12 @@ public enum TreeTemplateNodeKind
     CellTemplate,
     Stack,
     Text,
+    TextBlock = Text,
     Rectangle,
     Image,
     ContentPresenter,
+    AccessText,
+    TextBox,
     Unknown,
 }
 
@@ -175,6 +178,8 @@ internal static class TreeTemplateExpressionBuilder
             "CellTemplate" => TreeTemplateNodeKind.CellTemplate,
             "Stack" or "StackPanel" => TreeTemplateNodeKind.Stack,
             "Text" or "TextBlock" => TreeTemplateNodeKind.Text,
+            "AccessText" => TreeTemplateNodeKind.AccessText,
+            "TextBox" => TreeTemplateNodeKind.TextBox,
             "Rectangle" => TreeTemplateNodeKind.Rectangle,
             "Image" => TreeTemplateNodeKind.Image,
             "ContentPresenter" => TreeTemplateNodeKind.ContentPresenter,
