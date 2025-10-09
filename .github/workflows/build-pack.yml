@@ -204,14 +204,193 @@ jobs:
           path: artifacts/runtimes/${{ matrix.rid }}
           if-no-files-found: error
 
-  pack-native:
-    name: Pack Native NuGets
+  pack-native-linux:
+    name: Pack Native NuGets (Linux)
     runs-on: ubuntu-latest
     needs:
       - native-linux
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download Linux native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-linux-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Collect Linux runtimes
+        run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes
+
+      - name: List Linux runtimes
+        run: ls -R artifacts/runtimes
+
+      - name: Copy Linux runtimes into projects
+        run: ./scripts/copy-runtimes.sh artifacts/runtimes
+
+      - name: Pack Linux native NuGets
+        run: ./scripts/pack-native-nugets.sh artifacts/runtimes artifacts/nuget
+
+      - name: List Linux native packages
+        run: ls artifacts/nuget
+
+      - name: Upload Linux native NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-nuget-packages-linux
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  pack-native-macos:
+    name: Pack Native NuGets (Apple)
+    runs-on: ubuntu-latest
+    needs:
       - native-macos
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download macOS native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-macos-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Download iOS native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-ios*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Collect Apple runtimes
+        run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes
+
+      - name: List Apple runtimes
+        run: ls -R artifacts/runtimes
+
+      - name: Copy Apple runtimes into projects
+        run: ./scripts/copy-runtimes.sh artifacts/runtimes
+
+      - name: Pack Apple native NuGets
+        run: ./scripts/pack-native-nugets.sh artifacts/runtimes artifacts/nuget
+
+      - name: List Apple native packages
+        run: ls artifacts/nuget
+
+      - name: Upload Apple native NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-nuget-packages-apple
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  pack-native-android:
+    name: Pack Native NuGets (Android)
+    runs-on: ubuntu-latest
+    needs:
       - native-android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download Android native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-android-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Collect Android runtimes
+        run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes
+
+      - name: List Android runtimes
+        run: ls -R artifacts/runtimes
+
+      - name: Copy Android runtimes into projects
+        run: ./scripts/copy-runtimes.sh artifacts/runtimes
+
+      - name: Pack Android native NuGets
+        run: ./scripts/pack-native-nugets.sh artifacts/runtimes artifacts/nuget
+
+      - name: List Android native packages
+        run: ls artifacts/nuget
+
+      - name: Upload Android native NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-nuget-packages-android
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  pack-native-wasm:
+    name: Pack Native NuGets (WASM)
+    runs-on: ubuntu-latest
+    needs:
       - native-wasm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download WASM native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-wasm*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Collect WASM runtimes
+        run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes
+
+      - name: List WASM runtimes
+        run: ls -R artifacts/runtimes
+
+      - name: Copy WASM runtimes into projects
+        run: ./scripts/copy-runtimes.sh artifacts/runtimes
+
+      - name: Pack WASM native NuGets
+        run: ./scripts/pack-native-nugets.sh artifacts/runtimes artifacts/nuget
+
+      - name: List WASM native packages
+        run: ls artifacts/nuget
+
+      - name: Upload WASM native NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-nuget-packages-wasm
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  pack-native-windows:
+    name: Pack Native NuGets (Windows)
+    runs-on: ubuntu-latest
+    needs:
       - native-windows
     steps:
       - uses: actions/checkout@v4
@@ -223,29 +402,56 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Download native artifacts
+      - name: Download Windows native artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: native-*
+          pattern: native-windows-*
           path: artifacts
           merge-multiple: false
 
-      - name: Collect native runtimes
+      - name: Collect Windows runtimes
         run: ./scripts/collect-native-artifacts.sh artifacts artifacts/runtimes
 
-      - name: List collected runtimes
+      - name: List Windows runtimes
         run: ls -R artifacts/runtimes
 
-      - name: Copy runtimes into projects
+      - name: Copy Windows runtimes into projects
         run: ./scripts/copy-runtimes.sh artifacts/runtimes
 
-      - name: Pack native runtime packages
+      - name: Pack Windows native NuGets
         run: ./scripts/pack-native-nugets.sh artifacts/runtimes artifacts/nuget
 
-      - name: List native packages
+      - name: List Windows native packages
         run: ls artifacts/nuget
 
-      - name: Upload native NuGet packages
+      - name: Upload Windows native NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-nuget-packages-windows
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  collect-native-nugets:
+    name: Combine Native NuGets
+    runs-on: ubuntu-latest
+    needs:
+      - pack-native-linux
+      - pack-native-macos
+      - pack-native-android
+      - pack-native-wasm
+      - pack-native-windows
+    steps:
+      - name: Download packaged native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-nuget-packages-*
+          path: artifacts/nuget
+          merge-multiple: true
+
+      - name: List combined native packages
+        run: ls -R artifacts/nuget
+
+      - name: Upload combined native NuGet packages
         uses: actions/upload-artifact@v4
         with:
           name: native-nuget-packages
@@ -256,7 +462,7 @@ jobs:
     name: Pack NuGet
     runs-on: ubuntu-latest
     needs:
-      - pack-native
+      - collect-native-nugets
     steps:
       - uses: actions/checkout@v4
         with:

@@ -706,7 +706,9 @@ without changing the managed API surface.
 - **Packaging** – `dotnet pack` produces the aggregate `VelloSharp` NuGet plus the `VelloSharp.Native.<rid>`
   runtime packages (including charting, gauges, SCADA runtime, and editor core). The managed package now declares dependencies on the RID-specific native packages so
   consuming projects restore the correct binaries automatically. Helper scripts in `scripts/` collect, copy,
-  and repackage the native artifacts for CI and local workflows.
+  and repackage the native artifacts for CI and local workflows, and the CI pipeline now packs each platform
+  (Linux, Apple, Android, WASM, Windows) in dedicated jobs before a combine step publishes the merged artifact
+  feed consumed by the managed packaging stage.
 
 ## Building the native library
 
@@ -1230,6 +1232,13 @@ available to packaging steps.
 - `scripts/remove-runtimes.sh [targets…]` / `scripts/remove-runtimes.ps1 [targets…]` – deletes copied runtime folders
   from the default build outputs (or the ones supplied through `REMOVE_RUNTIMES_CONFIGURATIONS` /
   `REMOVE_RUNTIMES_TARGET_FRAMEWORKS`), keeping local trees tidy between packaging runs.
+
+### Integration validation
+
+- `scripts/run-integration-tests.sh [options]` / `scripts/run-integration-tests.ps1 [-Configuration <cfg> [-Framework <tfm>] [-Platform <linux|macos|windows>] [--ManagedOnly] [--NativeOnly]]` – runs the managed and native integration
+  projects for the requested platform (defaults to the host OS). Specify `--platform`/`-Platform` to override the
+  detection, `--configuration`/`-Configuration` to pick Debug or Release, `--framework`/`-Framework` to constrain
+  the target TFM, and `--managed-only` or `--native-only` to focus on a single set of projects.
 
 ## Repository layout recap
 
