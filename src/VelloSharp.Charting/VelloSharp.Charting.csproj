@@ -21,10 +21,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="HarfBuzzSharp" />
-  </ItemGroup>
-
-  <ItemGroup>
     <EmbeddedResource Include="Assets\Fonts\Roboto-Regular.ttf" LogicalName="VelloSharp.Charting.Assets.Fonts.Roboto-Regular.ttf" />
   </ItemGroup>
 </Project>

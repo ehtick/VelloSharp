@@ -5,7 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
-    <IsPackable>false</IsPackable>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Integration</PackageId>
+    <Title>VelloSharp.Integration</Title>
+    <Description>Cross-platform integration helpers for VelloSharp, including Avalonia controls and render-path utilities.</Description>
+    <PackageTags>vello;integration;avalonia</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

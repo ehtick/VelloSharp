@@ -19,6 +19,8 @@ layout share a cohesive managed API while still exposing low-level control over 
 | `VelloSharp.Ffi.Gpu` | GPU-centric interop surfaces that expose the renderer and wgpu entry points. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Ffi.Gpu.svg)](https://www.nuget.org/packages/VelloSharp.Ffi.Gpu/) |
 | `VelloSharp.Ffi.Sparse` | Sparse renderer bindings over `vello_sparse_ffi` for CPU-friendly render paths. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Ffi.Sparse.svg)](https://www.nuget.org/packages/VelloSharp.Ffi.Sparse/) |
 | `VelloSharp.Text` | Text shaping helpers that bridge HarfBuzzSharp-style APIs onto Vello primitives. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Text.svg)](https://www.nuget.org/packages/VelloSharp.Text/) |
+| `VelloSharp.HarfBuzzSharp` | Drop-in HarfBuzzSharp-compatible layer powered by VelloSharp text services. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.HarfBuzzSharp.svg)](https://www.nuget.org/packages/VelloSharp.HarfBuzzSharp/) |
+| `VelloSharp.Integration` | Cross-platform integration helpers (Avalonia controls, render-path services, hosting utilities). | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.svg)](https://www.nuget.org/packages/VelloSharp.Integration/) |
 | `VelloSharp.Gpu` | Higher-level GPU utilities, AccessKit helpers, and native library bootstrap logic. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Gpu.svg)](https://www.nuget.org/packages/VelloSharp.Gpu/) |
 | `VelloSharp.Skia.Core` | Skia-inspired canvas and brush abstractions implemented on top of Vello scenes. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Skia.Core.svg)](https://www.nuget.org/packages/VelloSharp.Skia.Core/) |
 | `VelloSharp.Skia.Gpu` | Skia GPU backend powered by the native Vello renderer. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Skia.Gpu.svg)](https://www.nuget.org/packages/VelloSharp.Skia.Gpu/) |
@@ -90,7 +92,7 @@ The codebase is split into native FFI crates, managed bindings, integration help
   - `VelloSharp.WinForms.Core` - Windows Forms drawing surface abstractions (`Graphics`, `Pen`, `Brush`, `Region`) powered by the shared renderer.
   - `VelloSharp.Skia` - a Skia-inspired helper layer that maps `SKCanvas`/`SKPath`-style APIs onto Vello
     primitives for easier porting of existing SkiaSharp code.
-  - `VelloSharp.Integration` - optional helpers for Avalonia, SkiaSharp interop, and render-path negotiation.
+  - `VelloSharp.Integration` - optional helpers for Avalonia, SkiaSharp interop, and render-path negotiation (ship via `dotnet add package VelloSharp.Integration`).
   - `VelloSharp.Avalonia.Winit` - Avalonia host glue that drives the winit-based surface renderer through the
     managed bindings.
   - `VelloSharp.Avalonia.Vello` - Avalonia platform abstractions that adapt Vello surfaces and inputs into
@@ -230,6 +232,40 @@ var options = VelloTextShaperOptions.CreateDefault(fontSize: 18f, isRightToLeft:
     Features = new[] { new VelloOpenTypeFeature("liga", 1) },
     VariationAxes = new[] { new VelloVariationAxisValue("wght", 600f) },
 };
+```
+
+### VelloSharp.HarfBuzzSharp
+
+- Provides a HarfBuzzSharp-compatible API surface backed by `VelloSharp.Text`, keeping existing text pipelines intact.
+- Ideal for Avalonia or SkiaSharp integrations that expect `HarfBuzzSharp` assemblies while shaping through Vello.
+
+```csharp
+using HarfBuzzSharp;
+
+using var blob = Blob.FromFile("Assets/Fonts/Roboto-Regular.ttf");
+using var face = new Face(blob, 0);
+using var font = new Font(face);
+
+using var buffer = new Buffer();
+buffer.AddUtf8("VelloSharp");
+buffer.GuessSegmentProperties();
+
+font.Shape(buffer);
+```
+
+### VelloSharp.Integration
+
+- Supplies Avalonia controls (such as `VelloView`), render-path negotiation, and cross-platform hosting utilities shared by UI integrations.
+- Centralises renderer lifecycle management so Skia, Avalonia, and Windows hosts can swap pipelines with one package reference.
+
+```csharp
+using Avalonia;
+using VelloSharp.Integration.Avalonia;
+
+AppBuilder.Configure<App>()
+    .UsePlatformDetect()
+    .UseVelloSkiaTextServices()
+    .StartWithClassicDesktopLifetime(args);
 ```
 
 ### VelloSharp.Gpu

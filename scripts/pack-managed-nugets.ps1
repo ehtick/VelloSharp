@@ -22,61 +22,140 @@ $NativeFeed = [System.IO.Path]::GetFullPath($NativeFeed)
 
 New-Item -ItemType Directory -Force -Path $NuGetOutput | Out-Null
 
-$projects = @(
-    'bindings/VelloSharp.Core/VelloSharp.Core.csproj',
-    'bindings/VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj',
-    'bindings/VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj',
-    'bindings/VelloSharp.Ffi.Sparse/VelloSharp.Ffi.Sparse.csproj',
-    'bindings/VelloSharp.Text/VelloSharp.Text.csproj',
-    'bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj',
-    'bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj',
-    'bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj',
-    'bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj',
-    'bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj',
-    'bindings/VelloSharp/VelloSharp.csproj',
-    'src/VelloSharp.Composition/VelloSharp.Composition.csproj',
-    'src/VelloSharp.ChartData/VelloSharp.ChartData.csproj',
-    'src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj',
-    'src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj',
-    'src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj',
-    'src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj',
-    'src/VelloSharp.Charting/VelloSharp.Charting.csproj',
-    'src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj',
-    'src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj',
-    'src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj',
-    'src/VelloSharp.Gauges/VelloSharp.Gauges.csproj',
-    'src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj',
-    'src/VelloSharp.Editor/VelloSharp.Editor.csproj',
-    'src/VelloSharp.Scada/VelloSharp.Scada.csproj'
-)
+function Get-NormalizedRelativePath {
+    param(
+        [string]$Root,
+        [string]$FullPath
+    )
 
-$extraArgs = @{
-    'bindings/VelloSharp.Text/VelloSharp.Text.csproj'             = @('-p:VelloSkipNativeBuild=true')
-    'bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj'   = @('-p:VelloSkipNativeBuild=true')
-    'bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj'     = @('-p:VelloSkipNativeBuild=true')
-    'bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj'     = @('-p:VelloSkipNativeBuild=true')
-    'bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj' = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Composition/VelloSharp.Composition.csproj'    = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.ChartData/VelloSharp.ChartData.csproj'        = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj' = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj'  = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj' = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj'    = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Charting/VelloSharp.Charting.csproj'          = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj' = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj' = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj'  = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Gauges/VelloSharp.Gauges.csproj'               = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj'   = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Editor/VelloSharp.Editor.csproj'               = @('-p:VelloSkipNativeBuild=true')
-    'src/VelloSharp.Scada/VelloSharp.Scada.csproj'                 = @('-p:VelloSkipNativeBuild=true')
-    'bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj'                = @('-p:VelloSkipNativeBuild=true', '-p:VelloIncludeNativeAssets=false', '-p:VelloRequireAllNativeAssets=false')
-    'bindings/VelloSharp/VelloSharp.csproj'                        = @('-p:VelloSkipNativeBuild=true', '-p:VelloIncludeNativeAssets=false', '-p:VelloRequireAllNativeAssets=false')
+    $relative = [System.IO.Path]::GetRelativePath($Root, $FullPath)
+    return $relative.Replace([System.IO.Path]::DirectorySeparatorChar, [char]'/')
 }
+
+function Test-IsPackable {
+    param([string]$ProjectFile)
+
+    try {
+        $content = Get-Content -LiteralPath $ProjectFile -Raw
+        if ([string]::IsNullOrWhiteSpace($content)) {
+            return $false
+        }
+
+        $xml = [xml]$content
+    }
+    catch {
+        Write-Verbose "Failed to parse '$ProjectFile' as XML. $_"
+        return $false
+    }
+
+    if ($null -eq $xml.Project) {
+        return $false
+    }
+
+    foreach ($propertyGroup in @($xml.Project.PropertyGroup)) {
+        if ($null -eq $propertyGroup) {
+            continue
+        }
+
+        foreach ($child in @($propertyGroup.ChildNodes)) {
+            if ($null -eq $child) {
+                continue
+            }
+
+            if ($child.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                continue
+            }
+
+            if ($child.Name -ne 'IsPackable') {
+                continue
+            }
+
+            $value = $child.InnerText
+            if (-not [string]::IsNullOrWhiteSpace($value) -and $value.Trim().Equals('true', [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+        }
+    }
+
+    return $false
+}
+
+function Get-PackableProjects {
+    param(
+        [string]$Root,
+        [string[]]$Directories
+    )
+
+    $result = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($directoryName in $Directories) {
+        $directoryPath = Join-Path $Root $directoryName
+        if (-not (Test-Path $directoryPath -PathType Container)) {
+            continue
+        }
+
+        Get-ChildItem -Path $directoryPath -Filter '*.csproj' -Recurse | Sort-Object -Property FullName | ForEach-Object {
+            $projectPath = $_.FullName
+            if (Test-IsPackable -ProjectFile $projectPath) {
+                $result.Add((Get-NormalizedRelativePath -Root $Root -FullPath $projectPath))
+            }
+        }
+    }
+
+    return $result
+}
+
+function Get-ProjectExtraArgs {
+    param(
+        [string]$Project,
+        [string]$ProjectPath
+    )
+
+    $args = [System.Collections.Generic.List[string]]::new()
+    $args.Add('-p:VelloSkipNativeBuild=true')
+
+    try {
+        $content = Get-Content -LiteralPath $ProjectPath -Raw
+    }
+    catch {
+        Write-Verbose "Failed to read '$ProjectPath'. $_"
+        $content = $null
+    }
+
+    if ($content) {
+        if ($content -match 'VelloIncludeNativeAssets') {
+            $args.Add('-p:VelloIncludeNativeAssets=false')
+        }
+
+        if ($content -match 'VelloRequireAllNativeAssets') {
+            $args.Add('-p:VelloRequireAllNativeAssets=false')
+        }
+    }
+
+    if ($Project -eq 'bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj') {
+        if (-not $args.Contains('-p:VelloSkipNativeBuild=true')) {
+            $args.Add('-p:VelloSkipNativeBuild=true')
+        }
+        if (-not $args.Contains('-p:VelloIncludeNativeAssets=false')) {
+            $args.Add('-p:VelloIncludeNativeAssets=false')
+        }
+        if (-not $args.Contains('-p:VelloRequireAllNativeAssets=false')) {
+            $args.Add('-p:VelloRequireAllNativeAssets=false')
+        }
+    }
+
+    return ,$args.ToArray()
+}
+
+$projects = Get-PackableProjects -Root $rootPath -Directories @('bindings', 'src')
 
 $commonArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true')
 
-foreach ($project in $projects) {
+if ($projects.Count -eq 0) {
+    Write-Warning "No packable managed projects were found under 'bindings' or 'src'."
+}
+
+foreach ($project in @($projects)) {
     $projectPath = Join-Path $rootPath $project
     if (-not (Test-Path $projectPath -PathType Leaf)) {
         Write-Host "Skipping missing project '$project'."
@@ -86,8 +165,9 @@ foreach ($project in $projects) {
     $args = [System.Collections.Generic.List[string]]::new()
     $args.AddRange([string[]]$commonArgs)
 
-    if ($extraArgs.ContainsKey($project)) {
-        $args.AddRange([string[]]$extraArgs[$project])
+    $projectExtraArgs = Get-ProjectExtraArgs -Project $project -ProjectPath $projectPath
+    if ($projectExtraArgs.Count -gt 0) {
+        $args.AddRange([string[]]$projectExtraArgs)
     }
 
     Write-Host "Packing $project"

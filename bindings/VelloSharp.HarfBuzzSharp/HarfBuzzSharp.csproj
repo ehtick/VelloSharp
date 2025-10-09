@@ -3,9 +3,14 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>HarfBuzzSharp</AssemblyName>
+    <AssemblyName>VelloSharp.HarfBuzzSharp</AssemblyName>
     <RootNamespace>HarfBuzzSharp</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.HarfBuzzSharp</PackageId>
+    <Title>VelloSharp.HarfBuzzSharp</Title>
+    <Description>HarfBuzzSharp-compatible text shaping shim backed by VelloSharp primitives.</Description>
+    <PackageTags>vello;text;harfbuzz</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />

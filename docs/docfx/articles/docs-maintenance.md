@@ -4,17 +4,26 @@ Use these commands to build, preview, and tidy the DocFX site when working local
 
 ## Build the Documentation
 
+```bash
+./scripts/build-docs.sh
+```
+
 ```powershell
-dotnet tool restore
-dotnet tool run docfx docs/docfx/docfx.json
+pwsh ./scripts/build-docs.ps1
 ```
 
 The metadata YAML and static site output are generated under `docs/docfx/api` and `docs/docfx/_site`.
+Both helper scripts set `EnableWindowsTargeting=true` so DocFX can build Windows-specific assemblies on any host OS.
+The metadata step auto-discovers all packable project files under `bindings/` and `src/`, so new libraries are included without editing `docfx.json`.
 
 ## Preview Locally
 
+```bash
+./scripts/build-docs.sh --serve --port 8080
+```
+
 ```powershell
-dotnet tool run docfx docs/docfx/docfx.json --serve --port 8080
+pwsh ./scripts/build-docs.ps1 -DocFxArgs @('--serve', '--port', '8080')
 ```
 
 Navigate to `http://localhost:8080` to browse the rendered site with live reload.

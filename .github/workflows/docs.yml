@@ -30,7 +30,7 @@ jobs:
       - name: Restore .NET tools
         run: dotnet tool restore
       - name: Build DocFX site
-        run: dotnet tool run docfx docs/docfx/docfx.json
+        run: DOCFX_MSBUILD_ARGS="/p:EnableWindowsTargeting=true" dotnet tool run docfx docs/docfx/docfx.json --property EnableWindowsTargeting=true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

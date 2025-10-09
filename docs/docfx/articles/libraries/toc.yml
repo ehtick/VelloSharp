@@ -6,6 +6,8 @@
       href: vellosharp-core.md
     - name: VelloSharp.Text
       href: vellosharp-text.md
+    - name: VelloSharp.HarfBuzzSharp
+      href: vellosharp-harfbuzzsharp.md
     - name: VelloSharp.Gpu
       href: vellosharp-gpu.md
 - name: Skia Rendering Stack
@@ -32,6 +34,8 @@
       href: vellosharp-avalonia-vello.md
     - name: VelloSharp.Avalonia.Winit
       href: vellosharp-avalonia-winit.md
+    - name: VelloSharp.Integration
+      href: vellosharp-integration.md
     - name: VelloSharp.Integration.Wpf
       href: vellosharp-integration-wpf.md
     - name: VelloSharp.Integration.WinForms

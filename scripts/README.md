@@ -97,6 +97,15 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
 - **Description**: Builds the managed solution in `Release`, registers a temporary NuGet feed pointing at the native
   packages, and packs every managed component. Populate the feed with `pack-native-nugets` before invoking this script.
 
+## Documentation
+
+### `build-docs.sh` / `build-docs.ps1`
+- **Usage (bash)**: `./build-docs.sh [docfx-args...]`
+- **Usage (PowerShell)**: `pwsh ./build-docs.ps1 [-DocFxArgs <args...>]`
+- **Defaults**: No additional DocFX arguments. Both scripts restore local tools automatically.
+- **Description**: Generates the DocFX site with `EnableWindowsTargeting=true` so Windows-targeted assemblies build on
+  non-Windows hosts. Pass extra DocFX arguments to tweak the build (for example `--serve`).
+
 ## Diagnostics
 
 ### `report_skia_usage.sh`

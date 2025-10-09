@@ -16,6 +16,7 @@
 | `bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj` | Skia GPU renderer bindings | `VelloSharp`, `VelloSharp.Text` | Contains both generic Skia wrapper types (`SKSurface`, `SKImage`, `SKCanvas`, etc.) and GPU-only backend types (`GpuSkiaBackend`). |
 | `bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj` | Experimental sparse renderer backend | `VelloSharp`, `VelloSharp.Text` | Mirrors almost every file from the GPU package; `CpuSkiaBackend` invokes `SparseRenderContext` from `VelloSharp`. |
 | `bindings/VelloSharp.HarfBuzzSharp/VelloSharp.HarfBuzzSharp.csproj` | HarfBuzz helper layer | Native HarfBuzz bindings | Serves fonts/text; will need to target the extracted text primitives. |
+| `bindings/VelloSharp.Integration/VelloSharp.Integration.csproj` | Cross-platform integration helpers | `VelloSharp`, `VelloSharp.Gpu`, `VelloSharp.Rendering`, `VelloSharp.Avalonia.Vello`, `src/VelloSharp.Composition` | Hosts Avalonia controls, render-path registries, and shared hosting services. Now published as its own NuGet so downstream apps pick up the utilities without referencing the entire solution. |
 
 ### Shared Managed Types Encapsulated in `VelloSharp`
 - **Geometry & Paths**: `PathBuilder`, `KurboPath`, matrix helpers, layer stack helpers live beside P/Invoke types in `VelloSharp/PathBuilder.cs` and `VelloSharp/VelloTypes.cs`.
