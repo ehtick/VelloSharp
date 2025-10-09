@@ -1088,6 +1088,31 @@ such as `SKCanvas`, `SKPaint`, `SKPath`, `SKImage`, and `SKTypeface` on top of t
 - Recording APIs (`SKPictureRecorder`, `SKPicture`) emit Vello scenes, letting you replay existing Skia display
   lists through the Vello renderer.
 
+> 📚 A per-type comparison between the SkiaSharp APIs, their shimmed counterparts, and the underlying VelloSharp
+> building blocks lives in `docs/skiasharp-shim-api-coverage.md`. Update that matrix alongside any new shim work.
+
+### Canvas & paint coverage
+
+- `SKCanvas` now mirrors core SkiaSharp commands: `SaveLayer(...)`, `RestoreToCount(...)`, `QuickReject(...)`,
+  clip variants (`ClipRect`, `ClipRoundRect`, `ClipPath`), and shape drawing helpers such as `DrawLine`, `DrawRect`,
+  `DrawRoundRect`, `DrawOval`, and `DrawPaint/DrawColor`.
+- Blending metadata flows through `SKPaint.BlendMode`, matching SkiaSharp’s enumeration while mapping to Vello layer
+  blends under the hood.
+- Geometry helpers (`SKRoundRect`, `SKRect.Empty`, `SKPath.GetBounds()`) provide the data needed for interoperability
+  with Skia-centric code bases.
+
+> ℹ️ `SKClipOperation.Difference` is not yet implemented. The shim treats all clip calls as `Intersect` until Vello
+> exposes a compatible difference/composition path.
+
+| Category | Shim status | Notes |
+| --- | --- | --- |
+| Canvas & recording (`SKSurface`, `SKCanvas`, `SKPictureRecorder`, `SKPicture`) | ✅ Core drawing, save/restore, picture replay on Vello scenes. | Remaining work: richer blend modes, scene serialization. |
+| Paint & shaders (`SKPaint`, `SKShader`, gradients, blend modes) | ⚠️ Mostly implemented with Vello brushes. | Advanced Skia blend/composite modes collapse to `SrcOver` today. |
+| Raster resources (`SKImage`, `SKBitmap`, `SKCodec`, `SKImageInfo`) | ⚠️ Decode/render via Vello FFI (PNG today). | JPEG/WebP decode and colour-space handling tracked in shim backlog. |
+| Geometry (`SKPath`, `SKRoundRect`, `SKRect`, `SKMatrix`) | ✅ Path building and transforms forwarded to Vello. | Region combination helpers still pending. |
+| Text (`SKTypeface`, `SKFont`, `SKFontManager`, `SKTextBlob`) | ⚠️ Glyph metrics and positioned runs powered by Vello fonts. | Font hinting/edging toggles stored but not yet honoured by renderer. |
+| Backend selection (`SkiaBackendService`, CPU/GPU adapters) | ✅ Module initializers register Vello GPU + sparse CPU pipelines. | Ensure the correct package is referenced for your target backend. |
+
 Minimal example creating a shim surface and drawing into it:
 
 ```csharp

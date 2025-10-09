@@ -10,6 +10,8 @@ namespace SkiaSharp;
 public sealed class SKCanvas
 {
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
+    private static readonly LayerBlend s_saveLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
+    private const float CircleControlPoint = 0.552284749831f;
 
     private readonly Scene _scene;
     private readonly float _width;
@@ -54,6 +56,16 @@ public sealed class SKCanvas
         _currentState = targetState;
     }
 
+    public void SaveLayer() => SaveLayerCore(null, null, record: true);
+
+    public void SaveLayer(SKPaint? paint) => SaveLayerCore(null, paint, record: true);
+
+    public void SaveLayer(SKRect rect) => SaveLayer(rect, null);
+
+    public void SaveLayer(SKRect rect, SKPaint? paint) => SaveLayerCore(rect, paint, record: true);
+
+    internal void SaveLayerReplay(SKRect? rect, SKPaint? paint) => SaveLayerCore(rect, paint, record: false);
+
     public void Translate(float dx, float dy)
     {
         var translation = Matrix3x2.CreateTranslation(dx, dy);
@@ -86,6 +98,46 @@ public sealed class SKCanvas
 
     public SKMatrix44 TotalMatrix44 => SKMatrix44.FromMatrix3x2(_currentState.Transform);
 
+    public void RotateDegrees(float degrees) => RotateDegrees(degrees, 0f, 0f);
+
+    public void RotateDegrees(float degrees, float px, float py)
+    {
+        var rotation = Matrix3x2.CreateRotation(DegreesToRadians(degrees), new Vector2(px, py));
+        _currentState = _currentState with { Transform = _currentState.Transform * rotation };
+        _commandLog?.Add(new RotateCommand(degrees, px, py));
+    }
+
+    public bool QuickReject(SKRect rect)
+    {
+        if (rect.IsEmpty)
+        {
+            return true;
+        }
+
+        var transform = _currentState.Transform;
+        var p1 = Vector2.Transform(new Vector2(rect.Left, rect.Top), transform);
+        var p2 = Vector2.Transform(new Vector2(rect.Right, rect.Top), transform);
+        var p3 = Vector2.Transform(new Vector2(rect.Right, rect.Bottom), transform);
+        var p4 = Vector2.Transform(new Vector2(rect.Left, rect.Bottom), transform);
+
+        var minX = MathF.Min(MathF.Min(p1.X, p2.X), MathF.Min(p3.X, p4.X));
+        var maxX = MathF.Max(MathF.Max(p1.X, p2.X), MathF.Max(p3.X, p4.X));
+        var minY = MathF.Min(MathF.Min(p1.Y, p2.Y), MathF.Min(p3.Y, p4.Y));
+        var maxY = MathF.Max(MathF.Max(p1.Y, p2.Y), MathF.Max(p3.Y, p4.Y));
+
+        if (maxX <= 0 || maxY <= 0)
+        {
+            return true;
+        }
+
+        if (minX >= _width || minY >= _height)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public void ClipRect(SKRect rect)
     {
         if (rect.IsEmpty)
@@ -115,6 +167,38 @@ public sealed class SKCanvas
         var builder = rect.ToPathBuilder();
         var brush = new SolidColorBrush(color.ToRgbaColor());
         _scene.FillPath(builder, FillRule.NonZero, Matrix3x2.Identity, brush);
+    }
+
+    public void DrawRect(SKRect rect, SKPaint paint)
+    {
+        using var path = new SKPath();
+        path.MoveTo(rect.Left, rect.Top);
+        path.LineTo(rect.Right, rect.Top);
+        path.LineTo(rect.Right, rect.Bottom);
+        path.LineTo(rect.Left, rect.Bottom);
+        path.Close();
+        DrawPath(path, paint);
+    }
+
+    public void DrawRoundRect(SKRect rect, float rx, float ry, SKPaint paint)
+    {
+        using var path = CreateRoundRectPath(rect, rx, ry);
+        DrawPath(path, paint);
+    }
+
+    public void DrawCircle(float cx, float cy, float radius, SKPaint paint)
+    {
+        var rect = SKRect.Create(cx - radius, cy - radius, radius * 2, radius * 2);
+        DrawOval(rect, paint);
+    }
+
+    public void DrawCircle(SKPoint center, float radius, SKPaint paint) =>
+        DrawCircle(center.X, center.Y, radius, paint);
+
+    public void DrawOval(SKRect rect, SKPaint paint)
+    {
+        using var path = CreateOvalPath(rect);
+        DrawPath(path, paint);
     }
 
     public void DrawPath(SKPath path, SKPaint paint)
@@ -303,6 +387,33 @@ public sealed class SKCanvas
         _currentState = new CanvasState(Matrix3x2.Identity, 0);
     }
 
+    private void SaveLayerCore(SKRect? rect, SKPaint? paint, bool record)
+    {
+        _saveStack.Push(_currentState);
+
+        var layerRect = rect ?? SKRect.Create(0, 0, _width, _height);
+        if (layerRect.IsEmpty)
+        {
+            layerRect = SKRect.Create(0, 0, _width, _height);
+        }
+
+        if (paint is not null)
+        {
+            paint.ThrowIfDisposed();
+        }
+
+        var builder = layerRect.ToPathBuilder();
+        var alpha = ComputeLayerAlpha(paint);
+        _scene.PushLayer(builder, s_saveLayerBlend, _currentState.Transform, alpha);
+        _activeLayerDepth++;
+        _currentState = _currentState with { LayerDepth = _activeLayerDepth };
+
+        if (record)
+        {
+            _commandLog?.Add(new SaveLayerCommand(rect, paint));
+        }
+    }
+
     private void RenderGlyphRun(SKFont.FontSnapshot snapshot, ReadOnlySpan<Glyph> glyphs, SKPaint paint, Matrix3x2 transform)
     {
         var font = snapshot.Typeface?.Font ?? SKTypeface.Default.Font;
@@ -343,6 +454,78 @@ public sealed class SKCanvas
         };
 
         _scene.DrawGlyphRun(font, glyphs, options);
+    }
+
+    private static float DegreesToRadians(float degrees) => degrees * (float)(Math.PI / 180.0);
+
+    private static float ComputeLayerAlpha(SKPaint? paint)
+    {
+        if (paint is null)
+        {
+            return 1f;
+        }
+
+        var opacity = Math.Clamp(paint.Opacity, 0f, 1f);
+        var colorAlpha = paint.Color.Alpha / 255f;
+        return Math.Clamp(opacity * colorAlpha, 0f, 1f);
+    }
+
+    private static SKPath CreateOvalPath(SKRect rect)
+    {
+        var cx = (rect.Left + rect.Right) * 0.5f;
+        var cy = (rect.Top + rect.Bottom) * 0.5f;
+        var rx = rect.Width * 0.5f;
+        var ry = rect.Height * 0.5f;
+        var kx = CircleControlPoint * rx;
+        var ky = CircleControlPoint * ry;
+
+        var path = new SKPath();
+        path.MoveTo(cx, rect.Top);
+        path.CubicTo(new SKPoint(cx + kx, rect.Top), new SKPoint(rect.Right, cy - ky), new SKPoint(rect.Right, cy));
+        path.CubicTo(new SKPoint(rect.Right, cy + ky), new SKPoint(cx + kx, rect.Bottom), new SKPoint(cx, rect.Bottom));
+        path.CubicTo(new SKPoint(cx - kx, rect.Bottom), new SKPoint(rect.Left, cy + ky), new SKPoint(rect.Left, cy));
+        path.CubicTo(new SKPoint(rect.Left, cy - ky), new SKPoint(cx - kx, rect.Top), new SKPoint(cx, rect.Top));
+        path.Close();
+        return path;
+    }
+
+    private static SKPath CreateRoundRectPath(SKRect rect, float rx, float ry)
+    {
+        rx = MathF.Min(rx, rect.Width * 0.5f);
+        ry = MathF.Min(ry, rect.Height * 0.5f);
+
+        var kx = CircleControlPoint * rx;
+        var ky = CircleControlPoint * ry;
+
+        var path = new SKPath();
+        var left = rect.Left;
+        var top = rect.Top;
+        var right = rect.Right;
+        var bottom = rect.Bottom;
+
+        path.MoveTo(left + rx, top);
+        path.LineTo(right - rx, top);
+        path.CubicTo(
+            new SKPoint(right - kx, top),
+            new SKPoint(right, top + ky),
+            new SKPoint(right, top + ry));
+        path.LineTo(right, bottom - ry);
+        path.CubicTo(
+            new SKPoint(right, bottom - ky),
+            new SKPoint(right - kx, bottom),
+            new SKPoint(right - rx, bottom));
+        path.LineTo(left + rx, bottom);
+        path.CubicTo(
+            new SKPoint(left + kx, bottom),
+            new SKPoint(left, bottom - ky),
+            new SKPoint(left, bottom - ry));
+        path.LineTo(left, top + ry);
+        path.CubicTo(
+            new SKPoint(left, top + ky),
+            new SKPoint(left + kx, top),
+            new SKPoint(left + rx, top));
+        path.Close();
+        return path;
     }
 
     private readonly record struct CanvasState(Matrix3x2 Transform, int LayerDepth);

@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Native" />
+    <PackageReference Include="Avalonia.Win32" />
+    <PackageReference Include="Avalonia.X11" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="SkiaSharp" Aliases="RealSkia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Core\VelloSharp.Skia.Core.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Gpu\VelloSharp.Skia.Gpu.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Cpu\VelloSharp.Skia.Cpu.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration.Skia\VelloSharp.Integration.Skia.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Avalonia.Vello\VelloSharp.Avalonia.Vello.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\bindings\VelloSharp\bin\$(Configuration)\net8.0\lib*.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\bindings\VelloSharp\bin\$(Configuration)\net8.0\*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\bindings\VelloSharp\bin\$(Configuration)\net8.0\runtimes\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

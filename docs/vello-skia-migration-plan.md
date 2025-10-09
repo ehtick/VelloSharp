@@ -25,6 +25,9 @@
 ## API Coverage Matrix
 
 > Legend: **Usage** references representative Avalonia types/files. **Vello Equivalent** lists existing types (or proposed additions) in `VelloSharp`. **Action** enumerates required tasks (A = Already provided by Vello, E = Extend FFI, S = Shim-only).
+>
+> For a living, per-type breakdown of the shimmed APIs (including status and Vello dependencies) see
+> `docs/skiasharp-shim-api-coverage.md`.
 
 | Category | SkiaSharp API | Usage in Avalonia | Vello Equivalent / Proposed | Action |
 | --- | --- | --- | --- | --- |

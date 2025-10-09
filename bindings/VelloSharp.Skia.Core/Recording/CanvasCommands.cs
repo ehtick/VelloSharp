@@ -86,6 +86,14 @@ internal sealed class ScaleCommand(float sx, float sy) : ICanvasCommand
     public void Replay(SKCanvas canvas) => canvas.Scale(_sx, _sy);
 }
 
+internal sealed class RotateCommand(float degrees, float px, float py) : ICanvasCommand
+{
+    private readonly float _degrees = degrees;
+    private readonly float _px = px;
+    private readonly float _py = py;
+    public void Replay(SKCanvas canvas) => canvas.RotateDegrees(_degrees, _px, _py);
+}
+
 internal sealed class ResetMatrixCommand : ICanvasCommand
 {
     public static ResetMatrixCommand Instance { get; } = new();
@@ -109,6 +117,41 @@ internal sealed class ClearCommand(SKColor color) : ICanvasCommand
 {
     private readonly SKColor _color = color;
     public void Replay(SKCanvas canvas) => canvas.Clear(_color);
+}
+
+internal sealed class SaveLayerCommand : ICanvasCommand
+{
+    private readonly SKRect? _rect;
+    private readonly bool _hasPaint;
+    private readonly PaintSnapshot _paint;
+
+    public SaveLayerCommand(SKRect? rect, SKPaint? paint)
+    {
+        _rect = rect;
+        if (paint is not null)
+        {
+            _hasPaint = true;
+            _paint = new PaintSnapshot(paint);
+        }
+    }
+
+    public void Replay(SKCanvas canvas)
+    {
+        SKPaint? paint = null;
+        try
+        {
+            if (_hasPaint)
+            {
+                paint = _paint.CreatePaint();
+            }
+
+            canvas.SaveLayerReplay(_rect, paint);
+        }
+        finally
+        {
+            paint?.Dispose();
+        }
+    }
 }
 
 internal sealed class DrawPathCommand : ICanvasCommand
