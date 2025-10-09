@@ -8,7 +8,7 @@ export NATIVE_FEED
 
 mkdir -p "${NUGET_OUTPUT}"
 
-dotnet build "${ROOT}/VelloSharp.sln" -c Release -p:VelloSkipNativeBuild=true
+dotnet build "${ROOT}/VelloSharp.sln" -c Release -p:VelloSkipNativeBuild=true -p:EnableWindowsTargeting=true
 
 # Ensure the local feed is available
 if dotnet nuget list source | grep -q "VelloNativeLocal"; then
@@ -46,7 +46,7 @@ if [[ -z "${native_ids}" ]]; then
   exit 1
 fi
 
-COMMON_PACK_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT}")
+COMMON_PACK_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT}" "-p:EnableWindowsTargeting=true")
 
 PACK_PROJECTS=(
   "bindings/VelloSharp.Core/VelloSharp.Core.csproj|"
