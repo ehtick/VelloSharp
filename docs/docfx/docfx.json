@@ -50,7 +50,8 @@
       "dest": "api",
       "disableGitFeatures": true,
       "properties": {
-        "Configuration": "Release"
+        "Configuration": "Release",
+        "EnableWindowsTargeting": "true"
       }
     }
   ],
