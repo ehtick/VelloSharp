@@ -756,15 +756,18 @@ runtime you want to redistribute:
 
 The generated `.nupkg` and `.snupkg` files are emitted under `artifacts/nuget/`.
 
-In addition to the aggregate `VelloSharp` package, the repository now produces per-FFI runtime
-packages. Each native crate (`AccessKit`, `Kurbo`, `Peniko`, `Vello`, `VelloSparse`, `Winit`) emits:
+CI publishes a managed-only `VelloSharp` package by passing `-p:VelloIncludeNativeAssets=false`. Native binaries are
+distributed separately via the per-FFI runtime packages (`VelloSharp.Native.AccessKit.*`, `Kurbo`, `Peniko`, `Vello`,
+`VelloSparse`, `Winit`). Applications should add whichever RIDs they need, for example:
 
-- `VelloSharp.Native.<Ffi>.<rid>` – a single native asset for the specified RID.
-- `VelloSharp.Native.<Ffi>` – a meta package that depends on all supported RIDs for that crate.
+```bash
+dotnet add package VelloSharp.Native.Vello.win-x64 --prerelease
+dotnet add package VelloSharp.Native.Winit.win-x64 --prerelease
+```
 
-When packing the managed package you can toggle native-package dependencies with
-`-p:VelloUseNativePackageDependencies=true`; provide a subset via
-`-p:VelloNativePackageIds="VelloSharp.Native.Vello;VelloSharp.Native.VelloSparse"` when testing locally.
+Inside this repository the samples reference the Windows x64 packaging projects directly (e.g.
+`packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.csproj`) so the native assets flow into `bin/<TFM>/runtimes/`.
+Adjust the referenced RIDs if you are developing on a different platform.
 
 ### Native asset NuGet packages
 
@@ -775,13 +778,13 @@ assets they need. A typical workflow looks like this:
 - Build the native crates for the desired RID(s) (`dotnet build -r osx-arm64 bindings/VelloSharp/VelloSharp.csproj`).
 - Run `./scripts/copy-runtimes.sh` to sync the generated artifacts into both sample outputs and each
   `packaging/VelloSharp.Native.<Ffi>/runtimes/<rid>/native` directory.
-- Pack the runtime you care about, e.g. `dotnet pack packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.osx-arm64.csproj`,
-  or pack the meta package via `dotnet pack packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.csproj` to create a bundle
-  that depends on every RID.
-- Reference the RID-specific packages or the meta package from your application depending on how much granularity you need.
+- Pack the runtime you care about, e.g. `dotnet pack packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.osx-arm64.csproj`.
+- Reference the RID-specific packages from your application.
 
 The packaging props also emit fallback copies (for example `osx` alongside `osx-arm64`) so that RID roll-forward
-continues to work when .NET probes `runtimes/<baseRid>/native`. When only managed assets are required, the sample projects reference the meta packaging projects so the native dylibs land in `bin/<TFM>/runtimes/` without custom MSBuild logic, and the conditional references inside those metas ensure only the available RIDs flow through.
+continues to work when .NET probes `runtimes/<baseRid>/native`. The sample projects reference the Windows x64 packages so
+the native binaries land in `bin/<TFM>/runtimes/` without additional MSBuild logic; switch the RID suffixes if you are
+developing on another platform.
 
 ## Using `VelloSharp`
 
@@ -1073,7 +1076,9 @@ The Avalonia examples catalogue continues to showcase the controls on the stock 
 dotnet run --project samples/AvaloniaVelloExamples/AvaloniaVelloExamples.csproj
 ```
 
-Both samples copy the native `vello_ffi` library next to the managed binaries automatically; installing the Rust toolchain is the only prerequisite.
+Both samples include project references to the `VelloSharp.Native.*.win-x64` packaging projects. Run
+`scripts/pack-native-nugets` (or copy prebuilt assets into the `packaging/.../runtimes` directories) before restoring so the
+native DLLs land under `bin/<TFM>/runtimes/`. Install the Rust toolchain only if you plan to rebuild those artifacts.
 
 ## SkiaSharp shim layer
 

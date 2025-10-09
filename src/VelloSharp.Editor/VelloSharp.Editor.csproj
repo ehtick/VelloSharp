@@ -14,7 +14,6 @@
 
   <PropertyGroup>
     <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
-    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.Editor</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,7 +24,4 @@
     <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.Editor" />
-  </ItemGroup>
 </Project>

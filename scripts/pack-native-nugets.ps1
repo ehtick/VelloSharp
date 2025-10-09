@@ -43,7 +43,7 @@ foreach ($ridDir in Get-ChildItem -Path $RuntimesRoot -Directory) {
     }
 
     if (-not (Get-ChildItem -Path $nativeDir -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)) {
-        Write-Host "Skipping $rid: no native assets found under '$nativeDir'."
+        Write-Host ("Skipping {0}: no native assets found under '{1}'." -f $rid, $nativeDir)
         continue
     }
 
@@ -52,7 +52,7 @@ foreach ($ridDir in Get-ChildItem -Path $RuntimesRoot -Directory) {
     foreach ($ffi in $ffiProjects) {
         $project = Join-Path $rootPath ("packaging/VelloSharp.Native.{0}/VelloSharp.Native.{0}.{1}.csproj" -f $ffi, $rid)
         if (-not (Test-Path $project -PathType Leaf)) {
-            Write-Host "Skipping $ffi for $rid: project not found at $project."
+            Write-Host ("Skipping {0} for {1}: project not found at {2}." -f $ffi, $rid, $project)
             continue
         }
 

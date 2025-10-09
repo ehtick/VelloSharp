@@ -19,8 +19,6 @@
     <VelloRequireAllNativeAssets Condition="'$(VelloRequireAllNativeAssets)'==''">true</VelloRequireAllNativeAssets>
     <VelloSkipNativeBuild Condition="'$(VelloSkipNativeBuild)'==''">false</VelloSkipNativeBuild>
     <VelloIncludeNativeAssets Condition="'$(VelloIncludeNativeAssets)'==''">true</VelloIncludeNativeAssets>
-    <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
-    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'=='' and '$(VelloUseNativePackageDependencies)'=='true'">VelloSharp.Native.AccessKit;VelloSharp.Native.Kurbo;VelloSharp.Native.Peniko;VelloSharp.Native.Vello;VelloSharp.Native.VelloSparse;VelloSharp.Native.Winit</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
@@ -53,22 +51,6 @@
     <Error Condition="'@(_VelloNativeContent)' == ''"
            Text="Vello native assets were not found in '$(VelloNativeAssetsDirectory)'. Provide platform builds or set VelloRequireAllNativeAssets=false." />
   </Target>
-
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '$(VelloNativePackageIds)' != ''">
-    <_VelloNativePackage Include="$(VelloNativePackageIds)">
-      <ProjectPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', '..', 'packaging', '%(Identity)', '%(Identity).csproj'))</ProjectPath>
-    </_VelloNativePackage>
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '@(_VelloNativePackage)' != ''">
-    <PackageReference Include="@(_VelloNativePackage->'%(Identity)')" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(IsPackable)' == 'true' and '$(VelloUseNativePackageDependencies)' == 'true' and '@(_VelloNativePackage)' != ''">
-    <ProjectReference Include="@(_VelloNativePackage->'%(ProjectPath)')"
-                      ReferenceOutputAssembly="false"
-                      SkipGetTargetFrameworkProperties="true" />
-  </ItemGroup>
 
   <UsingTask TaskName="GetCurrentRid"
              TaskFactory="RoslynCodeTaskFactory"

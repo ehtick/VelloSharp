@@ -4,104 +4,81 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NUGET_OUTPUT="${1:-${ROOT}/artifacts/nuget}"
 NATIVE_FEED="${2:-${NUGET_OUTPUT}}"
-export NATIVE_FEED
 
 mkdir -p "${NUGET_OUTPUT}"
+NUGET_OUTPUT_ABS="$(cd "${NUGET_OUTPUT}" && pwd)"
+NATIVE_FEED_ABS="$(cd "${NATIVE_FEED}" && pwd)"
 
-dotnet build "${ROOT}/VelloSharp.sln" -c Release -p:VelloSkipNativeBuild=true -p:EnableWindowsTargeting=true
-
-# Ensure the local feed is available
-if dotnet nuget list source | grep -q "VelloNativeLocal"; then
-  dotnet nuget remove source VelloNativeLocal >/dev/null 2>&1 || true
-fi
-dotnet nuget add source "${NATIVE_FEED}" --name VelloNativeLocal >/dev/null
-
-native_ids=$(python3 - <<'PY'
-import glob
-import os
-import zipfile
-import xml.etree.ElementTree as ET
-
-feed = os.environ.get("NATIVE_FEED")
-ids = set()
-if feed:
-    for path in glob.glob(os.path.join(feed, "VelloSharp.Native.*.nupkg")):
-        try:
-            with zipfile.ZipFile(path, 'r') as zf:
-                for name in zf.namelist():
-                    if name.endswith('.nuspec'):
-                        root = ET.fromstring(zf.read(name))
-                        elem = root.find('.//{*}id')
-                        if elem is not None and elem.text:
-                            ids.add(elem.text.strip())
-                        break
-        except zipfile.BadZipFile:
-            continue
-print(';'.join(sorted(ids)))
-PY
+declare -a PROJECTS=(
+  "bindings/VelloSharp.Core/VelloSharp.Core.csproj"
+  "bindings/VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj"
+  "bindings/VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj"
+  "bindings/VelloSharp.Ffi.Sparse/VelloSharp.Ffi.Sparse.csproj"
+  "bindings/VelloSharp.Text/VelloSharp.Text.csproj"
+  "bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj"
+  "bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj"
+  "bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj"
+  "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj"
+  "bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj"
+  "bindings/VelloSharp/VelloSharp.csproj"
+  "src/VelloSharp.Composition/VelloSharp.Composition.csproj"
+  "src/VelloSharp.ChartData/VelloSharp.ChartData.csproj"
+  "src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj"
+  "src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj"
+  "src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj"
+  "src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj"
+  "src/VelloSharp.Charting/VelloSharp.Charting.csproj"
+  "src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj"
+  "src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj"
+  "src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj"
+  "src/VelloSharp.Gauges/VelloSharp.Gauges.csproj"
+  "src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj"
+  "src/VelloSharp.Editor/VelloSharp.Editor.csproj"
+  "src/VelloSharp.Scada/VelloSharp.Scada.csproj"
 )
 
-if [[ -z "${native_ids}" ]]; then
-  echo "No VelloSharp.Native packages found in '${NATIVE_FEED}'. Run scripts/pack-native-nugets.sh first or disable native package dependencies." >&2
-  exit 1
-fi
+declare -A EXTRA_ARGS=()
+EXTRA_ARGS["bindings/VelloSharp.Text/VelloSharp.Text.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Composition/VelloSharp.Composition.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.ChartData/VelloSharp.ChartData.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Charting/VelloSharp.Charting.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Gauges/VelloSharp.Gauges.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Editor/VelloSharp.Editor.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["src/VelloSharp.Scada/VelloSharp.Scada.csproj"]="-p:VelloSkipNativeBuild=true"
+EXTRA_ARGS["bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj"]="-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloRequireAllNativeAssets=false"
+EXTRA_ARGS["bindings/VelloSharp/VelloSharp.csproj"]="-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloRequireAllNativeAssets=false"
 
-COMMON_PACK_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT}" "-p:EnableWindowsTargeting=true")
+COMMON_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT_ABS}" "-p:EnableWindowsTargeting=true")
 
-PACK_PROJECTS=(
-  "bindings/VelloSharp.Core/VelloSharp.Core.csproj|"
-  "bindings/VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj|"
-  "bindings/VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj|"
-  "bindings/VelloSharp.Ffi.Sparse/VelloSharp.Ffi.Sparse.csproj|"
-  "bindings/VelloSharp.Text/VelloSharp.Text.csproj|-p:VelloSkipNativeBuild=true"
-  "bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj|-p:VelloSkipNativeBuild=true"
-  "bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj|-p:VelloSkipNativeBuild=true"
-  "bindings/VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj|-p:VelloSkipNativeBuild=true"
-  "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj|-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloUseNativePackageDependencies=true -p:VelloRequireAllNativeAssets=false"
-  "bindings/VelloSharp.Integration.Skia/VelloSharp.Integration.Skia.csproj|-p:VelloSkipNativeBuild=true"
-  "bindings/VelloSharp/VelloSharp.csproj|-p:VelloSkipNativeBuild=true -p:VelloIncludeNativeAssets=false -p:VelloUseNativePackageDependencies=true -p:VelloRequireAllNativeAssets=false"
-  "src/VelloSharp.Composition/VelloSharp.Composition.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.ChartData/VelloSharp.ChartData.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.ChartDiagnostics/VelloSharp.ChartDiagnostics.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.ChartRuntime/VelloSharp.ChartRuntime.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.ChartEngine/VelloSharp.ChartEngine.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.Charting/VelloSharp.Charting.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.Charting.Avalonia/VelloSharp.Charting.Avalonia.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj|-p:VelloSkipNativeBuild=true"
-  "src/VelloSharp.Gauges/VelloSharp.Gauges.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
-  "src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
-  "src/VelloSharp.Editor/VelloSharp.Editor.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
-  "src/VelloSharp.Scada/VelloSharp.Scada.csproj|-p:VelloSkipNativeBuild=true -p:VelloUseNativePackageDependencies=true"
-)
+for project in "${PROJECTS[@]}"; do
+  full_path="${ROOT}/${project}"
+  if [[ ! -f "${full_path}" ]]; then
+    echo "Skipping missing project '${project}'."
+    continue
+  }
 
-for entry in "${PACK_PROJECTS[@]}"; do
-  IFS='|' read -r relpath extra <<<"${entry}"
-  extra_args=()
+  args=("${COMMON_ARGS[@]}")
+
+  extra="${EXTRA_ARGS[${project}]-}"
   if [[ -n "${extra}" ]]; then
-    read -r -a extra_args <<<"${extra}"
+    read -r -a extra_array <<< "${extra}"
+    args+=("${extra_array[@]}")
   fi
 
-  if [[ "${relpath}" == "bindings/VelloSharp/VelloSharp.csproj" || "${relpath}" == "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" ]]; then
-    extra_args+=("-p:VelloNativePackageIds=\"${native_ids}\"")
-    extra_args+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED}")
-  fi
-
-  if [[ "${relpath}" == "src/VelloSharp.TreeDataGrid/VelloSharp.TreeDataGrid.csproj" ||
-        "${relpath}" == "src/VelloSharp.Gauges/VelloSharp.Gauges.csproj" ||
-        "${relpath}" == "src/VelloSharp.Scada/VelloSharp.Scada.csproj" ||
-        "${relpath}" == "src/VelloSharp.Editor/VelloSharp.Editor.csproj" ]]; then
-    extra_args+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED}")
-  fi
-
-  if (( ${#extra_args[@]} )); then
-    dotnet pack "${ROOT}/${relpath}" "${COMMON_PACK_ARGS[@]}" "${extra_args[@]}"
-  else
-    dotnet pack "${ROOT}/${relpath}" "${COMMON_PACK_ARGS[@]}"
-  fi
+  echo "Packing ${project}"
+  dotnet pack "${full_path}" "${args[@]}"
 done
 
-echo "Managed packages created in '${NUGET_OUTPUT}'."
-
-
+echo "Managed packages created in '${NUGET_OUTPUT_ABS}'."

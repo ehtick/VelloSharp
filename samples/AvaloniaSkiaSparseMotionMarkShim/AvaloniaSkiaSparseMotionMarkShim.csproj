@@ -25,9 +25,6 @@
     </ProjectReference>
     <ProjectReference Include="..\..\bindings\VelloSharp.Skia.Cpu\VelloSharp.Skia.Cpu.csproj" />
     <ProjectReference Include="..\..\bindings\VelloSharp.Integration.Skia\VelloSharp.Integration.Skia.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit\VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo\VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko\VelloSharp.Native.Peniko.csproj" ReferenceOutputAssembly="false" />

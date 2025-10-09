@@ -14,7 +14,6 @@
 
   <PropertyGroup>
     <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
-    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.Gauges</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +21,4 @@
     <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.Gauges" />
-  </ItemGroup>
 </Project>

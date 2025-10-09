@@ -13,16 +13,11 @@
 
   <PropertyGroup>
     <VelloUseNativePackageDependencies Condition="'$(VelloUseNativePackageDependencies)'==''">false</VelloUseNativePackageDependencies>
-    <VelloNativePackageIds Condition="'$(VelloNativePackageIds)'==''">VelloSharp.Native.TreeDataGrid</VelloNativePackageIds>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
     <ProjectReference Include="..\VelloSharp.ChartDiagnostics\VelloSharp.ChartDiagnostics.csproj" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.TreeDataGrid" />
   </ItemGroup>
 
   <PropertyGroup>
