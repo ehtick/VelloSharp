@@ -1,4 +1,6 @@
 <Project>
+  <Import Project="$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', '..', 'Directory.Build.props'))"
+          Condition="Exists($([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', '..', 'Directory.Build.props')))" />
   <PropertyGroup>
     <TargetFramework Condition="'$(TargetFramework)'==''">net8.0</TargetFramework>
     <IsPackable>true</IsPackable>
@@ -9,6 +11,8 @@
     <Description Condition="'$(Description)'==''">Native Vello runtime for $(NativeRid)</Description>
     <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
     <PackageOutputPath Condition="'$(PackageOutputPath)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'nuget'))</PackageOutputPath>
+    <Version Condition="'$(VelloPackageVersion)'!=''">$(VelloPackageVersion)</Version>
+    <PackageVersion Condition="'$(PackageVersion)'==''">$(Version)</PackageVersion>
     <NativeRid Condition="'$(NativeRid)'==''">unknown</NativeRid>
     <_NativeAssetsLocalRoot>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', 'runtimes', '$(NativeRid)', 'native'))</_NativeAssetsLocalRoot>
     <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'=='' and Exists('$(_NativeAssetsLocalRoot)')">$(_NativeAssetsLocalRoot)</NativeAssetsDirectory>
