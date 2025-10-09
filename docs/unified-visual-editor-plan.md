@@ -22,19 +22,20 @@
 
 ## Phase 0 – Discovery and Alignment (2 weeks)
 **Objectives**
-- [ ] Inventory requirements from charting, gauges, TDG, and SCADA plans; identify shared backlog for editor support.
-- [ ] Document editor user personas (designers, operators, engineers) and workflows in `docs/specs/editor-personas.md`.
-- [ ] Define serialization strategy (JSON/XAML hybrid) compatible with existing dashboard descriptors.
-- [ ] Prototype drag/drop of shared controls with live composition preview to validate architecture.
+- [x] Inventory requirements from charting, gauges, TDG, and SCADA plans; identify shared backlog for editor support (`docs/specs/editor-requirements-map.md`).
+- [x] Document editor user personas (designers, operators, engineers) and workflows in `docs/specs/editor-personas.md`.
+- [x] Define serialization strategy (JSON/XAML hybrid) compatible with existing dashboard descriptors (`docs/specs/editor-serialization.md`).
+- [x] Prototype drag/drop of shared controls with live composition preview to validate architecture (`ffi/experimental/editor_canvas_prototype`).
 
 **Deliverables**
-- [ ] Requirements/persona dossier and workflow maps.
-- [ ] Serialization proposal (`docs/specs/editor-serialization.md`) aligned with SCADA dashboard descriptors.
-- [ ] Prototype demonstrating palette + live preview using shared composition controls.
+- [x] Requirements/persona dossier and workflow maps.
+- [x] Serialization proposal (`docs/specs/editor-serialization.md`) aligned with SCADA dashboard descriptors.
+- [x] Prototype demonstrating palette + live preview using shared composition controls with metrics in `docs/metrics/editor-baselines.md`.
 
 #### Phase 0 Progress Snapshot
 - Shared TDG/chart composition stack (layout solvers, templated/text/shape controls, virtualization capture) is now available for editor prototyping (`ffi/composition/src/panels.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`, `samples/VelloSharp.TreeDataGrid.CompositionSample/Program.cs`), clearing the dependency for palette and preview experiments.
 - Newly shipped `InputControl` base + platform adapters (Avalonia/WPF/WinUI) and telemetry/command services (`src/VelloSharp.Composition/Controls/InputControl.cs`, adapter layer projects, `src/VelloSharp.Composition/Telemetry/*`) unblock editor tooling for selection, shortcuts, and live telemetry preview.
+- Phase 0 artefacts captured: requirements inventory (`docs/specs/editor-requirements-map.md`), personas/workflows (`docs/specs/editor-personas.md`), serialization proposal (`docs/specs/editor-serialization.md`), and drag/drop canvas prototype (`ffi/experimental/editor_canvas_prototype`) with baseline results in `docs/metrics/editor-baselines.md`.
 
 ## Phase 1 – Core Editing Engine & Composition Integration (4 weeks)
 **Objectives**

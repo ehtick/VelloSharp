@@ -22,20 +22,21 @@
 
 ## Phase 0 – Alignment, Inventory, and Requirements (2 weeks)
 **Objectives**
-- [ ] Inventory reusable components from charting, gauges, and TDG (layouts, controls, telemetry, animation) with gap analysis for SCADA workflows.
-- [ ] Capture functional and compliance requirements (ISA-101, IEC 62682) in `docs/specs/scada-requirements.md`.
-- [ ] Define telemetry/command contracts, historian expectations, and alarm semantics aligned with shared data models.
-- [ ] Prototype an integrated dashboard combining charts, gauges, and TDG using existing samples to validate composition interoperability.
+- [x] Inventory reusable components from charting, gauges, and TDG (layouts, controls, telemetry, animation) with gap analysis for SCADA workflows (`docs/specs/scada-component-inventory.md`).
+- [x] Capture functional and compliance requirements (ISA-101, IEC 62682) in `docs/specs/scada-requirements.md`.
+- [x] Define telemetry/command contracts, historian expectations, and alarm semantics aligned with shared data models (`docs/specs/telemetry-contract.md` SCADA addendum).
+- [x] Prototype an integrated dashboard combining charts, gauges, and TDG using existing samples to validate composition interoperability (`ffi/experimental/scada_dashboard`).
 
 **Deliverables**
-- [ ] Requirements dossier (`docs/specs/scada-requirements.md`) with compliance checklist.
-- [ ] Component reuse matrix (`docs/specs/scada-component-inventory.md`) highlighting dependencies on charting, gauges, TDG.
-- [ ] Prototype dashboard sample and performance trace stored in `docs/metrics/scada-baselines.md`.
+- [x] Requirements dossier (`docs/specs/scada-requirements.md`) with compliance checklist.
+- [x] Component reuse matrix (`docs/specs/scada-component-inventory.md`) highlighting dependencies on charting, gauges, TDG.
+- [x] Prototype dashboard sample and performance trace stored in `docs/metrics/scada-baselines.md`.
 
 #### Phase 0 Progress Snapshot
 - Shared composition/layout/templated-control stack from the charting and TDG initiatives (`ffi/composition/src/panels.rs`, `ffi/composition/src/virtualization.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`) is ready for SCADA prototyping; focus now shifts to capturing domain requirements and validating mixed-surface dashboards.
 - Shared input adapters (`src/VelloSharp.Composition/Controls/InputControl.cs` + Avalonia/WPF/WinUI bridges) and telemetry/command services (`src/VelloSharp.Composition/Telemetry/*`, `docs/specs/telemetry-contract.md`) landed, giving SCADA a common pipeline for gestures, acknowledgements, and signal fan-out.
-- Pending: author SCADA requirements dossier and component inventory to confirm no gaps remain across gauges, editor, and TDG reuse scenarios.
+- SCADA requirements dossier and component inventory complete (`docs/specs/scada-requirements.md`, `docs/specs/scada-component-inventory.md`), framing Phase 1 follow-ups on alarm workflows, historian scrubbers, and floor-plan layouts.
+- SCADA dashboard prototype (`ffi/experimental/scada_dashboard`) validates composition of chart, gauge, and TDG panels with 0.32 ms average CPU frame time (`docs/metrics/scada-baselines.md`), demonstrating Phase 0 performance targets are met.
 
 ## Phase 1 – Shared Platform Foundations (3–4 weeks)
 **Objectives**

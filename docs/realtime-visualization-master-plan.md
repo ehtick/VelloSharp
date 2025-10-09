@@ -24,9 +24,9 @@
 
 ### Phase A – Foundation Alignment (Weeks 0–4)
 - TDG Phase 1, Charts Phase 3 shared composition tasks **complete**; publish reuse guidelines (`docs/guides/composition-reuse.md` ✅).
-- Gauges Phase 0: adopt shared layout/control stack; capture requirements (`docs/specs/gauges-requirements.md`).
-- SCADA Phase 0: inventory reusable components, finalize compliance requirements (`docs/specs/scada-requirements.md`).
-- Unified Editor Phase 0: confirm palette prototype uses composition primitives.
+- Gauges Phase 0 **complete**: shared asset catalogue + requirements + prototypes (`docs/specs/gauges-requirements.md`, `docs/specs/gauges-asset-catalog.md`, `ffi/experimental/gauges_prototypes`).
+- SCADA Phase 0 **complete**: component inventory, requirements dossier, dashboard prototype (`docs/specs/scada-requirements.md`, `docs/specs/scada-component-inventory.md`, `ffi/experimental/scada_dashboard`).
+- Unified Editor Phase 0 **complete**: requirements map, personas, serialization proposal, drag/drop canvas prototype (`docs/specs/editor-requirements-map.md`, `docs/specs/editor-serialization.md`, `ffi/experimental/editor_canvas_prototype`).
 
 ### Phase B – Shared Control & Telemetry Infrastructure (Weeks 5–10)
 - TDG Phase 4 + Charts Phase 5: shared `InputControl` base/`ICompositionInputSource` adapters now span Avalonia + WPF/WinUI; next up are accessibility gestures and automation regression suites across hosts.

@@ -58,6 +58,28 @@
 - Editor: design-time preview consumes hub samples and routes apply/reset commands via broker.
 - SCADA runtime: acts as orchestrator, bridging plant/historian feeds into hub and delegating operator commands.
 
+## Gauge Addendum
+- Gauges subscribe through `GaugeTelemetryConnector`, binding telemetry `signalId` to gauge instance identifiers; connector enforces single writer per signal and exposes quality-driven styling callbacks.
+- Telemetry samples should include `Unit` (`psi`, `gpm`, `rpm`) and optional `Dimensions` entries such as `{"setpoint": 75.0, "high_alarm": 95.0}` so gauges can surface target bands without additional lookups.
+- Command requests for `setpoint`, `mode`, and `acknowledge` must include operator metadata in `Parameters` (`{ "operator": "badge1234" }`) to satisfy industrial audit trails.
+- Gauges publish `CommandResult.Pending` for long running operations (e.g., remote valve actuation) and update to `Accepted` or `Failed` once feedback arrives; UI layers use this to drive annunciator states.
+- `TelemetryHub` should coalesce duplicate samples arriving within the same frame for the same `signalId` to preserve the <8 ms budget on high rate analog inputs.
+- Last-known sample caching is required for annunciators rendering stale indicators; `GaugeTelemetryConnector` exposes helpers to request cached samples during initialization.
+
+## SCADA Addendum
+- `ScadaTelemetryRouter` extends `TelemetryHub` to provide historian-aware caching, stale detection, and replay notifications; SCADA dashboards must subscribe through the router to ensure synchronized chart/gauge/TDG updates.
+- Telemetry samples published for SCADA contexts must embed `Dimensions` entries for alarm thresholds, engineering units, setpoints, and mode descriptors to avoid cross-service lookups.
+- Historian playback is modelled as a virtual telemetry channel; replay controllers publish `Quality = TelemetryQuality::Uncertain` with a `Dimensions["replay"] = 1` flag to let widgets decorate historical data distinct from live feeds.
+- Commands issued via `CommandBroker` require operator attribution (`Parameters["operator"]`), reason codes, and optional second approver metadata for two-person integrity policies.
+- Alarm acknowledgements, shelving, and inhibit commands must be idempotent; responders return `CommandResult.Accepted` with a monotonically increasing sequence number so annunciators reconcile in redundant deployments.
+- SCADA connectors surface heartbeat metrics through `TelemetryHub` under the `system/*` namespace; consumers should monitor these channels to drive redundant connector failover.
+- Historian scrubbing and live mode transitions emit `CommandResult.Pending` updates followed by completion events; dashboards must reflect intermediate states to avoid stale controls.
+
+## Editor Addendum
+- Editor preview services rely on sandboxed `TelemetryHub`/`ScadaTelemetryRouter` instances; bindings authored in the editor must validate quality metadata and stale timers identical to runtime expectations.
+- Drag/drop canvas prototypes (`ffi/experimental/editor_canvas_prototype`) simulate value-driven updates without real connectors; Phase 1 will swap to shared preview services exposed via `VelloSharp.Editor.Telemetry`.
+- Serialization format (`docs/specs/editor-serialization.md`) persists telemetry and command bindings using the same schema as runtime dashboards to guarantee lossless deployment.
+
 ## Testing & Diagnostics
 - `TelemetryHubTests` in `tests/VelloSharp.Charting.Tests` validate fan-out, cancellation, and command routing behaviour.
 - Consumers must add integration tests covering signal quality propagation and command acknowledgement flows before marking plan milestones complete.

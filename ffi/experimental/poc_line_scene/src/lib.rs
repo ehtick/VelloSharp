@@ -3,10 +3,12 @@
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
 
-use kurbo::{BezPath, Point};
-use peniko::{Color, kurbo::Stroke};
 use rand::{Rng, SeedableRng, rngs::StdRng};
-use vello::{Scene, kurbo::Affine};
+use vello::{
+    Scene,
+    kurbo::{Affine, BezPath, Point, Stroke},
+    peniko::Color,
+};
 
 /// Configuration for generating a prototype line scene.
 #[derive(Debug, Clone)]
@@ -38,7 +40,7 @@ pub fn build_scene(config: &LineSceneConfig) -> Scene {
         let mut path = BezPath::new();
         for point_idx in 0..config.points_per_series {
             let x = point_idx as f64;
-            let noise: f64 = rng.gen_range(-5.0..=5.0);
+            let noise: f64 = rng.random_range(-5.0..=5.0);
             let y = (series * 12) as f64 + noise + (point_idx as f64 * 0.15).sin() * 8.0;
             let pt = Point::new(x, y);
             if point_idx == 0 {
@@ -57,10 +59,14 @@ pub fn build_scene(config: &LineSceneConfig) -> Scene {
 }
 
 fn color_from_hue(hue: f32) -> Color {
-    let r = (hue.sin() * 0.5 + 0.5).min(1.0).max(0.0);
-    let g = ((hue + 2.094).sin() * 0.5 + 0.5).min(1.0).max(0.0);
-    let b = ((hue + 4.188).sin() * 0.5 + 0.5).min(1.0).max(0.0);
-    Color::rgb(r, g, b)
+    let r = (hue.sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+    let g = ((hue + 2.094).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+    let b = ((hue + 4.188).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+    Color::from_rgb8(
+        (r * 255.0).round() as u8,
+        (g * 255.0).round() as u8,
+        (b * 255.0).round() as u8,
+    )
 }
 
 #[cfg(test)]

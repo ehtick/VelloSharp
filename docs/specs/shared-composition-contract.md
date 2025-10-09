@@ -18,6 +18,8 @@
   - Rust types: `ScalarConstraint`, `LayoutConstraints`, `LayoutSize`, `LinearLayoutItem`, `LinearLayoutSlot`.
   - Public FFI: `vello_composition_compute_plot_area`, `vello_composition_solve_linear_layout`.
   - Responsibilities: deterministic constraint solving, safe handling of NaN/∞, spacing + margin semantics, plot-area heuristics for axis chrome.
+  - SCADA dashboards compose chart, gauge, and TDG regions using these panels plus absolute transforms captured in `ffi/experimental/scada_dashboard`; additional floor-plan helpers will extend this section during Phase 1.
+  - Editor canvas prototype (`ffi/experimental/editor_canvas_prototype`) exercises drag/drop layout with shared panels; any new helpers introduced during editor Phase 1 must update this contract and shared palette metadata.
 - **Typography & Label Metrics**
   - Rust types: `TextShaper`, `LabelLayout`; managed `CompositionInterop.MeasureLabel`, `LabelMetrics`.
   - Backed by shared Roboto assets and shaping caches; consumers must avoid long-lived locks by copying results instead of retaining internal references.
@@ -39,6 +41,7 @@
   - Controls: `Border`, `Decorator`, `Shape`, `Rectangle`, `Ellipse`, `Path`, `GeometryPresenter` (and related geometry descriptors) mirroring `Avalonia.Controls` naming, property semantics, and styling hooks.
   - Backing types: shared geometry buffers (path figures, stroke/fill descriptors) exposed through FFI-safe spans to avoid per-frame allocations; composition scene emitters reuse material registries for brush/pen application.
   - Guarantees: deterministic layout participation, hit-testing hooks compatible with shared `InputControl`, and parity test coverage across charting and TDG hosts to ensure dashboard scenarios reuse the same shape atoms.
+  - Gauge integration: Phase 0 analog and bargraph prototypes (`ffi/experimental/gauges_prototypes`) rely on existing shape atoms; polar tick helpers and ISA/IEC alarm palettes must be added without duplicating geometry buffers, and resulting updates stay documented in `docs/specs/gauges-asset-catalog.md`.
 - **Input Pipeline**
   - Managed primitives: `Controls.InputControl`, `Input.CompositionPointerEventArgs`, `Input.CompositionKeyEventArgs`, `Input.CompositionTextInputEventArgs`, `Input.PointerEventType`, `Input.InputModifiers`.
   - Host adapters: `Input.ICompositionInputSource`/`Input.ICompositionInputSink` contracts with Avalonia bridge (`VelloSharp.Integration.Avalonia.AvaloniaCompositionInputSource`) normalising pointer, keyboard, focus, and capture semantics for charts, TDG, gauges, and editor surfaces.

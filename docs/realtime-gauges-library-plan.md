@@ -21,15 +21,15 @@
 
 ## Phase 0 – Discovery, Alignment, and Requirements (2 weeks)
 **Objectives**
-- [ ] Catalogue reusable assets from charting and TDG (layouts, templated controls, geometry shapes, animation profiles, input adapters) and gap-analyze for gauge needs.
-- [ ] Capture industrial gauge requirements (accuracy, anti-aliasing, alarm lamination, color standards) in `docs/specs/gauges-requirements.md`.
-- [ ] Define telemetry and command contracts aligning with shared data pipelines (`docs/specs/telemetry-contract.md` addendum).
-- [ ] Prototype two gauge scenarios (analog dial + vertical bargraph) under `ffi/experimental/gauges_prototypes` validating <8 ms frame budgets.
+- [x] Catalogue reusable assets from charting and TDG (layouts, templated controls, geometry shapes, animation profiles, input adapters) and gap-analyze for gauge needs (`docs/specs/gauges-asset-catalog.md`).
+- [x] Capture industrial gauge requirements (accuracy, anti-aliasing, alarm lamination, color standards) in `docs/specs/gauges-requirements.md`.
+- [x] Define telemetry and command contracts aligning with shared data pipelines (`docs/specs/telemetry-contract.md` addendum).
+- [x] Prototype two gauge scenarios (analog dial + vertical bargraph) under `ffi/experimental/gauges_prototypes` validating <8 ms frame budgets.
 
 **Deliverables**
-- [ ] Requirements and compliance checklist (`docs/specs/gauges-requirements.md`).
-- [ ] Prototype gauges with performance captures located under `docs/metrics/gauges-baselines.md`.
-- [ ] Updated shared composition contract referencing gauge-specific geometry/templating needs.
+- [x] Requirements and compliance checklist (`docs/specs/gauges-requirements.md`).
+- [x] Prototype gauges with performance captures located under `docs/metrics/gauges-baselines.md`.
+- [x] Updated shared composition contract referencing gauge-specific geometry/templating needs.
 
 #### Phase 0 Progress Snapshot
 - Shared composition layout + templated control stack from TDG extraction is ready for adoption (`ffi/composition/src/panels.rs`, `ffi/composition/src/virtualization.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`); gauge prototypes can lean on these primitives without forking.

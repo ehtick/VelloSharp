@@ -1,11 +1,11 @@
 [package]
-name = "poc_line_scene"
+name = "gauges_prototypes"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [dependencies]
 vello = { workspace = true }
-kurbo = { workspace = true, features = ["std"] }
-peniko = { workspace = true }
 rand = { workspace = true, features = ["std_rng"] }
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = { workspace = true }

@@ -1,0 +1,13 @@
+[package]
+name = "editor_canvas_prototype"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+vello = { workspace = true }
+gauges_prototypes = { path = "../gauges_prototypes" }
+poc_line_scene = { path = "../poc_line_scene" }
+rand = { workspace = true, features = ["std_rng"] }
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = { workspace = true }

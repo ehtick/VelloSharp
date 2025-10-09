@@ -829,6 +829,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
+name = "editor_canvas_prototype"
+version = "0.1.0"
+dependencies = [
+ "gauges_prototypes",
+ "poc_line_scene",
+ "rand",
+ "serde",
+ "serde_json",
+ "vello",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1142,6 +1154,16 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "gauges_prototypes"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "serde",
+ "serde_json",
+ "vello",
 ]
 
 [[package]]
@@ -2533,6 +2555,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "scada_dashboard"
+version = "0.1.0"
+dependencies = [
+ "gauges_prototypes",
+ "poc_line_scene",
+ "serde",
+ "serde_json",
+ "vello",
 ]
 
 [[package]]
