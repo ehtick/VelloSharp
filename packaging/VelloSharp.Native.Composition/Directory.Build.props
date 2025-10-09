@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>vello_composition</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Composition</NativePackagePrefix>
+    <NativeFriendlyName>Shared composition runtime (vello_composition)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

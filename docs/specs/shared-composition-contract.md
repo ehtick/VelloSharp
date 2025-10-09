@@ -39,6 +39,15 @@
   - Controls: `Border`, `Decorator`, `Shape`, `Rectangle`, `Ellipse`, `Path`, `GeometryPresenter` (and related geometry descriptors) mirroring `Avalonia.Controls` naming, property semantics, and styling hooks.
   - Backing types: shared geometry buffers (path figures, stroke/fill descriptors) exposed through FFI-safe spans to avoid per-frame allocations; composition scene emitters reuse material registries for brush/pen application.
   - Guarantees: deterministic layout participation, hit-testing hooks compatible with shared `InputControl`, and parity test coverage across charting and TDG hosts to ensure dashboard scenarios reuse the same shape atoms.
+- **Input Pipeline**
+  - Managed primitives: `Controls.InputControl`, `Input.CompositionPointerEventArgs`, `Input.CompositionKeyEventArgs`, `Input.CompositionTextInputEventArgs`, `Input.PointerEventType`, `Input.InputModifiers`.
+  - Host adapters: `Input.ICompositionInputSource`/`Input.ICompositionInputSink` contracts with Avalonia bridge (`VelloSharp.Integration.Avalonia.AvaloniaCompositionInputSource`) normalising pointer, keyboard, focus, and capture semantics for charts, TDG, gauges, and editor surfaces.
+  - Responsibilities: ensure deterministic pointer capture bookkeeping (`InputControl.CapturedPointers`), consistent modifier translation, and lifecycle-safe attach/detach when templates mount/unmount.
+  - Diagnostics: shared logging hooks should record pointer capture transitions and focus churn to aid perf regressions and stuck pointer detection.
+- **Accessibility Metadata**
+  - Managed primitives: `Accessibility.AccessibilityProperties`, `Accessibility.AccessibilityRole`, `Accessibility.AccessibilityAction`, `Accessibility.AccessibilityLiveSetting` exposed via `InputControl.Accessibility` and related events (`AccessibilityChanged`, `AccessibilityAnnouncementRequested`, `AccessibilityActionInvoked`).
+  - Platform bridges (`VelloSharp.Integration.Avalonia.AvaloniaCompositionInputSource`, `VelloSharp.Integration.Wpf.WpfCompositionInputSource`, `ChartRuntime.Windows.WinUICompositionInputSource`) project accessibility name/help text/automation id and wire automation peers (e.g., `ChartViewAutomationPeer`) so charts, TDG, gauges, and editor hosts remain screen-reader friendly.
+  - Guidance: consumers should update accessibility roles when templated controls change states (button/toggle/tab) and raise announcements via `InputControl.AnnounceAccessibility` for critical telemetry/alarm messages.
 - **Editor Integration Hooks**
   - Selection, snapping, and mutation APIs exposed via `ffi/editor-core` must operate on shared scene graph identifiers and respect dirty-region semantics defined here.
   - Serialization descriptors for dashboards (`GaugePanel`, `ChartComposition`, `TreeDataGridHost`, etc.) map to shared templated controls; any schema evolution must include compatibility notes in this contract.
@@ -52,6 +61,11 @@
   - `TreeRowAnimationProfile`/`TreeAnimationTimeline` allow hosts to configure durations, easing, and reduced-motion behaviour via `TreeVirtualizationScheduler.ConfigureRowAnimations`, keeping TDG motion aligned with chart surfaces.
   - `ChartAnimationController` (`src/VelloSharp.ChartEngine/ChartAnimationController.cs`) now orchestrates cursor trails and annotation emphasis through the shared runtime, projecting overlay snapshots via `ChartFrameMetadata.SetCursorOverlay/SetAnnotationOverlays`.
   - Streaming motion presets feed `ChartFrameMetadata.StreamingOverlays`, exposing per-series fade, slide, and rolling-window emphasis derived from the shared timeline to keep dashboard motion consistent.
+- **Telemetry & Command Services**
+  - Managed services: `Telemetry.TelemetryHub`, `Telemetry.TelemetrySample`, `Telemetry.TelemetryQuality`, `Telemetry.ITelemetryObserver`, and command interfaces (`Telemetry.CommandBroker`, `Telemetry.CommandRequest`, `Telemetry.CommandResult`, `Telemetry.CommandStatus`, `Telemetry.ICommandHandler`).
+  - Responsibilities: fan-out live telemetry to multiple consumers with cancellation-aware async pathways; enforce single-writer semantics per command target with deterministic deregistration when handlers dispose.
+  - Convenience connectors: `Telemetry.GaugeTelemetryConnector` and `Telemetry.ScadaTelemetryRouter` bridge hub/broker pipelines into gauge dashboards and SCADA runtimes, persisting last-known samples and coordinating command acknowledgement flows.
+  - Documentation: shared schema and behavioural guarantees captured in `docs/specs/telemetry-contract.md`; consumers must integrate quality flags and command acknowledgements per this contract.
 - **Diagnostics Hooks**
   - Frame stats emitted via existing chart diagnostics; TDG must publish compatible payloads (`FrameStats`, `InputLatencyStats`) for joint dashboards.
   - Shared telemetry pipeline expected under `docs/metrics/performance-baselines.md`.

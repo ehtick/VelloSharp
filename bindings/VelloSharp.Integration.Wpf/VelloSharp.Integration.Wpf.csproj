@@ -17,5 +17,6 @@
   <ItemGroup>
     <ProjectReference Include="../VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Composition\VelloSharp.Composition.csproj" />
   </ItemGroup>
 </Project>

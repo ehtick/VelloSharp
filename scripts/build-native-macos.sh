@@ -43,7 +43,7 @@ if [[ -d "${FFI_DIR}" ]]; then
   done < <(find "${FFI_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
 fi
 if [[ ${#LIBS[@]} -eq 0 ]]; then
-  LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi vello_sparse_ffi vello_chart_engine vello_tree_datagrid)
+  LIBS=(accesskit_ffi vello_ffi kurbo_ffi peniko_ffi winit_ffi vello_sparse_ffi vello_composition vello_chart_engine vello_tree_datagrid)
 fi
 OUT_DIR="${ROOT}/artifacts/runtimes"
 

@@ -32,6 +32,11 @@
 - [ ] Component reuse matrix (`docs/specs/scada-component-inventory.md`) highlighting dependencies on charting, gauges, TDG.
 - [ ] Prototype dashboard sample and performance trace stored in `docs/metrics/scada-baselines.md`.
 
+#### Phase 0 Progress Snapshot
+- Shared composition/layout/templated-control stack from the charting and TDG initiatives (`ffi/composition/src/panels.rs`, `ffi/composition/src/virtualization.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`) is ready for SCADA prototyping; focus now shifts to capturing domain requirements and validating mixed-surface dashboards.
+- Shared input adapters (`src/VelloSharp.Composition/Controls/InputControl.cs` + Avalonia/WPF/WinUI bridges) and telemetry/command services (`src/VelloSharp.Composition/Telemetry/*`, `docs/specs/telemetry-contract.md`) landed, giving SCADA a common pipeline for gestures, acknowledgements, and signal fan-out.
+- Pending: author SCADA requirements dossier and component inventory to confirm no gaps remain across gauges, editor, and TDG reuse scenarios.
+
 ## Phase 1 – Shared Platform Foundations (3–4 weeks)
 **Objectives**
 - [ ] Formalize the unified control toolkit: ensure `TemplatedControl`, `Panel`, `UserControl`, `Border`, `Decorator`, `Path`, `Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`, etc., behave consistently across modules.

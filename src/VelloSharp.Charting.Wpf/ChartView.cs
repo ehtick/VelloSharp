@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using VelloSharp;
@@ -14,6 +18,8 @@ using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Legend;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
+using VelloSharp.Composition.Accessibility;
+using VelloSharp.Composition.Controls;
 
 namespace VelloSharp.Charting.Wpf;
 
@@ -34,6 +40,10 @@ public sealed class ChartView : ContentControl, IDisposable
     private LegendDefinition? _legend;
     private IReadOnlyList<ChartAnnotation>? _annotations;
     private ChartComposition? _composition;
+    private readonly InputControl _inputControl = new();
+    private readonly WpfCompositionInputSource _inputSource;
+    private string? _lastAccessibilityName;
+    private string? _lastAccessibilityHelpText;
 
     public ChartView()
     {
@@ -47,6 +57,11 @@ public sealed class ChartView : ContentControl, IDisposable
 
         _engine = new ChartEngine.ChartEngine(new ChartEngineOptions());
         _ownsEngine = true;
+        _inputSource = new WpfCompositionInputSource(_surfaceView);
+        _inputControl.AccessibilityChanged += OnInputAccessibilityChanged;
+        _inputControl.AccessibilityAnnouncementRequested += OnAccessibilityAnnouncementRequested;
+        _lastAccessibilityName = _inputControl.Accessibility.Name;
+        _lastAccessibilityHelpText = _inputControl.Accessibility.HelpText;
 
         _surfaceView.RenderSurface += OnRenderSurface;
         Loaded += OnLoaded;
@@ -126,10 +141,12 @@ public sealed class ChartView : ContentControl, IDisposable
             _theme = value;
             if (_isLoaded)
             {
-                RequestRender();
+                _surfaceView.RequestRender();
             }
         }
     }
+
+    public InputControl Input => _inputControl;
 
     public LegendDefinition? Legend
     {
@@ -215,11 +232,131 @@ public sealed class ChartView : ContentControl, IDisposable
     public void RequestRender()
         => _surfaceView.RequestRender();
 
+    protected override AutomationPeer OnCreateAutomationPeer()
+        => new ChartViewAutomationPeer(this);
+
+    private FrameworkElementAutomationPeer? GetOrCreateAutomationPeer()
+        => UIElementAutomationPeer.FromElement(this) as FrameworkElementAutomationPeer
+           ?? UIElementAutomationPeer.CreatePeerForElement(this) as FrameworkElementAutomationPeer;
+
+    private void OnInputAccessibilityChanged(object? sender, AccessibilityChangedEventArgs e)
+    {
+        if (!AutomationPeer.ListenerExists(AutomationEvents.PropertyChanged))
+        {
+            return;
+        }
+
+        if (GetOrCreateAutomationPeer() is not FrameworkElementAutomationPeer peer)
+        {
+            return;
+        }
+
+        switch (e.PropertyName)
+        {
+            case nameof(AccessibilityProperties.Name):
+                var previousName = _lastAccessibilityName;
+                var currentName = _inputControl.Accessibility.Name;
+                if (!Equals(previousName, currentName))
+                {
+                    peer.RaisePropertyChangedEvent(AutomationElementIdentifiers.NameProperty, previousName, currentName);
+                    _lastAccessibilityName = currentName;
+                }
+                break;
+            case nameof(AccessibilityProperties.HelpText):
+                var previousHelp = _lastAccessibilityHelpText;
+                var currentHelp = _inputControl.Accessibility.HelpText;
+                if (!Equals(previousHelp, currentHelp))
+                {
+                    peer.RaisePropertyChangedEvent(AutomationElementIdentifiers.HelpTextProperty, previousHelp, currentHelp);
+                    _lastAccessibilityHelpText = currentHelp;
+                }
+                break;
+            default:
+                peer.InvalidatePeer();
+                return;
+        }
+
+        peer.InvalidatePeer();
+    }
+
+    private void OnAccessibilityAnnouncementRequested(object? sender, AccessibilityAnnouncementEventArgs e)
+    {
+        if (!AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged))
+        {
+            return;
+        }
+
+        if (GetOrCreateAutomationPeer() is not FrameworkElementAutomationPeer peer)
+        {
+            return;
+        }
+
+        var notificationKind = e.LiveSetting == AccessibilityLiveSetting.Assertive
+            ? AutomationNotificationKind.ActionCompleted
+            : AutomationNotificationKind.Other;
+
+        peer.RaiseNotificationEvent(notificationKind, AutomationNotificationProcessing.MostRecent, e.Message, "chart-view");
+    }
+
+    private sealed class ChartViewAutomationPeer : FrameworkElementAutomationPeer, IInvokeProvider
+    {
+        private readonly ChartView _owner;
+
+        public ChartViewAutomationPeer(ChartView owner)
+            : base(owner)
+        {
+            _owner = owner;
+        }
+
+        protected override bool IsControlElementCore()
+            => _owner._inputControl.Accessibility.IsAccessible;
+
+        protected override string GetNameCore()
+        {
+            var name = _owner._inputControl.Accessibility.Name;
+            return string.IsNullOrEmpty(name) ? base.GetNameCore() : name!;
+        }
+
+        protected override string GetHelpTextCore()
+        {
+            var help = _owner._inputControl.Accessibility.HelpText;
+            return string.IsNullOrEmpty(help) ? base.GetHelpTextCore() : help!;
+        }
+
+        protected override AutomationControlType GetAutomationControlTypeCore()
+            => MapRole(_owner._inputControl.Accessibility.Role);
+
+        public override object? GetPattern(PatternInterface patternInterface)
+            => patternInterface == PatternInterface.Invoke ? this : base.GetPattern(patternInterface);
+
+        public void Invoke()
+        {
+            if (!_owner._inputControl.Accessibility.IsAccessible)
+            {
+                return;
+            }
+
+            _owner._inputControl.HandleAccessibilityAction(AccessibilityAction.Invoke);
+        }
+
+        private static AutomationControlType MapRole(AccessibilityRole role) => role switch
+        {
+            AccessibilityRole.Button or AccessibilityRole.ToggleButton => AutomationControlType.Button,
+            AccessibilityRole.CheckBox => AutomationControlType.CheckBox,
+            AccessibilityRole.Slider => AutomationControlType.Slider,
+            AccessibilityRole.TabItem => AutomationControlType.TabItem,
+            AccessibilityRole.Text => AutomationControlType.Text,
+            AccessibilityRole.ListItem => AutomationControlType.ListItem,
+            _ => AutomationControlType.Custom,
+        };
+    }
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _isLoaded = true;
         EnsureTickSource();
         BeginSchedulerLoop();
+        _inputControl.DetachInputSource();
+        _inputControl.AttachInputSource(_inputSource);
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -227,6 +364,7 @@ public sealed class ChartView : ContentControl, IDisposable
         _renderLoopActive = false;
         _isLoaded = false;
         DetachTickSource();
+        _inputControl.DetachInputSource();
 
         if (_ownsEngine)
         {
@@ -351,6 +489,10 @@ public sealed class ChartView : ContentControl, IDisposable
         _surfaceView.RenderSurface -= OnRenderSurface;
         Loaded -= OnLoaded;
         Unloaded -= OnUnloaded;
+        _inputControl.AccessibilityChanged -= OnInputAccessibilityChanged;
+        _inputControl.AccessibilityAnnouncementRequested -= OnAccessibilityAnnouncementRequested;
+        _inputControl.DetachInputSource();
+        _inputSource.Dispose();
 
         if (_ownsEngine)
         {
@@ -398,4 +540,5 @@ public sealed class ChartView : ContentControl, IDisposable
             _engine.Options.ShowAxes);
     }
 }
+
 

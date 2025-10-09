@@ -41,6 +41,28 @@
     <PackageVersion Include="VelloSharp.Native.AccessKit.osx-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.win-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.ChartEngine.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Composition.win-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Kurbo" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Kurbo.android-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Kurbo.browser-wasm" Version="$(VelloNativePackageVersion)" />
@@ -85,6 +107,17 @@
     <PackageVersion Include="VelloSharp.Native.VelloSparse.osx-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.VelloSparse.win-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.VelloSparse.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.TreeDataGrid.win-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Winit" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Winit.android-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Winit.browser-wasm" Version="$(VelloNativePackageVersion)" />

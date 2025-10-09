@@ -148,9 +148,9 @@
 - [x] Enable incremental ingestion and rolling windows for real-time feeds via `ChartEngine.PumpData` and `SeriesState` pruning (`src/VelloSharp.ChartEngine/ChartEngine.cs`, `ffi/chart-engine/src/lib.rs`).
 - [x] Add backfill reconciliation plus dirty-rect/instancing optimisations to minimise redraw cost (`ffi/chart-engine/src/lib.rs`, regression tests under `tests/VelloSharp.Charting.Tests/Engine`).
 - [x] Expose composable render layers, material registries, and scene partitioning hooks consumable by TreeDataGrid and forthcoming editor controls.
-- [ ] Expand the shared composition toolkit with pluggable layout primitives (stack, wrap, grid, dock) and virtualization surfaces consumable by chart composition and TreeDataGrid host controls.
-- [ ] Surface shared text primitives (`TextBlock`, `AccessText`, basic `TextBox`) through charting controls to validate composition reuse before downstream editors adopt them.
-- [ ] Establish a templated control model (base `TemplatedControl`, `Panel`, `UserControl`) and build standard control primitives (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`) plus Avalonia-aligned geometry/shape controls (`Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) atop the shared composition/input infrastructure for reuse across chart dashboards and TDG hosts, mirroring `Avalonia.Controls` semantics.
+- [x] Expand the shared composition toolkit with pluggable layout primitives (stack, wrap, grid, dock) and virtualization surfaces consumable by chart composition and TreeDataGrid host controls.
+- [x] Surface shared text primitives (`TextBlock`, `AccessText`, basic `TextBox`) through charting controls to validate composition reuse before downstream editors adopt them.
+- [x] Establish a templated control model (base `TemplatedControl`, `Panel`, `UserControl`) and build standard control primitives (`Button`, `CheckBox`, `RadioButton`, `DropDown`, `TabControl`) plus Avalonia-aligned geometry/shape controls (`Border`, `Decorator`, `Path`, `Rectangle`, `Ellipse`, `GeometryPresenter`) atop the shared composition/input infrastructure for reuse across chart dashboards and TDG hosts, mirroring `Avalonia.Controls` semantics.
 - [ ] Integrate data-driven styling (value-based coloring, gradient fills, threshold markers).
 
 **Deliverables**
@@ -173,6 +173,8 @@
 - Implemented pane-aware annotations covering horizontal/vertical guides, shaded zones, and callouts with snap modes.
 - Added a headless rendering regression harness (`tests/VelloSharp.Charting.Tests/Rendering/ChartRenderingRegressionTests.cs`) that produces pixel baselines for overlays and multi-pane compositions.
 - Added engine-level coverage for multi-pane metadata, band series, heatmap buckets, and backfill/dirty-region behaviour (`tests/VelloSharp.Charting.Tests/Engine/ChartEngineSeriesTests.cs`).
+- Delivered shared input pipeline across Avalonia and WPF (pointer capture, automation peer) with seeded WinUI adapter support via `ChartView.Input`, `WpfCompositionInputSource`, and `WinUICompositionInputSource`, validated by `tests/VelloSharp.Charting.Tests/Composition/InputControlTests.cs`.
+- Introduced `Telemetry.GaugeTelemetryConnector` and `Telemetry.ScadaTelemetryRouter` to route signal quality and command acknowledgements through the shared hub/broker stack ahead of gauge and SCADA integrations.
 
 ## Phase 3.5 – High-Performance Animation System (2–3 weeks)
 - **Shared composition animation runtime**

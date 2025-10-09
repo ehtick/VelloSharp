@@ -29,8 +29,8 @@
 
 ### Phase 1 – Shared Composition and Layout Foundations (3–4 weeks)
 - [x] Extract layout solver, constraint system, and text shaper from chart engine into `ffi/composition` crate with safe FFI surface.
-- [ ] Extend composition layout library with reusable stack, wrap, grid, and dock components plus virtualization hooks ready for charting and TDG control reuse.
-- [ ] Define shared templated control lifecycle (mount, template apply, visual tree virtualization) and expose core abstractions (`TemplatedControl`, `Panel`, `UserControl`, `Border`, `Decorator`, `Shape`) through the composition contract for downstream controls, preserving `Avalonia.Controls` behavioural parity for templates and shapes.
+- [x] Extend composition layout library with reusable stack, wrap, grid, and dock components plus virtualization hooks ready for charting and TDG control reuse.
+- [x] Define shared templated control lifecycle (mount, template apply, visual tree virtualization) and expose core abstractions (`TemplatedControl`, `Panel`, `UserControl`, `Border`, `Decorator`, `Shape`) through the composition contract for downstream controls, preserving `Avalonia.Controls` behavioural parity for templates and shapes.
 - [x] Port managed adapters to `src/VelloSharp.Composition`, providing Span-friendly APIs for layout requests and rich text runs.
 - [x] Implement scene graph cache with dirty-region tracking for hierarchical nodes (point and bounds invalidation).
 - [x] Author golden tests (Rust + .NET) comparing pre/post extraction metrics for chart rendering to ensure regression-free refactor.
@@ -41,6 +41,9 @@
 - Extended the shared scene cache with dirty-bounds propagation and SafeHandle-managed FFI (`SceneCache.MarkDirtyBounds`), now backed by Rust + .NET golden metrics for layout, text shaping, and dirty-region aggregation (TreeSceneGraph + linear layout smoke tests).
 - Bootstrapped `src/VelloSharp.TreeDataGrid` with composition-ready column layout (`TreeNodeLayoutEngine`) and scene cache helpers (`TreeSceneGraph`) to prove reuse inside managed prototypes.
 - Added console walkthrough sample (`samples/VelloSharp.TreeDataGrid.CompositionSample`) showcasing column layout solving and dirty-region aggregation for TreeDataGrid composition prototyping.
+- Completed stack/wrap/grid/dock solvers and virtualization planning in `ffi/composition/src/panels.rs` + `ffi/composition/src/virtualization.rs`, with managed layout primitives under `src/VelloSharp.Composition/LayoutPrimitives.cs`.
+- Landed templated control/shape primitives (`src/VelloSharp.Composition/Controls/*`) with virtualization capture, exercised by the TDG composition sample and charting tests.
+- Shipped shared input pipeline (`InputControl`, `ICompositionInputSource`/`Sink`) with Avalonia + WPF/WinUI adapters ready for TDG hosts; pointer capture/focus coverage lives in `tests/VelloSharp.Charting.Tests/Composition/InputControlTests.cs`.
 - Published `docs/specs/shared-composition-contract.md` detailing API responsibilities, versioning, and performance expectations shared between charts and TDG.
 
 ### Phase 2 – TreeDataGrid Core Rendering Engine (4–5 weeks)

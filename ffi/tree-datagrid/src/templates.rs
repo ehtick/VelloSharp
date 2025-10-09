@@ -67,6 +67,12 @@ pub enum VelloTdgTemplateNodeKind {
     Unknown = 14,
 }
 
+impl Default for VelloTdgTemplateNodeKind {
+    fn default() -> Self {
+        VelloTdgTemplateNodeKind::Unknown
+    }
+}
+
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VelloTdgTemplateValueKind {

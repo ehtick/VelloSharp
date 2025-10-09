@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.ChartRuntime\VelloSharp.ChartRuntime.csproj" />
+    <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
   </ItemGroup>
 
 </Project>

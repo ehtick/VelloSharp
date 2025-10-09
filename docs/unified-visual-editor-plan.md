@@ -32,6 +32,10 @@
 - [ ] Serialization proposal (`docs/specs/editor-serialization.md`) aligned with SCADA dashboard descriptors.
 - [ ] Prototype demonstrating palette + live preview using shared composition controls.
 
+#### Phase 0 Progress Snapshot
+- Shared TDG/chart composition stack (layout solvers, templated/text/shape controls, virtualization capture) is now available for editor prototyping (`ffi/composition/src/panels.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`, `samples/VelloSharp.TreeDataGrid.CompositionSample/Program.cs`), clearing the dependency for palette and preview experiments.
+- Newly shipped `InputControl` base + platform adapters (Avalonia/WPF/WinUI) and telemetry/command services (`src/VelloSharp.Composition/Controls/InputControl.cs`, adapter layer projects, `src/VelloSharp.Composition/Telemetry/*`) unblock editor tooling for selection, shortcuts, and live telemetry preview.
+
 ## Phase 1 – Core Editing Engine & Composition Integration (4 weeks)
 **Objectives**
 - [ ] Implement Rust editing core (`ffi/editor-core`) handling scene graph mutations, undo/redo stacks, snapping, and validation.

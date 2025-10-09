@@ -31,6 +31,10 @@
 - [ ] Prototype gauges with performance captures located under `docs/metrics/gauges-baselines.md`.
 - [ ] Updated shared composition contract referencing gauge-specific geometry/templating needs.
 
+#### Phase 0 Progress Snapshot
+- Shared composition layout + templated control stack from TDG extraction is ready for adoption (`ffi/composition/src/panels.rs`, `ffi/composition/src/virtualization.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`); gauge prototypes can lean on these primitives without forking.
+- Shared input + telemetry foundation delivered (`src/VelloSharp.Composition/Controls/InputControl.cs`, `bindings/VelloSharp.Integration/Avalonia/AvaloniaCompositionInputSource.cs`, `src/VelloSharp.Composition/Telemetry/*`), clearing blockers for gauge gestures, setpoint commands, and diagnostics fan-out.
+
 ## Phase 1 – Shared Foundations and Infrastructure (3–4 weeks)
 **Objectives**
 - [ ] Extend shared templated control lifecycle with gauge-specific adorners (tick marks, indicators) and expose reusable `GaugeControlBase`, `GaugePanel`, and `GaugeDecorator`.

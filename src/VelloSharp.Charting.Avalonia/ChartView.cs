@@ -12,6 +12,7 @@ using VelloSharp.ChartEngine.Annotations;
 using VelloSharp.Charting.Legend;
 using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
+using VelloSharp.Composition.Controls;
 
 namespace VelloSharp.Charting.Avalonia;
 
@@ -27,6 +28,8 @@ public sealed class ChartView : ContentControl
     private readonly VelloSurfaceView _surfaceView;
     private IFrameTickSource? _tickSource;
     private readonly ChartOverlayRenderer _overlayRenderer = new();
+    private readonly InputControl _inputControl = new();
+    private readonly AvaloniaCompositionInputSource _inputSource;
     private ChartTheme _theme = ChartTheme.Default;
     private LegendDefinition? _legend;
     private IReadOnlyList<ChartAnnotation>? _annotations;
@@ -39,6 +42,8 @@ public sealed class ChartView : ContentControl
             IsLoopEnabled = true,
         };
         Content = _surfaceView;
+        _inputSource = new AvaloniaCompositionInputSource(_surfaceView);
+        _inputControl.AttachInputSource(_inputSource);
 
         _engine = new ChartEngine.ChartEngine(new ChartEngineOptions());
         _ownsEngine = true;
@@ -139,6 +144,11 @@ public sealed class ChartView : ContentControl
             }
         }
     }
+
+    /// <summary>
+    /// Gets the shared input control handling pointer and keyboard events for chart interactions.
+    /// </summary>
+    public InputControl Input => _inputControl;
 
     /// <summary>
     /// Gets or sets whether the view disposes the attached <see cref="ChartEngine.ChartEngine"/>.
@@ -393,5 +403,17 @@ public sealed class ChartView : ContentControl
             _composition,
             _annotations,
             _engine.Options.ShowAxes);
+    }
+
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        _inputControl.AttachInputSource(_inputSource);
+    }
+
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        _inputControl.DetachInputSource();
     }
 }

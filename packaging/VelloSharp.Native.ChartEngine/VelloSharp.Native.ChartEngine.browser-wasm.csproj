@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+    <NativeRid>browser-wasm</NativeRid>
+    <PackageId Condition="'$(PackageId)'==''">$(NativePackagePrefix).browser-wasm</PackageId>
+    <Title Condition="'$(Title)'==''">$(PackageId)</Title>
+    <Description Condition="'$(Description)'==''">Native $(NativeFriendlyName) for $(NativeRid)</Description>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'runtimes', '$(NativeRid)', 'native'))</NativeAssetsDirectory>
+  </PropertyGroup>
+  <Import Project="../VelloSharp.Native/VelloSharp.Native.Shared.props" />
+</Project>

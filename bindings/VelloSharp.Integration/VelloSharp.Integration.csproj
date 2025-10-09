@@ -13,6 +13,7 @@
     <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../VelloSharp.Rendering/VelloSharp.Rendering.csproj" />
     <ProjectReference Include="../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Composition\VelloSharp.Composition.csproj" />
   </ItemGroup>
 
   <ItemGroup>
