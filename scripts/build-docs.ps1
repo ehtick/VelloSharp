@@ -17,4 +17,4 @@ if (-not (Test-Path $docfxJson -PathType Leaf)) {
 $env:DOCFX_MSBUILD_ARGS = '/p:EnableWindowsTargeting=true'
 
 dotnet tool restore
-dotnet tool run docfx $docfxJson --property EnableWindowsTargeting=true @DocFxArgs
+dotnet tool run docfx $docfxJson @DocFxArgs

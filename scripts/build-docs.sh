@@ -13,4 +13,4 @@ fi
 export DOCFX_MSBUILD_ARGS="/p:EnableWindowsTargeting=true"
 
 dotnet tool restore
-dotnet tool run docfx "${DOCFX_JSON}" --property EnableWindowsTargeting=true "$@"
+dotnet tool run docfx "${DOCFX_JSON}" "$@"
