@@ -7,6 +7,9 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Avalonia.Vello</PackageId>
+    <Title>VelloSharp.Avalonia.Vello</Title>
+    <Description>Avalonia UI integration layer for the VelloSharp renderer.</Description>
   </PropertyGroup>
 
   <ItemGroup>

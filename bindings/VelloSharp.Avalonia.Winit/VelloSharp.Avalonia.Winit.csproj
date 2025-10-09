@@ -7,6 +7,9 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Avalonia.Winit</PackageId>
+    <Title>VelloSharp.Avalonia.Winit</Title>
+    <Description>Avalonia windowing interop helpers that bridge VelloSharp and winit.</Description>
   </PropertyGroup>
 
   <ItemGroup>

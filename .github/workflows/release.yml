@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-pack.yml
+
+  publish:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      NUGET_SOURCE: https://api.nuget.org/v3/index.json
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/nuget
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Push NuGet packages
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NUGET_API_KEY:-}" ]]; then
+            echo "NUGET_API_KEY secret is not configured." >&2
+            exit 1
+          fi
+
+          if [[ -z "${RELEASE_TAG:-}" ]]; then
+            echo "Release tag is not available." >&2
+            exit 1
+          fi
+
+          shopt -s nullglob
+          nupkgs=(artifacts/nuget/*.nupkg)
+          if (( ${#nupkgs[@]} == 0 )); then
+            echo "No NuGet packages found to publish." >&2
+            exit 1
+          fi
+
+          for package in "${nupkgs[@]}"; do
+            echo "Pushing ${package} to ${NUGET_SOURCE}"
+            dotnet nuget push "${package}" \
+              --api-key "${NUGET_API_KEY}" \
+              --source "${NUGET_SOURCE}" \
+              --skip-duplicate \
+              --no-symbols true
+          done
+
+          symbols=(artifacts/nuget/*.snupkg)
+          for symbol in "${symbols[@]}"; do
+            echo "Pushing ${symbol} to ${NUGET_SOURCE}"
+            dotnet nuget push "${symbol}" \
+              --api-key "${NUGET_API_KEY}" \
+              --source "${NUGET_SOURCE}" \
+              --skip-duplicate
+          done
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: VelloSharp ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          files: |
+            artifacts/nuget/*.nupkg
+            artifacts/nuget/*.snupkg

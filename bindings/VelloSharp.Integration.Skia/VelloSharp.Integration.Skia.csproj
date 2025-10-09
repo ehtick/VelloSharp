@@ -6,6 +6,9 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>true</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageId>VelloSharp.Integration.Skia</PackageId>
+    <Title>VelloSharp.Integration.Skia</Title>
+    <Description>Skia rendering integration helpers for VelloSharp host applications.</Description>
   </PropertyGroup>
 
   <ItemGroup>
