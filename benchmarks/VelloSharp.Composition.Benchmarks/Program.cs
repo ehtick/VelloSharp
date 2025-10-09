@@ -126,9 +126,9 @@ static LayoutBenchmarkResult RunStackLayoutBenchmark(int childCount, int iterati
 
     var options = new StackLayoutOptions(
         LayoutOrientation.Vertical,
-        spacing: 2,
-        padding: new LayoutThickness(6, 6, 6, 6),
-        crossAlignment: LayoutAlignment.Stretch);
+        Spacing: 2,
+        Padding: new LayoutThickness(6, 6, 6, 6),
+        CrossAlignment: LayoutAlignment.Stretch);
 
     var available = new LayoutSize(1200, double.PositiveInfinity);
     var rectBuffer = new LayoutRect[childCount];
