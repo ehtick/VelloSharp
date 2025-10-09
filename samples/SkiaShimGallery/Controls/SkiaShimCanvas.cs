@@ -6,8 +6,11 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Avalonia.Platform;
+using System.Numerics;
 using SkiaGallery.SharedScenes;
 using VelloSharp;
+using VelloSharp.Avalonia.Vello.Rendering;
 using VelloSharp.Integration.Skia;
 using VelloSharp.Rendering;
 using SkiaSharp;
@@ -22,6 +25,7 @@ using RealSkiaImageInfo = RealSkia::SkiaSharp.SKImageInfo;
 using RealSkiaColorType = RealSkia::SkiaSharp.SKColorType;
 using RealSkiaAlphaType = RealSkia::SkiaSharp.SKAlphaType;
 using RealSkiaGRContext = RealSkia::SkiaSharp.GRContext;
+using VelloImage = VelloSharp.Image;
 
 namespace SkiaShimGallery.Controls;
 
@@ -51,6 +55,8 @@ public sealed class SkiaShimCanvas : Control
     private int _skiaSurfaceWidth;
     private int _skiaSurfaceHeight;
     private IntPtr _skiaSurfaceGrContextHandle;
+
+    private byte[]? _cpuBuffer;
 
     public ISkiaGalleryScene? Scene
     {
@@ -87,7 +93,7 @@ public sealed class SkiaShimCanvas : Control
         _renderer = new Renderer(width, height);
         _renderParams = new RenderParams(width, height, RgbaColor.FromBytes(0, 0, 0, 0))
         {
-            Format = RenderFormat.Bgra8,
+            Format = RenderFormat.Rgba8,
         };
         _renderWidth = width;
         _renderHeight = height;
@@ -141,6 +147,18 @@ public sealed class SkiaShimCanvas : Control
         _skiaSurfaceGrContextHandle = IntPtr.Zero;
     }
 
+    private Span<byte> EnsureCpuBuffer(int width, int height, out int stride)
+    {
+        stride = Math.Max(1, width) * 4;
+        var required = stride * Math.Max(1, height);
+        if (_cpuBuffer is null || _cpuBuffer.Length < required)
+        {
+            _cpuBuffer = new byte[required];
+        }
+
+        return _cpuBuffer.AsSpan(0, required);
+    }
+
     private void RenderScene(ShimCanvas canvas, ISkiaGalleryScene scene, double logicalWidth, double logicalHeight, double scaling)
     {
         canvas.Clear(SKColors.Transparent);
@@ -181,6 +199,9 @@ public sealed class SkiaShimCanvas : Control
         _skiaSurfaceGrContextHandle = IntPtr.Zero;
     }
 
+    private static Matrix3x2 ToMatrix3x2(Matrix matrix) =>
+        new((float)matrix.M11, (float)matrix.M12, (float)matrix.M21, (float)matrix.M22, (float)matrix.M31, (float)matrix.M32);
+
     private sealed class ShimDrawOperation : ICustomDrawOperation
     {
         private readonly SkiaShimCanvas _owner;
@@ -206,18 +227,6 @@ public sealed class SkiaShimCanvas : Control
 
         public void Render(ImmediateDrawingContext context)
         {
-            var featureObj = context.TryGetFeature(typeof(ISkiaSharpApiLeaseFeature));
-            if (featureObj is not ISkiaSharpApiLeaseFeature feature)
-            {
-                return;
-            }
-
-            using var lease = feature.Lease();
-            if (lease?.SkSurface is null)
-            {
-                return;
-            }
-
             var owner = _owner;
             var bounds = _bounds;
             var width = bounds.Width;
@@ -230,6 +239,24 @@ public sealed class SkiaShimCanvas : Control
             var scaling = owner.VisualRoot?.RenderScaling ?? 1.0;
             var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * scaling));
             var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * scaling));
+
+            if (context.TryGetFeature<IVelloApiLeaseFeature>(out var velloFeature) && velloFeature is not null)
+            {
+                RenderWithVello(velloFeature, owner, bounds, width, height, scaling, pixelWidth, pixelHeight);
+                return;
+            }
+
+            var featureObj = context.TryGetFeature(typeof(ISkiaSharpApiLeaseFeature));
+            if (featureObj is not ISkiaSharpApiLeaseFeature feature)
+            {
+                return;
+            }
+
+            using var lease = feature.Lease();
+            if (lease?.SkSurface is null)
+            {
+                return;
+            }
 
             owner.EnsureRenderer((uint)pixelWidth, (uint)pixelHeight);
             owner.EnsureShimSurface(pixelWidth, pixelHeight);
@@ -259,6 +286,53 @@ public sealed class SkiaShimCanvas : Control
             targetCanvas.ClipRect(clipRect);
             targetCanvas.DrawSurface(skiaSurface, clipRect.Left, clipRect.Top);
             targetCanvas.Restore();
+        }
+
+        private void RenderWithVello(
+            IVelloApiLeaseFeature feature,
+            SkiaShimCanvas owner,
+            Rect bounds,
+            double width,
+            double height,
+            double scaling,
+            int pixelWidth,
+            int pixelHeight)
+        {
+            using var lease = feature.Lease();
+            if (lease is null)
+            {
+                return;
+            }
+
+            owner.EnsureRenderer((uint)pixelWidth, (uint)pixelHeight);
+            owner.EnsureShimSurface(pixelWidth, pixelHeight);
+
+            var renderer = owner._renderer;
+            var shimSurface = owner._shimSurface;
+            if (renderer is null || shimSurface is null)
+            {
+                return;
+            }
+
+            owner.RenderScene(shimSurface.Canvas, _scene, width, height, scaling);
+
+            var buffer = owner.EnsureCpuBuffer(pixelWidth, pixelHeight, out var stride);
+            var cpuParams = owner._renderParams with
+            {
+                Width = (uint)pixelWidth,
+                Height = (uint)pixelHeight,
+                Format = RenderFormat.Rgba8,
+            };
+            renderer.Render(shimSurface.Scene, cpuParams, buffer, stride);
+
+            using var image = VelloImage.FromPixels(buffer, pixelWidth, pixelHeight, RenderFormat.Rgba8, ImageAlphaMode.Straight, stride);
+
+            var scale = scaling <= 0 ? 1f : (float)(1.0 / scaling);
+            var localTransform = Matrix3x2.CreateScale(scale, scale)
+                                * Matrix3x2.CreateTranslation((float)bounds.X, (float)bounds.Y);
+            var finalTransform = ToMatrix3x2(lease.Transform) * localTransform;
+
+            lease.Scene.DrawImage(image, finalTransform);
         }
     }
 }
