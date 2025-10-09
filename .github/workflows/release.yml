@@ -37,7 +37,7 @@ jobs:
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if [[ -z "${NUGET_API_KEY:-}" ]]; then
             echo "NUGET_API_KEY secret is not configured." >&2
             exit 1
@@ -54,32 +54,111 @@ jobs:
             echo "No NuGet packages found to publish." >&2
             exit 1
           fi
-
-          for package in "${nupkgs[@]}"; do
+          
+          failures=0
+          push_package() {
+            local package="$1"
+            local allow_symbols="$2"
             echo "Pushing ${package} to ${NUGET_SOURCE}"
-            dotnet nuget push "${package}" \
+            local output
+            if ! output=$(dotnet nuget push "${package}" \
               --api-key "${NUGET_API_KEY}" \
               --source "${NUGET_SOURCE}" \
               --skip-duplicate \
-              --no-symbols true
+              ${allow_symbols} 2>&1); then
+              echo "${output}"
+              if echo "${output}" | grep -qiE 'already exists|409'; then
+                echo "Package '${package}' already exists. Continuing."
+              else
+                echo "Failed to push '${package}'." >&2
+                failures=$((failures + 1))
+              fi
+            else
+              echo "${output}"
+            fi
+          }
+
+          for package in "${nupkgs[@]}"; do
+            push_package "${package}" "--no-symbols true"
           done
 
           symbols=(artifacts/nuget/*.snupkg)
           for symbol in "${symbols[@]}"; do
-            echo "Pushing ${symbol} to ${NUGET_SOURCE}"
-            dotnet nuget push "${symbol}" \
-              --api-key "${NUGET_API_KEY}" \
-              --source "${NUGET_SOURCE}" \
-              --skip-duplicate
+            push_package "${symbol}" ""
           done
 
+          if (( failures > 0 )); then
+            echo "${failures} packages failed to publish." >&2
+            exit 1
+          fi
+
+      - name: Inspect existing release
+        id: release_info
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            try {
+              const { data } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.setOutput('exists', 'true');
+              core.setOutput('release_id', data.id.toString());
+              core.setOutput('assets', JSON.stringify(data.assets.map(asset => asset.name)));
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput('exists', 'false');
+                core.setOutput('release_id', '');
+                core.setOutput('assets', '[]');
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Determine release assets
+        id: release_files
+        shell: pwsh
+        run: |
+          $existing = @()
+          if ('${{ steps.release_info.outputs.exists }}' -eq 'true') {
+            $existing = ConvertFrom-Json '${{ steps.release_info.outputs.assets }}'
+          }
+
+          $artifacts = Get-ChildItem -Recurse -Path artifacts/nuget -File
+          $pending = New-Object System.Collections.Generic.List[string]
+
+          foreach ($file in $artifacts) {
+            if ($existing -contains $file.Name) {
+              Write-Host "Skipping already published asset '$($file.Name)'"
+              continue
+            }
+            $pending.Add($file.FullName)
+          }
+
+          if ($pending.Count -eq 0) {
+            Write-Host "No new release assets to upload."
+          }
+
+          $joined = ($pending | ForEach-Object { $_ }) -join "`n"
+          if ($joined) {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "files<<EOF"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value $joined
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "EOF"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has_files=true"
+          } else {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "files="
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "has_files=false"
+          }
+
       - name: Create GitHub release
+        if: steps.release_info.outputs.exists != 'true' || steps.release_files.outputs.has_files == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: VelloSharp ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
-          files: |
-            artifacts/nuget/*.nupkg
-            artifacts/nuget/*.snupkg
+          files: ${{ steps.release_files.outputs.files }}
