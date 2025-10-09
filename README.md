@@ -1243,12 +1243,3 @@ license text (`LICENSE`) so the published artifacts match the source tree.
 To honour upstream obligations, the packages also embed the MIT/Apache-2.0 notices from the Linebender components the
 FFI layer depends on (`vello`, `kurbo`, `peniko`, `wgpu`, etc.). Vendored submodules retain their original licenses—
 refer to each directory for the exact terms.
-
-
-
-
-
-
-
-
-
