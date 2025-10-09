@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="VelloSharp.Native.AccessKit.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.ChartEngine.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Composition.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Editor.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Gauges.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Peniko.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Scada.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.TreeDataGrid.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Vello.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.osx-arm64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Winit.osx-arm64" Version="$(VelloPackageVersion)" />
+  </ItemGroup>
+</Project>

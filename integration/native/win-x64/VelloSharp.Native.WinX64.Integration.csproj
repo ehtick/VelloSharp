@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="VelloSharp.Native.AccessKit.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.ChartEngine.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Composition.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Editor.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Gauges.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Peniko.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Scada.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.TreeDataGrid.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Vello.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.win-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Winit.win-x64" Version="$(VelloPackageVersion)" />
+  </ItemGroup>
+</Project>

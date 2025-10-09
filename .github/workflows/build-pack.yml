@@ -285,3 +285,107 @@ jobs:
           name: nuget-packages
           path: artifacts/nuget
           if-no-files-found: error
+
+  test-packages:
+    name: Validate Packages (${{ matrix.os }})
+    needs:
+      - pack-managed
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            native_project: integration/native/linux-x64/VelloSharp.Native.LinuxX64.Integration.csproj
+            managed_projects: |
+              integration/managed/VelloSharp.Core.Integration/VelloSharp.Core.Integration.csproj
+              integration/managed/VelloSharp.Text.Integration/VelloSharp.Text.Integration.csproj
+              integration/managed/VelloSharp.Gpu.Integration/VelloSharp.Gpu.Integration.csproj
+              integration/managed/VelloSharp.Skia.Core.Integration/VelloSharp.Skia.Core.Integration.csproj
+              integration/managed/VelloSharp.Skia.Gpu.Integration/VelloSharp.Skia.Gpu.Integration.csproj
+              integration/managed/VelloSharp.Skia.Cpu.Integration/VelloSharp.Skia.Cpu.Integration.csproj
+              integration/managed/VelloSharp.Avalonia.Vello.Integration/VelloSharp.Avalonia.Vello.Integration.csproj
+              integration/managed/VelloSharp.Avalonia.Winit.Integration/VelloSharp.Avalonia.Winit.Integration.csproj
+              integration/managed/VelloSharp.Integration.Skia.Integration/VelloSharp.Integration.Skia.Integration.csproj
+              integration/managed/VelloSharp.Package.Integration/VelloSharp.Package.Integration.csproj
+              integration/managed/VelloSharp.Uno.Integration/VelloSharp.Uno.Integration.csproj
+          - os: macos-14
+            native_project: integration/native/osx-arm64/VelloSharp.Native.OsxArm64.Integration.csproj
+            managed_projects: |
+              integration/managed/VelloSharp.Core.Integration/VelloSharp.Core.Integration.csproj
+              integration/managed/VelloSharp.Text.Integration/VelloSharp.Text.Integration.csproj
+              integration/managed/VelloSharp.Gpu.Integration/VelloSharp.Gpu.Integration.csproj
+              integration/managed/VelloSharp.Skia.Core.Integration/VelloSharp.Skia.Core.Integration.csproj
+              integration/managed/VelloSharp.Skia.Gpu.Integration/VelloSharp.Skia.Gpu.Integration.csproj
+              integration/managed/VelloSharp.Skia.Cpu.Integration/VelloSharp.Skia.Cpu.Integration.csproj
+              integration/managed/VelloSharp.Avalonia.Vello.Integration/VelloSharp.Avalonia.Vello.Integration.csproj
+              integration/managed/VelloSharp.Avalonia.Winit.Integration/VelloSharp.Avalonia.Winit.Integration.csproj
+              integration/managed/VelloSharp.Integration.Skia.Integration/VelloSharp.Integration.Skia.Integration.csproj
+              integration/managed/VelloSharp.Package.Integration/VelloSharp.Package.Integration.csproj
+              integration/managed/VelloSharp.Uno.Integration/VelloSharp.Uno.Integration.csproj
+          - os: windows-latest
+            native_project: integration/native/win-x64/VelloSharp.Native.WinX64.Integration.csproj
+            managed_projects: |
+              integration/managed/VelloSharp.Core.Integration/VelloSharp.Core.Integration.csproj
+              integration/managed/VelloSharp.Text.Integration/VelloSharp.Text.Integration.csproj
+              integration/managed/VelloSharp.Gpu.Integration/VelloSharp.Gpu.Integration.csproj
+              integration/managed/VelloSharp.Skia.Core.Integration/VelloSharp.Skia.Core.Integration.csproj
+              integration/managed/VelloSharp.Skia.Gpu.Integration/VelloSharp.Skia.Gpu.Integration.csproj
+              integration/managed/VelloSharp.Skia.Cpu.Integration/VelloSharp.Skia.Cpu.Integration.csproj
+              integration/managed/VelloSharp.Avalonia.Vello.Integration/VelloSharp.Avalonia.Vello.Integration.csproj
+              integration/managed/VelloSharp.Avalonia.Winit.Integration/VelloSharp.Avalonia.Winit.Integration.csproj
+              integration/managed/VelloSharp.Integration.Skia.Integration/VelloSharp.Integration.Skia.Integration.csproj
+              integration/managed/VelloSharp.Package.Integration/VelloSharp.Package.Integration.csproj
+              integration/managed/VelloSharp.Uno.Integration/VelloSharp.Uno.Integration.csproj
+              integration/windows/VelloSharp.Windows.Core.Integration/VelloSharp.Windows.Core.Integration.csproj
+              integration/windows/VelloSharp.WinForms.Core.Integration/VelloSharp.WinForms.Core.Integration.csproj
+              integration/windows/VelloSharp.Integration.WinForms.Integration/VelloSharp.Integration.WinForms.Integration.csproj
+              integration/windows/VelloSharp.Integration.Wpf.Integration/VelloSharp.Integration.Wpf.Integration.csproj
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/nuget
+
+      - name: List packaged artifacts
+        shell: pwsh
+        run: Get-ChildItem -Recurse -Path artifacts/nuget
+
+      - name: Configure local package source
+        shell: pwsh
+        run: |
+          $sourcePath = (Resolve-Path "artifacts/nuget").ProviderPath
+          dotnet nuget remove source VelloArtifacts --configfile NuGet.Config > $null 2>&1
+          dotnet nuget add source $sourcePath --name VelloArtifacts --configfile NuGet.Config
+
+      - name: Restore and run managed integration tests
+        shell: pwsh
+        run: |
+          $projects = @"
+          ${{ matrix.managed_projects }}
+          "@ -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+
+          foreach ($project in $projects) {
+              Write-Host "Validating managed package via $project"
+              dotnet run --project $project -c Release
+          }
+
+      - name: Restore and run native integration test
+        shell: pwsh
+        run: |
+          $project = '${{ matrix.native_project }}'
+          if ([string]::IsNullOrWhiteSpace($project)) {
+              return
+          }
+
+          Write-Host "Validating native packages via $project"
+          dotnet run --project $project -c Release
