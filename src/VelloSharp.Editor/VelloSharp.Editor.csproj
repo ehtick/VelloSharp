@@ -26,6 +26,6 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.Editor" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Editor" />
   </ItemGroup>
 </Project>

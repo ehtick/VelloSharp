@@ -23,6 +23,6 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.Gauges" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Gauges" />
   </ItemGroup>
 </Project>

@@ -8,17 +8,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Native.AccessKit.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.ChartEngine.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Composition.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Editor.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Gauges.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Kurbo.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Peniko.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Scada.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.TreeDataGrid.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Vello.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.VelloSparse.linux-x64" Version="$(VelloPackageVersion)" />
-    <PackageReference Include="VelloSharp.Native.Winit.linux-x64" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.AccessKit.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.ChartEngine.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Composition.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Editor.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Gauges.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Scada.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.TreeDataGrid.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Vello.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.linux-x64" />
+    <PackageReference Include="VelloSharp.Native.Winit.linux-x64" />
   </ItemGroup>
 </Project>

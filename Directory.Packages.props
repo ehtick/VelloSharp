@@ -63,6 +63,39 @@
     <PackageVersion Include="VelloSharp.Native.Composition.osx-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Composition.win-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Composition.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Editor.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Gauges.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.android-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.browser-wasm" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.ios-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.iossimulator-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.linux-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.linux-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.osx-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.osx-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.win-arm64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Scada.win-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Kurbo" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Kurbo.android-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Kurbo.browser-wasm" Version="$(VelloNativePackageVersion)" />

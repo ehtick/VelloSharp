@@ -26,6 +26,6 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.Scada" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.Scada" />
   </ItemGroup>
 </Project>
