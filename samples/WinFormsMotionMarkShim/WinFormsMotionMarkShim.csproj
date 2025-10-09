@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
@@ -27,4 +28,5 @@
     <ProjectReference Include="../MotionMark.SceneShared/MotionMark.SceneShared.csproj" />
   </ItemGroup>
 </Project>
+
 

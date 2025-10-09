@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -10,6 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <CFBundleName>AvaloniaVelloNativeDemo</CFBundleName>
     <CFBundleIdentifier>org.vellosharp.samples.avaloniavellonativedemo</CFBundleIdentifier>
     <CFBundleShortVersionString>1.0.0</CFBundleShortVersionString>
@@ -41,3 +43,4 @@
     <ProjectReference Include="../../packaging/VelloSharp.Native.Winit/VelloSharp.Native.Winit.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
+

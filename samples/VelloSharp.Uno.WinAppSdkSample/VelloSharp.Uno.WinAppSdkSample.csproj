@@ -1,5 +1,6 @@
 <Project Sdk="Uno.Sdk/5.2.175">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <TargetFrameworks>net8.0-windows10.0.19041</TargetFrameworks>
     <TargetFramework Condition="'$(TargetFramework)' == ''">net8.0-windows10.0.19041</TargetFramework>
     <OutputType>WinExe</OutputType>
@@ -60,6 +61,7 @@
       <PkgUno_WinUI>$(NuGetPackageRoot)uno.winui\$(_UnoWinUIPackageVersion)</PkgUno_WinUI>
     </PropertyGroup>
     <PropertyGroup>
+    <IsPackable>false</IsPackable>
       <_UnoRepoRoot />
       <_UnoPackagesProps />
     </PropertyGroup>
@@ -79,6 +81,7 @@
   </ItemGroup>
 
 </Project>
+
 
 
 

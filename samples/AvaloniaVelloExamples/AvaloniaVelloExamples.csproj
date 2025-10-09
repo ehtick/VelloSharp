@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -41,3 +42,4 @@
     <ProjectReference Include="../../bindings/VelloSharp.HarfBuzzSharp/HarfBuzzSharp.csproj" />
   </ItemGroup>
 </Project>
+

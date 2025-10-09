@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -11,3 +12,4 @@
     <ProjectReference Include="../../bindings/VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj" />
   </ItemGroup>
 </Project>
+
