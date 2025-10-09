@@ -351,7 +351,7 @@ internal static class BenchmarkScenarios
     }
 }
 
-private sealed class BenchmarkElement : CompositionElement
+sealed class BenchmarkElement : CompositionElement
 {
     public override void Measure(in LayoutConstraints constraints)
     {

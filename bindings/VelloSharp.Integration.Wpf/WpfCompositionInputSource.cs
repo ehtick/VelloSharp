@@ -147,7 +147,7 @@ public sealed class WpfCompositionInputSource : ICompositionInputSource
                 _target.CaptureTouch(state.TouchDevice);
                 break;
             case PointerDeviceKind.Pen when state.StylusDevice is not null:
-                Stylus.Capture(state.StylusDevice, CaptureMode.Element);
+                state.StylusDevice.Capture(_target, CaptureMode.Element);
                 break;
         }
     }
@@ -183,9 +183,9 @@ public sealed class WpfCompositionInputSource : ICompositionInputSource
                 _target.ReleaseTouchCapture(state.TouchDevice);
                 break;
             case PointerDeviceKind.Pen when state.StylusDevice is not null:
-                if (Stylus.Captured == state.StylusDevice)
+                if (state.StylusDevice.Captured == _target)
                 {
-                    Stylus.Capture(null);
+                    state.StylusDevice.Capture(null);
                 }
                 break;
         }

@@ -5,6 +5,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using VelloSharp.Composition.Accessibility;
 using VelloSharp.Composition.Controls;
 using VelloSharp.Composition.Input;
@@ -14,7 +15,7 @@ namespace VelloSharp.Integration.Avalonia;
 public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
 {
     private readonly Control _target;
-    private readonly Dictionary<ulong, IPointer> _activePointers = new();
+    private readonly Dictionary<ulong, PointerState> _activePointers = new();
     private ICompositionInputSink? _sink;
     private InputControl? _inputControl;
     private bool _disposed;
@@ -95,9 +96,9 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
             return;
         }
 
-        if (_activePointers.TryGetValue(pointerId, out var pointer))
+        if (_activePointers.TryGetValue(pointerId, out var state))
         {
-            pointer.Capture(_target);
+            state.Pointer.Capture(_target);
         }
     }
 
@@ -108,9 +109,9 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
             return;
         }
 
-        if (_activePointers.TryGetValue(pointerId, out var pointer))
+        if (_activePointers.TryGetValue(pointerId, out var state))
         {
-            pointer.Capture(null);
+            state.Pointer.Capture(null);
         }
     }
 
@@ -125,21 +126,24 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
     }
 
     private void OnPointerEntered(object? sender, PointerEventArgs e) =>
-        ForwardPointerEvent(e, PointerEventType.Enter, PointerButton.None, null);
+        ForwardPointerEvent(e, PointerEventType.Enter, PointerButton.None, e.GetCurrentPoint(_target).Properties);
 
     private void OnPointerMoved(object? sender, PointerEventArgs e) =>
         ForwardPointerEvent(e, PointerEventType.Move, PointerButton.None, e.GetCurrentPoint(_target).Properties);
 
-    private void OnPointerExited(object? sender, PointerEventArgs e) =>
+    private void OnPointerExited(object? sender, PointerEventArgs e)
+    {
         ForwardPointerEvent(e, PointerEventType.Leave, PointerButton.None, e.GetCurrentPoint(_target).Properties);
+        _activePointers.Remove(GetPointerId(e.Pointer));
+    }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _target.Focus();
-        var properties = e.GetCurrentPoint(_target).Properties;
+        var point = e.GetCurrentPoint(_target);
+        var properties = point.Properties;
         var button = MapButton(properties.PointerUpdateKind);
         ForwardPointerEvent(e, PointerEventType.Down, button, properties);
-        _activePointers[e.Pointer.Id] = e.Pointer;
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -147,7 +151,7 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
         var properties = e.GetCurrentPoint(_target).Properties;
         var button = MapButton(properties.PointerUpdateKind);
         ForwardPointerEvent(e, PointerEventType.Up, button, properties);
-        _activePointers.Remove(e.Pointer.Id);
+        _activePointers.Remove(GetPointerId(e.Pointer));
     }
 
     private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e) =>
@@ -155,15 +159,39 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
 
     private void OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
-        if (_activePointers.Remove(e.Pointer.Id))
+        var pointerId = GetPointerId(e.Pointer);
+        if (!_activePointers.TryGetValue(pointerId, out var state))
         {
-            ForwardPointerEvent(e, PointerEventType.CaptureLost, PointerButton.None, e.GetCurrentPoint(_target).Properties);
+            return;
         }
+
+        _activePointers.Remove(pointerId);
+
+        if (_sink is null)
+        {
+            return;
+        }
+
+        var args = new CompositionPointerEventArgs(
+            PointerEventType.CaptureLost,
+            MapDeviceKind(e.Pointer.Type),
+            ToModifiers(state.LastKeyModifiers, state.LastProperties),
+            PointerButton.None,
+            pointerId,
+            state.LastPosition.X,
+            state.LastPosition.Y,
+            0,
+            0,
+            0,
+            0,
+            TimeSpan.FromMilliseconds(Environment.TickCount64 & int.MaxValue));
+
+        _sink.ProcessPointerEvent(args);
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        var args = new CompositionKeyEventArgs(KeyEventType.Down, (int)e.Key, ToModifiers(e.KeyModifiers, null), e.IsRepeat, e.KeySymbol);
+        var args = new CompositionKeyEventArgs(KeyEventType.Down, (int)e.Key, ToModifiers(e.KeyModifiers, null), isRepeat: false, e.KeySymbol);
         _sink?.ProcessKeyEvent(args);
         if (args.Handled)
         {
@@ -173,7 +201,7 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
 
     private void OnKeyUp(object? sender, KeyEventArgs e)
     {
-        var args = new CompositionKeyEventArgs(KeyEventType.Up, (int)e.Key, ToModifiers(e.KeyModifiers, null), e.IsRepeat, e.KeySymbol);
+        var args = new CompositionKeyEventArgs(KeyEventType.Up, (int)e.Key, ToModifiers(e.KeyModifiers, null), isRepeat: false, e.KeySymbol);
         _sink?.ProcessKeyEvent(args);
         if (args.Handled)
         {
@@ -188,7 +216,7 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
             return;
         }
 
-        var args = new CompositionTextInputEventArgs(e.Text);
+        var args = new CompositionTextInputEventArgs(e.Text ?? string.Empty);
         _sink.ProcessTextInput(args);
         if (args.Handled)
         {
@@ -271,15 +299,35 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
             return;
         }
 
+        var pointerId = GetPointerId(e.Pointer);
         var position = e.GetPosition(_target);
-        var previous = e.GetPreviousPosition(_target);
-        var delta = position - previous;
+        var previousPosition = position;
+        var effectiveProperties = properties;
+
+        if (_activePointers.TryGetValue(pointerId, out var state))
+        {
+            previousPosition = state.LastPosition;
+            if (effectiveProperties is null)
+            {
+                effectiveProperties = state.LastProperties;
+            }
+
+            state.LastPosition = position;
+            state.LastProperties = effectiveProperties;
+            state.LastKeyModifiers = e.KeyModifiers;
+        }
+        else
+        {
+            _activePointers[pointerId] = new PointerState(e.Pointer, position, effectiveProperties, e.KeyModifiers);
+        }
+
+        var delta = position - previousPosition;
         var args = new CompositionPointerEventArgs(
             eventType,
             MapDeviceKind(e.Pointer.Type),
-            ToModifiers(e.KeyModifiers, properties),
+            ToModifiers(e.KeyModifiers, effectiveProperties),
             button,
-            e.Pointer.Id,
+            pointerId,
             position.X,
             position.Y,
             delta.X,
@@ -294,6 +342,9 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
             e.Handled = true;
         }
     }
+
+    private static ulong GetPointerId(IPointer pointer) =>
+        unchecked((ulong)(uint)pointer.Id);
 
     private static PointerButton MapButton(PointerUpdateKind updateKind) =>
         updateKind switch
@@ -336,33 +387,49 @@ public sealed class AvaloniaCompositionInputSource : ICompositionInputSource
             modifiers |= InputModifiers.Meta;
         }
 
-        if (pointerProperties is null)
+        if (pointerProperties is not { } props)
         {
             return modifiers;
         }
 
-        if (pointerProperties.IsLeftButtonPressed)
+        if (props.IsLeftButtonPressed)
         {
             modifiers |= InputModifiers.PrimaryButton;
         }
-        if (pointerProperties.IsRightButtonPressed)
+        if (props.IsRightButtonPressed)
         {
             modifiers |= InputModifiers.SecondaryButton;
         }
-        if (pointerProperties.IsMiddleButtonPressed)
+        if (props.IsMiddleButtonPressed)
         {
             modifiers |= InputModifiers.MiddleButton;
         }
-        if (pointerProperties.IsXButton1Pressed)
+        if (props.IsXButton1Pressed)
         {
             modifiers |= InputModifiers.XButton1;
         }
-        if (pointerProperties.IsXButton2Pressed)
+        if (props.IsXButton2Pressed)
         {
             modifiers |= InputModifiers.XButton2;
         }
 
         return modifiers;
+    }
+
+    private sealed class PointerState
+    {
+        public PointerState(IPointer pointer, Point lastPosition, PointerPointProperties? lastProperties, KeyModifiers lastKeyModifiers)
+        {
+            Pointer = pointer;
+            LastPosition = lastPosition;
+            LastProperties = lastProperties;
+            LastKeyModifiers = lastKeyModifiers;
+        }
+
+        public IPointer Pointer { get; }
+        public Point LastPosition { get; set; }
+        public PointerPointProperties? LastProperties { get; set; }
+        public KeyModifiers LastKeyModifiers { get; set; }
     }
 
     public void Dispose()

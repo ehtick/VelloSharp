@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using VelloSharp;
 using VelloSharp.ChartData;
@@ -19,7 +20,7 @@ namespace VelloSharp.Charting.Avalonia;
 /// <summary>
 /// Avalonia control that renders real-time charts using the Vello engine.
 /// </summary>
-public sealed class ChartView : ContentControl
+public sealed class ChartView : global::Avalonia.Controls.ContentControl
 {
     private ChartEngine.ChartEngine _engine;
     private bool _ownsEngine;
@@ -53,7 +54,7 @@ public sealed class ChartView : ContentControl
     /// <summary>
     /// Gets or sets the theme used for axis, grid, legend, and annotations.
     /// </summary>
-    public ChartTheme Theme
+    public new ChartTheme Theme
     {
         get => _theme;
         set

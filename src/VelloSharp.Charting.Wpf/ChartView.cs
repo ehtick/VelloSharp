@@ -26,7 +26,7 @@ namespace VelloSharp.Charting.Wpf;
 /// <summary>
 /// WPF control hosting the Vello chart engine.
 /// </summary>
-public sealed class ChartView : ContentControl, IDisposable
+public sealed class ChartView : System.Windows.Controls.ContentControl, IDisposable
 {
     private ChartEngine.ChartEngine _engine;
     private bool _ownsEngine;
