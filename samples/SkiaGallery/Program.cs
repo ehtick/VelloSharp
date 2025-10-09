@@ -16,6 +16,7 @@ internal static class Program
     {
         var builder = AppBuilder.Configure<App>()
             .WithInterFont()
+            .UseSkia()
             .LogToTrace();
 
         ConfigureWindowing(builder);
