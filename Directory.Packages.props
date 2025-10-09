@@ -1,7 +1,11 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <VelloNativePackageVersion Condition="'$(VelloNativePackageVersion)'==''">$(Version)</VelloNativePackageVersion>
+    <VersionPrefix>0.5.0</VersionPrefix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">alpha.1</VersionSuffix>
+    <VelloPackageVersion Condition="'$(VelloPackageVersion)' == '' and '$(VersionSuffix)' == ''">$(VersionPrefix)</VelloPackageVersion>
+    <VelloPackageVersion Condition="'$(VelloPackageVersion)' == '' and '$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</VelloPackageVersion>
+    <VelloNativePackageVersion Condition="'$(VelloNativePackageVersion)' == ''">$(VelloPackageVersion)</VelloNativePackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="11.3.6" />
