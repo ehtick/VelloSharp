@@ -298,3 +298,7 @@ tools/**
 *.dylib
 *.dylib
 *.dll
+# DocFX generated artifacts
+docs/docfx/_site/
+docs/docfx/api/.manifest
+docs/docfx/api/*.yml

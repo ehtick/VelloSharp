@@ -1,0 +1,76 @@
+- name: Core Renderer
+  items:
+    - name: VelloSharp
+      href: vellosharp.md
+    - name: VelloSharp.Core
+      href: vellosharp-core.md
+    - name: VelloSharp.Text
+      href: vellosharp-text.md
+    - name: VelloSharp.Gpu
+      href: vellosharp-gpu.md
+- name: Skia Rendering Stack
+  items:
+    - name: VelloSharp.Skia.Core
+      href: vellosharp-skia-core.md
+    - name: VelloSharp.Skia.Gpu
+      href: vellosharp-skia-gpu.md
+    - name: VelloSharp.Skia.Cpu
+      href: vellosharp-skia-cpu.md
+    - name: VelloSharp.Integration.Skia
+      href: vellosharp-integration-skia.md
+- name: FFI and Low-Level Access
+  items:
+    - name: VelloSharp.Ffi.Core
+      href: vellosharp-ffi-core.md
+    - name: VelloSharp.Ffi.Gpu
+      href: vellosharp-ffi-gpu.md
+    - name: VelloSharp.Ffi.Sparse
+      href: vellosharp-ffi-sparse.md
+- name: Platform Integration
+  items:
+    - name: VelloSharp.Avalonia.Vello
+      href: vellosharp-avalonia-vello.md
+    - name: VelloSharp.Avalonia.Winit
+      href: vellosharp-avalonia-winit.md
+    - name: VelloSharp.Integration.Wpf
+      href: vellosharp-integration-wpf.md
+    - name: VelloSharp.Integration.WinForms
+      href: vellosharp-integration-winforms.md
+    - name: VelloSharp.Windows.Core
+      href: vellosharp-windows-core.md
+    - name: VelloSharp.WinForms.Core
+      href: vellosharp-winforms-core.md
+    - name: VelloSharp.Uno
+      href: vellosharp-uno.md
+- name: Charting Platform
+  items:
+    - name: VelloSharp.ChartData
+      href: vellosharp-chartdata.md
+    - name: VelloSharp.ChartDiagnostics
+      href: vellosharp-chartdiagnostics.md
+    - name: VelloSharp.ChartEngine
+      href: vellosharp-chartengine.md
+    - name: VelloSharp.Charting
+      href: vellosharp-charting.md
+    - name: VelloSharp.Charting.Avalonia
+      href: vellosharp-charting-avalonia.md
+    - name: VelloSharp.Charting.WinForms
+      href: vellosharp-charting-winforms.md
+    - name: VelloSharp.Charting.Wpf
+      href: vellosharp-charting-wpf.md
+    - name: VelloSharp.ChartRuntime
+      href: vellosharp-chartruntime.md
+    - name: VelloSharp.ChartRuntime.Windows
+      href: vellosharp-chartruntime-windows.md
+- name: Visualization Suites
+  items:
+    - name: VelloSharp.Composition
+      href: vellosharp-composition.md
+    - name: VelloSharp.Editor
+      href: vellosharp-editor.md
+    - name: VelloSharp.Gauges
+      href: vellosharp-gauges.md
+    - name: VelloSharp.Scada
+      href: vellosharp-scada.md
+    - name: VelloSharp.TreeDataGrid
+      href: vellosharp-treedatagrid.md
