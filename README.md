@@ -414,7 +414,9 @@ var panel = new VelloSwapChainPanel();
 {
     Console.WriteLine($"GPU presentations: {e.Diagnostics.SwapChainPresentations}");
 };
-```\n### VelloSharp.Composition
+```
+
+### VelloSharp.Composition
 
 - Shared composition primitives for dashboards, gauges, and SCADA shells.
 - Supplies geometry metrics and layout helpers consumed across the runtime.
@@ -448,7 +450,9 @@ if (bus.TryRead(out var slice))
 - Records frame statistics and exposes them through .NET diagnostics APIs.
 - Pipe metrics into `Meter`, `Activity`, or custom sinks.
 
-```csharp\nusing System;\nusing VelloSharp.ChartDiagnostics;
+```csharp
+using System;
+using VelloSharp.ChartDiagnostics;
 
 using var collector = new FrameDiagnosticsCollector();
 collector.Record(new FrameStats(TimeSpan.FromMilliseconds(4.2), TimeSpan.FromMilliseconds(3.1), TimeSpan.FromMilliseconds(1.0), 128, DateTimeOffset.UtcNow));
@@ -462,7 +466,8 @@ collector.Record(new FrameStats(TimeSpan.FromMilliseconds(4.2), TimeSpan.FromMil
 ```csharp
 using VelloSharp.ChartEngine;
 
-var profile = ChartAnimationProfile.Default with { ReducedMotionEnabled = true };\nvar color = ChartColor.FromRgb(34, 139, 230);
+var profile = ChartAnimationProfile.Default with { ReducedMotionEnabled = true };
+var color = ChartColor.FromRgb(34, 139, 230);
 ```
 
 ### VelloSharp.Charting
@@ -473,7 +478,8 @@ var profile = ChartAnimationProfile.Default with { ReducedMotionEnabled = true }
 ```csharp
 using VelloSharp.Charting.Layout;
 
-var orientation = AxisOrientation.Left;\nConsole.WriteLine($"Axis orientation: {orientation}");
+var orientation = AxisOrientation.Left;
+Console.WriteLine($"Axis orientation: {orientation}");
 ```
 
 ### VelloSharp.Charting.Avalonia
@@ -576,7 +582,9 @@ using VelloSharp.TreeDataGrid;
 
 using var model = new TreeDataModel();
 model.AttachRoots(new[] { new TreeNodeDescriptor(1, TreeRowKind.Data, 24f, hasChildren: false) });
-```\n- Samples:
+```
+
+- Samples:
   - `samples/AvaloniaVelloWinitDemo` - minimal Avalonia desktop host covering CPU and GPU render paths through the AvaloniaNative/Vello stack.
   - `samples/AvaloniaVelloX11Demo` - Linux-focused host that locks Avalonia to the X11 platform for backend validation.
   - `samples/AvaloniaVelloWin32Demo` - Windows host configured for the Win32 platform while exercising the Vello renderer.
@@ -772,24 +780,6 @@ assets they need. A typical workflow looks like this:
 
 The packaging props also emit fallback copies (for example `osx` alongside `osx-arm64`) so that RID roll-forward
 continues to work when .NET probes `runtimes/<baseRid>/native`. When only managed assets are required, the sample projects reference the meta packaging projects so the native dylibs land in `bin/<TFM>/runtimes/` without custom MSBuild logic, and the conditional references inside those metas ensure only the available RIDs flow through.
-
-## Available NuGet packages
-
-- `VelloSharp` – managed bindings that surface the renderer, scene graph, wgpu interop, SVG, Velato, and surface
-  helpers.
-- `VelloSharp.Skia` – Skia-inspired drawing primitives built on top of the Vello renderer.
-- `VelloSharp.Integration` – auxiliary helpers for Avalonia, SkiaSharp interop, and host render loops.
-- `VelloSharp.WinForms.Core` – Windows Forms drawing shim that maps System.Drawing-friendly APIs onto the Vello renderer.
-- `VelloSharp.Integration.WinForms` – WinForms control hosting, swapchain/device management, and GPU/CPU fallback services built on the core shim.
-- `VelloSharp.Avalonia.Winit` – Avalonia-facing abstractions for driving the winit surface renderer.
-- `VelloSharp.Avalonia.Vello` – Avalonia platform integration that wires Vello surfaces into desktop applications.
-
-### Native runtime packages
-
-- Meta bundles: `VelloSharp.Native.AccessKit`, `VelloSharp.Native.Kurbo`, `VelloSharp.Native.Peniko`,
-  `VelloSharp.Native.Vello`, `VelloSharp.Native.VelloSparse`, `VelloSharp.Native.Winit`.
-- Per-RID packages follow the pattern `VelloSharp.Native.<Ffi>.<rid>` (for example,
-  `VelloSharp.Native.Vello.osx-arm64`, `VelloSharp.Native.VelloSparse.win-x64`).
 
 ## Using `VelloSharp`
 
