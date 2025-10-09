@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);SKIA_SHIM</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+    <DefineConstants>$(DefineConstants);REAL_SKIA</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,4 +31,3 @@
     </Compile>
   </ItemGroup>
 </Project>
-
