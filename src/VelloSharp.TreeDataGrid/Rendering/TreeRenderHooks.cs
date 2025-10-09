@@ -31,7 +31,35 @@ public static class TreeShaderRegistry
                 descriptor.SolidColor.B,
                 descriptor.SolidColor.A));
 
-        CompositionShaderRegistry.Register(shaderId, compositionDescriptor);
+        var nativeDescriptor = new NativeMethods.VelloTdgShaderDescriptor
+        {
+            Kind = descriptor.Kind switch
+            {
+                TreeShaderKind.Solid => NativeMethods.VelloTdgShaderKind.Solid,
+                _ => NativeMethods.VelloTdgShaderKind.Solid,
+            },
+            Solid = new NativeMethods.VelloTdgColor
+            {
+                R = descriptor.SolidColor.R,
+                G = descriptor.SolidColor.G,
+                B = descriptor.SolidColor.B,
+                A = descriptor.SolidColor.A,
+            },
+        };
+
+        TreeInterop.ThrowIfFalse(
+            NativeMethods.vello_tdg_shader_register(shaderId, nativeDescriptor),
+            "Failed to register shader.");
+
+        try
+        {
+            CompositionShaderRegistry.Register(shaderId, compositionDescriptor);
+        }
+        catch
+        {
+            NativeMethods.vello_tdg_shader_unregister(shaderId);
+            throw;
+        }
     }
 
     public static void Unregister(uint shaderId)
@@ -41,6 +69,7 @@ public static class TreeShaderRegistry
             return;
         }
 
+        NativeMethods.vello_tdg_shader_unregister(shaderId);
         CompositionShaderRegistry.Unregister(shaderId);
     }
 }
@@ -61,11 +90,28 @@ public static class TreeMaterialRegistry
             throw new ArgumentOutOfRangeException(nameof(descriptor.ShaderId), "Shader identifier must be non-zero.");
         }
 
-        var compositionDescriptor = new CompositionMaterialDescriptor(
-            descriptor.ShaderId,
-            Math.Clamp(descriptor.Opacity, 0f, 1f));
+        float opacity = Math.Clamp(descriptor.Opacity, 0f, 1f);
+        var compositionDescriptor = new CompositionMaterialDescriptor(descriptor.ShaderId, opacity);
 
-        CompositionMaterialRegistry.Register(materialId, compositionDescriptor);
+        var nativeDescriptor = new NativeMethods.VelloTdgMaterialDescriptor
+        {
+            Shader = descriptor.ShaderId,
+            Opacity = opacity,
+        };
+
+        TreeInterop.ThrowIfFalse(
+            NativeMethods.vello_tdg_material_register(materialId, nativeDescriptor),
+            "Failed to register material.");
+
+        try
+        {
+            CompositionMaterialRegistry.Register(materialId, compositionDescriptor);
+        }
+        catch
+        {
+            NativeMethods.vello_tdg_material_unregister(materialId);
+            throw;
+        }
     }
 
     public static void Unregister(uint materialId)
@@ -75,6 +121,7 @@ public static class TreeMaterialRegistry
             return;
         }
 
+        NativeMethods.vello_tdg_material_unregister(materialId);
         CompositionMaterialRegistry.Unregister(materialId);
     }
 }

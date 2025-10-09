@@ -13,9 +13,10 @@ internal static partial class NativeMethods
 
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_shader_register")]
     [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial bool vello_tdg_shader_register(
         uint handle,
-        VelloTdgShaderDescriptor descriptor);
+        in VelloTdgShaderDescriptor descriptor);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_shader_unregister")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -23,9 +24,10 @@ internal static partial class NativeMethods
 
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_material_register")]
     [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial bool vello_tdg_material_register(
         uint handle,
-        VelloTdgMaterialDescriptor descriptor);
+        in VelloTdgMaterialDescriptor descriptor);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_material_unregister")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -33,9 +35,10 @@ internal static partial class NativeMethods
 
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_render_hook_register")]
     [return: MarshalAs(UnmanagedType.I1)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial bool vello_tdg_render_hook_register(
         uint handle,
-        VelloTdgRenderHookDescriptor descriptor);
+        in VelloTdgRenderHookDescriptor descriptor);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_tdg_render_hook_unregister")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
