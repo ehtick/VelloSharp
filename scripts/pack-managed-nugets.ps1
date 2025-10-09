@@ -22,7 +22,7 @@ $NativeFeed = [System.IO.Path]::GetFullPath($NativeFeed)
 
 New-Item -ItemType Directory -Force -Path $NuGetOutput | Out-Null
 
-$buildArgs = @('-c', 'Release', '-p:VelloSkipNativeBuild=true')
+$buildArgs = @('-c', 'Release', '-p:VelloSkipNativeBuild=true', '-p:EnableWindowsTargeting=true')
 & dotnet build (Join-Path $rootPath 'VelloSharp.sln') @buildArgs
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet build failed with exit code $LASTEXITCODE."
@@ -108,7 +108,7 @@ if ($idSet.Count -eq 0) {
 
 $nativeIds = [string]::Join(';', ($idSet | Sort-Object))
 
-$commonPackArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput")
+$commonPackArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true')
 
 $packProjects = @(
     @{ Path = 'bindings/VelloSharp.Core/VelloSharp.Core.csproj'; Extra = @() },
