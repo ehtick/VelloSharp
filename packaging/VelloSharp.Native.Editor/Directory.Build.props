@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>vello_editor_core</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Editor</NativePackagePrefix>
+    <NativeFriendlyName>Editor core runtime (vello_editor_core)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

@@ -7,8 +7,8 @@
 - Provide extensible runtime tooling for telemetry connectivity, alarm management, historian playback, scripting, and operator workflows.
 
 ## Implementation Conventions
-- [ ] Native code organized under `ffi/scada-*` crates composing existing charting (`ffi/chart-*`), gauges (`ffi/gauges-*`), and composition (`ffi/composition`) modules.
-- [ ] Managed surface delivered via `src/VelloSharp.Scada.*` assemblies referencing `VelloSharp.Charting`, `VelloSharp.Gauges`, and `VelloSharp.TreeDataGrid`.
+- [x] Native code organized under `ffi/scada-*` crates composing existing charting (`ffi/chart-*`), gauges (`ffi/gauges-*`), and composition (`ffi/composition`) modules.
+- [x] Managed surface delivered via `src/VelloSharp.Scada.*` assemblies referencing `VelloSharp.Charting`, `VelloSharp.Gauges`, and `VelloSharp.TreeDataGrid`.
 - [ ] Shared assets (layout panels, templated controls, geometry/shape primitives, animation timelines, InputControl adapters) stay in common packages; any new cross-domain features update `docs/specs/shared-composition-contract.md`.
 - [ ] Samples under `samples/VelloSharp.Scada.*` expose integrated dashboards with simulated and live telemetry connectors.
 
@@ -37,6 +37,7 @@
 - Shared input adapters (`src/VelloSharp.Composition/Controls/InputControl.cs` + Avalonia/WPF/WinUI bridges) and telemetry/command services (`src/VelloSharp.Composition/Telemetry/*`, `docs/specs/telemetry-contract.md`) landed, giving SCADA a common pipeline for gestures, acknowledgements, and signal fan-out.
 - SCADA requirements dossier and component inventory complete (`docs/specs/scada-requirements.md`, `docs/specs/scada-component-inventory.md`), framing Phase 1 follow-ups on alarm workflows, historian scrubbers, and floor-plan layouts.
 - SCADA dashboard prototype (`ffi/experimental/scada_dashboard`) validates composition of chart, gauge, and TDG panels with 0.32 ms average CPU frame time (`docs/metrics/scada-baselines.md`), demonstrating Phase 0 performance targets are met.
+- Baseline runtime projects are in place (`ffi/scada-runtime`, `src/VelloSharp.Scada`) together with native packaging to unblock upcoming Phase 1 work.
 
 ## Phase 1 – Shared Platform Foundations (3–4 weeks)
 **Objectives**

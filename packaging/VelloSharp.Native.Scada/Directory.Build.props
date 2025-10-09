@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>vello_scada_runtime</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Scada</NativePackagePrefix>
+    <NativeFriendlyName>SCADA runtime (vello_scada_runtime)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

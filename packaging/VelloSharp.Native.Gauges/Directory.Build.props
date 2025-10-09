@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <NativeBinaryName>vello_gauges_core</NativeBinaryName>
+    <NativePackagePrefix>VelloSharp.Native.Gauges</NativePackagePrefix>
+    <NativeFriendlyName>Gauge runtime (vello_gauges_core)</NativeFriendlyName>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+  </PropertyGroup>
+</Project>

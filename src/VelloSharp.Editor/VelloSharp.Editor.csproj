@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\VelloSharp.Gauges\VelloSharp.Gauges.csproj" />
+    <ProjectReference Include="..\VelloSharp.TreeDataGrid\VelloSharp.TreeDataGrid.csproj" />
+    <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
+  </ItemGroup>
+</Project>

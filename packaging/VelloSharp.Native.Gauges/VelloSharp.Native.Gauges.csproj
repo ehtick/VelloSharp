@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <PackageId Condition="'$(PackageId)'==''">$(NativePackagePrefix)</PackageId>
+    <Title Condition="'$(Title)'==''">$(PackageId)</Title>
+    <Description Condition="'$(Description)'==''">Native $(NativeFriendlyName) bundle with all supported runtimes.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="VelloSharp.Native.Gauges.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/android-arm64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/android-arm64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.browser-wasm.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/browser-wasm/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/browser-wasm/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/ios-arm64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/ios-arm64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/iossimulator-x64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/iossimulator-x64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.linux-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/linux-arm64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/linux-arm64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.linux-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/linux-x64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/linux-x64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/osx-arm64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/osx-arm64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.osx-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/osx-x64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/osx-x64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.win-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/win-arm64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/win-arm64/native')" />
+    <ProjectReference Include="VelloSharp.Native.Gauges.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(RepositoryRoot)artifacts/runtimes/win-x64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/win-x64/native')" />
+  </ItemGroup>
+</Project>

@@ -16,7 +16,10 @@ members = [
     "ffi/chart-data",
     "ffi/chart-diagnostics",
     "ffi/chart-engine",
+    "ffi/editor-core",
     "ffi/tree-datagrid",
+    "ffi/gauges-core",
+    "ffi/scada-runtime",
 ]
 exclude = [
     "extern/Avalonia",

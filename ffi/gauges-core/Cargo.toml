@@ -1,0 +1,13 @@
+[package]
+name = "vello_gauges_core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+once_cell = { workspace = true }
+vello = { workspace = true }
+vello_composition = { path = "../composition" }

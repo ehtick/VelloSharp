@@ -7,8 +7,8 @@
 - Emphasize safety, accessibility, and governance—guarding configuration changes, offering audit trails, and supporting role-based workflows.
 
 ## Implementation Conventions
-- [ ] Core editing engine implemented in Rust (`ffi/editor-*` crates) integrating with shared composition and scene graph primitives.
-- [ ] Managed editor host (`src/VelloSharp.Editor.*`) exposing Avalonia/WinUI/Avalonia Web surfaces with extensibility hooks.
+- [x] Core editing engine implemented in Rust (`ffi/editor-*` crates) integrating with shared composition and scene graph primitives.
+- [x] Managed editor host (`src/VelloSharp.Editor.*`) exposing Avalonia/WinUI/Avalonia Web surfaces with extensibility hooks.
 - [ ] Editor features share assets with existing products (control templates, materials, iconography). New primitives must update `docs/specs/shared-composition-contract.md`.
 - [ ] Samples/tests live under `samples/VelloSharp.Editor.*` with scenario coverage for chart, gauge, TDG, and SCADA dashboards.
 
@@ -36,6 +36,7 @@
 - Shared TDG/chart composition stack (layout solvers, templated/text/shape controls, virtualization capture) is now available for editor prototyping (`ffi/composition/src/panels.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`, `samples/VelloSharp.TreeDataGrid.CompositionSample/Program.cs`), clearing the dependency for palette and preview experiments.
 - Newly shipped `InputControl` base + platform adapters (Avalonia/WPF/WinUI) and telemetry/command services (`src/VelloSharp.Composition/Controls/InputControl.cs`, adapter layer projects, `src/VelloSharp.Composition/Telemetry/*`) unblock editor tooling for selection, shortcuts, and live telemetry preview.
 - Phase 0 artefacts captured: requirements inventory (`docs/specs/editor-requirements-map.md`), personas/workflows (`docs/specs/editor-personas.md`), serialization proposal (`docs/specs/editor-serialization.md`), and drag/drop canvas prototype (`ffi/experimental/editor_canvas_prototype`) with baseline results in `docs/metrics/editor-baselines.md`.
+- Native editor bridge (`ffi/editor-core`) and managed façade (`src/VelloSharp.Editor`) created to support upcoming Phase 1 editing engine work and packaging.
 
 ## Phase 1 – Core Editing Engine & Composition Integration (4 weeks)
 **Objectives**

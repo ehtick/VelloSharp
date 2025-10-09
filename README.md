@@ -20,6 +20,9 @@ The codebase is split into native FFI crates, managed bindings, integration help
     from .NET when desired.
   - `ffi/accesskit_ffi` – serialises/deserialises [AccessKit](https://accesskit.dev) tree updates and action requests
     so accessibility data can flow between managed code and platform adapters.
+  - `ffi/gauges-core` – foundational scene hooks for industrial gauges, exposing a shared initialization point for the managed gauge controls.
+  - `ffi/scada-runtime` – SCADA runtime bootstrap layer that will surface alarm/state orchestration to managed dashboards.
+  - `ffi/editor-core` – entry points for the unified visual editor, enabling design-time composition features over the shared runtime.
 - Managed assemblies (under `bindings/`):
   - `VelloSharp` - idiomatic C# wrappers for all native exports: scenes, fonts, images, surface renderers,
     the wgpu device helpers, and the `KurboPath`/`KurboAffine` and `PenikoBrush` utilities.
@@ -34,6 +37,9 @@ The codebase is split into native FFI crates, managed bindings, integration help
     managed bindings.
   - `VelloSharp.Avalonia.Vello` - Avalonia platform abstractions that adapt Vello surfaces and inputs into
     application-friendly controls.
+  - `VelloSharp.Gauges` - managed bridge for the gauges runtime, providing initialization hooks over `vello_gauges_core`.
+  - `VelloSharp.Scada` - SCADA runtime shell that coordinates gauges, charts, and TreeDataGrid surfaces against `vello_scada_runtime`.
+  - `VelloSharp.Editor` - design-time editor bindings that light up the native editor core and shared composition services.
 - Samples:
   - `samples/AvaloniaVelloWinitDemo` - minimal Avalonia desktop host covering CPU and GPU render paths through the AvaloniaNative/Vello stack.
   - `samples/AvaloniaVelloX11Demo` - Linux-focused host that locks Avalonia to the X11 platform for backend validation.
@@ -154,7 +160,7 @@ without changing the managed API surface.
   pacing, and software/GPU fallbacks. `STATUS.md` and the plans under `docs/` track the remaining backlog for
   surface handles, validation, and additional platform glue.
 - **Packaging** – `dotnet pack` produces the aggregate `VelloSharp` NuGet plus the `VelloSharp.Native.<rid>`
-  runtime packages. The managed package now declares dependencies on the RID-specific native packages so
+  runtime packages (including charting, gauges, SCADA runtime, and editor core). The managed package now declares dependencies on the RID-specific native packages so
   consuming projects restore the correct binaries automatically. Helper scripts in `scripts/` collect, copy,
   and repackage the native artifacts for CI and local workflows.
 

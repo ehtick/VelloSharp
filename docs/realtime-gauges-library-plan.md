@@ -7,7 +7,7 @@
 - Emphasize resilience under bursty telemetry, deterministic alarm visualization, accessibility, and theming parity across desktop, web, and embedded hosts.
 
 ## Implementation Conventions
-- [ ] Rust production code lives under `ffi/gauges-*` crates aligned with the existing composition/animation modules; managed bindings reside under `src/VelloSharp.Gauges.*`.
+- [x] Rust production code lives under `ffi/gauges-*` crates aligned with the existing composition/animation modules; managed bindings reside under `src/VelloSharp.Gauges.*`.
 - [ ] Samples and diagnostics ship from `samples/VelloSharp.Gauges.*`, demonstrating real telemetry integration (MQTT, OPC UA simulators).
 - [ ] Shared assets (layouts, templated controls, text primitives, animation profiles) remain under existing shared crates to avoid duplication; any new primitives must update `docs/specs/shared-composition-contract.md`.
 - [ ] Each phase produces shippable artifacts with accompanying tests and docs before marking deliverables complete.
@@ -34,6 +34,7 @@
 #### Phase 0 Progress Snapshot
 - Shared composition layout + templated control stack from TDG extraction is ready for adoption (`ffi/composition/src/panels.rs`, `ffi/composition/src/virtualization.rs`, `src/VelloSharp.Composition/LayoutPrimitives.cs`, `src/VelloSharp.Composition/Controls/*`); gauge prototypes can lean on these primitives without forking.
 - Shared input + telemetry foundation delivered (`src/VelloSharp.Composition/Controls/InputControl.cs`, `bindings/VelloSharp.Integration/Avalonia/AvaloniaCompositionInputSource.cs`, `src/VelloSharp.Composition/Telemetry/*`), clearing blockers for gauge gestures, setpoint commands, and diagnostics fan-out.
+- Native and managed entry points created (`ffi/gauges-core`, `src/VelloSharp.Gauges`) to anchor upcoming gauge primitives and packaging.
 
 ## Phase 1 – Shared Foundations and Infrastructure (3–4 weeks)
 **Objectives**
