@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.TreeDataGrid" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Native.TreeDataGrid" />
   </ItemGroup>
 
   <PropertyGroup>
