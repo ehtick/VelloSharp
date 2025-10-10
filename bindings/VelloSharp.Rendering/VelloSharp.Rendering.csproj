@@ -4,6 +4,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Rendering</PackageId>
+    <Title>VelloSharp.Rendering</Title>
+    <Description>Rendering pipelines and helpers shared across VelloSharp bindings.</Description>
   </PropertyGroup>
 
   <ItemGroup>
