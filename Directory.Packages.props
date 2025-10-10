@@ -46,8 +46,13 @@
   <PackageVersion Include="VelloSharp.Composition" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Core" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Editor" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Ffi.Core" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Ffi.Gpu" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Ffi.Sparse" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Gauges" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Gpu" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.HarfBuzzSharp" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Integration" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Integration.Skia" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Rendering" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Scada" Version="$(VelloPackageVersion)" />
