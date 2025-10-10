@@ -288,15 +288,25 @@ ensure_native_payloads() {
     fi
   fi
 
-  if (( should_pack_managed )); then
-    if [[ ! -x "${ROOT}/scripts/pack-managed-nugets.sh" ]]; then
-      echo "Managed packaging script '${ROOT}/scripts/pack-managed-nugets.sh' is missing or not executable." >&2
-      exit 1
+    if (( should_pack_managed )); then
+      if [[ ! -x "${ROOT}/scripts/pack-managed-nugets.sh" ]]; then
+        echo "Managed packaging script '${ROOT}/scripts/pack-managed-nugets.sh' is missing or not executable." >&2
+        exit 1
+      fi
+      echo "Packing managed NuGet payloads to include updated native dependencies."
+      "${ROOT}/scripts/pack-managed-nugets.sh"
+
+      if [[ -n "${NUGET_PACKAGES:-}" && -d "${NUGET_PACKAGES}" ]]; then
+        echo "Clearing cached VelloSharp packages from '${NUGET_PACKAGES}' to avoid stale payloads."
+        shopt -s nullglob
+        for cache_dir in "${NUGET_PACKAGES}"/vellosharp* "${NUGET_PACKAGES}"/VelloSharp*; do
+          [[ -d "${cache_dir}" ]] || continue
+          rm -rf "${cache_dir}"
+        done
+        shopt -u nullglob
+      fi
     fi
-    echo "Packing managed NuGet payloads to include updated native dependencies."
-    "${ROOT}/scripts/pack-managed-nugets.sh"
-  fi
-}
+  }
 
 native_project_matches_arch() {
   local name
