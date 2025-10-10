@@ -10,6 +10,17 @@ has_command() {
   command -v "$1" >/dev/null 2>&1
 }
 
+run_as_root() {
+  if [[ $EUID -eq 0 ]]; then
+    "$@"
+  elif has_command sudo; then
+    sudo "$@"
+  else
+    echo "Unable to run '$*' without elevated privileges. Re-run this script with sudo or install dependencies manually." >&2
+    exit 1
+  fi
+}
+
 ensure_dotnet() {
   if has_command dotnet; then
     echo ".NET SDK detected."
@@ -32,12 +43,39 @@ ensure_dotnet() {
   fi
 }
 
-if ! xcode-select -p >/dev/null 2>&1; then
-  echo "Command Line Tools for Xcode are required. Triggering install prompt..."
-  xcode-select --install >/dev/null 2>&1 || true
-  echo "Please complete the Command Line Tools installation, then rerun this script." >&2
-  exit 0
-fi
+ensure_command_line_tools() {
+  if xcode-select -p >/dev/null 2>&1; then
+    echo "Command Line Tools for Xcode detected."
+    return
+  fi
+
+  if ! has_command softwareupdate; then
+    echo "Command Line Tools for Xcode are required but 'softwareupdate' is unavailable. Install them manually (e.g. 'sudo xcode-select --install')." >&2
+    exit 1
+  fi
+
+  echo "Command Line Tools for Xcode not detected. Installing via softwareupdate..."
+
+  local label
+  label="$(softwareupdate --list 2>/dev/null | grep -E 'Label: Command Line Tools' | head -n1 | sed 's/^[[:space:]]*\* Label: //')"
+
+  if [[ -z "$label" ]]; then
+    echo "Unable to determine the Command Line Tools package name. Run 'softwareupdate --list' manually to identify the label, then install it with 'sudo softwareupdate --install <label>'." >&2
+    exit 1
+  fi
+
+  run_as_root softwareupdate --install "$label"
+  run_as_root xcode-select --switch /Library/Developer/CommandLineTools
+
+  if xcode-select -p >/dev/null 2>&1; then
+    echo "Command Line Tools for Xcode installed."
+  else
+    echo "Command Line Tools installation attempted, but they are still not detected. Verify the installation manually." >&2
+    exit 1
+  fi
+}
+
+ensure_command_line_tools
 
 if ! has_command curl; then
   echo "curl is required to install the Rust toolchain. Please install curl and rerun this script." >&2
