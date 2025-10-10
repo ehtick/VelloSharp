@@ -29,7 +29,6 @@ $outputDirAbs = (Resolve-Path $OutputDir).Path
 
 $ffiProjects = @('AccessKit', 'ChartEngine', 'Composition', 'Editor', 'Gauges', 'Kurbo', 'Peniko', 'Scada', 'TreeDataGrid', 'Vello', 'VelloSparse', 'Winit')
 $seenRids = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-$processedFfi = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $processed = 0
 
 foreach ($ridDir in Get-ChildItem -Path $RuntimesRoot -Directory) {
@@ -63,20 +62,6 @@ foreach ($ridDir in Get-ChildItem -Path $RuntimesRoot -Directory) {
             throw "dotnet pack failed with exit code $LASTEXITCODE for $project."
         }
         $processed++
-        $processedFfi.Add($ffi) | Out-Null
-    }
-}
-
-foreach ($ffi in $processedFfi) {
-    $metaProject = Join-Path $rootPath ("packaging/VelloSharp.Native.{0}/VelloSharp.Native.{0}.csproj" -f $ffi)
-    if (-not (Test-Path $metaProject -PathType Leaf)) {
-        continue
-    }
-
-    Write-Host "Packing aggregated native package for $ffi"
-    dotnet pack $metaProject -c Release -p:PackageOutputPath="$outputDirAbs"
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet pack failed with exit code $LASTEXITCODE for $metaProject."
     }
 }
 

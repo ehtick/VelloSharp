@@ -15,24 +15,6 @@ OUTPUT_DIR_ABS="$(cd "${OUTPUT_DIR}" && pwd)"
 
 shopt -s nullglob
 seen_rids=()
-processed_ffis=()
-
-ffi_seen() {
-  local name="$1"
-  for existing in "${processed_ffis[@]:-}"; do
-    if [[ "${existing}" == "${name}" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-mark_ffi_processed() {
-  local name="$1"
-  if ! ffi_seen "${name}"; then
-    processed_ffis+=("${name}")
-  fi
-}
 
 rid_seen() {
   local rid="$1"
@@ -73,20 +55,7 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
       -p:NativeAssetsDirectory="${native_dir_abs}" \
       -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
     processed=$((processed + 1))
-    mark_ffi_processed "${ffi}"
   done
-done
-
-for ffi in "${processed_ffis[@]:-}"; do
-  project="${ROOT}/packaging/VelloSharp.Native.${ffi}/VelloSharp.Native.${ffi}.csproj"
-  if [[ ! -f "${project}" ]]; then
-    continue
-  fi
-
-  echo "Packing aggregated native package for ${ffi}"
-  dotnet pack "${project}" \
-    -c Release \
-    -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
 done
 
 if [[ ${processed} -eq 0 ]]; then
