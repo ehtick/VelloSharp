@@ -58,13 +58,15 @@ copy_payload() {
       rsync -a "${source_dir}/" "${destination}/"
     fi
   else
-    shopt -s dotglob nullglob
     if [[ "${delete_flag}" == "true" ]]; then
-      rm -rf "${destination}"/*
+      if [[ -d "${destination}" ]]; then
+        find "${destination}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+      fi
     fi
-    cp -a "${source_dir}/"* "${destination}/" 2>/dev/null || true
-    shopt -u dotglob
-    shopt -u nullglob
+    if ! cp -a "${source_dir}/." "${destination}/"; then
+      echo "Failed to copy runtimes from '${source_dir}' to '${destination}'." >&2
+      return
+    fi
   fi
 }
 
