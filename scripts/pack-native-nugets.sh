@@ -13,6 +13,18 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR_ABS="$(cd "${OUTPUT_DIR}" && pwd)"
 
+DOTNET_CLI="${DOTNET_CLI:-dotnet}"
+if ! command -v "${DOTNET_CLI}" >/dev/null 2>&1; then
+  if [[ -x "/mnt/c/Program Files/dotnet/dotnet" ]]; then
+    DOTNET_CLI="/mnt/c/Program Files/dotnet/dotnet"
+  elif [[ -x "/mnt/c/Program Files (x86)/dotnet/dotnet" ]]; then
+    DOTNET_CLI="/mnt/c/Program Files (x86)/dotnet/dotnet"
+  else
+    echo "dotnet CLI not found on PATH. Set DOTNET_CLI to the dotnet executable." >&2
+    exit 1
+  fi
+fi
+
 shopt -s nullglob
 seen_rids=()
 
@@ -36,7 +48,7 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
   fi
   seen_rids+=("${rid}")
 
-  if ! find "${native_dir}" -type f -mindepth 1 -print -quit | grep -q .; then
+  if ! find "${native_dir}" -mindepth 1 -type f -print -quit | grep -q .; then
     echo "Skipping ${rid}: no native assets found under '${native_dir}'."
     continue
   fi
@@ -50,7 +62,7 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
     fi
 
     echo "Packing native package for ${ffi} (${rid})"
-    dotnet pack "${project}" \
+    "${DOTNET_CLI}" pack "${project}" \
       -c Release \
       -p:NativeAssetsDirectory="${native_dir_abs}" \
       -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
