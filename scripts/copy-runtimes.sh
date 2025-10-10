@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -118,4 +118,3 @@ for ffi_dir in "${ROOT}"/packaging/VelloSharp.Native.*; do
     fi
   done
 done
-

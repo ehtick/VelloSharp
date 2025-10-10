@@ -149,7 +149,10 @@ function Get-ProjectExtraArgs {
 
 $projects = Get-PackableProjects -Root $rootPath -Directories @('bindings', 'src')
 
-$commonArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true')
+$commonArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true', '-p:VelloUseNativePackageDependencies=true')
+if ($NativeFeed) {
+    $commonArgs += "-p:RestoreAdditionalProjectSources=$NativeFeed"
+}
 
 if ($projects.Count -eq 0) {
     Write-Warning "No packable managed projects were found under 'bindings' or 'src'."

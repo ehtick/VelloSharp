@@ -59,7 +59,11 @@ add_extra_arg() {
   eval "${array_name}+=(\"\${value}\")"
 }
 
-COMMON_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT_ABS}" "-p:EnableWindowsTargeting=true")
+COMMON_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT_ABS}" "-p:EnableWindowsTargeting=true" "-p:VelloUseNativePackageDependencies=true")
+
+if [[ -n "${NATIVE_FEED_ABS}" ]]; then
+  COMMON_ARGS+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED_ABS}")
+fi
 
 for project in "${PROJECTS[@]}"; do
   full_path="${ROOT}/${project}"
