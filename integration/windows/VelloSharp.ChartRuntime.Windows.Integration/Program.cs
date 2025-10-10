@@ -1,11 +1,18 @@
 using System;
 using System.Reflection;
 
-[STAThread]
-Console.WriteLine("Verifying VelloSharp.ChartRuntime.Windows package usage…");
+namespace VelloSharp.ChartRuntime.Windows.Integration;
 
-var assembly = Assembly.Load("VelloSharp.ChartRuntime.Windows");
-Console.WriteLine($"Exported types: {assembly.GetExportedTypes().Length}");
+internal static class Program
+{
+    [STAThread]
+    private static void Main()
+    {
+        Console.WriteLine("Verifying VelloSharp.ChartRuntime.Windows package usage.");
 
-Console.WriteLine("VelloSharp.ChartRuntime.Windows integration test completed.");
+        var assembly = Assembly.Load("VelloSharp.ChartRuntime.Windows");
+        Console.WriteLine($"Exported types: {assembly.GetExportedTypes().Length}");
 
+        Console.WriteLine("VelloSharp.ChartRuntime.Windows integration test completed.");
+    }
+}

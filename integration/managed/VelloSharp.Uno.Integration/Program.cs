@@ -4,7 +4,7 @@ using VelloSharp.Windows;
 Console.WriteLine("Verifying VelloSharp.Uno package usage…");
 
 var diagnostics = new WindowsGpuDiagnostics();
-var args = new VelloDiagnosticsChangedEventArgs(diagnostics);
+var eventArgs = new VelloDiagnosticsChangedEventArgs(diagnostics);
 Console.WriteLine($"Diagnostics object reports {diagnostics.SwapChainPresentations} presentations.");
 Console.WriteLine($"Assembly location: {typeof(VelloDiagnosticsChangedEventArgs).Assembly.Location}");
 

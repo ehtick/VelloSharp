@@ -1,10 +1,15 @@
 using System;
 using VelloSharp.Charting.Wpf;
 
-[STAThread]
-Console.WriteLine("Verifying VelloSharp.Charting.Wpf package usage…");
+namespace VelloSharp.Charting.Wpf.Integration;
 
-Console.WriteLine($"WPF chart control type: {typeof(ChartView).FullName}");
-
-Console.WriteLine("VelloSharp.Charting.Wpf integration test completed.");
-
+internal static class Program
+{
+    [STAThread]
+    private static void Main()
+    {
+        Console.WriteLine("Verifying VelloSharp.Charting.Wpf package usage.");
+        Console.WriteLine($"WPF chart control type: {typeof(ChartView).FullName}");
+        Console.WriteLine("VelloSharp.Charting.Wpf integration test completed.");
+    }
+}
