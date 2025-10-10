@@ -21,4 +21,31 @@
     <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RepositoryRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
+    <PackageReference Include="VelloSharp.Native.Gauges.android-arm64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/android-arm64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.browser-wasm"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/browser-wasm/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.ios-arm64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/ios-arm64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.iossimulator-x64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/iossimulator-x64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.linux-arm64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/linux-arm64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.linux-x64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/linux-x64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.osx-arm64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/osx-arm64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.osx-x64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/osx-x64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.win-arm64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-arm64/native')" />
+    <PackageReference Include="VelloSharp.Native.Gauges.win-x64"
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-x64/native')" />
+  </ItemGroup>
+
 </Project>
