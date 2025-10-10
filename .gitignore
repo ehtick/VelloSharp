@@ -302,3 +302,4 @@ tools/**
 docs/docfx/_site/
 docs/docfx/api/.manifest
 docs/docfx/api/*.yml
+*.so
