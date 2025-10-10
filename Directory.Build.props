@@ -23,6 +23,10 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(EnableWindowsTargeting)' == '' and !$([MSBuild]::IsOSPlatform('Windows'))">
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(EnableWindowsTargeting)' == '' and '$(TargetPlatformIdentifier)' == 'Windows'">
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
