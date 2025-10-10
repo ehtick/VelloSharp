@@ -48,6 +48,8 @@ public class VelloRenderControlTests
     [StaFact]
     public void PaintSurfaceRaisedInOnDemandMode()
     {
+        TestEnvironment.SkipIfCi("WinForms interactive rendering tests are disabled on CI runners.");
+
         using var form = new Form { Size = new Size(200, 200) };
         using var control = new VelloRenderControl { Size = new Size(64, 64) };
         form.Controls.Add(control);
@@ -102,6 +104,8 @@ public class VelloRenderControlTests
     [StaFact]
     public void PaintSurfaceIndicatesContinuousMode()
     {
+        TestEnvironment.SkipIfCi("WinForms interactive rendering tests are disabled on CI runners.");
+
         using var form = new Form { Size = new Size(200, 200) };
         using var control = new VelloRenderControl { Size = new Size(64, 64) };
         form.Controls.Add(control);
