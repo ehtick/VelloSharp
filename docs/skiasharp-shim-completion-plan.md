@@ -17,7 +17,7 @@
 - Baseline current behaviour in the gallery to detect regressions as deeper native work lands.
 
 **Deliverables**
-- [ ] Introduce a conformance test harness (`bindings/VelloSharp.Skia.Tests/SkiaParitySuite.cs`) that renders Skia reference images and Vello outputs, diffing via compute-assisted SSIM; wire into CI and `build-pack.yml`.
+- [ ] Introduce a conformance test harness (`tests/VelloSharp.Skia.Tests/SkiaParitySuite.cs`) that renders Skia reference images and Vello outputs, diffing via compute-assisted SSIM; wire into CI and `build-pack.yml`.
 - [ ] Extend `samples/SkiaShimGallery` with baseline scenes for blend modes, gradients, image codecs, text hinting, and geometry stress cases to be toggled per feature.
 - [ ] Document baseline metrics and outstanding gaps in `docs/skiasharp-shim-api-coverage.md` and replicate as Jira/GitHub issue list.
 
