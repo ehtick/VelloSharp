@@ -116,6 +116,22 @@ internal sealed class ClipRectCommand(SKRect rect) : ICanvasCommand
     public void Replay(SKCanvas canvas) => canvas.ClipRect(_rect);
 }
 
+internal sealed class ClipPathCommand : ICanvasCommand
+{
+    private readonly SKPath _path;
+    private readonly SKClipOperation _operation;
+    private readonly bool _antialias;
+
+    public ClipPathCommand(SKPath path, SKClipOperation operation, bool antialias)
+    {
+        _path = path.Clone();
+        _operation = operation;
+        _antialias = antialias;
+    }
+
+    public void Replay(SKCanvas canvas) => canvas.ClipPath(_path, _operation, _antialias);
+}
+
 internal sealed class ClearCommand(SKColor color) : ICanvasCommand
 {
     private readonly SKColor _color = color;

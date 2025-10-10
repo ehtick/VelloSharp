@@ -20,6 +20,11 @@ public sealed class SKData : IDisposable
         _ownsStream = ownsStream;
     }
 
+    public static SKData CreateCopy(ReadOnlySpan<byte> data)
+    {
+        return new SKData(data.ToArray());
+    }
+
     public static SKData Create(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);

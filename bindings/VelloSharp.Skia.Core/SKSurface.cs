@@ -38,6 +38,22 @@ public sealed class SKSurface : IDisposable
 
     public static SKSurface Create(SKImageInfo info) => new(info);
 
+    public static SKSurface Create(SKImageInfo info, SKSurfaceProperties properties)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        ShimNotImplemented.Throw($"{nameof(SKSurface)}.{nameof(Create)}", "surface properties");
+        return Create(info);
+    }
+
+    public static SKSurface Create(SKImageInfo info, IntPtr pixels, int rowBytes, SKSurfaceProperties properties)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        _ = pixels;
+        _ = rowBytes;
+        ShimNotImplemented.Throw($"{nameof(SKSurface)}.{nameof(Create)}", "CPU surface from pixel buffer");
+        return Create(info);
+    }
+
     public SKImage Snapshot()
     {
         ThrowIfDisposed();

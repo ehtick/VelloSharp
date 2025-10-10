@@ -14,7 +14,7 @@ Legend:
 | SkiaSharp API | Shim implementation | VelloSharp usage | Status / notes |
 | --- | --- | --- | --- |
 | `SKSurface` | `bindings/VelloSharp.Skia.Core/SKSurface.cs` | `Scene`, `Renderer`, `RenderParams`, `RgbaColor`, `RenderFormat`, `AntialiasingMode` | Complete – surfaces are native Vello scenes snapshotting via `Renderer.Render`. |
-| `SKCanvas` | `bindings/VelloSharp.Skia.Core/SKCanvas.cs` | `Scene.FillPath`, `Scene.StrokePath`, `Scene.DrawGlyphRun`, `Scene.DrawImage`, `PathBuilder`, `LayerBlend`, `BrushFactory`, `Glyph`, `ImageBrush`, `Renderer` (indirect via surface snapshots) | Partial – core draw APIs ported; advanced blend modes (`Modulate`, `Screen`, etc.) fall back to SrcOver today. |
+| `SKCanvas` | `bindings/VelloSharp.Skia.Core/SKCanvas.cs` | `Scene.FillPath`, `Scene.StrokePath`, `Scene.DrawGlyphRun`, `Scene.DrawImage`, `PathBuilder`, `LayerBlend`, `BrushFactory`, `Glyph`, `ImageBrush`, `Renderer` (indirect via surface snapshots) | Partial – core draw APIs ported; advanced blend modes (`Modulate`, `Screen`, etc.) fall back to SrcOver today. `ClipPath` ignores null/invert combos (throws `ShimNotImplemented`). |
 | `SKPictureRecorder` | `bindings/VelloSharp.Skia.Core/SKPictureRecorder.cs` | `Scene` (recording), command log for replay | Complete – records Vello scene commands to replay on any canvas. |
 | `SKPicture` | `bindings/VelloSharp.Skia.Core/SKPicture.cs` | Uses `SKSurface` for rasterisation, `SKShader.CreateImageShader` for picture shaders | Partial – picture shaders render through snapshot; scene serialization pending. |
 | `SKDrawable` | `bindings/VelloSharp.Skia.Core/SKDrawable.cs` | Delegates to `SKPictureRecorder` | Complete – produces pictures recorded into Vello scenes on demand. |
@@ -40,6 +40,9 @@ Legend:
 | --- | --- | --- | --- |
 | `SKPaint`, enums (`SKPaintStyle`, `SKStrokeCap`, `SKStrokeJoin`, `SKBlendMode`, `SKClipOperation`, `SKPointMode`) | `bindings/VelloSharp.Skia.Core/SKPaint.cs` | `SolidColorBrush`, `StrokeStyle`, `LineCap`, `LineJoin`, `BrushFactory` | Partial – maps blend modes supported by Vello; advanced Skia blend modes still routed to SrcOver. |
 | `SKShader`, `SKShaderTileMode` | `bindings/VelloSharp.Skia.Core/SKShader.cs` | `SolidColorBrush`, `LinearGradientBrush`, `RadialGradientBrush`, `SweepGradientBrush`, `ImageBrush`, `GradientStop`, `ExtendMode`, `RgbaColor` | Partial – linear/radial/two-point/sweep/image gradients mapped; compose shader limited to nested shim shaders. |
+| `SKColorFilter`, `SKColorFilters` | `bindings/VelloSharp.Skia.Core/Filters/SKColorFilter.cs` | — | Stub – all creation helpers throw `ShimNotImplemented.Throw`. |
+| `SKRuntimeEffect`, `SKRuntimeEffectUniform` | `bindings/VelloSharp.Skia.Core/RuntimeEffect/SKRuntimeEffect.cs` | — | Stub – parsing/validation helpers not yet implemented. |
+| `SKRuntimeShaderBuilder` | `bindings/VelloSharp.Skia.Core/RuntimeEffect/SKRuntimeShaderBuilder.cs` | — | Stub – setters and renderer hooks throw `ShimNotImplemented.Throw`. |
 | `PaintBrush` helpers | `bindings/VelloSharp.Skia.Core/PaintBrush.cs` | `Brush`, `Matrix3x2` | Managed-only – packages brush + transform for canvas. |
 | `SkiaInteropHelpers` (`StrokeInterop`, `BrushInvoker`, `BrushNativeFactory`, `NativeConversionExtensions`, `NativePathElements`) | `bindings/VelloSharp.Skia.Core/SkiaInteropHelpers.cs` | `VelloSharp.VelloBrush*`, `VelloGradientStop`, `VelloPathElement`, `RgbaColor`, `Glyph` | Complete – adapter layer that turns managed brushes/paths into native Vello structures. |
 | `SKSamplingOptions` | `bindings/VelloSharp.Skia.Core/SKSamplingOptions.cs` | `VelloSharp.ImageQualityMode` (via decoder) | Partial – translates to Vello resize quality flags. |
@@ -53,7 +56,7 @@ Legend:
 | `SKRect`, `SKRectI`, `SKSizeI` | `bindings/VelloSharp.Skia.Core/SKGeometry.cs`, `Primitives/SKPrimitives.cs` | `PathBuilder` (rect conversion) | Complete – rectangle helpers feed path builders for clipping and fills. |
 | `SKRoundRect` | `bindings/VelloSharp.Skia.Core/SKGeometry.cs` | `PathBuilder` | Partial – arc approximation mirrors Skia’s constant but lacks analytic arc join optimisations. |
 | `SKPoint`, `SKMatrix`, `SKMatrix44`, `SKMatrix4x4` | `bindings/VelloSharp.Skia.Core/SKGeometry.cs`, `Primitives/SKPrimitives.cs` | `System.Numerics.Matrix3x2` (fed into Vello transforms) | Complete – conversion utilities to/from Vello transforms. |
-| `SKGeometry` helpers (`SKPathVerb`, etc.) | `bindings/VelloSharp.Skia.Core/SKGeometry.cs` | `PathBuilder`, `Scene` (via canvas) | Partial – path ops fully mapped; region boolean ops pending work. |
+| `SKGeometry` helpers (`SKPathVerb`, etc.) | `bindings/VelloSharp.Skia.Core/SKGeometry.cs` | `PathBuilder`, `Scene` (via canvas) | Partial – path ops fully mapped; region boolean ops pending work. `SKVertices` factory methods currently stubbed. |
 
 ## Text & Typography
 
@@ -83,6 +86,7 @@ Legend:
 | `SKPixmap` span helpers | `bindings/VelloSharp.Skia.Core/SKPixmap.cs` | — | Managed-only – provides span access for decode/encode glue. |
 | `SKSamplingOptions` high-quality flag | `bindings/VelloSharp.Skia.Core/SKSamplingOptions.cs` | `VelloSharp.ImageQualityMode` | Partial – only toggles between low/high quality resize. |
 | `SkiaBackend` interfaces (`ISkiaCanvasBackend`, etc.) | `bindings/VelloSharp.Skia.Core/SkiaBackend.cs` | `Scene`, `RenderParams`, `Brush`, `GlyphRunOptions` | Complete – abstraction consumed by CPU/GPU backends. |
+| `SkiaSharp.Graphics.Shaders` (`SkRuntimeEffectGlobals`) | `bindings/VelloSharp.Skia.Core/RuntimeEffect/SkRuntimeEffectGlobals.cs` | — | Stub – shader global helpers are placeholders until runtime effect support lands. |
 | `SkiaSharp.IO` namespace helpers | `bindings/VelloSharp.Skia.Core/IO/*.cs` | `NativeMethods.vello_image_*` | Partial – decode only; encode support tracked on TODO list. |
 | `Properties/AssemblyInfo.cs` | `bindings/VelloSharp.Skia.Core/Properties` | — | Managed-only metadata (no Vello interaction). |
 

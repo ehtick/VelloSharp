@@ -31,6 +31,12 @@ public sealed class SKCanvas
         ResetState();
     }
 
+    public void Reset()
+    {
+        _scene.Reset();
+        ResetState();
+    }
+
     public void Save()
     {
         _saveStack.Push(_currentState);
@@ -152,21 +158,62 @@ public sealed class SKCanvas
         _commandLog?.Add(new ClipRectCommand(rect));
     }
 
-    public void Clear(SKColor color)
+    public void ClipPath(SKPath path, SKClipOperation operation, bool doAntialias)
     {
-        _scene.Reset();
-        ResetState();
-        _commandLog?.Add(new ClearCommand(color));
+        ArgumentNullException.ThrowIfNull(path);
 
-        if (color == SKColors.Transparent)
+        if (operation != SKClipOperation.Intersect)
         {
+            ShimNotImplemented.Throw($"{nameof(SKCanvas)}.{nameof(ClipPath)}", operation.ToString());
             return;
         }
 
+        var builder = path.ToPathBuilder();
+        _scene.PushLayer(builder, s_clipLayerBlend, _currentState.Transform, alpha: 1f);
+        _activeLayerDepth++;
+        _currentState = _currentState with { LayerDepth = _activeLayerDepth };
+        _commandLog?.Add(new ClipPathCommand(path.Clone(), operation, doAntialias));
+    }
+
+    public void Clear(SKColor color)
+    {
+        var canResetScene =
+            _saveStack.Count == 0 &&
+            _activeLayerDepth == 0 &&
+            _currentState.Transform == Matrix3x2.Identity;
+
+        if (canResetScene)
+        {
+            _scene.Reset();
+            ResetState();
+
+            if (color == SKColors.Transparent)
+            {
+                _commandLog?.Add(new ClearCommand(color));
+                return;
+            }
+        }
+
+        _commandLog?.Add(new ClearCommand(color));
+
         var rect = SKRect.Create(0, 0, _width, _height);
-        var builder = rect.ToPathBuilder();
+
+        if (color == SKColors.Transparent)
+        {
+            var clipBlend = new LayerBlend(LayerMix.Normal, LayerCompose.Copy);
+            var clipBuilder = rect.ToPathBuilder();
+            var clearBrush = new SolidColorBrush(RgbaColor.FromBytes(0, 0, 0, 0));
+
+            _scene.PushLayer(clipBuilder, clipBlend, Matrix3x2.Identity, 1f);
+            var transparentFill = rect.ToPathBuilder();
+            _scene.FillPath(transparentFill, FillRule.NonZero, Matrix3x2.Identity, clearBrush);
+            _scene.PopLayer();
+            return;
+        }
+
+        var colorFill = rect.ToPathBuilder();
         var brush = new SolidColorBrush(color.ToRgbaColor());
-        _scene.FillPath(builder, FillRule.NonZero, Matrix3x2.Identity, brush);
+        _scene.FillPath(colorFill, FillRule.NonZero, Matrix3x2.Identity, brush);
     }
 
     public void DrawRect(SKRect rect, SKPaint paint)

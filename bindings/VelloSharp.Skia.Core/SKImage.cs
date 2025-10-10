@@ -307,6 +307,14 @@ public sealed class SKImage : IDisposable
         return new SKImage(image, info.Width, info.Height);
     }
 
+    public SKData Encode(SKEncodedImageFormat format, int quality)
+    {
+        ShimNotImplemented.Throw($"{nameof(SKImage)}.{nameof(Encode)}", $"{format}, quality={quality}");
+        _ = format;
+        _ = quality;
+        return SKData.CreateCopy(Array.Empty<byte>());
+    }
+
     public void Dispose()
     {
         _image?.Dispose();

@@ -121,6 +121,13 @@ public sealed class SKShader : IDisposable
         return new SKShader(ShaderKind.Compose, new ComposeData(outer, inner));
     }
 
+    public SKShader WithColorFilter(SKColorFilter? filter)
+    {
+        ShimNotImplemented.Throw($"{nameof(SKShader)}.{nameof(WithColorFilter)}");
+        _ = filter;
+        return this;
+    }
+
     public void Dispose()
     {
         if (_disposed)

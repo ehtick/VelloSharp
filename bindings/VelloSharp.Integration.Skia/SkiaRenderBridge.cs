@@ -43,12 +43,21 @@ public static class SkiaRenderBridge
         }
 
         var bounds = surface.Canvas.DeviceClipBounds;
-        if (bounds.Width <= 0 || bounds.Height <= 0)
+        var width = bounds.Width;
+        var height = bounds.Height;
+
+        if (width <= 0 || height <= 0)
+        {
+            width = (int)renderParams.Width;
+            height = (int)renderParams.Height;
+        }
+
+        if (width <= 0 || height <= 0)
         {
             return;
         }
 
-        var info = new SKImageInfo(bounds.Width, bounds.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
         var bitmap = RentBitmap(info);
 
         Render(bitmap, renderer, scene, renderParams);

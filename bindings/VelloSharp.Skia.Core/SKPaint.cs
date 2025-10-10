@@ -40,8 +40,44 @@ public sealed class SKPaint : IDisposable
     public float Opacity { get; set; } = 1f;
     public SKShader? Shader { get; set; }
     public SKBlendMode BlendMode { get; set; } = SKBlendMode.SrcOver;
+    public SKImageFilter? ImageFilter { get; set; }
+    public SKPathEffect? PathEffect { get; set; }
+
+    public bool IsStroke
+    {
+        get => Style == SKPaintStyle.Stroke || Style == SKPaintStyle.StrokeAndFill;
+        set => Style = value ? SKPaintStyle.Stroke : SKPaintStyle.Fill;
+    }
 
     public void Dispose() => _disposed = true;
+
+    public void Reset()
+    {
+        ShimNotImplemented.Throw($"{nameof(SKPaint)}.{nameof(Reset)}");
+        Style = SKPaintStyle.Fill;
+        StrokeCap = SKStrokeCap.Butt;
+        StrokeJoin = SKStrokeJoin.Miter;
+        StrokeWidth = 1f;
+        StrokeMiter = 4f;
+        IsAntialias = true;
+        TextSize = 16f;
+        Color = new SKColor(0, 0, 0, 255);
+        Typeface = null;
+        Opacity = 1f;
+        Shader = null;
+        BlendMode = SKBlendMode.SrcOver;
+        ImageFilter = null;
+        PathEffect = null;
+    }
+
+    public bool GetFillPath(SKPath source, SKPath destination)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        ShimNotImplemented.Throw($"{nameof(SKPaint)}.{nameof(GetFillPath)}");
+        destination.Reset();
+        return false;
+    }
 
     internal void ThrowIfDisposed()
     {
