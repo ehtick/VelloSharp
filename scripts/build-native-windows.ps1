@@ -55,7 +55,10 @@ if ($libs.Count -eq 0) {
         "vello_sparse_ffi",
         "vello_composition",
         "vello_chart_engine",
-        "vello_tree_datagrid"
+        "vello_tree_datagrid",
+        "vello_editor_core",
+        "vello_gauges_core",
+        "vello_scada_runtime"
     )
 }
 $profileArgs = @()

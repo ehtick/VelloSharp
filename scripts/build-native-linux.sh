@@ -52,6 +52,7 @@ if [[ ${#LIBS[@]} -eq 0 ]]; then
     vello_composition
     vello_chart_engine
     vello_tree_datagrid
+    vello_editor_core
     vello_gauges_core
     vello_scada_runtime
   )
