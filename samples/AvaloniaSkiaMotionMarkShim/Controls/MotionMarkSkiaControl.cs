@@ -11,7 +11,6 @@ using Avalonia.Skia;
 using AvaloniaSkiaMotionMarkShim.Scenes;
 using VelloCanvas = VelloSkia::SkiaSharp.SKCanvas;
 using VelloColor = VelloSkia::SkiaSharp.SKColor;
-using VelloColors = VelloSkia::SkiaSharp.SKColors;
 using VelloRect = VelloSkia::SkiaSharp.SKRect;
 using VelloSurface = VelloSkia::SkiaSharp.SKSurface;
 using VelloImageInfo = VelloSkia::SkiaSharp.SKImageInfo;
@@ -310,7 +309,7 @@ public sealed class MotionMarkSkiaControl : Control
             var deltaMs = owner.BeginFrame();
 
             var canvas = velloSurface.Canvas;
-            canvas.Clear(VelloColors.Transparent);
+            canvas.Reset();
             canvas.Save();
             canvas.Scale((float)scaling);
             owner.RenderScene(canvas, width, height, owner._currentComplexity);

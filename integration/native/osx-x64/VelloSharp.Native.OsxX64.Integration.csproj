@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>osx-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\\..\\..\\'))</RepositoryRoot>
+    <NativePackageIndicator>$([System.IO.Path]::Combine('$(RepositoryRoot)', 'artifacts', 'nuget', 'VelloSharp.Native.Vello.osx-x64.$(VelloNativePackageVersion).nupkg'))</NativePackageIndicator>
+    <NativePackagesAvailable Condition="'$(NativePackagesAvailable)'=='' and Exists('$(NativePackageIndicator)')">true</NativePackagesAvailable>
+    <NativePackagesAvailable Condition="'$(NativePackagesAvailable)'==''">false</NativePackagesAvailable>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(NativePackagesAvailable)' == 'true'">
+    <PackageReference Include="VelloSharp.Native.AccessKit.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.ChartEngine.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Composition.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Editor.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Gauges.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Scada.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.TreeDataGrid.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Vello.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.osx-x64" />
+    <PackageReference Include="VelloSharp.Native.Winit.osx-x64" />
+  </ItemGroup>
+
+  <Target Name="WarnMissingNativePackages"
+          BeforeTargets="Build"
+          Condition="'$(NativePackagesAvailable)' != 'true'">
+    <Warning Text="Skipping osx-x64 native package validation because no native packages were found under artifacts/nuget. Run packaging to generate the osx-x64 payloads before executing this integration test." />
+  </Target>
+</Project>
