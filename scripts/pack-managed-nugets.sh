@@ -45,15 +45,18 @@ fi
 
 add_extra_arg() {
   local value="$1"
-  local -n arr_ref="$2"
+  local array_name="$2"
+  local existing
 
-  for existing in "${arr_ref[@]}"; do
+  eval "local current_values=(\"\${${array_name}[@]:-}\")"
+
+  for existing in "${current_values[@]}"; do
     if [[ "${existing}" == "${value}" ]]; then
       return 0
     fi
   done
 
-  arr_ref+=("${value}")
+  eval "${array_name}+=(\"\${value}\")"
 }
 
 COMMON_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT_ABS}" "-p:EnableWindowsTargeting=true")
