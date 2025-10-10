@@ -53,6 +53,105 @@ is_ci_environment() {
   [[ -n "${CI:-}" || -n "${TF_BUILD:-}" || -n "${GITHUB_ACTIONS:-}" ]]
 }
 
+latest_matching_file() {
+  local pattern="$1"
+  shopt -s nullglob
+  local matches=(${pattern})
+  shopt -u nullglob
+  if ((${#matches[@]} == 0)); then
+    return 1
+  fi
+
+  IFS=$'\n' matches=($(ls -1t "${matches[@]}"))
+  unset IFS
+  printf '%s\n' "${matches[0]}"
+  return 0
+}
+
+ensure_native_payloads() {
+  if [[ ${RUN_MANAGED} -ne 1 || "${PLATFORM}" != "linux" ]]; then
+    return
+  fi
+
+  local rid="linux-x64"
+  local target="x86_64-unknown-linux-gnu"
+  if [[ "${HOST_ARCH}" == "arm64" ]]; then
+    rid="linux-arm64"
+    target="aarch64-unknown-linux-gnu"
+  fi
+
+  local runtime_dir="${ROOT}/artifacts/runtimes/${rid}/native"
+  local native_lib="${runtime_dir}/libvello_gauges_core.so"
+  local built_native=0
+
+  if [[ ! -f "${native_lib}" ]]; then
+    echo "Native gauges payload not found at '${native_lib}'. Building native assets for ${rid}."
+    if [[ ! -x "${ROOT}/scripts/build-native-linux.sh" ]]; then
+      echo "Required build script '${ROOT}/scripts/build-native-linux.sh' is missing or not executable." >&2
+      exit 1
+    fi
+    "${ROOT}/scripts/build-native-linux.sh" "${target}" "release" "${rid}"
+    built_native=1
+  fi
+
+  local native_pattern="${ROOT}/artifacts/nuget/VelloSharp.Native.Gauges.${rid}."*
+  local native_package=""
+  if native_package=$(latest_matching_file "${native_pattern}"); then
+    :
+  else
+    native_package=""
+  fi
+
+  local should_pack_native=0
+  if [[ -z "${native_package}" || ${built_native} -eq 1 ]]; then
+    should_pack_native=1
+  fi
+
+  if (( should_pack_native )); then
+    if [[ ! -x "${ROOT}/scripts/pack-native-nugets.sh" ]]; then
+      echo "Native packaging script '${ROOT}/scripts/pack-native-nugets.sh' is missing or not executable." >&2
+      exit 1
+    fi
+    echo "Packing native NuGet payloads (RID: ${rid})."
+    "${ROOT}/scripts/pack-native-nugets.sh"
+    if native_package=$(latest_matching_file "${native_pattern}"); then
+      :
+    else
+      echo "Failed to produce native packages for RID '${rid}'." >&2
+      exit 1
+    fi
+  fi
+
+  local managed_pattern="${ROOT}/artifacts/nuget/VelloSharp.Gauges."*
+  local managed_package=""
+  if managed_package=$(latest_matching_file "${managed_pattern}"); then
+    :
+  else
+    managed_package=""
+  fi
+
+  local should_pack_managed=0
+  if [[ -z "${managed_package}" ]]; then
+    should_pack_managed=1
+  elif [[ -n "${native_package}" && -n "${managed_package}" ]]; then
+    local native_time managed_time
+    native_time=$(stat -c %Y "${native_package}")
+    managed_time=$(stat -c %Y "${managed_package}")
+    if (( native_time > managed_time )); then
+      should_pack_managed=1
+    fi
+  fi
+
+  if (( should_pack_managed )); then
+    if [[ ! -x "${ROOT}/scripts/pack-managed-nugets.sh" ]]; then
+      echo "Managed packaging script '${ROOT}/scripts/pack-managed-nugets.sh' is missing or not executable." >&2
+      exit 1
+    fi
+    echo "Packing managed NuGet payloads to include updated native dependencies."
+    "${ROOT}/scripts/pack-managed-nugets.sh"
+  fi
+}
+
 native_project_matches_arch() {
   local name
   local arch
@@ -217,6 +316,7 @@ esac
 
 managed_projects=()
 HOST_ARCH="$(detect_host_architecture)"
+ensure_native_payloads
 if is_ci_environment; then
   IS_CI=1
 fi
