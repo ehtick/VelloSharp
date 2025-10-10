@@ -109,23 +109,16 @@ resolve_runtime_identifier() {
   esac
 }
 
-ensure_native_payloads() {
-  if [[ ${RUN_MANAGED} -ne 1 ]]; then
-    return
-  fi
-
-  local rid=""
-  rid="$(resolve_runtime_identifier "${PLATFORM}" "${HOST_ARCH}")"
+ensure_native_payload_for_rid() {
+  local rid="$1"
   if [[ -z "${rid}" ]]; then
     return
   fi
 
-  MANAGED_RUNTIME_IDENTIFIER="${rid}"
-
   local target=""
   local native_filename=""
   local build_script=""
-  local build_args=()
+  local -a build_args=()
 
   case "${rid}" in
     linux-x64)
@@ -203,6 +196,77 @@ ensure_native_payloads() {
     fi
   fi
 
+  printf '%s\n' "${native_package}"
+}
+
+ensure_native_payloads() {
+  local -a required_rids=()
+  local rid=""
+
+  if [[ ${RUN_MANAGED} -eq 1 ]]; then
+    rid="$(resolve_runtime_identifier "${PLATFORM}" "${HOST_ARCH}")"
+    if [[ -n "${rid}" ]]; then
+      MANAGED_RUNTIME_IDENTIFIER="${rid}"
+      required_rids+=("${rid}")
+    fi
+  fi
+
+  if [[ ${RUN_NATIVE} -eq 1 && -d "${ROOT}/integration/native" ]]; then
+    shopt -s nullglob
+    for native_dir in "${ROOT}/integration/native"/*; do
+      [[ -d "${native_dir}" ]] || continue
+      local native_name
+      native_name="$(basename "${native_dir}")"
+      local native_lower
+      native_lower="$(to_lower "${native_name}")"
+      case "${PLATFORM}" in
+        linux)
+          [[ "${native_lower}" == linux* ]] || continue
+          ;;
+        macos)
+          [[ "${native_lower}" == osx* || "${native_lower}" == ios* ]] || continue
+          ;;
+        windows)
+          [[ "${native_lower}" == win* ]] || continue
+          ;;
+        *)
+          continue
+          ;;
+      esac
+      required_rids+=("${native_lower}")
+    done
+    shopt -u nullglob
+  fi
+
+  if [[ ${#required_rids[@]} -eq 0 ]]; then
+    return
+  fi
+
+  local seen_rids=""
+  local latest_native_package=""
+  local latest_native_time=0
+  for rid in "${required_rids[@]}"; do
+    if [[ " ${seen_rids} " == *" ${rid} "* ]]; then
+      continue
+    fi
+    seen_rids+=" ${rid}"
+    local native_package
+    native_package="$(ensure_native_payload_for_rid "${rid}")"
+    if [[ -n "${native_package}" && -f "${native_package}" ]]; then
+      ensure_python
+      local pkg_time
+      pkg_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${native_package}")
+      if (( pkg_time > latest_native_time )); then
+        latest_native_time=${pkg_time}
+        latest_native_package="${native_package}"
+      fi
+    fi
+  done
+
+  if [[ ${RUN_MANAGED} -ne 1 ]]; then
+    return
+  fi
+
   local managed_pattern="${ROOT}/artifacts/nuget/VelloSharp.Gauges."*
   local managed_package=""
   if managed_package=$(latest_matching_file "${managed_pattern}"); then
@@ -214,10 +278,10 @@ ensure_native_payloads() {
   local should_pack_managed=0
   if [[ -z "${managed_package}" ]]; then
     should_pack_managed=1
-  elif [[ -n "${native_package}" && -n "${managed_package}" ]]; then
+  elif [[ -n "${latest_native_package}" && -n "${managed_package}" ]]; then
     ensure_python
     local native_time managed_time
-    native_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${native_package}")
+    native_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${latest_native_package}")
     managed_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${managed_package}")
     if (( native_time > managed_time )); then
       should_pack_managed=1
@@ -451,7 +515,7 @@ if [[ -d "${ROOT}/integration/native" ]]; then
         fi
         ;;
     esac
-    if [[ ${IS_CI} -eq 1 && -n "${HOST_ARCH}" ]]; then
+    if [[ -n "${HOST_ARCH}" ]]; then
       if ! native_project_matches_arch "${dir_lower}" "${HOST_ARCH}"; then
         rel="${project#"${ROOT}/"}"
         echo "Skipping native integration project '${rel}' (host architecture ${HOST_ARCH} not supported)."
