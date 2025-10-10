@@ -149,7 +149,7 @@ function Get-ProjectExtraArgs {
 
 $projects = Get-PackableProjects -Root $rootPath -Directories @('bindings', 'src')
 
-$commonArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true', '-p:VelloUseNativePackageDependencies=true')
+$commonArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true', '-p:VelloUseNativePackageDependencies=true', '-p:VelloNativePackagesAvailable=true')
 if ($NativeFeed) {
     $commonArgs += "-p:RestoreAdditionalProjectSources=$NativeFeed"
 }
