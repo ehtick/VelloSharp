@@ -30,25 +30,25 @@
 
   <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
     <PackageReference Include="VelloSharp.Native.Scada.android-arm64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/android-arm64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/android-arm64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.android-arm64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.browser-wasm"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/browser-wasm/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/browser-wasm/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.browser-wasm.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.ios-arm64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/ios-arm64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/ios-arm64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.ios-arm64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.iossimulator-x64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/iossimulator-x64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/iossimulator-x64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.iossimulator-x64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.linux-arm64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/linux-arm64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/linux-arm64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.linux-arm64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.linux-x64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/linux-x64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/linux-x64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.linux-x64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.osx-arm64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/osx-arm64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/osx-arm64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.osx-arm64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.osx-x64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/osx-x64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/osx-x64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.osx-x64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.win-arm64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-arm64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-arm64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.win-arm64.$(VelloNativePackageVersion).nupkg')" />
     <PackageReference Include="VelloSharp.Native.Scada.win-x64"
-                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-x64/native')" />
+                      Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-x64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.win-x64.$(VelloNativePackageVersion).nupkg')" />
   </ItemGroup>
 
 </Project>
