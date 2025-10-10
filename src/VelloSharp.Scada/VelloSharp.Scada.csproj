@@ -28,6 +28,45 @@
     <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RepositoryRoot>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <_CargoProfileFlag Condition="'$(Configuration)'=='Debug'"></_CargoProfileFlag>
+    <_CargoProfileFlag Condition="'$(Configuration)'!='Debug'">--release</_CargoProfileFlag>
+    <_CargoProfileDir Condition="'$(Configuration)'=='Debug'">debug</_CargoProfileDir>
+    <_CargoProfileDir Condition="'$(Configuration)'!='Debug'">release</_CargoProfileDir>
+  </PropertyGroup>
+
+  <Target Name="BuildScadaNative"
+          BeforeTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true' and '$(VelloSkipNativeBuild)'!='true' and '$(VelloUseNativePackageDependencies)'!='true'">
+    <Exec Command="cargo build -p vello_scada_runtime $(_CargoProfileFlag)"
+          WorkingDirectory="$(RepositoryRoot)" />
+  </Target>
+
+  <Target Name="CopyScadaNative"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true' and '$(VelloSkipNativeBuild)'!='true' and '$(VelloUseNativePackageDependencies)'!='true'">
+    <ItemGroup>
+      <_ScadaNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_scada_runtime.dll"
+                    Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\vello_scada_runtime.dll')" />
+      <_ScadaNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_scada_runtime.so"
+                    Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_scada_runtime.so')" />
+      <_ScadaNative Include="$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_scada_runtime.dylib"
+                    Condition="Exists('$(RepositoryRoot)\target\$(_CargoProfileDir)\libvello_scada_runtime.dylib')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_ScadaNative)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_ScadaNative)"
+          DestinationFolder="$(OutDir)runtimes\$(RuntimeIdentifier)\native"
+          Condition="'$(RuntimeIdentifier)'!=''"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_ScadaNative)"
+          DestinationFolder="$(OutDir)runtimes\win-x64\native"
+          Condition="'$(RuntimeIdentifier)'=='' and Exists('$(OutDir)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
   <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
     <PackageReference Include="VelloSharp.Native.Scada.android-arm64"
                       Condition="'$(VelloNativePackagesAvailable)'=='true' Or Exists('$(RepositoryRoot)/artifacts/runtimes/android-arm64/native') Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Scada.android-arm64.$(VelloNativePackageVersion).nupkg')" />
