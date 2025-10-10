@@ -28,11 +28,72 @@ function Test-Command {
     return (Get-Command -Name $Name -ErrorAction SilentlyContinue) -ne $null
 }
 
-if (Test-Command -Name 'dotnet') {
-    Write-Host '.NET SDK detected.'
-} else {
-    Write-Warning '.NET SDK not detected. Please install the .NET SDK before continuing.'
+function Test-VcTools {
+    $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+    if ([string]::IsNullOrWhiteSpace($programFilesX86)) {
+        $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles')
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($programFilesX86)) {
+        $vswherePath = Join-Path $programFilesX86 'Microsoft Visual Studio\Installer\vswhere.exe'
+        if (Test-Path -Path $vswherePath) {
+            $installationPath = & $vswherePath -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($installationPath)) {
+                return $true
+            }
+        }
+    }
+
+    return (Test-Command -Name 'cl.exe')
 }
+
+function Ensure-DotNet {
+    if (Test-Command -Name 'dotnet') {
+        Write-Host '.NET SDK detected.'
+        return
+    }
+
+    Write-Host '.NET SDK not detected. Installing latest LTS using dotnet-install...'
+    $installScript = Join-Path $env:TEMP 'dotnet-install.ps1'
+    Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installScript
+
+    $installDir = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.dotnet'
+    & $installScript -Channel 'LTS' -InstallDir $installDir | Out-Null
+    Remove-Item $installScript -Force
+
+    $env:PATH = "$installDir;$installDir\tools;$env:PATH"
+
+    if (Test-Command -Name 'dotnet') {
+        Write-Host ".NET SDK installed to $installDir."
+    } else {
+        Write-Warning "Installed .NET SDK to $installDir. Add this directory (and its 'tools' subdirectory) to your PATH."
+    }
+}
+
+function Ensure-CppBuildTools {
+    if (Test-VcTools) {
+        Write-Host 'MSVC build tools detected.'
+        return
+    }
+
+    $bootstrapperPath = Join-Path $env:TEMP 'vs_BuildTools.exe'
+    Write-Host 'MSVC build tools not detected. Downloading Visual Studio Build Tools bootstrapper...'
+    Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -OutFile $bootstrapperPath
+
+    $arguments = '--quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional'
+    Write-Host 'Installing Visual Studio Build Tools (this might take several minutes)...'
+    Start-Process -FilePath $bootstrapperPath -ArgumentList $arguments -Wait
+    Remove-Item $bootstrapperPath -Force
+
+    if (Test-VcTools) {
+        Write-Host 'MSVC build tools installed.'
+    } else {
+        Write-Warning 'Attempted to install MSVC build tools, but they were not detected. Verify the installation manually.'
+    }
+}
+
+Ensure-DotNet
+Ensure-CppBuildTools
 
 function Ensure-Rustup {
     if ((Test-Command -Name 'cargo') -or (Test-Command -Name 'rustup')) {
