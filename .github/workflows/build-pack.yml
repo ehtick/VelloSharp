@@ -400,8 +400,8 @@ jobs:
         shell: pwsh
         run: |
           $sourcePath = (Resolve-Path "artifacts/nuget").ProviderPath
-          dotnet nuget remove source VelloArtifacts --configfile NuGet.Config > $null 2>&1
-          dotnet nuget add source $sourcePath --name VelloArtifacts --configfile NuGet.Config
+          dotnet nuget remove source VelloNativeLocal --configfile NuGet.Config > $null 2>&1
+          dotnet nuget add source $sourcePath --name VelloNativeLocal --configfile NuGet.Config
 
       - name: Restore and run managed integration tests
         shell: pwsh
