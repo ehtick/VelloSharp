@@ -8,7 +8,7 @@
 ## Implementation Conventions
 - [ ] All new native functionality lands in `ffi/vello_ffi` (or `ffi/vello_sparse_ffi` for CPU) with unit and integration coverage under `cargo test`.
 - [ ] Corresponding P/Invoke glue lives in `bindings/VelloSharp.Native` and is surfaced via thin wrappers in `bindings/VelloSharp.*`.
-- [ ] Every completed feature updates `docs/skiasharp-shim-api-coverage.md`, adds regression tests under `bindings/VelloSharp.Skia.Tests`, and refreshes `samples/SkiaShimGallery`.
+- [ ] Every completed feature updates `docs/skiasharp-shim-api-coverage.md`, adds regression tests under `tests/VelloSharp.Skia.Tests`, and refreshes `samples/SkiaShimGallery`.
 - [ ] Benchmarks that exercise the new surface area are captured in `docs/metrics/skia-shim-baselines.md`.
 
 ## Phase 0 – Program Foundations (1 sprint)
