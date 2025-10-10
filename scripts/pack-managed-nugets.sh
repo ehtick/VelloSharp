@@ -63,7 +63,7 @@ for project in "${PROJECTS[@]}"; do
   if [[ ! -f "${full_path}" ]]; then
     echo "Skipping missing project '${project}'."
     continue
-  }
+  fi
 
   args=("${COMMON_ARGS[@]}")
 
