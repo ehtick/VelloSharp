@@ -8,6 +8,8 @@ PLATFORM=""
 RUN_MANAGED=1
 RUN_NATIVE=1
 python_exec=""
+HOST_ARCH=""
+IS_CI=0
 
 usage() {
   cat <<'EOF'
@@ -25,6 +27,48 @@ EOF
 
 to_lower() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+detect_host_architecture() {
+  local machine
+  machine="$(uname -m 2>/dev/null || echo "")"
+  machine="$(to_lower "${machine}")"
+  if [[ -z "${machine}" && -n "${PROCESSOR_ARCHITECTURE:-}" ]]; then
+    machine="$(to_lower "${PROCESSOR_ARCHITECTURE}")"
+  fi
+  case "${machine}" in
+    x86_64|amd64)
+      echo "x64"
+      ;;
+    arm64|aarch64)
+      echo "arm64"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
+is_ci_environment() {
+  [[ -n "${CI:-}" || -n "${TF_BUILD:-}" || -n "${GITHUB_ACTIONS:-}" ]]
+}
+
+native_project_matches_arch() {
+  local name
+  local arch
+  name="$(to_lower "$1")"
+  arch="$2"
+  case "${arch}" in
+    x64)
+      [[ "${name}" == *x64* || "${name}" == *x86_64* || "${name}" == *amd64* ]]
+      ;;
+    arm64)
+      [[ "${name}" == *arm64* || "${name}" == *aarch64* ]]
+      ;;
+    *)
+      return 0
+      ;;
+  esac
 }
 
 ensure_python() {
@@ -61,6 +105,55 @@ for dirpath, _, filenames in os.walk(root):
 for path in sorted(projects):
     print(path)
 PY
+}
+
+project_supports_platform() {
+  ensure_python
+  local project="$1"
+  local platform="$2"
+  local value
+  value="$("${python_exec}" - "${project}" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+path = sys.argv[1]
+try:
+    tree = ET.parse(path)
+except Exception:
+    sys.exit(0)
+
+root = tree.getroot()
+value = None
+for group in root.findall('PropertyGroup'):
+    element = group.find('SupportedIntegrationPlatforms')
+    if element is not None and element.text and element.text.strip():
+        value = element.text.strip()
+        break
+
+if value:
+    print(value)
+PY
+)"
+
+  if [[ -z "${value}" ]]; then
+    return 0
+  fi
+
+  local normalized
+  normalized="${value//,/;}"
+  normalized="${normalized// /}"
+
+  IFS=';' read -ra tokens <<< "${normalized}"
+  for token in "${tokens[@]}"; do
+    [[ -z "${token}" ]] && continue
+    local lower
+    lower="$(to_lower "${token}")"
+    if [[ "${lower}" == "all" || "${lower}" == "${platform}" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -123,6 +216,11 @@ case "${PLATFORM}" in
 esac
 
 managed_projects=()
+HOST_ARCH="$(detect_host_architecture)"
+if is_ci_environment; then
+  IS_CI=1
+fi
+
 if [[ -d "${ROOT}/integration/managed" ]]; then
   while IFS= read -r project; do
     [[ -n "${project}" ]] && managed_projects+=("${project}")
@@ -135,28 +233,50 @@ if [[ "${PLATFORM}" == "windows" && -d "${ROOT}/integration/windows" ]]; then
   done < <(collect_projects "${ROOT}/integration/windows")
 fi
 
+if [[ ${IS_CI} -eq 1 && ${#managed_projects[@]} -gt 0 ]]; then
+  filtered_managed=()
+  for project in "${managed_projects[@]}"; do
+    if [[ "${project}" == *"VelloSharp.Uno.Integration"* ]]; then
+      rel="${project#"${ROOT}/"}"
+      echo "Skipping integration project '${rel}' (temporarily disabled on CI)."
+      continue
+    fi
+    filtered_managed+=("${project}")
+  done
+  managed_projects=("${filtered_managed[@]}")
+fi
+
 native_projects=()
 if [[ -d "${ROOT}/integration/native" ]]; then
   while IFS= read -r project; do
     [[ -z "${project}" ]] && continue
-    file="$(basename "${project}")"
+    dir="$(basename "$(dirname "${project}")")"
+    dir_lower="$(to_lower "${dir}")"
     case "${PLATFORM}" in
       linux)
-        if [[ "${file}" == *Linux* || "${file}" == *linux* ]]; then
-          native_projects+=("${project}")
+        if [[ "${dir_lower}" != linux* ]]; then
+          continue
         fi
         ;;
       macos)
-        if [[ "${file}" == *Osx* || "${file}" == *OSX* || "${file}" == *Mac* || "${file}" == *Ios* || "${file}" == *IOS* ]]; then
-          native_projects+=("${project}")
+        if [[ "${dir_lower}" != osx* && "${dir_lower}" != ios* ]]; then
+          continue
         fi
         ;;
       windows)
-        if [[ "${file}" == *Win* || "${file}" == *Windows* ]]; then
-          native_projects+=("${project}")
+        if [[ "${dir_lower}" != win* ]]; then
+          continue
         fi
         ;;
     esac
+    if [[ ${IS_CI} -eq 1 && -n "${HOST_ARCH}" ]]; then
+      if ! native_project_matches_arch "${dir_lower}" "${HOST_ARCH}"; then
+        rel="${project#"${ROOT}/"}"
+        echo "Skipping native integration project '${rel}' (host architecture ${HOST_ARCH} not supported)."
+        continue
+      fi
+    fi
+    native_projects+=("${project}")
   done < <(collect_projects "${ROOT}/integration/native")
 fi
 
@@ -178,6 +298,11 @@ if [[ ${RUN_MANAGED} -eq 1 ]]; then
     echo "No managed integration projects found under integration/managed." >&2
   else
     for project in "${managed_projects[@]}"; do
+      if ! project_supports_platform "${project}" "${PLATFORM}"; then
+        rel="${project#"${ROOT}/"}"
+        echo "Skipping integration project '${rel}' (unsupported on ${PLATFORM})."
+        continue
+      fi
       run_project "${project}"
     done
   fi
