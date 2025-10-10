@@ -286,8 +286,8 @@ jobs:
           path: artifacts/nuget
           if-no-files-found: error
 
-  test-packages:
-    name: Validate Packages (${{ matrix.os }})
+  integration-managed:
+    name: Managed Integrations (${{ matrix.os }})
     needs:
       - pack-managed
     runs-on: ${{ matrix.os }}
@@ -296,10 +296,13 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
+            managed-command: ./scripts/run-integration-tests.sh --configuration Release --platform linux --managed-only
           - os: macos-14
             platform: macos
+            managed-command: ./scripts/run-integration-tests.sh --configuration Release --platform macos --managed-only
           - os: windows-latest
             platform: windows
+            managed-command: ./scripts/run-integration-tests.ps1 -Configuration Release -Platform windows -ManagedOnly
     steps:
       - uses: actions/checkout@v4
         with:
@@ -316,23 +319,105 @@ jobs:
           name: nuget-packages
           path: artifacts/nuget
 
-      - name: List packaged artifacts
+      - name: List packaged artifacts (bash)
+        if: runner.os != 'Windows'
+        run: ls -R artifacts/nuget
+        shell: bash
+
+      - name: List packaged artifacts (PowerShell)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: Get-ChildItem -Recurse -Path artifacts/nuget
 
-      - name: Configure local package source
+      - name: Configure local package source (bash)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          dotnet nuget remove source VelloNativeLocal --configfile NuGet.Config || true
+          dotnet nuget add source "$(pwd)/artifacts/nuget" --name VelloNativeLocal --configfile NuGet.Config
+
+      - name: Configure local package source (PowerShell)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $sourcePath = (Resolve-Path "artifacts/nuget").ProviderPath
           dotnet nuget remove source VelloNativeLocal --configfile NuGet.Config > $null 2>&1
           dotnet nuget add source $sourcePath --name VelloNativeLocal --configfile NuGet.Config
 
-      - name: Run integration tests (bash)
+      - name: Run managed integration tests (bash)
         if: runner.os != 'Windows'
-        run: ./scripts/run-integration-tests.sh --configuration Release --platform ${{ matrix.platform }}
+        shell: bash
+        run: ${{ matrix.managed-command }}
+
+      - name: Run managed integration tests (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ${{ matrix.managed-command }}
+
+  integration-native:
+    name: Native Integrations (${{ matrix.os }})
+    needs:
+      - pack-managed
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            native-command: ./scripts/run-integration-tests.sh --configuration Release --platform linux --native-only
+          - os: macos-14
+            platform: macos
+            native-command: ./scripts/run-integration-tests.sh --configuration Release --platform macos --native-only
+          - os: windows-latest
+            platform: windows
+            native-command: ./scripts/run-integration-tests.ps1 -Configuration Release -Platform windows -NativeOnly
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/nuget
+
+      - name: List packaged artifacts (bash)
+        if: runner.os != 'Windows'
+        run: ls -R artifacts/nuget
         shell: bash
 
-      - name: Run integration tests (PowerShell)
+      - name: List packaged artifacts (PowerShell)
         if: runner.os == 'Windows'
-        run: ./scripts/run-integration-tests.ps1 -Configuration Release -Platform ${{ matrix.platform }}
         shell: pwsh
+        run: Get-ChildItem -Recurse -Path artifacts/nuget
+
+      - name: Configure local package source (bash)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          dotnet nuget remove source VelloNativeLocal --configfile NuGet.Config || true
+          dotnet nuget add source "$(pwd)/artifacts/nuget" --name VelloNativeLocal --configfile NuGet.Config
+
+      - name: Configure local package source (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $sourcePath = (Resolve-Path "artifacts/nuget").ProviderPath
+          dotnet nuget remove source VelloNativeLocal --configfile NuGet.Config > $null 2>&1
+          dotnet nuget add source $sourcePath --name VelloNativeLocal --configfile NuGet.Config
+
+      - name: Run native integration tests (bash)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ${{ matrix.native-command }}
+
+      - name: Run native integration tests (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ${{ matrix.native-command }}
