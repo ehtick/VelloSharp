@@ -19,6 +19,7 @@ internal readonly struct PaintSnapshot
     private readonly SKTypeface? _typeface;
     private readonly float _opacity;
     private readonly SKShader? _shader;
+    private readonly SKBlendMode _blendMode;
 
     public PaintSnapshot(SKPaint paint)
     {
@@ -36,6 +37,7 @@ internal readonly struct PaintSnapshot
         _typeface = paint.Typeface;
         _opacity = paint.Opacity;
         _shader = paint.Shader;
+        _blendMode = paint.BlendMode;
     }
 
     public SKPaint CreatePaint()
@@ -53,6 +55,7 @@ internal readonly struct PaintSnapshot
             Typeface = _typeface,
             Opacity = _opacity,
             Shader = _shader,
+            BlendMode = _blendMode,
         };
         return paint;
     }

@@ -39,6 +39,7 @@ public sealed class SKPaint : IDisposable
     public SKTypeface? Typeface { get; set; }
     public float Opacity { get; set; } = 1f;
     public SKShader? Shader { get; set; }
+    public SKBlendMode BlendMode { get; set; } = SKBlendMode.SrcOver;
 
     public void Dispose() => _disposed = true;
 
