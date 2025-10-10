@@ -2,6 +2,8 @@
   items:
     - name: VelloSharp
       href: vellosharp.md
+    - name: VelloSharp.Rendering
+      href: vellosharp-rendering.md
     - name: VelloSharp.Core
       href: vellosharp-core.md
     - name: VelloSharp.Text

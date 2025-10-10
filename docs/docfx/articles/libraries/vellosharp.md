@@ -32,6 +32,7 @@ renderer.Render(scene, renderParams, buffer, 128 * 4);
 ## Next Steps
 
 - Review the API reference for guidance on device lifetimes, queue submission, and scene encoding.
+- Use [VelloSharp.Rendering](./vellosharp-rendering.md) when you need buffer descriptors or render-path helpers that plug into platform-specific presentation layers.
 - Explore the samples under `samples/VelloSharp.*` to see the renderer hosted in different environments.
 - Pair with `VelloSharp.Composition` when you need a retained scene graph or layered content model.
 

@@ -8,7 +8,7 @@ VelloSharp delivers a family of .NET libraries for GPU accelerated rendering, re
 
 ## Explore the Libraries
 
-- **Core Renderer:** Dive into [VelloSharp](./libraries/vellosharp.md), [VelloSharp.Core](./libraries/vellosharp-core.md), and [VelloSharp.Text](./libraries/vellosharp-text.md) for the rendering pipeline and text stack.
+- **Core Renderer:** Dive into [VelloSharp](./libraries/vellosharp.md), [VelloSharp.Rendering](./libraries/vellosharp-rendering.md), [VelloSharp.Core](./libraries/vellosharp-core.md), and [VelloSharp.Text](./libraries/vellosharp-text.md) for the rendering pipeline and text stack.
 - **GPU & Skia runtimes:** Compare [VelloSharp.Gpu](./libraries/vellosharp-gpu.md), [Skia GPU](./libraries/vellosharp-skia-gpu.md), and [Skia CPU](./libraries/vellosharp-skia-cpu.md) options for deployment.
 - **Interop layers:** Extend the engine with [FFI Core](./libraries/vellosharp-ffi-core.md), [FFI GPU](./libraries/vellosharp-ffi-gpu.md), and [FFI Sparse](./libraries/vellosharp-ffi-sparse.md).
 - **Visualization suites:** Build dashboards using [Charting](./libraries/vellosharp-charting.md), [Gauges](./libraries/vellosharp-gauges.md), and [SCADA](./libraries/vellosharp-scada.md).
