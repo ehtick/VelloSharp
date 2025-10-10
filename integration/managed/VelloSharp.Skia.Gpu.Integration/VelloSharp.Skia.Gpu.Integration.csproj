@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Skia.Gpu" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Skia.Gpu" />
   </ItemGroup>
 </Project>

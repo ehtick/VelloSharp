@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.ChartEngine" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.ChartEngine" />
   </ItemGroup>
 </Project>

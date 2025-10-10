@@ -16,7 +16,7 @@ if (collector.TryGetRecent(out var recent))
     Console.WriteLine($"Last frame CPU {recent.CpuTime.TotalMilliseconds:F2} ms.");
 }
 
-collector.RecordMetric(new ChartMetric("engine.frames", 1d));
+collector.RecordMetric(new ChartMetric("engine.frames", 1d, DateTimeOffset.UtcNow));
 
 Console.WriteLine("VelloSharp.ChartDiagnostics integration test completed.");
 

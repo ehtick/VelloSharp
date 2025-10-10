@@ -9,8 +9,9 @@ var options = new VelloPlatformOptions
     ClearColor = RgbaColor.FromBytes(16, 32, 64, 255),
 };
 
-var resolved = options.ResolveAntialiasing(AntialiasingMode.Msaa16);
-Console.WriteLine($"Resolved antialiasing: {resolved}");
+var supportsMsaa16 = options.RendererOptions.SupportMsaa16;
+var preferred = supportsMsaa16 ? AntialiasingMode.Msaa16 : options.Antialiasing;
+Console.WriteLine($"Preferred antialiasing: {preferred}");
 Console.WriteLine($"Assembly location: {typeof(VelloPlatformOptions).Assembly.Location}");
 
 Console.WriteLine("VelloSharp.Avalonia.Vello integration test completed.");

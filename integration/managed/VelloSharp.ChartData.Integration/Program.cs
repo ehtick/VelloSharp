@@ -4,8 +4,8 @@ using VelloSharp.ChartData;
 Console.WriteLine("Verifying VelloSharp.ChartData package usage…");
 
 var bus = new ChartDataBus(capacity: 4);
-bus.Write(ReadOnlySpan<float>.Empty);
-bus.Write(new[] { 1.0f, 2.5f, 3.75f });
+bus.Write<float>(ReadOnlySpan<float>.Empty);
+bus.Write<float>(new[] { 1.0f, 2.5f, 3.75f });
 
 if (bus.TryRead(out var slice))
 {

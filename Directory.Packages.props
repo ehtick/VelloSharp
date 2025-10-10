@@ -33,8 +33,31 @@
     <PackageVersion Include="xunit" Version="2.5.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.0" />
     <PackageVersion Include="Uno.WinUI" Version="5.2.175" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-    <PackageVersion Include="VelloSharp.Native.AccessKit" Version="$(VelloNativePackageVersion)" />
+  <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+  <PackageVersion Include="VelloSharp" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Avalonia.Vello" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Avalonia.Winit" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.ChartData" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.ChartDiagnostics" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.ChartEngine" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Charting" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Charting.Avalonia" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.ChartRuntime" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Composition" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Core" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Editor" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Gauges" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Gpu" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Integration.Skia" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Rendering" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Scada" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Skia.Core" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Skia.Cpu" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Skia.Gpu" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Text" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.TreeDataGrid" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Uno" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Native.AccessKit" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.android-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.browser-wasm" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.ios-arm64" Version="$(VelloNativePackageVersion)" />

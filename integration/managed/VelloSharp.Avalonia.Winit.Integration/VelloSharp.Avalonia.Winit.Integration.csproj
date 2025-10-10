@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Avalonia.Winit" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Avalonia.Winit" />
   </ItemGroup>
 </Project>

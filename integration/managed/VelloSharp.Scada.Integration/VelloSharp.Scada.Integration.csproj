@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Scada" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Scada" />
   </ItemGroup>
 </Project>

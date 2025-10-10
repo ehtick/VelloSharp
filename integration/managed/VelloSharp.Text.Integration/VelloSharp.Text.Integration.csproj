@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Text" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Text" />
   </ItemGroup>
 </Project>

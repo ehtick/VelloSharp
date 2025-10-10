@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.ChartRuntime" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.ChartRuntime" />
   </ItemGroup>
 </Project>
