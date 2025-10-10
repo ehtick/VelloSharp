@@ -13,6 +13,11 @@ public static class EditorRuntime
     /// </summary>
     public static void EnsureInitialized()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("The Vello editor native core is only available on Windows.");
+        }
+
         if (_initialized)
         {
             return;
