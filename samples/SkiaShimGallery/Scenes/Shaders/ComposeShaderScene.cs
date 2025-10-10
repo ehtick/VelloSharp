@@ -9,6 +9,8 @@ internal sealed class ComposeShaderScene : ISkiaGalleryScene
 
     public string Description => "Composes two shaders to validate combination routing inside the shim.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Gradients;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(250, 248, 250));

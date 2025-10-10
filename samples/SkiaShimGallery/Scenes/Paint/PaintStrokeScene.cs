@@ -9,6 +9,8 @@ internal sealed class PaintStrokeScene : ISkiaGalleryScene
 
     public string Description => "Configures stroke width, caps, joins, and miter limits to verify stroke path conversion.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Paint;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(247, 247, 251));

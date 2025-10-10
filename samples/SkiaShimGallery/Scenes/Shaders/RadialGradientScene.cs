@@ -9,6 +9,8 @@ internal sealed class RadialGradientScene : ISkiaGalleryScene
 
     public string Description => "Creates a mirrored radial gradient to demonstrate center/radius handling.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Gradients;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(245, 244, 250));

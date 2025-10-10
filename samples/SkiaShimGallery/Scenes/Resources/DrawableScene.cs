@@ -10,6 +10,8 @@ internal sealed class DrawableScene : ISkiaGalleryScene
 
     public string Description => "Invokes a custom SKDrawable, converts it to a picture, and replays it with transforms.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Resources;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(250, 248, 252));

@@ -10,6 +10,8 @@ internal sealed class BitmapCodecScene : ISkiaGalleryScene
 
     public string Description => "Decodes via SKCodec, resizes with sampling options, and snapshots the bitmap.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.ImageCodecs;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(244, 244, 249));

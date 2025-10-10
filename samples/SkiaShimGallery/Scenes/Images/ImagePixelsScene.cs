@@ -11,6 +11,8 @@ internal sealed class ImagePixelsScene : ISkiaGalleryScene
 
     public string Description => "Scales via SKPixmap, reads pixels into a managed buffer, and recreates an image from raw data.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.ImageCodecs;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(248, 250, 254));

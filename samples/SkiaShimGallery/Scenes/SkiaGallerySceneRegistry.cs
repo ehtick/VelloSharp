@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SkiaGallery.SharedScenes.Baseline;
 using SkiaGallery.SharedScenes.Canvas;
 using SkiaGallery.SharedScenes.Images;
 using SkiaGallery.SharedScenes.Paint;
@@ -12,6 +13,12 @@ public static class SkiaGallerySceneRegistry
 {
     public static IReadOnlyList<ISkiaGalleryScene> All { get; } = new ISkiaGalleryScene[]
     {
+        new BlendModeBaselineScene(),
+        new GradientBaselineScene(),
+        new ImageCodecBaselineScene(),
+        new TextHintingBaselineScene(),
+        new GeometryStressBaselineScene(),
+
         new CanvasBasicsScene(),
         new CanvasTransformsScene(),
         new CanvasClipAndLayerScene(),

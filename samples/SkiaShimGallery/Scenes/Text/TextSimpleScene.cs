@@ -9,6 +9,8 @@ internal sealed class TextSimpleScene : ISkiaGalleryScene
 
     public string Description => "Renders simple strings with custom typeface selection and sizes.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Text;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(248, 246, 250));

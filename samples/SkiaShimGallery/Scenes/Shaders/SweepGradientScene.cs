@@ -9,6 +9,8 @@ internal sealed class SweepGradientScene : ISkiaGalleryScene
 
     public string Description => "Uses a sweep gradient with a local matrix to rotate colours around the origin.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Gradients;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(247, 244, 255));

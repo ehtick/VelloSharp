@@ -10,6 +10,8 @@ internal sealed class TextBlobScene : ISkiaGalleryScene
 
     public string Description => "Builds an SKTextBlob from positioned glyphs using SKFont metrics.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Text;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(246, 248, 251));

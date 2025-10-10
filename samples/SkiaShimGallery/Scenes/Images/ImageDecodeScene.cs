@@ -10,6 +10,8 @@ internal sealed class ImageDecodeScene : ISkiaGalleryScene
 
     public string Description => "Decodes an embedded PNG via SKData and draws it using both DrawImage overloads.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.ImageCodecs;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(244, 246, 250));

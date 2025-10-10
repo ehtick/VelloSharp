@@ -9,6 +9,8 @@ internal sealed class LinearGradientScene : ISkiaGalleryScene
 
     public string Description => "Applies a repeating linear gradient shader with custom stops and tile modes.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Gradients;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(SKColors.White);

@@ -9,6 +9,8 @@ internal sealed class PictureShaderScene : ISkiaGalleryScene
 
     public string Description => "Converts an SKPicture into a shader and tiles it across a larger fill region.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Resources;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(242, 248, 255));

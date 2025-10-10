@@ -9,6 +9,8 @@ internal sealed class SurfaceSnapshotScene : ISkiaGalleryScene
 
     public string Description => "Renders content into an SKSurface, snapshots it, and draws both the image and surface.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Resources;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(244, 248, 252));

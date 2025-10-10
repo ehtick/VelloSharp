@@ -9,6 +9,8 @@ internal sealed class PaintStrokeAndFillScene : ISkiaGalleryScene
 
     public string Description => "Uses the StrokeAndFill paint style to render outlined shapes in a single draw call.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Paint;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(253, 249, 245));

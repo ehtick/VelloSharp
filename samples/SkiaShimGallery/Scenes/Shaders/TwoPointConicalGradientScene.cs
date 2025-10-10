@@ -9,6 +9,8 @@ internal sealed class TwoPointConicalGradientScene : ISkiaGalleryScene
 
     public string Description => "Demonstrates two-point conical gradients with independent radii.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.Gradients;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(250, 250, 252));

@@ -11,6 +11,8 @@ internal sealed class BitmapInstallPixelsScene : ISkiaGalleryScene
 
     public string Description => "Installs custom pixel data into an SKBitmap, peeks pixels, and snapshots the bitmap.";
 
+    public SkiaSceneFeature Feature => SkiaSceneFeature.ImageCodecs;
+
     public void Render(SKCanvas canvas, SKImageInfo info)
     {
         canvas.Clear(new SKColor(253, 252, 248));
