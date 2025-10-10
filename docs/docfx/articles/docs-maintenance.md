@@ -13,7 +13,7 @@ pwsh ./scripts/build-docs.ps1
 ```
 
 The metadata YAML and static site output are generated under `docs/docfx/api` and `docs/docfx/_site`.
-Both helper scripts set `EnableWindowsTargeting=true` so DocFX can build Windows-specific assemblies on any host OS.
+DocFX now sets `EnableWindowsTargeting=true` via `docs/docfx/docfx.json`, and the helper scripts forward the same MSBuild switch so Windows-specific assemblies build on any host OS.
 The metadata step auto-discovers all packable project files under `bindings/` and `src/`, so new libraries are included without editing `docfx.json`.
 
 ## Preview Locally
