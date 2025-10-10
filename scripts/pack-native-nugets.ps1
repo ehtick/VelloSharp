@@ -28,6 +28,7 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $outputDirAbs = (Resolve-Path $OutputDir).Path
 
 $ffiProjects = @('AccessKit', 'ChartEngine', 'Composition', 'Editor', 'Gauges', 'Kurbo', 'Peniko', 'Scada', 'TreeDataGrid', 'Vello', 'VelloSparse', 'Winit')
+$ffiWithAssets = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $seenRids = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $processed = 0
 
@@ -62,12 +63,32 @@ foreach ($ridDir in Get-ChildItem -Path $RuntimesRoot -Directory) {
             throw "dotnet pack failed with exit code $LASTEXITCODE for $project."
         }
         $processed++
+        $null = $ffiWithAssets.Add($ffi)
     }
 }
 
 if ($processed -eq 0) {
     Write-Error "No native runtime directories were processed under '$RuntimesRoot'."
     exit 1
+}
+
+foreach ($ffi in $ffiProjects) {
+    if (-not $ffiWithAssets.Contains($ffi)) {
+        Write-Host ("Skipping meta-package for {0}: no runtime-specific packages were produced." -f $ffi)
+        continue
+    }
+
+    $metaProject = Join-Path $rootPath ("packaging/VelloSharp.Native.{0}/VelloSharp.Native.{0}.csproj" -f $ffi)
+    if (-not (Test-Path $metaProject -PathType Leaf)) {
+        Write-Host ("Skipping meta-package for {0}: project not found at {1}." -f $ffi, $metaProject)
+        continue
+    }
+
+    Write-Host "Packing native meta-package for $ffi"
+    dotnet pack $metaProject -c Release -p:PackageOutputPath="$outputDirAbs"
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet pack failed with exit code $LASTEXITCODE for $metaProject."
+    }
 }
 
 if (-not (Get-ChildItem -Path $outputDirAbs -Filter '*.nupkg' -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {

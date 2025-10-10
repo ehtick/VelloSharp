@@ -27,6 +27,7 @@ fi
 
 shopt -s nullglob
 seen_rids=()
+declare -A ffi_processed=()
 
 rid_seen() {
   local rid="$1"
@@ -67,6 +68,7 @@ for native_dir in "${RUNTIMES_ROOT}"/*/native; do
       -p:NativeAssetsDirectory="${native_dir_abs}" \
       -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
     processed=$((processed + 1))
+    ffi_processed["${ffi}"]=1
   done
 done
 
@@ -74,6 +76,24 @@ if [[ ${processed} -eq 0 ]]; then
   echo "No native runtime directories were processed under '${RUNTIMES_ROOT}'." >&2
   exit 1
 fi
+
+for ffi in "${ffi_projects[@]}"; do
+  if [[ -z "${ffi_processed[${ffi}]:-}" ]]; then
+    echo "Skipping meta-package for ${ffi}: no runtime-specific packages were produced."
+    continue
+  fi
+
+  meta_project="${ROOT}/packaging/VelloSharp.Native.${ffi}/VelloSharp.Native.${ffi}.csproj"
+  if [[ ! -f "${meta_project}" ]]; then
+    echo "Skipping meta-package for ${ffi}: project not found at ${meta_project}."
+    continue
+  fi
+
+  echo "Packing native meta-package for ${ffi}"
+  "${DOTNET_CLI}" pack "${meta_project}" \
+    -c Release \
+    -p:PackageOutputPath="${OUTPUT_DIR_ABS}"
+done
 
 if compgen -G "${OUTPUT_DIR_ABS}"'/*.nupkg' > /dev/null; then
   echo "Native packages created in '${OUTPUT_DIR}'."

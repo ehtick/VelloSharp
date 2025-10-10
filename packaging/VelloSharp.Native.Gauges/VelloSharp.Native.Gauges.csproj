@@ -19,4 +19,22 @@
     <ProjectReference Include="VelloSharp.Native.Gauges.win-arm64.csproj" Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-arm64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/win-arm64/native')" />
     <ProjectReference Include="VelloSharp.Native.Gauges.win-x64.csproj" Condition="Exists('$(RepositoryRoot)/artifacts/runtimes/win-x64/native') Or Exists('$(MSBuildThisFileDirectory)runtimes/win-x64/native')" />
   </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)runtimes')">
+    <_MetaAsset Include="$(MSBuildThisFileDirectory)runtimes\**\$(NativeBinaryName).*"
+                Condition="'$(NativeBinaryName)' != ''" />
+    <_MetaAsset Include="$(MSBuildThisFileDirectory)runtimes\**\lib$(NativeBinaryName).*"
+                Condition="'$(NativeBinaryName)' != ''" />
+    <_MetaAsset Include="$(MSBuildThisFileDirectory)runtimes\**\*"
+                Condition="'$(NativeBinaryName)' == ''" />
+  </ItemGroup>
+  <ItemGroup Condition="'@(_MetaAsset)' != ''">
+    <Content Include="@(_MetaAsset)"
+             Pack="true"
+             PackagePath="runtimes/%(RecursiveDir)%(Filename)%(Extension)"
+             Visible="false">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <TargetPath>runtimes\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
+  </ItemGroup>
 </Project>
