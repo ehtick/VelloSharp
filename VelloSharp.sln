@@ -175,6 +175,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "win-arm64", "win-arm64", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VelloSharp.Native.WinArm64.Integration", "integration\native\win-arm64\VelloSharp.Native.WinArm64.Integration.csproj", "{8912FF1A-AA92-4637-84DD-9611C32509A5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvaloniaVelloPlayground", "samples\AvaloniaVelloPlayground\AvaloniaVelloPlayground.csproj", "{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1073,6 +1075,18 @@ Global
 		{8912FF1A-AA92-4637-84DD-9611C32509A5}.Release|x64.Build.0 = Release|Any CPU
 		{8912FF1A-AA92-4637-84DD-9611C32509A5}.Release|x86.ActiveCfg = Release|Any CPU
 		{8912FF1A-AA92-4637-84DD-9611C32509A5}.Release|x86.Build.0 = Release|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Debug|x64.Build.0 = Debug|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Debug|x86.Build.0 = Debug|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Release|x64.ActiveCfg = Release|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Release|x64.Build.0 = Release|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Release|x86.ActiveCfg = Release|Any CPU
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1157,6 +1171,7 @@ Global
 		{2EFFF1DF-763E-4417-BC41-F297C8CD9672} = {A7A15296-6562-EA5C-ECE9-0A36699A218B}
 		{89CAA4AE-9812-B468-FDA3-CEF2C5940262} = {60C4FBE3-38AB-8F25-D90C-201A36980B8E}
 		{8912FF1A-AA92-4637-84DD-9611C32509A5} = {89CAA4AE-9812-B468-FDA3-CEF2C5940262}
+		{8957B4C7-EE90-4562-86CC-E12F31CD5C4A} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9EADDE67-1C5D-4F2E-B34D-7DFC4CDE2BCF}
