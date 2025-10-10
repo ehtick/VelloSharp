@@ -9,7 +9,17 @@ RUN_MANAGED=1
 RUN_NATIVE=1
 python_exec=""
 HOST_ARCH=""
+MANAGED_RUNTIME_IDENTIFIER=""
 IS_CI=0
+
+if [[ -z "${NUGET_PACKAGES:-}" ]]; then
+  export NUGET_PACKAGES="${ROOT}/artifacts/packages"
+fi
+mkdir -p "${NUGET_PACKAGES}"
+
+if [[ -z "${DOTNET_RESTORE_SOURCES:-}" ]]; then
+  export DOTNET_RESTORE_SOURCES="${ROOT}/artifacts/nuget;https://api.nuget.org/v3/index.json"
+fi
 
 usage() {
   cat <<'EOF'
@@ -68,29 +78,100 @@ latest_matching_file() {
   return 0
 }
 
+resolve_runtime_identifier() {
+  local platform="$1"
+  local arch="$2"
+  case "${platform}" in
+    linux)
+      if [[ "${arch}" == "arm64" ]]; then
+        echo "linux-arm64"
+      else
+        echo "linux-x64"
+      fi
+      ;;
+    macos)
+      if [[ "${arch}" == "arm64" ]]; then
+        echo "osx-arm64"
+      else
+        echo "osx-x64"
+      fi
+      ;;
+    windows)
+      if [[ "${arch}" == "arm64" ]]; then
+        echo "win-arm64"
+      else
+        echo "win-x64"
+      fi
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 ensure_native_payloads() {
-  if [[ ${RUN_MANAGED} -ne 1 || "${PLATFORM}" != "linux" ]]; then
+  if [[ ${RUN_MANAGED} -ne 1 ]]; then
     return
   fi
 
-  local rid="linux-x64"
-  local target="x86_64-unknown-linux-gnu"
-  if [[ "${HOST_ARCH}" == "arm64" ]]; then
-    rid="linux-arm64"
-    target="aarch64-unknown-linux-gnu"
+  local rid=""
+  rid="$(resolve_runtime_identifier "${PLATFORM}" "${HOST_ARCH}")"
+  if [[ -z "${rid}" ]]; then
+    return
+  fi
+
+  MANAGED_RUNTIME_IDENTIFIER="${rid}"
+
+  local target=""
+  local native_filename=""
+  local build_script=""
+  local build_args=()
+
+  case "${rid}" in
+    linux-x64)
+      target="x86_64-unknown-linux-gnu"
+      native_filename="libvello_gauges_core.so"
+      build_script="${ROOT}/scripts/build-native-linux.sh"
+      build_args=("${target}" "release" "${rid}")
+      ;;
+    linux-arm64)
+      target="aarch64-unknown-linux-gnu"
+      native_filename="libvello_gauges_core.so"
+      build_script="${ROOT}/scripts/build-native-linux.sh"
+      build_args=("${target}" "release" "${rid}")
+      ;;
+    osx-x64)
+      target="x86_64-apple-darwin"
+      native_filename="libvello_gauges_core.dylib"
+      build_script="${ROOT}/scripts/build-native-macos.sh"
+      build_args=("${target}" "release" "" "${rid}")
+      ;;
+    osx-arm64)
+      target="aarch64-apple-darwin"
+      native_filename="libvello_gauges_core.dylib"
+      build_script="${ROOT}/scripts/build-native-macos.sh"
+      build_args=("${target}" "release" "" "${rid}")
+      ;;
+    *)
+      native_filename=""
+      ;;
+  esac
+
+  if [[ -z "${native_filename}" ]]; then
+    return
   fi
 
   local runtime_dir="${ROOT}/artifacts/runtimes/${rid}/native"
-  local native_lib="${runtime_dir}/libvello_gauges_core.so"
+  local native_lib="${runtime_dir}/${native_filename}"
   local built_native=0
 
   if [[ ! -f "${native_lib}" ]]; then
     echo "Native gauges payload not found at '${native_lib}'. Building native assets for ${rid}."
-    if [[ ! -x "${ROOT}/scripts/build-native-linux.sh" ]]; then
-      echo "Required build script '${ROOT}/scripts/build-native-linux.sh' is missing or not executable." >&2
+    if [[ -z "${build_script}" || ! -x "${build_script}" ]]; then
+      echo "Required build script '${build_script}' is missing or not executable." >&2
       exit 1
     fi
-    "${ROOT}/scripts/build-native-linux.sh" "${target}" "release" "${rid}"
+    "${build_script}" "${build_args[@]}"
     built_native=1
   fi
 
@@ -134,9 +215,10 @@ ensure_native_payloads() {
   if [[ -z "${managed_package}" ]]; then
     should_pack_managed=1
   elif [[ -n "${native_package}" && -n "${managed_package}" ]]; then
+    ensure_python
     local native_time managed_time
-    native_time=$(stat -c %Y "${native_package}")
-    managed_time=$(stat -c %Y "${managed_package}")
+    native_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${native_package}")
+    managed_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${managed_package}")
     if (( native_time > managed_time )); then
       should_pack_managed=1
     fi
@@ -387,6 +469,9 @@ run_project() {
   local args=(dotnet run --project "${project}" -c "${CONFIGURATION}")
   if [[ -n "${FRAMEWORK}" ]]; then
     args+=(-f "${FRAMEWORK}")
+  fi
+  if [[ -n "${MANAGED_RUNTIME_IDENTIFIER}" ]]; then
+    args+=(-p:RuntimeIdentifier="${MANAGED_RUNTIME_IDENTIFIER}")
   fi
   "${args[@]}"
 }
