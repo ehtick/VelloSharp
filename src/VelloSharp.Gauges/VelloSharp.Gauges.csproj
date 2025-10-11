@@ -70,9 +70,4 @@
           SkipUnchangedFiles="true" />
   </Target>
 
-  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.Gauges"
-                      Condition="'$(VelloNativePackagesAvailable)'=='true' Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Gauges.$(VelloNativePackageVersion).nupkg')" />
-  </ItemGroup>
-
 </Project>

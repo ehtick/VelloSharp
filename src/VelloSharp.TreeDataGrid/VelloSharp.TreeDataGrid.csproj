@@ -66,8 +66,4 @@
           SkipUnchangedFiles="true" />
   </Target>
 
-  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
-    <PackageReference Include="VelloSharp.Native.TreeDataGrid"
-                      Condition="'$(VelloNativePackagesAvailable)'=='true' Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.TreeDataGrid.$(VelloNativePackageVersion).nupkg')" />
-  </ItemGroup>
 </Project>
