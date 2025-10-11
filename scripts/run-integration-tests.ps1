@@ -338,11 +338,7 @@ if ($runManaged) {
                 continue
             }
             $relative = [System.IO.Path]::GetRelativePath($root, $project)
-            $additionalArgs = @()
-            if ($relative.StartsWith($windowsIntegrationRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $additionalArgs += '-p:ManagePackageVersionsCentrally=false'
-            }
-            Invoke-IntegrationProject -ProjectPath $project -RootPath $root -Configuration $Configuration -Framework $Framework -AdditionalMsBuildArguments $additionalArgs
+            Invoke-IntegrationProject -ProjectPath $project -RootPath $root -Configuration $Configuration -Framework $Framework
         }
     }
 }
