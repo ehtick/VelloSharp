@@ -21,7 +21,7 @@ if (-not (Test-Path $ArtifactsDir -PathType Container)) {
 }
 
 if (-not $Targets -or $Targets.Count -eq 0) {
-    $Targets = @(
+    $defaultTargets = @(
         'VelloSharp',
         'VelloSharp.Integration',
         'samples/AvaloniaVelloExamples',
@@ -36,6 +36,26 @@ if (-not $Targets -or $Targets.Count -eq 0) {
         'samples/VelloSharp.Uno.WinAppSdkSample',
         'samples/WinFormsMotionMarkShim'
     )
+
+    $targetSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in $defaultTargets) {
+        $null = $targetSet.Add($item)
+    }
+
+    $integrationRoot = Join-Path $rootPath 'integration'
+    if (Test-Path $integrationRoot -PathType Container) {
+        foreach ($project in Get-ChildItem -Path $integrationRoot -Recurse -Filter '*.csproj' -File) {
+            $relative = [System.IO.Path]::GetRelativePath($rootPath, $project.Directory.FullName)
+            if (-not [string]::IsNullOrWhiteSpace($relative)) {
+                $relative = $relative -replace '\\', '/'
+                if ($targetSet.Add($relative)) {
+                    $defaultTargets += $relative
+                }
+            }
+        }
+    }
+
+    $Targets = $defaultTargets
 }
 
 if ($env:COPY_CONFIGURATIONS) {
