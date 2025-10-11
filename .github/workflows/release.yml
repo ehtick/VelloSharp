@@ -58,14 +58,19 @@ jobs:
           failures=0
           push_package() {
             local package="$1"
-            local allow_symbols="$2"
+            local extra_option="$2"
             echo "Pushing ${package} to ${NUGET_SOURCE}"
             local output
-            if ! output=$(dotnet nuget push "${package}" \
-              --api-key "${NUGET_API_KEY}" \
-              --source "${NUGET_SOURCE}" \
-              --skip-duplicate \
-              ${allow_symbols} 2>&1); then
+            local cmd=(
+              dotnet nuget push "${package}"
+              --api-key "${NUGET_API_KEY}"
+              --source "${NUGET_SOURCE}"
+              --skip-duplicate
+            )
+            if [[ -n "${extra_option}" ]]; then
+              cmd+=("${extra_option}")
+            fi
+            if ! output=$("${cmd[@]}" 2>&1); then
               echo "${output}"
               if echo "${output}" | grep -qiE 'already exists|409'; then
                 echo "Package '${package}' already exists. Continuing."
@@ -79,7 +84,7 @@ jobs:
           }
 
           for package in "${nupkgs[@]}"; do
-            push_package "${package}" "--no-symbols true"
+            push_package "${package}" "--no-symbols"
           done
 
           symbols=(artifacts/nuget/*.snupkg)
