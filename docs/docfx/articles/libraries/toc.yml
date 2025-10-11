@@ -36,6 +36,8 @@
       href: vellosharp-avalonia-vello.md
     - name: VelloSharp.Avalonia.Winit
       href: vellosharp-avalonia-winit.md
+    - name: VelloSharp.Avalonia.Controls
+      href: vellosharp-avalonia-controls.md
     - name: VelloSharp.Integration
       href: vellosharp-integration.md
     - name: VelloSharp.Integration.Wpf

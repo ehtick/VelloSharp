@@ -28,6 +28,7 @@ layout share a cohesive managed API while still exposing low-level control over 
 | `VelloSharp.Integration.Skia` | Utility glue for hosting Skia render trees on top of VelloSharp surfaces. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.Skia.svg)](https://www.nuget.org/packages/VelloSharp.Integration.Skia/) |
 | `VelloSharp.Avalonia.Vello` | Avalonia rendering subsystem integration for VelloSharp. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Vello.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Vello/) |
 | `VelloSharp.Avalonia.Winit` | Avalonia windowing backend that routes through winit and Vello. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Winit.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Winit/) |
+| `VelloSharp.Avalonia.Controls` | Reusable Vello-powered Avalonia controls (`VelloCanvasControl`, `VelloAnimatedCanvasControl`, `VelloSvgControl`) for rapid UI embedding. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Controls.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Controls/) |
 | `VelloSharp.Windows.Core` | Windows swapchain, device, and interop helpers shared by WinForms/WPF hosts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Windows.Core.svg)](https://www.nuget.org/packages/VelloSharp.Windows.Core/) |
 | `VelloSharp.WinForms.Core` | WinForms-friendly drawing abstractions and bitmap helpers. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.WinForms.Core.svg)](https://www.nuget.org/packages/VelloSharp.WinForms.Core/) |
 | `VelloSharp.Integration.WinForms` | Drop-in WinForms control that renders through the shared Vello renderer. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.WinForms.svg)](https://www.nuget.org/packages/VelloSharp.Integration.WinForms/) |
@@ -373,6 +374,37 @@ AppBuilder.Configure<App>()
     .StartWithClassicDesktopLifetime(args);
 ```
 
+### VelloSharp.Avalonia.Controls
+
+- `VelloCanvasControl` exposes the raw `Scene` via the `Draw` event so you can record Vello commands directly in Avalonia layouts.
+- `VelloAnimatedCanvasControl` adds a managed render loop with `TotalTime`/`DeltaTime` tracking for kinetic compositions and dashboards.
+- `VelloSvgControl` keeps vector artwork crisp by rendering `VelloSvg` documents from streams, strings, or Avalonia resources.
+
+```xml
+<controls:VelloCanvasControl Draw="OnCanvasDraw"
+                             xmlns:controls="clr-namespace:VelloSharp.Avalonia.Controls;assembly=VelloSharp.Avalonia.Controls"/>
+```
+
+```csharp
+private void OnCanvasDraw(object? sender, VelloDrawEventArgs e)
+{
+    var scene = e.Scene;
+    var transform = e.GlobalTransform;
+    var bounds = e.Bounds;
+
+    var backdrop = new PathBuilder()
+        .MoveTo(bounds.X, bounds.Y)
+        .LineTo(bounds.Right, bounds.Y)
+        .LineTo(bounds.Right, bounds.Bottom)
+        .LineTo(bounds.X, bounds.Bottom)
+        .Close();
+
+    scene.FillPath(backdrop, FillRule.NonZero, transform, new SolidColorBrush(RgbaColor.FromBytes(16, 22, 35)));
+}
+```
+
+See `samples/AvaloniaVelloControlsSample` for a full walkthrough covering custom drawing, animation, and SVG hosting.
+
 ### VelloSharp.Windows.Core
 
 - Supplies `VelloGraphicsDevice`, swapchain helpers, and diagnostics events for Windows hosts.
@@ -626,6 +658,7 @@ model.AttachRoots(new[] { new TreeNodeDescriptor(1, TreeRowKind.Data, 24f, hasCh
   - `samples/AvaloniaVelloWin32Demo` - Windows host configured for the Win32 platform while exercising the Vello renderer.
   - `samples/AvaloniaVelloNativeDemo` - macOS host forced onto AvaloniaNative to vet the Vello integration end-to-end.
   - `samples/AvaloniaVelloExamples` - expanded scene catalogue with renderer option toggles and surface fallbacks.
+  - `samples/AvaloniaVelloControlsSample` - quick tour of the reusable canvas, animation, and SVG controls.
   - `samples/AvaloniaSkiaMotionMark` - a side-by-side Skia/Vello motion-mark visualiser built on the integration layer.
   - `samples/AvaloniaSkiaSparseMotionMarkShim` - CPU sparse MotionMark shim that routes Vello scenes through the Velato Skia bridge without touching the GPU backend.
   - `samples/VelloSharp.WpfSample` - WPF composition host showcasing `VelloView`, backend toggles, diagnostics binding, and a MotionMark fast-path page driven through the new GPU render-surface API.
@@ -1019,11 +1052,12 @@ Set `PreferredBackend` to `VelloRenderBackend.Cpu` for software rendering, and r
 
 ## Avalonia integration
 
-Avalonia support is split across three managed packages:
+Avalonia support is split across four managed packages:
 
 - `VelloSharp.Integration` – reusable controls, render-path helpers, and utility services shared by Avalonia and SkiaSharp hosts.
 - `VelloSharp.Avalonia.Winit` – a winit-based windowing backend that plugs into Avalonia's `IWindowingPlatform`, dispatcher, clipboard, and screen services.
 - `VelloSharp.Avalonia.Vello` – a Vello-powered rendering backend that implements Avalonia's platform render interfaces on top of `wgpu`.
+- `VelloSharp.Avalonia.Controls` – high-level Avalonia controls (canvas, animation surface, SVG presenter) built on the Vello renderer.
 
 Opt in to the stack by extending your `AppBuilder`:
 
@@ -1110,6 +1144,7 @@ The Avalonia examples catalogue continues to showcase the controls on the stock 
 
 ```bash
 dotnet run --project samples/AvaloniaVelloExamples/AvaloniaVelloExamples.csproj
+dotnet run --project samples/AvaloniaVelloControlsSample/AvaloniaVelloControlsSample.csproj
 ```
 
 Both samples include project references to the `VelloSharp.Native.*.win-x64` packaging projects. Run
@@ -1290,6 +1325,7 @@ available to packaging steps.
 - `VelloSharp.Integration`: optional Avalonia and Skia helpers with render-path negotiation utilities.
 - `samples/AvaloniaVelloWinitDemo`: Avalonia desktop sample that exercises the bindings through the AvaloniaNative/Vello path.
 - `samples/AvaloniaVelloExamples`: showcases the expanded scene catalogue on Avalonia with GPU fallback logic.
+- `samples/AvaloniaVelloControlsSample`: demonstrates the reusable VelloSharp Avalonia controls (canvas, animation, SVG).
 - `extern/vello`: upstream renderer sources (core crate, sparse strips, shaders, and examples).
 - `extern/kurbo`: geometry primitives consumed by `kurbo_ffi` and Vello.
 - `extern/peniko`: brush/image utilities re-exported through `extern/peniko_shim`.

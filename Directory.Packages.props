@@ -39,6 +39,7 @@
   <PackageVersion Include="VelloSharp" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Avalonia.Vello" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Avalonia.Winit" Version="$(VelloPackageVersion)" />
+  <PackageVersion Include="VelloSharp.Avalonia.Controls" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.ChartData" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.ChartDiagnostics" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.ChartEngine" Version="$(VelloPackageVersion)" />

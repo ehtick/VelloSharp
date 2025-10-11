@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>1591</NoWarn>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Avalonia.Controls</PackageId>
+    <Title>VelloSharp.Avalonia.Controls</Title>
+    <Description>Reusable Avalonia UI controls powered by the VelloSharp renderer.</Description>
+    <PackageTags>vello;avalonia;graphics;controls</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp.Avalonia.Vello\VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Rendering\VelloSharp.Rendering.csproj" />
+  </ItemGroup>
+</Project>

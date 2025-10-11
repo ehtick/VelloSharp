@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:VelloSharp.Avalonia.Controls;assembly=VelloSharp.Avalonia.Controls"
+        x:Class="AvaloniaVelloControlsSample.MainWindow"
+        Title="VelloSharp Avalonia Controls Sample"
+        Width="960"
+        Height="640">
+  <Window.Styles>
+    <Style Selector="TextBlock.subtle">
+      <Setter Property="Foreground" Value="#99FFFFFF"/>
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="Background" Value="#1AFFFFFF"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+    <StackPanel Margin="16" Spacing="8">
+      <TextBlock Text="Reusable Vello-powered controls for Avalonia."
+                 FontSize="22"
+                 FontWeight="SemiBold"/>
+      <TextBlock Classes="subtle"
+                 Text="The samples below highlight the core controls shipped with VelloSharp.Avalonia.Controls."/>
+    </StackPanel>
+
+    <TabControl Grid.Row="1" Margin="16">
+      <TabItem Header="Canvas">
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Custom drawing"
+                         FontSize="18"
+                         FontWeight="SemiBold"/>
+              <TextBlock Classes="subtle"
+                         TextWrapping="Wrap"
+                         Text="Handle the Draw event to build Vello scenes with full access to the underlying renderer."/>
+            </StackPanel>
+          </Border>
+          <controls:VelloCanvasControl Grid.Row="1"
+                                       MinHeight="360"
+                                       Draw="OnCanvasDraw"
+                                       ShowFallbackMessage="True"/>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Animation">
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Animation control"
+                         FontSize="18"
+                         FontWeight="SemiBold"/>
+              <TextBlock Classes="subtle"
+                         TextWrapping="Wrap"
+                         Text="The animated canvas drives a render loop and exposes timing information so you can build kinetic compositions."/>
+              <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <ToggleSwitch Content="Play"
+                              IsChecked="{Binding ElementName=AnimatedCanvas, Path=IsPlaying}"/>
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                  <TextBlock Text="FPS" VerticalAlignment="Center" />
+                  <Slider Width="160"
+                          Minimum="12"
+                          Maximum="120"
+                          IsSnapToTickEnabled="True"
+                          TickFrequency="12"
+                          Value="{Binding ElementName=AnimatedCanvas, Path=FrameRate}"/>
+                  <TextBlock Width="48"
+                             TextAlignment="Right"
+                             VerticalAlignment="Center"
+                             Text="{Binding ElementName=AnimatedCanvas, Path=FrameRate, StringFormat='{}{0:F0}'}"/>
+                </StackPanel>
+                <Button Content="Reset"
+                        Click="OnResetAnimationClick"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <controls:VelloAnimatedCanvasControl x:Name="AnimatedCanvas"
+                                               Grid.Row="1"
+                                               MinHeight="360"
+                                               Draw="OnAnimatedDraw"
+                                               ShowFallbackMessage="True"/>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="SVG">
+        <Grid RowDefinitions="Auto,*">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="6">
+              <TextBlock Text="SVG rendering"
+                         FontSize="18"
+                         FontWeight="SemiBold"/>
+              <TextBlock Classes="subtle"
+                         TextWrapping="Wrap"
+                         Text="Drop-in replacement for bitmap images that keeps vector artwork crisp at every scale."/>
+            </StackPanel>
+          </Border>
+
+          <controls:VelloSvgControl Grid.Row="1"
+                                    MinHeight="360"
+                                    Source="avares://AvaloniaVelloControlsSample/Assets/Svg/aurora.svg"
+                                    Stretch="Uniform"
+                                    ShowFallbackMessage="True"/>
+        </Grid>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</Window>
+

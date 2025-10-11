@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+    <VelloRepositoryRoot Condition="'$(VelloRepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</VelloRepositoryRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Win32" />
+    <PackageReference Include="Avalonia.X11" />
+    <PackageReference Include="Avalonia.Native" />
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VelloSharp.Avalonia.Controls\VelloSharp.Avalonia.Controls.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Gpu\VelloSharp.Gpu.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Avalonia.Vello\VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.HarfBuzzSharp\HarfBuzzSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Text\VelloSharp.Text.csproj" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit\VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo\VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko\VelloSharp.Native.Peniko.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello\VelloSharp.Native.Vello.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse\VelloSharp.Native.VelloSparse.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit\VelloSharp.Native.Winit.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>
+
