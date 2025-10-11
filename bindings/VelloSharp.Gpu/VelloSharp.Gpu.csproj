@@ -15,4 +15,10 @@
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Ffi.Gpu/VelloSharp.Ffi.Gpu.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\VelloSharp\NativeLibraryLoader.cs">
+      <Link>Internal\NativeLibraryLoader.cs</Link>
+    </Compile>
+  </ItemGroup>
 </Project>

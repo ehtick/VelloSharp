@@ -1,6 +1,8 @@
+#pragma warning disable CS0436
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -11,13 +13,8 @@ internal static class NativeLibraryLoader
 {
     private static readonly object Sync = new();
     private static bool _initialized;
-    private static readonly HashSet<string> NativeLibraries = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "vello_ffi",
-        "vello_sparse_ffi",
-        "kurbo_ffi",
-        "peniko_ffi",
-    };
+    private static readonly HashSet<string> NativeLibraries = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> CustomProbeRoots = new(StringComparer.OrdinalIgnoreCase);
 
 #pragma warning disable CA2255 // Module initializers limited use warning suppressed intentionally for native resolver registration.
     [ModuleInitializer]
@@ -31,9 +28,49 @@ internal static class NativeLibraryLoader
             return;
         }
 
+        EnsureInitialized();
+
         lock (Sync)
         {
             NativeLibraries.Add(NormalizeLibraryName(libraryName));
+        }
+    }
+
+    internal static void RegisterNativeLibraries(params string[] libraryNames)
+    {
+        if (libraryNames is null || libraryNames.Length == 0)
+        {
+            return;
+        }
+
+        EnsureInitialized();
+
+        lock (Sync)
+        {
+            foreach (var libraryName in libraryNames)
+            {
+                if (string.IsNullOrWhiteSpace(libraryName))
+                {
+                    continue;
+                }
+
+                NativeLibraries.Add(NormalizeLibraryName(libraryName));
+            }
+        }
+    }
+
+    internal static void RegisterProbingPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        EnsureInitialized();
+
+        lock (Sync)
+        {
+            CustomProbeRoots.Add(path);
         }
     }
 
@@ -51,7 +88,7 @@ internal static class NativeLibraryLoader
                 return;
             }
 
-            NativeLibrary.SetDllImportResolver(typeof(NativeMethods).Assembly, Resolve);
+            NativeLibrary.SetDllImportResolver(typeof(NativeLibraryLoader).Assembly, Resolve);
             _initialized = true;
         }
     }
@@ -60,9 +97,11 @@ internal static class NativeLibraryLoader
     {
         var normalizedName = NormalizeLibraryName(libraryName);
         bool shouldProbe;
+        string[] customRoots;
         lock (Sync)
         {
             shouldProbe = NativeLibraries.Contains(normalizedName);
+            customRoots = CustomProbeRoots.ToArray();
         }
 
         if (!shouldProbe)
@@ -70,7 +109,7 @@ internal static class NativeLibraryLoader
             return IntPtr.Zero;
         }
 
-        foreach (var candidate in EnumerateProbePaths(assembly, normalizedName))
+        foreach (var candidate in EnumerateProbePaths(assembly, normalizedName, customRoots))
         {
             if (!string.IsNullOrWhiteSpace(candidate) && NativeLibrary.TryLoad(candidate, out var handle))
             {
@@ -104,7 +143,7 @@ internal static class NativeLibraryLoader
         return normalized;
     }
 
-    private static IEnumerable<string> EnumerateProbePaths(Assembly assembly, string libraryName)
+    private static IEnumerable<string> EnumerateProbePaths(Assembly assembly, string libraryName, IReadOnlyCollection<string> customRoots)
     {
         var fileName = GetLibraryFileName(libraryName);
         foreach (var path in EnumerateDirectoryProbePaths(AppContext.BaseDirectory, fileName))
@@ -119,6 +158,17 @@ internal static class NativeLibraryLoader
             if (!string.IsNullOrEmpty(assemblyDir))
             {
                 foreach (var path in EnumerateDirectoryProbePaths(assemblyDir, fileName))
+                {
+                    yield return path;
+                }
+            }
+        }
+
+        if (customRoots.Count > 0)
+        {
+            foreach (var root in customRoots)
+            {
+                foreach (var path in EnumerateDirectoryProbePaths(root, fileName))
                 {
                     yield return path;
                 }
@@ -260,3 +310,4 @@ internal static class NativeLibraryLoader
         return $"lib{libraryName}.so";
     }
 }
+#pragma warning restore CS0436

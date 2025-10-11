@@ -24,6 +24,12 @@
     <ProjectReference Include="..\VelloSharp.ChartEngine\VelloSharp.ChartEngine.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\bindings\VelloSharp\NativeLibraryLoader.cs">
+      <Link>Internal\NativeLibraryLoader.cs</Link>
+    </Compile>
+  </ItemGroup>
+
   <PropertyGroup>
     <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</RepositoryRoot>
   </PropertyGroup>
@@ -66,5 +72,10 @@
           Condition="'$(RuntimeIdentifier)'=='' and Exists('$(OutDir)')"
           SkipUnchangedFiles="true" />
   </Target>
+
+  <ItemGroup Condition="'$(VelloUseNativePackageDependencies)'=='true'">
+    <PackageReference Include="VelloSharp.Native.Editor"
+                      Condition="'$(VelloNativePackagesAvailable)'=='true' Or Exists('$(RepositoryRoot)/artifacts/nuget/VelloSharp.Native.Editor.$(VelloNativePackageVersion).nupkg')" />
+  </ItemGroup>
 
 </Project>

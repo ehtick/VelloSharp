@@ -18,4 +18,10 @@
     <ProjectReference Include="..\VelloSharp.Composition\VelloSharp.Composition.csproj" />
     <ProjectReference Include="..\VelloSharp.ChartRuntime\VelloSharp.ChartRuntime.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\bindings\VelloSharp\NativeLibraryLoader.cs">
+      <Link>Internal\NativeLibraryLoader.cs</Link>
+    </Compile>
+  </ItemGroup>
 </Project>

@@ -11,4 +11,10 @@
     <Description>Scene composition primitives and shared infrastructure for the VelloSharp dashboard stack.</Description>
     <PackageTags>vello;composition;graphics</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\bindings\VelloSharp\NativeLibraryLoader.cs">
+      <Link>Internal\NativeLibraryLoader.cs</Link>
+    </Compile>
+  </ItemGroup>
 </Project>
