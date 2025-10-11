@@ -41,8 +41,7 @@
           </Border>
           <controls:VelloCanvasControl Grid.Row="1"
                                        MinHeight="360"
-                                       Draw="OnCanvasDraw"
-                                       ShowFallbackMessage="True"/>
+                                       Draw="OnCanvasDraw"/>
         </Grid>
       </TabItem>
 
@@ -81,8 +80,7 @@
           <controls:VelloAnimatedCanvasControl x:Name="AnimatedCanvas"
                                                Grid.Row="1"
                                                MinHeight="360"
-                                               Draw="OnAnimatedDraw"
-                                               ShowFallbackMessage="True"/>
+                                               Draw="OnAnimatedDraw"/>
         </Grid>
       </TabItem>
 
@@ -102,8 +100,7 @@
           <controls:VelloSvgControl Grid.Row="1"
                                     MinHeight="360"
                                     Source="avares://AvaloniaVelloControlsSample/Assets/Svg/aurora.svg"
-                                    Stretch="Uniform"
-                                    ShowFallbackMessage="True"/>
+                                    Stretch="Uniform"/>
         </Grid>
       </TabItem>
     </TabControl>
