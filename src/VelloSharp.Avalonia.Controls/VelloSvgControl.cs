@@ -50,14 +50,6 @@ public class VelloSvgControl : VelloCanvasControl
             nameof(LoadError),
             o => o.LoadError);
 
-    /// <summary>
-    /// Defines the <see cref="NoSvgMessage"/> property.
-    /// </summary>
-    public static readonly StyledProperty<string?> NoSvgMessageProperty =
-        AvaloniaProperty.Register<VelloSvgControl, string?>(
-            nameof(NoSvgMessage),
-            "No SVG source provided.");
-
     static VelloSvgControl()
     {
         AffectsRender<VelloSvgControl>(SvgProperty, SourceProperty, StretchProperty, StretchDirectionProperty);
@@ -113,15 +105,6 @@ public class VelloSvgControl : VelloCanvasControl
         private set => SetAndRaise(LoadErrorProperty, ref _loadError, value);
     }
 
-    /// <summary>
-    /// Gets or sets the message displayed when no SVG content is available.
-    /// </summary>
-    public string? NoSvgMessage
-    {
-        get => GetValue(NoSvgMessageProperty);
-        set => SetValue(NoSvgMessageProperty, value);
-    }
-
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -150,33 +133,6 @@ public class VelloSvgControl : VelloCanvasControl
 
         var sourceSize = ToSize(svg.Size);
         return Stretch.CalculateSize(finalSize, sourceSize);
-    }
-
-    public override void Render(DrawingContext context)
-    {
-        base.Render(context);
-
-        if (GetActiveSvg() is null && ShowFallbackMessage)
-        {
-            var message = LoadError ?? NoSvgMessage;
-            if (!string.IsNullOrWhiteSpace(message))
-            {
-                var bounds = Bounds;
-                var typeface = new Typeface(FontManager.Current.DefaultFontFamily);
-                var formatted = new FormattedText(
-                    message!,
-                    System.Globalization.CultureInfo.CurrentUICulture,
-                    FlowDirection.LeftToRight,
-                    typeface,
-                    14,
-                    Brushes.Gray);
-                formatted.TextAlignment = TextAlignment.Center;
-                var origin = new Point(
-                    bounds.X + bounds.Width / 2 - formatted.WidthIncludingTrailingWhitespace / 2,
-                    bounds.Y + bounds.Height / 2 - formatted.Height / 2);
-                context.DrawText(formatted, origin);
-            }
-        }
     }
 
     protected override void OnDraw(VelloDrawEventArgs args)

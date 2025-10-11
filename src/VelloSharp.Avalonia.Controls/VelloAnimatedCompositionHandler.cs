@@ -138,7 +138,6 @@ internal sealed class VelloAnimatedCompositionHandler : CompositionCustomVisualH
 
         if (!VelloCanvasControl.TryGetLeaseFeature(context, out var feature) || feature is null)
         {
-            _owner.OnCompositionLeaseUnavailable("IVelloApiLeaseFeature not exposed by the current drawing context.");
             return;
         }
 
@@ -147,16 +146,14 @@ internal sealed class VelloAnimatedCompositionHandler : CompositionCustomVisualH
             using var lease = feature.Lease();
             if (lease is null)
             {
-                _owner.OnCompositionLeaseUnavailable("Failed to obtain a Vello API lease.");
                 return;
             }
 
             var bounds = new Rect(GetRenderBounds().Size);
-            _owner.OnCompositionLeaseReady(lease, bounds, _total, delta);
+            _owner.HandleDraw(lease, bounds, _total, delta);
         }
         catch (Exception ex)
         {
-            _owner.OnCompositionLeaseException(ex);
             throw;
         }
     }

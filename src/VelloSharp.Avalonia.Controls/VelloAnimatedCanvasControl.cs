@@ -266,22 +266,6 @@ public class VelloAnimatedCanvasControl : VelloCanvasControl
         Dispatcher.UIThread.Post(() => UpdateTotalTime(total, updateTimerBaseline: false));
     }
 
-    internal void OnCompositionLeaseReady(IVelloApiLease lease, Rect bounds, TimeSpan total, TimeSpan delta)
-    {
-        HandleDraw(lease, bounds, total, delta);
-        Dispatcher.UIThread.Post(() => UpdateAvailability(true, null));
-    }
-
-    internal void OnCompositionLeaseUnavailable(string reason)
-    {
-        Dispatcher.UIThread.Post(() => UpdateAvailability(false, reason));
-    }
-
-    internal void OnCompositionLeaseException(Exception ex)
-    {
-        Dispatcher.UIThread.Post(() => UpdateAvailability(false, ex.Message));
-    }
-
     private bool TryAttachCompositionVisual()
     {
         if (_compositionVisual is not null)
