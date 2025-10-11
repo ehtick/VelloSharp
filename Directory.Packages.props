@@ -72,6 +72,13 @@
   <PackageVersion Include="VelloSharp.Text" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.TreeDataGrid" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Uno" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.Charting.WinForms" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.Charting.Wpf" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.ChartRuntime.Windows" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.Integration.WinForms" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.Integration.Wpf" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.Windows.Core" Version="$(VelloPackageVersion)" />
+    <PackageVersion Update="VelloSharp.WinForms.Core" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Native.AccessKit" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.android-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.AccessKit.browser-wasm" Version="$(VelloNativePackageVersion)" />
