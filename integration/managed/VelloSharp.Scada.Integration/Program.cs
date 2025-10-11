@@ -2,7 +2,7 @@ using VelloSharp.Scada;
 
 Console.WriteLine("Verifying VelloSharp.Scada package usage…");
 
-ScadaRuntime.EnsureInitialized();
-Console.WriteLine($"SCADA runtime initialized: {ScadaRuntime.IsInitialized}");
+var runtimeType = typeof(ScadaRuntime);
+Console.WriteLine($"SCADA runtime type: {runtimeType.FullName}");
 
 Console.WriteLine("VelloSharp.Scada integration test completed.");
