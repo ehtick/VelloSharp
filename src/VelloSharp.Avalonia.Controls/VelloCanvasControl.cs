@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -14,11 +13,6 @@ namespace VelloSharp.Avalonia.Controls;
 /// </summary>
 public class VelloCanvasControl : Control
 {
-    private static readonly MethodInfo? TryGetFeatureMethod =
-        typeof(ImmediateDrawingContext).GetMethod(
-            "TryGetFeature",
-            new[] { typeof(Type), typeof(object).MakeByRefType() });
-
     /// <summary>
     /// Defines the <see cref="ShowFallbackMessage"/> property.
     /// </summary>
@@ -194,16 +188,10 @@ public class VelloCanvasControl : Control
 
     internal static bool TryGetLeaseFeature(ImmediateDrawingContext context, out IVelloApiLeaseFeature? feature)
     {
-        if (TryGetFeatureMethod is { } method)
+        if (context.TryGetFeature(typeof(IVelloApiLeaseFeature)) is IVelloApiLeaseFeature leaseFeature)
         {
-            object?[] parameters = { typeof(IVelloApiLeaseFeature), null };
-            if (method.Invoke(context, parameters) is bool success &&
-                success &&
-                parameters[1] is IVelloApiLeaseFeature leaseFeature)
-            {
-                feature = leaseFeature;
-                return true;
-            }
+            feature = leaseFeature;
+            return true;
         }
 
         feature = null;
