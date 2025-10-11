@@ -25,6 +25,22 @@ declare -a TARGETS=(
   "samples/VelloSharp.Uno.WinAppSdkSample"
   "samples/WinFormsMotionMarkShim"
 )
+declare -A TARGET_SET=()
+for target in "${TARGETS[@]}"; do
+  TARGET_SET["${target}"]=1
+done
+
+if [[ -d "${ROOT}/integration" ]]; then
+  while IFS= read -r project_path; do
+    project_dir="$(dirname "${project_path}")"
+    rel_path="${project_dir#"${ROOT}/"}"
+    if [[ -n "${rel_path}" && -z "${TARGET_SET["${rel_path}"]+_}" ]]; then
+      TARGETS+=("${rel_path}")
+      TARGET_SET["${rel_path}"]=1
+    fi
+  done < <(find "${ROOT}/integration" -type f -name '*.csproj' -print)
+fi
+
 if [[ "$#" -gt 0 ]]; then
   TARGETS=("$@")
 fi
