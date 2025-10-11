@@ -56,6 +56,24 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
 - **Description**: Compiles the WebAssembly variants of the FFI crates, copying either the produced `.wasm` artifact or
   the fallback static library into the runtime directory.
 
+## Managed builds
+
+### `build-integrations.sh` / `build-integrations.ps1`
+- **Usage (bash)**: `./build-integrations.sh [-c <cfg>] [-f <tfm>] [-- ...dotnet args...]`
+- **Usage (PowerShell)**: `pwsh ./build-integrations.ps1 [-Configuration <cfg>] [-Framework <tfm>] [-DotNetArgument <args...>]`
+- **Defaults**: Configuration `Release`, framework unset, additional `dotnet` arguments empty. Both scripts auto-discover every `.csproj`
+  under `integration/` and skip Windows/macOS/Linux-specific projects when run on unsupported hosts.
+- **Description**: Bulk builds the managed and native integration projects, forwarding any extra arguments directly
+  to `dotnet build`. Useful for quick validation after modifying package metadata or the runtime copy layout.
+
+### `build-samples.sh` / `build-samples.ps1`
+- **Usage (bash)**: `./build-samples.sh [-c <cfg>] [-f <tfm>] [-- ...dotnet args...]`
+- **Usage (PowerShell)**: `pwsh ./build-samples.ps1 [-Configuration <cfg>] [-Framework <tfm>] [-DotNetArgument <args...>]`
+- **Defaults**: Configuration `Release`, framework unset, additional arguments empty. Automatically skips platform-specific samples
+  (for example WinForms/WPF on non-Windows hosts).
+- **Description**: Iterates over every sample project beneath `samples/`, invoking `dotnet build` with the requested configuration
+  and target framework. Ideal for verifying template/sample health without opening each project manually.
+
 ## Artifact collection and propagation
 
 ### `collect-native-artifacts.sh`
