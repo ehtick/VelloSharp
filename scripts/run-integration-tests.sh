@@ -63,28 +63,6 @@ is_ci_environment() {
   [[ -n "${CI:-}" || -n "${TF_BUILD:-}" || -n "${GITHUB_ACTIONS:-}" ]]
 }
 
-latest_matching_file() {
-  local pattern="$1"
-  ensure_python
-  local result
-  if ! result="$("${python_exec}" - "$pattern" <<'PY'
-import glob
-import os
-import sys
-
-pattern = sys.argv[1]
-matches = glob.glob(pattern)
-if not matches:
-    sys.exit(1)
-latest = max(matches, key=os.path.getmtime)
-print(latest)
-PY
-  )"; then
-    return 1
-  fi
-  printf '%s\n' "${result}"
-}
-
 resolve_runtime_identifier() {
   local platform="$1"
   local arch="$2"
@@ -163,66 +141,17 @@ ensure_native_payload_for_rid() {
 
   local runtime_dir="${ROOT}/artifacts/runtimes/${rid}/native"
   local native_lib="${runtime_dir}/${native_filename}"
-  local built_native=0
 
-  if [[ ! -f "${native_lib}" ]]; then
-    echo "Native gauges payload not found at '${native_lib}'. Building native assets for ${rid}."
-    if [[ -z "${build_script}" || ! -x "${build_script}" ]]; then
-      echo "Required build script '${build_script}' is missing or not executable." >&2
-      exit 1
-    fi
-    "${build_script}" "${build_args[@]}"
-    built_native=1
+  if [[ -f "${native_lib}" ]]; then
+    return
   fi
 
-  local native_pattern="${ROOT}/artifacts/nuget/VelloSharp.Native.Gauges.${rid}."*
-  local native_package=""
-  if native_package=$(latest_matching_file "${native_pattern}"); then
-    :
-  else
-    native_package=""
-  fi
-
-  local should_pack_native=0
-  if [[ -z "${native_package}" || ${built_native} -eq 1 ]]; then
-    should_pack_native=1
-  fi
-
-  if (( should_pack_native )); then
-    if [[ ! -x "${ROOT}/scripts/pack-native-nugets.sh" ]]; then
-      echo "Native packaging script '${ROOT}/scripts/pack-native-nugets.sh' is missing or not executable." >&2
-      exit 1
-    fi
-    echo "Packing native NuGet payloads (RID: ${rid})."
-    "${ROOT}/scripts/pack-native-nugets.sh"
-    if native_package=$(latest_matching_file "${native_pattern}"); then
-      :
-    else
-      echo "Failed to produce native packages for RID '${rid}'." >&2
-      exit 1
-    fi
-  fi
-
-  printf '%s\n' "${native_package}"
-}
-
-run_pack_managed_packages() {
-  if [[ ! -x "${ROOT}/scripts/pack-managed-nugets.sh" ]]; then
-    echo "Managed packaging script '${ROOT}/scripts/pack-managed-nugets.sh' is missing or not executable." >&2
+  echo "Native gauges payload not found at '${native_lib}'. Building native assets for ${rid}."
+  if [[ -z "${build_script}" || ! -x "${build_script}" ]]; then
+    echo "Required build script '${build_script}' is missing or not executable." >&2
     exit 1
   fi
-  echo "Packing managed NuGet payloads to include updated native dependencies."
-  "${ROOT}/scripts/pack-managed-nugets.sh"
-
-  if [[ -n "${NUGET_PACKAGES:-}" && -d "${NUGET_PACKAGES}" ]]; then
-    echo "Clearing cached VelloSharp packages from '${NUGET_PACKAGES}' to avoid stale payloads."
-    shopt -s nullglob
-    for cache_dir in "${NUGET_PACKAGES}"/vellosharp* "${NUGET_PACKAGES}"/VelloSharp*; do
-      [[ -d "${cache_dir}" ]] || continue
-      rm -rf "${cache_dir}"
-    done
-    shopt -u nullglob
-  fi
+  "${build_script}" "${build_args[@]}"
 }
 
 ensure_native_payloads() {
@@ -274,126 +203,13 @@ ensure_native_payloads() {
   fi
 
   local seen_rids=""
-  local latest_native_package=""
-  local latest_native_time=0
   for rid in "${required_rids[@]}"; do
     if [[ " ${seen_rids} " == *" ${rid} "* ]]; then
       continue
     fi
     seen_rids+=" ${rid}"
-    local native_package
-    native_package="$(ensure_native_payload_for_rid "${rid}")"
-    if [[ -n "${native_package}" && -f "${native_package}" ]]; then
-      ensure_python
-      local pkg_time
-      pkg_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${native_package}")
-      if (( pkg_time > latest_native_time )); then
-        latest_native_time=${pkg_time}
-        latest_native_package="${native_package}"
-      fi
-    fi
+    ensure_native_payload_for_rid "${rid}"
   done
-
-  if [[ ${RUN_MANAGED} -ne 1 ]]; then
-    return
-  fi
-
-  local managed_pattern="${ROOT}/artifacts/nuget/VelloSharp.Gauges."*
-  local managed_package=""
-  if managed_package=$(latest_matching_file "${managed_pattern}"); then
-    :
-  else
-    managed_package=""
-  fi
-
-  local should_pack_managed=0
-  if [[ -z "${managed_package}" ]]; then
-    should_pack_managed=1
-  elif [[ -n "${latest_native_package}" && -n "${managed_package}" ]]; then
-    ensure_python
-    local native_time managed_time
-    native_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${latest_native_package}")
-    managed_time=$("${python_exec}" -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])));' "${managed_package}")
-    if (( native_time > managed_time )); then
-      should_pack_managed=1
-    fi
-  fi
-
-  if (( should_pack_managed )); then
-    run_pack_managed_packages
-  fi
-}
-
-ensure_required_managed_packages() {
-  if [[ ${RUN_MANAGED} -ne 1 || ${#managed_projects[@]} -eq 0 ]]; then
-    return
-  fi
-  ensure_python
-  local required_output
-  required_output="$("${python_exec}" - "${managed_projects[@]}" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-
-packages = set()
-for path in sys.argv[1:]:
-    try:
-        tree = ET.parse(path)
-    except Exception:
-        continue
-    root = tree.getroot()
-    for element in root.findall(".//PackageReference"):
-        include = element.attrib.get("Include")
-        if not include:
-            continue
-        if include.startswith("VelloSharp.Native"):
-            continue
-        if include.startswith("VelloSharp"):
-            packages.add(include)
-
-for name in sorted(packages):
-    print(name)
-PY
-)"
-
-  local -a required_packages=()
-  if [[ -n "${required_output}" ]]; then
-    while IFS= read -r line; do
-      [[ -z "${line}" ]] && continue
-      required_packages+=("${line}")
-    done <<< "${required_output}"
-  fi
-
-  if [[ ${#required_packages[@]} -eq 0 ]]; then
-    return
-  fi
-
-  local -a missing_packages=()
-  local pkg=""
-  for pkg in "${required_packages[@]}"; do
-    local pattern="${ROOT}/artifacts/nuget/${pkg}."*
-    if ! latest_matching_file "${pattern}" >/dev/null 2>&1; then
-      missing_packages+=("${pkg}")
-    fi
-  done
-
-  if [[ ${#missing_packages[@]} -eq 0 ]]; then
-    return
-  fi
-
-  run_pack_managed_packages
-
-  local -a still_missing=()
-  for pkg in "${required_packages[@]}"; do
-    local pattern="${ROOT}/artifacts/nuget/${pkg}."*
-    if ! latest_matching_file "${pattern}" >/dev/null 2>&1; then
-      still_missing+=("${pkg}")
-    fi
-  done
-
-  if [[ ${#still_missing[@]} -ne 0 ]]; then
-    echo "Failed to produce required managed packages: ${still_missing[*]}" >&2
-    exit 1
-  fi
 }
 
 native_project_matches_arch() {
@@ -589,8 +405,6 @@ if [[ ${IS_CI} -eq 1 && ${#managed_projects[@]} -gt 0 ]]; then
   done
   managed_projects=("${filtered_managed[@]}")
 fi
-
-ensure_required_managed_packages
 
 native_projects=()
 if [[ -d "${ROOT}/integration/native" ]]; then
