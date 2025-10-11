@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.ChartRuntime.Windows" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.ChartRuntime.Windows" />
   </ItemGroup>
 </Project>
 

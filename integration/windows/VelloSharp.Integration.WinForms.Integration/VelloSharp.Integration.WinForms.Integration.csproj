@@ -8,6 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Integration.WinForms" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Integration.WinForms" />
   </ItemGroup>
 </Project>

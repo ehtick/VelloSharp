@@ -12,6 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="VelloSharp.Windows.Core" Version="$(VelloPackageVersion)" />
+    <PackageReference Include="VelloSharp.Windows.Core" />
   </ItemGroup>
 </Project>
