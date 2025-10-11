@@ -58,6 +58,9 @@ public class VelloSvgControl : VelloCanvasControl
 
     private VelloSvg? _loadedSvg;
     private string? _loadError;
+    private VelloSvg? _inlineSvg;
+    private Stretch _stretch = Stretch.Uniform;
+    private StretchDirection _stretchDirection = StretchDirection.Both;
 
     /// <summary>
     /// Gets or sets the SVG instance rendered by the control.
@@ -105,6 +108,20 @@ public class VelloSvgControl : VelloCanvasControl
         private set => SetAndRaise(LoadErrorProperty, ref _loadError, value);
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        _inlineSvg ??= GetValue(SvgProperty);
+        _stretch = GetValue(StretchProperty);
+        _stretchDirection = GetValue(StretchDirectionProperty);
+
+        if (_inlineSvg is null && Source is not null && _loadedSvg is null)
+        {
+            ReloadFromSource();
+        }
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
@@ -119,8 +136,8 @@ public class VelloSvgControl : VelloCanvasControl
             return default;
         }
 
-        var sourceSize = ToSize(svg.Size);
-        return Stretch.CalculateSize(availableSize, sourceSize, StretchDirection);
+    var sourceSize = ToSize(svg.Size);
+    return _stretch.CalculateSize(availableSize, sourceSize, _stretchDirection);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -131,8 +148,8 @@ public class VelloSvgControl : VelloCanvasControl
             return default;
         }
 
-        var sourceSize = ToSize(svg.Size);
-        return Stretch.CalculateSize(finalSize, sourceSize);
+    var sourceSize = ToSize(svg.Size);
+    return _stretch.CalculateSize(finalSize, sourceSize);
     }
 
     protected override void OnDraw(VelloDrawEventArgs args)
@@ -156,7 +173,20 @@ public class VelloSvgControl : VelloCanvasControl
         }
         else if (change.Property == SvgProperty)
         {
+            _inlineSvg = change.NewValue is VelloSvg svg ? svg : null;
             LoadError = null;
+            InvalidateMeasure();
+            InvalidateVisual();
+        }
+        else if (change.Property == StretchProperty)
+        {
+            _stretch = change.GetNewValue<Stretch>();
+            InvalidateMeasure();
+            InvalidateVisual();
+        }
+        else if (change.Property == StretchDirectionProperty)
+        {
+            _stretchDirection = change.GetNewValue<StretchDirection>();
             InvalidateMeasure();
             InvalidateVisual();
         }
@@ -227,7 +257,7 @@ public class VelloSvgControl : VelloCanvasControl
             return;
         }
 
-        global::Avalonia.Vector scale = Stretch.CalculateScaling(bounds.Size, originalSize, StretchDirection);
+    var scale = _stretch.CalculateScaling(bounds.Size, originalSize, _stretchDirection);
         if (!double.IsFinite(scale.X) || !double.IsFinite(scale.Y) || scale.X <= 0 || scale.Y <= 0)
         {
             scale = new global::Avalonia.Vector(1, 1);
@@ -252,7 +282,7 @@ public class VelloSvgControl : VelloCanvasControl
         svg.Render(args.Scene, finalTransform);
     }
 
-    private VelloSvg? GetActiveSvg() => Svg ?? _loadedSvg;
+    private VelloSvg? GetActiveSvg() => _inlineSvg ?? _loadedSvg;
 
     private void DisposeLoadedSvg()
     {
