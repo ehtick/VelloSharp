@@ -44,8 +44,11 @@
   <PackageVersion Include="VelloSharp.ChartDiagnostics" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.ChartEngine" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Charting" Version="$(VelloPackageVersion)" />
-  <PackageVersion Include="VelloSharp.Charting.Avalonia" Version="$(VelloPackageVersion)" />
-  <PackageVersion Include="VelloSharp.ChartRuntime" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Charting.Avalonia" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Charting.WinForms" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Charting.Wpf" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.ChartRuntime" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.ChartRuntime.Windows" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Composition" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Core" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Editor" Version="$(VelloPackageVersion)" />
@@ -56,9 +59,13 @@
   <PackageVersion Include="VelloSharp.Gpu" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.HarfBuzzSharp" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Integration" Version="$(VelloPackageVersion)" />
-  <PackageVersion Include="VelloSharp.Integration.Skia" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Integration.Skia" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Integration.WinForms" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Integration.Wpf" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Rendering" Version="$(VelloPackageVersion)" />
-  <PackageVersion Include="VelloSharp.Scada" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Scada" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.Windows.Core" Version="$(VelloPackageVersion)" />
+    <PackageVersion Include="VelloSharp.WinForms.Core" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Skia.Core" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Skia.Cpu" Version="$(VelloPackageVersion)" />
   <PackageVersion Include="VelloSharp.Skia.Gpu" Version="$(VelloPackageVersion)" />
