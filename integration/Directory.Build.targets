@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <VelloIntegrationRepoRoot Condition="'$(VelloIntegrationRepoRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</VelloIntegrationRepoRoot>
+    <VelloIntegrationRuntimeRoot>$([System.IO.Path]::Combine('$(VelloIntegrationRepoRoot)', 'artifacts', 'runtimes'))</VelloIntegrationRuntimeRoot>
+  </PropertyGroup>
+
+  <Target Name="CopyVelloRuntimeAssets"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)'!='true' and '$(OutDir)'!=''">
+    <ItemGroup Condition="Exists('$(VelloIntegrationRuntimeRoot)')">
+      <_VelloRuntimeFiles Include="$(VelloIntegrationRuntimeRoot)\**\*.*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_VelloRuntimeFiles)"
+          DestinationFiles="@(_VelloRuntimeFiles->'$(OutDir)runtimes\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(_VelloRuntimeFiles)'!=''" />
+  </Target>
+</Project>
