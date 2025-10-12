@@ -14,7 +14,7 @@ internal static class TestEnvironment
     {
         if (IsCi)
         {
-            throw new SkipException(reason);
+            throw SkipException.ForSkip(reason);
         }
     }
 }
