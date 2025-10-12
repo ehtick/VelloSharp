@@ -52,3 +52,6 @@
 [submodule "extern/uno"]
 	path = extern/uno
 	url = https://github.com/unoplatform/uno.git
+[submodule "extern/maui"]
+	path = extern/maui
+	url = https://github.com/dotnet/maui.git
