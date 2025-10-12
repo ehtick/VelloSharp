@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:AvaloniaVelloHarfBuzzSample"
+             xmlns:vm="clr-namespace:AvaloniaVelloHarfBuzzSample.ViewModels"
+             xmlns:pages="clr-namespace:AvaloniaVelloHarfBuzzSample.ViewModels.Pages"
+             x:Class="AvaloniaVelloHarfBuzzSample.Views.HarfBuzzGalleryView">
+  <UserControl.DataTemplates>
+    <local:ViewLocator />
+  </UserControl.DataTemplates>
+
+  <Grid RowDefinitions="Auto,*">
+    <Border Margin="0,0,0,8"
+            Padding="20"
+            Background="#131821"
+            BorderBrush="#233043"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="16"
+            VerticalAlignment="Center">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding Title}"
+                     FontSize="26"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding Subtitle}"
+                     FontSize="13"
+                     TextWrapping="Wrap"
+                     MaxWidth="840"
+                     Opacity="0.78" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="12"
+                    VerticalAlignment="Center">
+          <Border Padding="10,6"
+                  Background="#1E293B"
+                  CornerRadius="6">
+            <StackPanel>
+              <TextBlock Text="Phase 0"
+                         FontWeight="SemiBold"
+                         HorizontalAlignment="Center" />
+              <TextBlock Text="Scaffolding in progress"
+                         FontSize="11"
+                         Opacity="0.75" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <TabControl Grid.Row="1"
+                ItemsSource="{Binding Pages}"
+                SelectedItem="{Binding SelectedPage, Mode=TwoWay}"
+                TabStripPlacement="Left"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch">
+      <TabControl.ItemTemplate>
+        <DataTemplate DataType="pages:SamplePageViewModel">
+          <Border Margin="6"
+                  Padding="8"
+                  CornerRadius="6"
+                  Background="{DynamicResource ThemeControlMidBrush}">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding Glyph}"
+                         FontFamily="Segoe Fluent Icons"
+                         FontSize="18"
+                         Opacity="0.85" />
+              <TextBlock Text="{Binding Title}"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Subtitle}"
+                         FontSize="11"
+                         Opacity="0.7"
+                         TextWrapping="Wrap"
+                         MaxWidth="240" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </TabControl.ItemTemplate>
+
+      <TabControl.ContentTemplate>
+        <DataTemplate DataType="pages:SamplePageViewModel">
+          <ContentControl Content="{Binding View}" />
+        </DataTemplate>
+      </TabControl.ContentTemplate>
+    </TabControl>
+  </Grid>
+</UserControl>

@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:AvaloniaVelloHarfBuzzSample"
+        xmlns:views="clr-namespace:AvaloniaVelloHarfBuzzSample.Views"
+        x:Class="AvaloniaVelloHarfBuzzSample.Views.MainWindow"
+        Title="VelloSharp HarfBuzz Sample"
+        Width="1280"
+        Height="820"
+        CanResize="True">
+  <Window.DataTemplates>
+    <local:ViewLocator />
+  </Window.DataTemplates>
+
+  <views:HarfBuzzGalleryView />
+</Window>
