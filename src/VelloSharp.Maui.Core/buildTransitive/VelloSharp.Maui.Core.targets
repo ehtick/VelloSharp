@@ -1,0 +1,48 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <_VelloNativeContent Include="@(ContentWithTargetPath)"
+                         Condition="'%(ContentWithTargetPath.NuGetPackageId)' != '' and %(ContentWithTargetPath.NuGetPackageId.StartsWith('VelloSharp.Native.')) and %(ContentWithTargetPath.PackagePath.StartsWith('runtimes/'))">
+      <NativeRid>$([System.String]::Copy('%(ContentWithTargetPath.PackagePath)').Split('/')[1])</NativeRid>
+      <RelativeNativePath>$([System.String]::Copy('%(ContentWithTargetPath.PackagePath)').Substring($([System.String]::Copy('%(ContentWithTargetPath.PackagePath)').IndexOf('native/')) + 7))</RelativeNativePath>
+    </_VelloNativeContent>
+  </ItemGroup>
+
+  <Target Name="VelloSharpCopyNativeAssets"
+          BeforeTargets="ResolveReferences"
+          Condition="@(_VelloNativeContent) != ''">
+    <Copy SourceFiles="@(_VelloNativeContent->'%(FullPath)')"
+          DestinationFiles="@(_VelloNativeContent -> '$(IntermediateOutputPath)\runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.RelativeNativePath)')"
+          SkipUnchangedFiles="true" />
+
+    <ItemGroup>
+      <_VelloNativeResolved Include="$(IntermediateOutputPath)\runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.RelativeNativePath)">
+        <NativeRid>%(_VelloNativeContent.NativeRid)</NativeRid>
+      </_VelloNativeResolved>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <AndroidNativeLibrary Include="@(_VelloNativeResolved)"
+                          Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'android-arm64'"
+                          Abi="arm64-v8a" />
+    <AndroidNativeLibrary Include="@(_VelloNativeResolved)"
+                          Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'android-arm'"
+                          Abi="armeabi-v7a" />
+    <AndroidNativeLibrary Include="@(_VelloNativeResolved)"
+                          Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'android-x64'"
+                          Abi="x86_64" />
+    <AndroidNativeLibrary Include="@(_VelloNativeResolved)"
+                          Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'android-x86'"
+                          Abi="x86" />
+
+    <IOSNativeLibrary Include="@(_VelloNativeResolved)"
+                      Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'ios-arm64'" />
+    <IOSNativeLibrary Include="@(_VelloNativeResolved)"
+                      Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'iossimulator-x64'" />
+
+    <MacCatalystNativeLibrary Include="@(_VelloNativeResolved)"
+                               Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'osx-arm64'" />
+    <MacCatalystNativeLibrary Include="@(_VelloNativeResolved)"
+                               Condition="$([System.String]::Copy('%(_VelloNativeResolved.NativeRid)')) == 'osx-x64'" />
+  </ItemGroup>
+</Project>

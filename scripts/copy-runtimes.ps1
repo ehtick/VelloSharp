@@ -25,15 +25,20 @@ if (-not $Targets -or $Targets.Count -eq 0) {
         'VelloSharp',
         'VelloSharp.Integration',
         'samples/AvaloniaVelloExamples',
+        'samples/AvaloniaVelloPlayground',
         'samples/AvaloniaVelloWinitDemo',
         'samples/AvaloniaVelloX11Demo',
         'samples/AvaloniaVelloWin32Demo',
         'samples/AvaloniaVelloNativeDemo',
         'samples/AvaloniaVelloControlsSample',
+        'samples/AvaloniaVelloHarfBuzzSample',
+        'samples/AvaloniaVelloSkiaSharpSample',
         'samples/VelloSharp.Charting.AvaloniaSample',
+        'samples/VelloSharp.TreeDataGrid.CompositionSample',
         'samples/VelloSharp.WithWinit',
         'samples/VelloSharp.WpfSample',
         'samples/VelloSharp.Uno.WinAppSdkSample',
+        'samples/MauiVelloGallery',
         'samples/WinFormsMotionMarkShim'
     )
 
@@ -117,8 +122,30 @@ foreach ($target in $Targets) {
     }
 
     foreach ($configuration in $configurations) {
+        $configurationRoot = Join-Path (Join-Path $targetRoot 'bin') $configuration
+        $frameworkList = [System.Collections.Generic.List[string]]::new()
+        $frameworkSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
         foreach ($framework in $targetFrameworks) {
-            $outputBase = Join-Path (Join-Path (Join-Path $targetRoot 'bin') $configuration) $framework
+            if (-not [string]::IsNullOrWhiteSpace($framework) -and $frameworkSet.Add($framework)) {
+                [void]$frameworkList.Add($framework)
+            }
+        }
+
+        if (Test-Path $configurationRoot -PathType Container) {
+            foreach ($frameworkDir in Get-ChildItem -Path $configurationRoot -Directory -ErrorAction SilentlyContinue) {
+                $frameworkName = $frameworkDir.Name
+                if ([string]::IsNullOrWhiteSpace($frameworkName)) {
+                    continue
+                }
+                if ($frameworkSet.Add($frameworkName)) {
+                    [void]$frameworkList.Add($frameworkName)
+                }
+            }
+        }
+
+        foreach ($framework in $frameworkList) {
+            $outputBase = Join-Path $configurationRoot $framework
             if (-not (Test-Path $outputBase -PathType Container)) {
                 Write-Host "Skipping '$target' ($configuration|$framework) – build output not found."
                 continue

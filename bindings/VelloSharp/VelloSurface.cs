@@ -277,6 +277,46 @@ public readonly struct SurfaceHandle
         });
     }
 
+    public static SurfaceHandle FromCoreAnimationLayer(IntPtr layer)
+    {
+        if (layer == IntPtr.Zero)
+        {
+            throw new ArgumentNullException(nameof(layer));
+        }
+
+        return new SurfaceHandle(new VelloWindowHandle
+        {
+            Kind = VelloWindowHandleKind.CoreAnimationLayer,
+            Payload = new VelloWindowHandlePayload
+            {
+                CoreAnimationLayer = new VelloCoreAnimationLayerHandle
+                {
+                    Layer = layer,
+                },
+            },
+        });
+    }
+
+    public static SurfaceHandle FromAndroidNativeWindow(IntPtr nativeWindow)
+    {
+        if (nativeWindow == IntPtr.Zero)
+        {
+            throw new ArgumentNullException(nameof(nativeWindow));
+        }
+
+        return new SurfaceHandle(new VelloWindowHandle
+        {
+            Kind = VelloWindowHandleKind.AndroidNativeWindow,
+            Payload = new VelloWindowHandlePayload
+            {
+                AndroidNativeWindow = new VelloAndroidNativeWindowHandle
+                {
+                    Window = nativeWindow,
+                },
+            },
+        });
+    }
+
     public static SurfaceHandle FromWayland(IntPtr surface, IntPtr display)
     {
         if (surface == IntPtr.Zero)

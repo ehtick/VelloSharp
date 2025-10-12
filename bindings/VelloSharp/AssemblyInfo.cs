@@ -11,3 +11,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.Text")]
 [assembly: InternalsVisibleTo("VelloSharp.ChartEngine")]
 [assembly: InternalsVisibleTo("HarfBuzzSharp")]
+[assembly: InternalsVisibleTo("VelloSharp.Windows.Core.Tests")]

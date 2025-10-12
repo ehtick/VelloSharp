@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vello="clr-namespace:VelloSharp.Maui.Controls;assembly=VelloSharp.Maui.Core"
+             x:Class="MauiVelloGallery.MainPage"
+             Title="Vello GPU Gallery">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <vello:VelloView x:Name="Canvas"
+                         Grid.Row="0"
+                         Grid.Column="0"
+                         PreferredBackend="Gpu"
+                         RenderMode="Continuous"
+                         RenderLoopDriver="CompositionTarget"
+                         IsDiagnosticsEnabled="True"
+                         VerticalOptions="FillAndExpand"
+                         HorizontalOptions="FillAndExpand"
+                         PaintSurface="OnPaintSurface" />
+        <VerticalStackLayout Grid.Row="0"
+                             Grid.Column="0"
+                             Padding="16"
+                             Spacing="8"
+                             HorizontalOptions="Start"
+                             VerticalOptions="Start">
+            <Label x:Name="FrameLabel"
+                   Text="Frame info"
+                   TextColor="White"
+                   FontSize="14" />
+            <Label x:Name="DiagnosticsLabel"
+                   Text="Diagnostics"
+                   TextColor="White"
+                   FontSize="14" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

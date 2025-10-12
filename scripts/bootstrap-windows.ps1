@@ -49,11 +49,11 @@ function Test-VcTools {
 
 function Ensure-DotNet {
     if (Test-Command -Name 'dotnet') {
-        Write-Host '.NET SDK detected.'
+       & dotnet workload restore maui '.NET SDK detected.'
         return
     }
 
-    Write-Host '.NET SDK not detected. Installing latest LTS using dotnet-install...'
+   & dotnet workload restore maui '.NET SDK not detected. Installing latest LTS using dotnet-install...'
     $installScript = Join-Path $env:TEMP 'dotnet-install.ps1'
     Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installScript
 
@@ -64,7 +64,7 @@ function Ensure-DotNet {
     $env:PATH = "$installDir;$installDir\tools;$env:PATH"
 
     if (Test-Command -Name 'dotnet') {
-        Write-Host ".NET SDK installed to $installDir."
+       & dotnet workload restore maui ".NET SDK installed to $installDir."
     } else {
         Write-Warning "Installed .NET SDK to $installDir. Add this directory (and its 'tools' subdirectory) to your PATH."
     }
@@ -72,21 +72,21 @@ function Ensure-DotNet {
 
 function Ensure-CppBuildTools {
     if (Test-VcTools) {
-        Write-Host 'MSVC build tools detected.'
+       & dotnet workload restore maui 'MSVC build tools detected.'
         return
     }
 
     $bootstrapperPath = Join-Path $env:TEMP 'vs_BuildTools.exe'
-    Write-Host 'MSVC build tools not detected. Downloading Visual Studio Build Tools bootstrapper...'
+   & dotnet workload restore maui 'MSVC build tools not detected. Downloading Visual Studio Build Tools bootstrapper...'
     Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -OutFile $bootstrapperPath
 
     $arguments = '--quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --includeOptional'
-    Write-Host 'Installing Visual Studio Build Tools (this might take several minutes)...'
+   & dotnet workload restore maui 'Installing Visual Studio Build Tools (this might take several minutes)...'
     Start-Process -FilePath $bootstrapperPath -ArgumentList $arguments -Wait
     Remove-Item $bootstrapperPath -Force
 
     if (Test-VcTools) {
-        Write-Host 'MSVC build tools installed.'
+       & dotnet workload restore maui 'MSVC build tools installed.'
     } else {
         Write-Warning 'Attempted to install MSVC build tools, but they were not detected. Verify the installation manually.'
     }
@@ -110,4 +110,15 @@ function Ensure-Rustup {
 
 Ensure-Rustup
 
+function Ensure-MauiWorkloads {
+    Write-Host 'Restoring .NET MAUI workloads...'
+    & dotnet workload restore maui
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning 'dotnet workload restore maui reported a failure. Validate your installation or install the workloads manually via Visual Studio.'
+    }
+}
+
+Ensure-MauiWorkloads
+
 Write-Host 'Bootstrap complete. If this is the first install, restart your shell so the updated PATH is loaded.'
+

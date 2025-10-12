@@ -1,15 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net8.0-windows10.0.19041</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <DisableRuntimeIdentifierValidation>true</DisableRuntimeIdentifierValidation>
+    <WindowsAppSDKPlatforms>win10-x64</WindowsAppSDKPlatforms>
+    <MauiTargetFrameworks>net8.0-windows10.0.19041</MauiTargetFrameworks>
+    <DisableWorkloadResolveCheck>true</DisableWorkloadResolveCheck>
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../bindings/VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Integration.Wpf/VelloSharp.Integration.Wpf.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Uno/VelloSharp.Uno.csproj" AdditionalProperties="TargetFramework=net8.0-windows10.0.19041" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableMauiTests)' == 'true'">
+    <ProjectReference Include="../../src/VelloSharp.Maui.Core/VelloSharp.Maui.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EnableMauiTests)' != 'true'">
+    <Compile Remove="MauiCompositionInputSourceTests.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,3 +41,5 @@
     <PackageReference Include="Xunit.StaFact" />
   </ItemGroup>
 </Project>
+
+

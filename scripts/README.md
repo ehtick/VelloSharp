@@ -13,13 +13,13 @@ otherwise, run the scripts from the repository root so paths resolve correctly. 
 
 ### `bootstrap-macos.sh`
 - **Usage**: `./bootstrap-macos.sh`
-- **Description**: macOS bootstrapper that checks for the Xcode Command Line Tools, verifies the .NET SDK, and installs
-  `rustup` if necessary. Aborts with guidance if the Command Line Tools prompt is still pending.
+- **Description**: macOS bootstrapper that checks for the Xcode Command Line Tools, restores the .NET MAUI workloads via
+  `dotnet workload restore maui`, verifies the .NET SDK, and installs `rustup` if necessary. Aborts with guidance if the Command Line Tools prompt is still pending.
 
 ### `bootstrap-windows.ps1`
 - **Usage**: `pwsh ./bootstrap-windows.ps1`
 - **Description**: Windows bootstrapper that must be run from an elevated PowerShell session. Confirms administrator
-  rights, checks for the .NET SDK, and installs the minimal `rustup` toolchain when the Rust environment is missing.
+  rights, runs `dotnet workload restore maui`, checks for the .NET SDK, and installs the minimal `rustup` toolchain when the Rust environment is missing.
 
 ## Native builds
 
@@ -131,6 +131,10 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
 - **Description**: Crawls the Avalonia Skia sources to catalog `SK*` symbols used by the SkiaSharp integration layers.
   Writes a CSV report to stdout or to the provided output file.
 
+### `verify-maui-native-assets.ps1`
+- **Usage**: `pwsh ./verify-maui-native-assets.ps1 -BundlePath <publish-dir> -Platform <android|ios|iossimulator|maccatalyst|windows>`
+- **Description**: Checks a published MAUI bundle for the expected VelloSharp native binaries and reports any missing assets before distribution.
+
 ## Integration validation
 
 ### `run-integration-tests.sh` / `run-integration-tests.ps1`
@@ -140,3 +144,5 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
 - **Description**: Executes every managed integration console and the native RID validation project for the requested
   platform. Use `--platform`/`-Platform` to target a different RID set, and supply `--managed-only` or `--native-only`
   to restrict execution.
+- **Windows prerequisite**: Windows hosts need the Windows App SDK 1.5 runtime/targeting packs (install via Visual Studio Installer or `winget install Microsoft.WindowsAppRuntime.1.5`) so the WinUI-based tests restore successfully.
+

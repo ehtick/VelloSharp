@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <_DefaultMauiFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst;net8.0-windows10.0.19041</_DefaultMauiFrameworks>
+    <TargetFrameworks Condition="'$(MauiTargetFrameworks)' == ''">$(_DefaultMauiFrameworks)</TargetFrameworks>
+    <TargetFrameworks Condition="'$(MauiTargetFrameworks)' != ''">$(MauiTargetFrameworks)</TargetFrameworks>
+    <TargetPlatformMinVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>VelloSharp.Maui</RootNamespace>
+    <AssemblyName>VelloSharp.Maui</AssemblyName>
+    <UseMaui>true</UseMaui>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Maui</PackageId>
+    <Title>VelloSharp.Maui</Title>
+    <Description>Platform handlers and controls for hosting VelloSharp content inside .NET MAUI applications.</Description>
+    <EnablePreviewMsixTooling>true</EnablePreviewMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Core" />
+    <PackageReference Include="Microsoft.Maui.Controls" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VelloSharp.Maui.Core\VelloSharp.Maui.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+    <Compile Remove="**\iOS\**\*.cs" />
+    <Compile Remove="**\MacCatalyst\**\*.cs" />
+    <Compile Remove="**\Windows\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-ios'))">
+    <Compile Remove="**\Android\**\*.cs" />
+    <Compile Remove="**\MacCatalyst\**\*.cs" />
+    <Compile Remove="**\Windows\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-maccatalyst'))">
+    <Compile Remove="**\Android\**\*.cs" />
+    <Compile Remove="**\iOS\**\*.cs" />
+    <Compile Remove="**\Windows\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
+    <Compile Remove="**\Android\**\*.cs" />
+    <Compile Remove="**\iOS\**\*.cs" />
+    <Compile Remove="**\MacCatalyst\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
+    <ProjectReference Include="..\VelloSharp.Uno\VelloSharp.Uno.csproj" />
+  </ItemGroup>
+</Project>

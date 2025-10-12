@@ -84,6 +84,15 @@ fi
 
 ensure_dotnet
 
+ensure_maui_workload() {
+  echo "Restoring .NET MAUI workloads..."
+  if ! dotnet workload restore maui; then
+    echo "dotnet workload restore maui failed. Install the MAUI workloads via Visual Studio or rerun once prerequisites are installed." >&2
+  fi
+}
+
+ensure_maui_workload
+
 ensure_rustup() {
   if has_command cargo || has_command rustup; then
     echo "Rust toolchain already detected."

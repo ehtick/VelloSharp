@@ -34,6 +34,9 @@ use raw_window_handle::{
     WaylandDisplayHandle, WaylandWindowHandle, Win32WindowHandle, WindowsDisplayHandle,
     XlibDisplayHandle, XlibWindowHandle,
 };
+
+#[cfg(target_os = "android")]
+use raw_window_handle::{AndroidDisplayHandle, AndroidNdkWindowHandle};
 use skrifa::raw::TableProvider;
 use skrifa::raw::{self, ReadError, tables::mvar::tags as MvarTag};
 use skrifa::{
@@ -1105,6 +1108,8 @@ pub enum VelloWindowHandleKind {
     Xlib = 4,
     SwapChainPanel = 5,
     CoreWindow = 6,
+    CoreAnimationLayer = 7,
+    AndroidNativeWindow = 8,
     Headless = 100,
 }
 
@@ -1150,6 +1155,18 @@ pub struct VelloCoreWindowHandle {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloCoreAnimationLayerHandle {
+    pub layer: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloAndroidNativeWindowHandle {
+    pub window: *mut c_void,
+}
+
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub union VelloWindowHandlePayload {
     pub win32: VelloWin32WindowHandle,
@@ -1158,6 +1175,8 @@ pub union VelloWindowHandlePayload {
     pub xlib: VelloXlibWindowHandle,
     pub swap_chain_panel: VelloSwapChainPanelHandle,
     pub core_window: VelloCoreWindowHandle,
+    pub core_animation_layer: VelloCoreAnimationLayerHandle,
+    pub android_native_window: VelloAndroidNativeWindowHandle,
     pub none: usize,
 }
 
@@ -1192,6 +1211,8 @@ enum SurfaceTargetHandles {
         display: RawDisplayHandle,
     },
     SwapChainPanel(*mut c_void),
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    CoreAnimationLayer(*mut c_void),
 }
 
 #[allow(trivial_numeric_casts)]
@@ -1310,6 +1331,25 @@ impl TryFrom<&VelloWindowHandle> for SurfaceTargetHandles {
                 let payload = unsafe { handle.payload.core_window };
                 core_window_to_raw_handles(payload.core_window)
             }
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            VelloWindowHandleKind::CoreAnimationLayer => {
+                let payload = unsafe { handle.payload.core_animation_layer };
+                let layer = NonNull::new(payload.layer).ok_or(VelloStatus::InvalidArgument)?;
+                Ok(Self::CoreAnimationLayer(layer.as_ptr()))
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+            VelloWindowHandleKind::CoreAnimationLayer => Err(VelloStatus::Unsupported),
+            #[cfg(target_os = "android")]
+            VelloWindowHandleKind::AndroidNativeWindow => {
+                let payload = unsafe { handle.payload.android_native_window };
+                let window = NonNull::new(payload.window).ok_or(VelloStatus::InvalidArgument)?;
+                Ok(Self::Raw {
+                    window: RawWindowHandle::AndroidNdk(AndroidNdkWindowHandle::new(window)),
+                    display: RawDisplayHandle::Android(AndroidDisplayHandle::new()),
+                })
+            }
+            #[cfg(not(target_os = "android"))]
+            VelloWindowHandleKind::AndroidNativeWindow => Err(VelloStatus::Unsupported),
         }
     }
 }
@@ -1953,6 +1993,10 @@ pub unsafe extern "C" fn vello_render_surface_create(
                 raw_display_handle: display,
                 raw_window_handle: window,
             },
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            SurfaceTargetHandles::CoreAnimationLayer(layer) => {
+                SurfaceTargetUnsafe::CoreAnimationLayer(layer)
+            }
             #[cfg(target_os = "windows")]
             SurfaceTargetHandles::SwapChainPanel(panel) => {
                 SurfaceTargetUnsafe::SwapChainPanel(panel)
@@ -8256,6 +8300,10 @@ pub unsafe extern "C" fn vello_wgpu_surface_create(
             raw_display_handle: display,
             raw_window_handle: window,
         },
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        SurfaceTargetHandles::CoreAnimationLayer(layer) => {
+            SurfaceTargetUnsafe::CoreAnimationLayer(layer)
+        }
         #[cfg(target_os = "windows")]
         SurfaceTargetHandles::SwapChainPanel(panel) => SurfaceTargetUnsafe::SwapChainPanel(panel),
         #[cfg(not(target_os = "windows"))]

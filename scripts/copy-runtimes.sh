@@ -14,15 +14,20 @@ declare -a TARGETS=(
   "VelloSharp"
   "VelloSharp.Integration"
   "samples/AvaloniaVelloExamples"
+  "samples/AvaloniaVelloPlayground"
   "samples/AvaloniaVelloWinitDemo"
   "samples/AvaloniaVelloX11Demo"
   "samples/AvaloniaVelloWin32Demo"
   "samples/AvaloniaVelloNativeDemo"
   "samples/AvaloniaVelloControlsSample"
+  "samples/AvaloniaVelloHarfBuzzSample"
+  "samples/AvaloniaVelloSkiaSharpSample"
   "samples/VelloSharp.Charting.AvaloniaSample"
+  "samples/VelloSharp.TreeDataGrid.CompositionSample"
   "samples/VelloSharp.WithWinit"
   "samples/VelloSharp.WpfSample"
   "samples/VelloSharp.Uno.WinAppSdkSample"
+  "samples/MauiVelloGallery"
   "samples/WinFormsMotionMarkShim"
 )
 declare -A TARGET_SET=()
@@ -96,7 +101,28 @@ for target in "${TARGETS[@]}"; do
   fi
 
   for configuration in "${CONFIGURATIONS[@]}"; do
+    config_root="${target_root}/bin/${configuration}"
+    declare -A FRAMEWORK_SEEN=()
+    declare -a FRAMEWORKS=()
+
     for framework in "${TARGET_FRAMEWORKS[@]}"; do
+      if [[ -n "${framework}" && -z "${FRAMEWORK_SEEN["${framework}"]+_}" ]]; then
+        FRAMEWORKS+=("${framework}")
+        FRAMEWORK_SEEN["${framework}"]=1
+      fi
+    done
+
+    if [[ -d "${config_root}" ]]; then
+      while IFS= read -r -d '' framework_dir; do
+        framework="$(basename "${framework_dir}")"
+        if [[ -n "${framework}" && -z "${FRAMEWORK_SEEN["${framework}"]+_}" ]]; then
+          FRAMEWORKS+=("${framework}")
+          FRAMEWORK_SEEN["${framework}"]=1
+        fi
+      done < <(find "${config_root}" -mindepth 1 -maxdepth 1 -type d -print0)
+    fi
+
+    for framework in "${FRAMEWORKS[@]}"; do
       output_base="${target_root}/bin/${configuration}/${framework}"
       if [[ ! -d "${output_base}" ]]; then
         echo "Skipping '${target}' (${configuration}|${framework}) – build output not found."

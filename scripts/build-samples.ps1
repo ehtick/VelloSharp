@@ -34,6 +34,7 @@ function Supports-Sample {
         'samples/*WinAppSdk*' { return $Platform -eq 'windows' }
         'samples/*Win32*'    { return $Platform -eq 'windows' }
         'samples/*X11Demo*'  { return $Platform -eq 'linux' }
+        'samples/MauiVelloGallery/*' { return $Platform -eq 'windows' }
         default              { return $true }
     }
 }
@@ -59,6 +60,8 @@ foreach ($project in $projectPaths) {
     $args = @('build', $project.FullName, '-c', $Configuration)
     if ($Framework) {
         $args += @('-f', $Framework)
+    } elseif ($platform -eq 'windows' -and $relPath -eq 'samples/MauiVelloGallery/MauiVelloGallery.csproj') {
+        $args += @('-f', 'net8.0-windows10.0.19041')
     }
     if ($DotNetArgument) {
         $args += $DotNetArgument

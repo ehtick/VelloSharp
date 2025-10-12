@@ -32,6 +32,11 @@ internal interface IVelloSwapChainPresenterHost
 
 internal sealed class VelloSwapChainPresenter : IDisposable
 {
+    internal static Func<VelloGraphicsDeviceOptions, WindowsGpuContextLease?> AcquireContext { get; set; } = WindowsGpuContext.Acquire;
+
+    internal static void ResetTestingHooks()
+        => AcquireContext = WindowsGpuContext.Acquire;
+
     private readonly IVelloSwapChainPresenterHost _host;
     private readonly IWindowsSurfaceSource _surfaceSource;
     private readonly WindowsGpuDiagnostics _fallbackDiagnostics = new();
@@ -270,7 +275,7 @@ internal sealed class VelloSwapChainPresenter : IDisposable
         }
 
         var options = _host.DeviceOptions ?? VelloGraphicsDeviceOptions.Default;
-        _gpuLease = WindowsGpuContext.Acquire(options);
+        _gpuLease = AcquireContext(options);
         if (_gpuLease is not null)
         {
             NotifyDiagnosticsUpdated(_gpuLease.Context.Diagnostics);

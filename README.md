@@ -661,6 +661,7 @@ model.AttachRoots(new[] { new TreeNodeDescriptor(1, TreeRowKind.Data, 24f, hasCh
   - `samples/AvaloniaVelloControlsSample` - quick tour of the reusable canvas, animation, and SVG controls.
   - `samples/AvaloniaSkiaMotionMark` - a side-by-side Skia/Vello motion-mark visualiser built on the integration layer.
   - `samples/AvaloniaSkiaSparseMotionMarkShim` - CPU sparse MotionMark shim that routes Vello scenes through the Velato Skia bridge without touching the GPU backend.
+  - `samples/MauiVelloGallery` - .NET MAUI gallery hosting the new `VelloView`; GPU animation now runs on Windows and ships in preview on MacCatalyst/iOS/Android via the new Metal/Vulkan presenters. The MAUI handler exposes `SuppressGraphicsViewCompositor` so applications can disable the fallback Skia compositor while Vello owns the swapchain.
   - `samples/VelloSharp.WpfSample` - WPF composition host showcasing `VelloView`, backend toggles, diagnostics binding, and a MotionMark fast-path page driven through the new GPU render-surface API.
   - `samples/WinFormsMotionMarkShim` - Windows Forms MotionMark GPU shim built atop the shared Windows GPU context, demonstrating `VelloRenderControl`, the `RenderSurface` fast path, backend switching, and DPI-aware swapchain handling.
 

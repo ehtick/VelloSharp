@@ -1,3 +1,7 @@
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("VelloSharp.Windows.Core.Tests")]
+
 namespace VelloSharp.Uno;
 
 /// <summary>
@@ -6,3 +10,4 @@ namespace VelloSharp.Uno;
 internal static class AssemblyInfo
 {
 }
+

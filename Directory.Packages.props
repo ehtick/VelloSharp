@@ -6,6 +6,7 @@
     <VelloPackageVersion Condition="'$(VelloPackageVersion)' == '' and '$(VersionSuffix)' == ''">$(VersionPrefix)</VelloPackageVersion>
     <VelloPackageVersion Condition="'$(VelloPackageVersion)' == '' and '$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</VelloPackageVersion>
     <VelloNativePackageVersion Condition="'$(VelloNativePackageVersion)' == ''">$(VelloPackageVersion)</VelloNativePackageVersion>
+    <MauiVersion Condition="'$(MauiVersion)' == ''">8.0.82</MauiVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="11.3.6" />
@@ -29,6 +30,8 @@
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Scripting" Version="4.11.0" />
+    <PackageVersion Include="Microsoft.Maui.Core" Version="$(MauiVersion)" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.2" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.5.240802000" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />

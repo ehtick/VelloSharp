@@ -1,0 +1,157 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <_DefaultMauiFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst;net8.0-windows10.0.19041</_DefaultMauiFrameworks>
+    <TargetFrameworks Condition="'$(MauiTargetFrameworks)' == ''">$(_DefaultMauiFrameworks)</TargetFrameworks>
+    <TargetFrameworks Condition="'$(MauiTargetFrameworks)' != ''">$(MauiTargetFrameworks)</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseMauiCore>true</UseMauiCore>
+    <AssemblyName>VelloSharp.Maui.Core</AssemblyName>
+    <RootNamespace>VelloSharp.Maui</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Maui.Core</PackageId>
+    <Title>VelloSharp.Maui.Core</Title>
+    <Description>Shared .NET MAUI abstractions for hosting the VelloSharp renderer.</Description>
+    <TargetPlatformMinVersion Condition="$(TargetFramework.Contains('-windows'))">10.0.19041.0</TargetPlatformMinVersion>
+    <EnablePreviewMsixTooling>true</EnablePreviewMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+    <VelloRepositoryRoot Condition="'$(VelloRepositoryRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</VelloRepositoryRoot>
+    <UseLocalNativeProjects Condition="'$(UseLocalNativeProjects)' == '' and Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello\VelloSharp.Native.Vello.csproj')">true</UseLocalNativeProjects>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Core" />
+    <PackageReference Include="Microsoft.Maui.Controls" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\bindings\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Integration\VelloSharp.Integration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
+    <ProjectReference Include="..\..\bindings\VelloSharp.Windows.Core\VelloSharp.Windows.Core.csproj" />
+    <ProjectReference Include="..\..\bindings\VelloSharp.Uno\VelloSharp.Uno.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\bindings\VelloSharp\NativeLibraryLoader.cs">
+      <Link>Internal\NativeLibraryLoader.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' != 'true'">
+    <PackageReference Include="VelloSharp.Native.Vello" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse" />
+    <PackageReference Include="VelloSharp.Native.Winit" />
+    <PackageReference Include="VelloSharp.Native.AccessKit" />
+    <PackageReference Include="VelloSharp.Native.Peniko" />
+    <PackageReference Include="VelloSharp.Native.Kurbo" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' == 'true'">
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello\VelloSharp.Native.Vello.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello\VelloSharp.Native.Vello.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse\VelloSharp.Native.VelloSparse.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.VelloSparse\VelloSharp.Native.VelloSparse.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit\VelloSharp.Native.Winit.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Winit\VelloSharp.Native.Winit.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit\VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.AccessKit\VelloSharp.Native.AccessKit.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko\VelloSharp.Native.Peniko.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Peniko\VelloSharp.Native.Peniko.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo\VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Kurbo\VelloSharp.Native.Kurbo.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' != 'true' and $(TargetFramework.Contains('-android'))">
+    <PackageReference Include="VelloSharp.Native.Vello.android-arm64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.android-arm64" />
+    <PackageReference Include="VelloSharp.Native.Winit.android-arm64" />
+    <PackageReference Include="VelloSharp.Native.AccessKit.android-arm64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.android-arm64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.android-arm64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' == 'true' and $(TargetFramework.Contains('-android'))">
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello.android-arm64\VelloSharp.Native.Vello.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello.android-arm64\VelloSharp.Native.Vello.android-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse.android-arm64\VelloSharp.Native.VelloSparse.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.VelloSparse.android-arm64\VelloSharp.Native.VelloSparse.android-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit.android-arm64\VelloSharp.Native.Winit.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Winit.android-arm64\VelloSharp.Native.Winit.android-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit.android-arm64\VelloSharp.Native.AccessKit.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.AccessKit.android-arm64\VelloSharp.Native.AccessKit.android-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko.android-arm64\VelloSharp.Native.Peniko.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Peniko.android-arm64\VelloSharp.Native.Peniko.android-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo.android-arm64\VelloSharp.Native.Kurbo.android-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Kurbo.android-arm64\VelloSharp.Native.Kurbo.android-arm64.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' != 'true' and $(TargetFramework.Contains('-ios'))">
+    <PackageReference Include="VelloSharp.Native.Vello.ios-arm64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.ios-arm64" />
+    <PackageReference Include="VelloSharp.Native.Winit.ios-arm64" />
+    <PackageReference Include="VelloSharp.Native.AccessKit.ios-arm64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.ios-arm64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.ios-arm64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' == 'true' and $(TargetFramework.Contains('-ios'))">
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello.ios-arm64\VelloSharp.Native.Vello.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello.ios-arm64\VelloSharp.Native.Vello.ios-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse.ios-arm64\VelloSharp.Native.VelloSparse.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.VelloSparse.ios-arm64\VelloSharp.Native.VelloSparse.ios-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit.ios-arm64\VelloSharp.Native.Winit.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Winit.ios-arm64\VelloSharp.Native.Winit.ios-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit.ios-arm64\VelloSharp.Native.AccessKit.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.AccessKit.ios-arm64\VelloSharp.Native.AccessKit.ios-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko.ios-arm64\VelloSharp.Native.Peniko.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Peniko.ios-arm64\VelloSharp.Native.Peniko.ios-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo.ios-arm64\VelloSharp.Native.Kurbo.ios-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Kurbo.ios-arm64\VelloSharp.Native.Kurbo.ios-arm64.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' != 'true' and $(TargetFramework.Contains('-iossimulator'))">
+    <PackageReference Include="VelloSharp.Native.Vello.iossimulator-x64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.iossimulator-x64" />
+    <PackageReference Include="VelloSharp.Native.Winit.iossimulator-x64" />
+    <PackageReference Include="VelloSharp.Native.AccessKit.iossimulator-x64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.iossimulator-x64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.iossimulator-x64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' == 'true' and $(TargetFramework.Contains('-iossimulator'))">
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello.iossimulator-x64\VelloSharp.Native.Vello.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello.iossimulator-x64\VelloSharp.Native.Vello.iossimulator-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse.iossimulator-x64\VelloSharp.Native.VelloSparse.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.VelloSparse.iossimulator-x64\VelloSharp.Native.VelloSparse.iossimulator-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit.iossimulator-x64\VelloSharp.Native.Winit.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Winit.iossimulator-x64\VelloSharp.Native.Winit.iossimulator-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit.iossimulator-x64\VelloSharp.Native.AccessKit.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.AccessKit.iossimulator-x64\VelloSharp.Native.AccessKit.iossimulator-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko.iossimulator-x64\VelloSharp.Native.Peniko.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Peniko.iossimulator-x64\VelloSharp.Native.Peniko.iossimulator-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo.iossimulator-x64\VelloSharp.Native.Kurbo.iossimulator-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Kurbo.iossimulator-x64\VelloSharp.Native.Kurbo.iossimulator-x64.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' != 'true' and $(TargetFramework.Contains('-maccatalyst'))">
+    <PackageReference Include="VelloSharp.Native.Vello.osx-arm64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.osx-arm64" />
+    <PackageReference Include="VelloSharp.Native.Winit.osx-arm64" />
+    <PackageReference Include="VelloSharp.Native.AccessKit.osx-arm64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.osx-arm64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.osx-arm64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' == 'true' and $(TargetFramework.Contains('-maccatalyst'))">
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello.osx-arm64\VelloSharp.Native.Vello.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello.osx-arm64\VelloSharp.Native.Vello.osx-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse.osx-arm64\VelloSharp.Native.VelloSparse.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.VelloSparse.osx-arm64\VelloSharp.Native.VelloSparse.osx-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit.osx-arm64\VelloSharp.Native.Winit.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Winit.osx-arm64\VelloSharp.Native.Winit.osx-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit.osx-arm64\VelloSharp.Native.AccessKit.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.AccessKit.osx-arm64\VelloSharp.Native.AccessKit.osx-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko.osx-arm64\VelloSharp.Native.Peniko.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Peniko.osx-arm64\VelloSharp.Native.Peniko.osx-arm64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo.osx-arm64\VelloSharp.Native.Kurbo.osx-arm64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Kurbo.osx-arm64\VelloSharp.Native.Kurbo.osx-arm64.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' != 'true' and $(TargetFramework.Contains('-windows'))">
+    <PackageReference Include="VelloSharp.Native.Vello.win-x64" />
+    <PackageReference Include="VelloSharp.Native.VelloSparse.win-x64" />
+    <PackageReference Include="VelloSharp.Native.Winit.win-x64" />
+    <PackageReference Include="VelloSharp.Native.AccessKit.win-x64" />
+    <PackageReference Include="VelloSharp.Native.Peniko.win-x64" />
+    <PackageReference Include="VelloSharp.Native.Kurbo.win-x64" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalNativeProjects)' == 'true' and $(TargetFramework.Contains('-windows'))">
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Vello.win-x64\VelloSharp.Native.Vello.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Vello.win-x64\VelloSharp.Native.Vello.win-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.VelloSparse.win-x64\VelloSharp.Native.VelloSparse.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.VelloSparse.win-x64\VelloSharp.Native.VelloSparse.win-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Winit.win-x64\VelloSharp.Native.Winit.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Winit.win-x64\VelloSharp.Native.Winit.win-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.AccessKit.win-x64\VelloSharp.Native.AccessKit.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.AccessKit.win-x64\VelloSharp.Native.AccessKit.win-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Peniko.win-x64\VelloSharp.Native.Peniko.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Peniko.win-x64\VelloSharp.Native.Peniko.win-x64.csproj')" />
+    <ProjectReference Include="..\..\packaging\VelloSharp.Native.Kurbo.win-x64\VelloSharp.Native.Kurbo.win-x64.csproj" ReferenceOutputAssembly="false" Condition="Exists('$(VelloRepositoryRoot)packaging\VelloSharp.Native.Kurbo.win-x64\VelloSharp.Native.Kurbo.win-x64.csproj')" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="buildTransitive\VelloSharp.Maui.Core.targets" Pack="true" PackagePath="buildTransitive\VelloSharp.Maui.Core.targets" />
+  </ItemGroup>
+
+</Project>

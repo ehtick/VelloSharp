@@ -403,6 +403,8 @@ public enum VelloWindowHandleKind : int
     Xlib = 4,
     SwapChainPanel = 5,
     CoreWindow = 6,
+    CoreAnimationLayer = 7,
+    AndroidNativeWindow = 8,
     Headless = 100,
 }
 
@@ -1333,6 +1335,18 @@ public struct VelloCoreWindowHandle
 }
 
 [StructLayout(LayoutKind.Sequential)]
+public struct VelloCoreAnimationLayerHandle
+{
+    public IntPtr Layer;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct VelloAndroidNativeWindowHandle
+{
+    public IntPtr Window;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloGpuProfilerSlice
 {
     public nuint LabelOffset;
@@ -1369,6 +1383,10 @@ public struct VelloWindowHandlePayload
     public VelloSwapChainPanelHandle SwapChainPanel;
     [FieldOffset(0)]
     public VelloCoreWindowHandle CoreWindow;
+    [FieldOffset(0)]
+    public VelloCoreAnimationLayerHandle CoreAnimationLayer;
+    [FieldOffset(0)]
+    public VelloAndroidNativeWindowHandle AndroidNativeWindow;
     [FieldOffset(0)]
     public IntPtr None;
 }

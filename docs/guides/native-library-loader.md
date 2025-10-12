@@ -48,6 +48,23 @@ The loader always checks:
 - Local `VelloSharp/bin/<Configuration>/net8.0` fallback
 - `NATIVE_DLL_SEARCH_DIRECTORIES`
 
+## MAUI App Bundles
+
+When running inside a .NET MAUI head, native assets end up in platform-specific bundle locations. The loader now probes:
+
+- Android: `lib/<abi>/lib*.so` within the application bundle (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` are covered automatically).
+- iOS and iOS simulator: the app root and `Frameworks/`.
+- MacCatalyst: the app root, `Frameworks/`, and `MonoBundle/` folders emitted by .NET.
+
+To confirm a publish/push build contains the expected binaries, use the helper script:
+
+```powershell
+pwsh scripts/verify-maui-native-assets.ps1 -BundlePath artifacts/publish/android-arm64 -Platform android
+pwsh scripts/verify-maui-native-assets.ps1 -BundlePath artifacts/publish/maccatalyst -Platform maccatalyst
+```
+
+The script reports missing DLL/so/dylib payloads so the appropriate native package or RID can be fixed before shipping.
+
 ## Package Author Checklist
 
 1. Add a bootstrap class with a module initializer that registers the native library names.

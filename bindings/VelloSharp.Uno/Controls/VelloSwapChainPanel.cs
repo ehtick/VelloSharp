@@ -49,6 +49,12 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
         typeof(VelloSwapChainPanel),
         new PropertyMetadata(null));
 
+    public static readonly DependencyProperty SuppressGraphicsViewCompositorProperty = DependencyProperty.Register(
+        nameof(SuppressGraphicsViewCompositor),
+        typeof(bool),
+        typeof(VelloSwapChainPanel),
+        new PropertyMetadata(true, OnSuppressGraphicsViewCompositorChanged));
+
     private static readonly object SkiaOptOutLock = new();
     private static MethodInfo? s_setNativeHostVisualMethod;
 
@@ -124,6 +130,12 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
         }
     }
 
+    public bool SuppressGraphicsViewCompositor
+    {
+        get => (bool)(GetValue(SuppressGraphicsViewCompositorProperty) ?? true);
+        set => SetValue(SuppressGraphicsViewCompositorProperty, value);
+    }
+
     public bool IsContinuousRendering => RenderMode == VelloRenderMode.Continuous;
 
     public void RequestRender() => _presenter.RequestRender();
@@ -184,6 +196,23 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
         }
     }
 
+    private static void OnSuppressGraphicsViewCompositorChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+    {
+        if (sender is not VelloSwapChainPanel panel)
+        {
+            return;
+        }
+
+        if ((bool)(args.NewValue ?? true))
+        {
+            panel.ApplySkiaOptOut();
+        }
+        else
+        {
+            panel.RemoveSkiaOptOut();
+        }
+    }
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         AttachLifecycleHandlers();
@@ -200,7 +229,9 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
-        => _presenter.OnSurfaceInvalidated();
+    {
+        _presenter.OnSurfaceInvalidated();
+    }
 
     private void OnVisibilityPropertyChanged(DependencyObject sender, DependencyProperty dependencyProperty)
     {
@@ -433,3 +464,4 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
 }
 
 #endif
+

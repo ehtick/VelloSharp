@@ -16,6 +16,23 @@ internal static class NativeLibraryLoader
     private static readonly HashSet<string> NativeLibraries = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> CustomProbeRoots = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<Assembly> AssembliesWithResolver = new();
+    private static bool? _androidOverride;
+    private static bool? _iosOverride;
+    private static bool? _macCatalystOverride;
+
+    internal static void SetPlatformOverrides(bool? isAndroid = null, bool? isIos = null, bool? isMacCatalyst = null)
+    {
+        _androidOverride = isAndroid;
+        _iosOverride = isIos;
+        _macCatalystOverride = isMacCatalyst;
+    }
+
+    internal static void ResetPlatformOverrides()
+    {
+        _androidOverride = null;
+        _iosOverride = null;
+        _macCatalystOverride = null;
+    }
 
 #pragma warning disable CA2255 // Module initializers limited use warning suppressed intentionally for native resolver registration.
     [ModuleInitializer]
@@ -181,6 +198,11 @@ internal static class NativeLibraryLoader
             yield return path;
         }
 
+        foreach (var path in EnumerateMauiSpecificPaths(AppContext.BaseDirectory, fileName))
+        {
+            yield return path;
+        }
+
         var assemblyLocation = assembly.Location;
         if (!string.IsNullOrWhiteSpace(assemblyLocation))
         {
@@ -188,6 +210,11 @@ internal static class NativeLibraryLoader
             if (!string.IsNullOrEmpty(assemblyDir))
             {
                 foreach (var path in EnumerateDirectoryProbePaths(assemblyDir, fileName))
+                {
+                    yield return path;
+                }
+
+                foreach (var path in EnumerateMauiSpecificPaths(assemblyDir, fileName))
                 {
                     yield return path;
                 }
@@ -247,6 +274,102 @@ internal static class NativeLibraryLoader
         }
     }
 
+    internal static IEnumerable<string> EnumerateMauiSpecificPaths(string? baseDirectory, string fileName)
+    {
+        if (string.IsNullOrEmpty(baseDirectory))
+        {
+            yield break;
+        }
+
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        bool TryAdd(string? candidate, out string normalized)
+        {
+            normalized = string.Empty;
+            if (string.IsNullOrEmpty(candidate))
+            {
+                return false;
+            }
+
+            normalized = Path.GetFullPath(candidate);
+            return emitted.Add(normalized);
+        }
+
+        if (IsAndroidPlatform())
+        {
+            var libDirectory = Path.Combine(baseDirectory, "lib");
+            if (TryAdd(Path.Combine(libDirectory, fileName), out var normalized))
+            {
+                yield return normalized;
+            }
+
+            foreach (var abi in GetAndroidAbiCandidates())
+            {
+                if (string.IsNullOrEmpty(abi))
+                {
+                    continue;
+                }
+
+                if (TryAdd(Path.Combine(libDirectory, abi, fileName), out normalized))
+                {
+                    yield return normalized;
+                }
+            }
+        }
+
+        if (IsMacCatalystPlatform())
+        {
+            if (TryAdd(Path.Combine(baseDirectory, fileName), out var normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "Frameworks", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "..", "Frameworks", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "MonoBundle", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "..", "MonoBundle", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+        }
+
+        if (IsIosPlatform())
+        {
+            if (TryAdd(Path.Combine(baseDirectory, fileName), out var normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "Frameworks", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "..", "Frameworks", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+        }
+
+        if (OperatingSystem.IsMacOS() && !IsMacCatalystPlatform())
+        {
+            if (TryAdd(Path.Combine(baseDirectory, "Frameworks", fileName), out var normalized))
+            {
+                yield return normalized;
+            }
+            if (TryAdd(Path.Combine(baseDirectory, "..", "Frameworks", fileName), out normalized))
+            {
+                yield return normalized;
+            }
+        }
+    }
+
     private static IEnumerable<string> GetRidCandidates()
     {
         var rid = RuntimeInformation.RuntimeIdentifier;
@@ -264,6 +387,33 @@ internal static class NativeLibraryLoader
             if (!string.IsNullOrEmpty(archSuffix))
             {
                 yield return $"{baseRid}-{archSuffix}";
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetAndroidAbiCandidates()
+    {
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        string? current = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.Arm => "armeabi-v7a",
+            Architecture.Arm64 => "arm64-v8a",
+            Architecture.X86 => "x86",
+            Architecture.X64 => "x86_64",
+            _ => null,
+        };
+
+        if (!string.IsNullOrEmpty(current) && emitted.Add(current))
+        {
+            yield return current;
+        }
+
+        foreach (var abi in new[] { "arm64-v8a", "armeabi-v7a", "x86_64", "x86" })
+        {
+            if (emitted.Add(abi))
+            {
+                yield return abi;
             }
         }
     }
@@ -325,6 +475,12 @@ internal static class NativeLibraryLoader
         };
     }
 
+    private static bool IsAndroidPlatform() => _androidOverride ?? OperatingSystem.IsAndroid();
+
+    private static bool IsIosPlatform() => _iosOverride ?? OperatingSystem.IsIOS();
+
+    private static bool IsMacCatalystPlatform() => _macCatalystOverride ?? OperatingSystem.IsMacCatalyst();
+
     private static string GetLibraryFileName(string libraryName)
     {
         if (OperatingSystem.IsWindows())
@@ -341,3 +497,5 @@ internal static class NativeLibraryLoader
     }
 }
 #pragma warning restore CS0436
+
+

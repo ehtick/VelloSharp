@@ -69,6 +69,9 @@ supports_sample() {
     samples/*WinForms*|samples/*Wpf*|samples/*WinAppSdk*|samples/*Win32*)
       [[ "${platform}" == "windows" ]] || return 1
       ;;
+    samples/MauiVelloGallery/*)
+      [[ "${platform}" == "windows" ]] || return 1
+      ;;
     samples/*X11Demo*)
       [[ "${platform}" == "linux" ]] || return 1
       ;;
@@ -99,9 +102,16 @@ for project in "${projects[@]}"; do
   rel="${project#"${ROOT}/"}"
   echo "Building ${rel}"
   args=(dotnet build "${project}" -c "${CONFIGURATION}")
-  [[ -n "${FRAMEWORK}" ]] && args+=(-f "${FRAMEWORK}")
+  if [[ -n "${FRAMEWORK}" ]]; then
+    args+=(-f "${FRAMEWORK}")
+  elif [[ "${platform}" == "windows" && "${rel}" == "samples/MauiVelloGallery/MauiVelloGallery.csproj" ]]; then
+    args+=(-f "net8.0-windows10.0.19041")
+  fi
   args+=("${DOTNET_ARGS[@]}")
   "${args[@]}"
 done
 
 echo "Sample builds completed."
+
+
+

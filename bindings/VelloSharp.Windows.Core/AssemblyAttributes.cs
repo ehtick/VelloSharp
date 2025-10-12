@@ -5,4 +5,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.WinForms.Core")]
 [assembly: InternalsVisibleTo("VelloSharp.Integration.Wpf")]
 [assembly: InternalsVisibleTo("VelloSharp.Uno")]
+[assembly: InternalsVisibleTo("VelloSharp.Maui.Core")]
 
