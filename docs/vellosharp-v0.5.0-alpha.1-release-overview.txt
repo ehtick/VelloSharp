@@ -1,0 +1,80 @@
+# VelloSharp v0.5.0-alpha.1
+
+## Highlights
+- End-to-end Vello 2D GPU rendering on top of the wgpu 3D backend with DX12, Vulkan, and Metal targets auto-negotiated at runtime.
+- First-class desktop framework coverage: Avalonia surfaces, WPF and WinForms hosts, WinUI/Uno adapters, plus direct winit bindings for headless or custom shells.
+- Production text stack that pairs the new VelloSharp text helpers with a HarfBuzzSharp-compatible shim and Skia interop layers for migration and regression testing.
+- Vertical solutions for visualization and operations: charting engines, gauges, SCADA dashboards, and the editor toolchain all updated to the new runtime.
+
+## Managed package inventory
+
+### Core rendering and interop
+- `VelloSharp` — .NET bindings for the Vello renderer with native runtime resolution.
+- `VelloSharp.Core` — Managed geometry, painting, and text primitives shared by VelloSharp bindings.
+- `VelloSharp.Rendering` — Rendering pipelines and helpers shared across VelloSharp bindings.
+- `VelloSharp.Composition` — Scene composition primitives and shared infrastructure for the VelloSharp dashboard stack.
+- `VelloSharp.Ffi.Core` — Core interop helpers and native marshalling primitives for VelloSharp bindings.
+- `VelloSharp.Ffi.Gpu` — GPU-focused P/Invoke bindings for the Vello renderer.
+- `VelloSharp.Ffi.Sparse` — Sparse renderer interop layer for VelloSharp, wrapping `vello_sparse_ffi`.
+- `VelloSharp.Gpu` — GPU-specific bindings and interop helpers, including wgpu and winit surfaces.
+- `VelloSharp.Text` — Text integration helpers that bridge VelloSharp primitives and HarfBuzzSharp.
+- `VelloSharp.HarfBuzzSharp` — HarfBuzzSharp-compatible text shaping shim backed by VelloSharp primitives.
+
+### Framework bridges and controls
+- `VelloSharp.Integration` — Cross-platform integration helpers for VelloSharp render surfaces and services.
+- `VelloSharp.Avalonia.Vello` — Avalonia UI integration layer for the VelloSharp renderer.
+- `VelloSharp.Avalonia.Winit` — Avalonia windowing interop helpers that bridge VelloSharp and winit.
+- `VelloSharp.Avalonia.Controls` — Reusable Avalonia UI controls powered by the VelloSharp renderer.
+- `VelloSharp.Windows.Core` — Shared Windows graphics infrastructure for VelloSharp integrations.
+- `VelloSharp.WinForms.Core` — Core WinForms graphics abstraction layer powered by VelloSharp.
+- `VelloSharp.Integration.WinForms` — WinForms host integration for the VelloSharp graphics shim.
+- `VelloSharp.Integration.Wpf` — WPF hosting primitives for the VelloSharp renderer.
+- `VelloSharp.Uno` — Uno Platform hosting primitives for the VelloSharp renderer.
+
+### Skia and migration helpers
+- `VelloSharp.Integration.Skia` — Skia rendering integration helpers for VelloSharp host applications.
+- `VelloSharp.Skia.Core` — Shared Skia abstractions and utilities consumed by VelloSharp GPU and CPU backends.
+- `VelloSharp.Skia.Gpu` — Skia GPU backend bindings layered on top of VelloSharp primitives.
+- `VelloSharp.Skia.Cpu` — Skia sparse CPU backend built on the shared VelloSharp Skia layer.
+
+### Visualization and charting suite
+- `VelloSharp.ChartData` — Streaming data buses, sample buffers, and snapshot helpers for real-time charts.
+- `VelloSharp.ChartEngine` — Real-time chart animation and rendering engine built on the Vello renderer.
+- `VelloSharp.ChartRuntime` — Shared runtime services, schedulers, and execution helpers for charts.
+- `VelloSharp.ChartRuntime.Windows` — Windows-specific composition, dispatcher, and swapchain services for chart runtimes.
+- `VelloSharp.ChartDiagnostics` — Telemetry collection, frame statistics, and diagnostics helpers for chart workloads.
+- `VelloSharp.Charting` — Composable chart primitives, data models, and rendering pipelines.
+- `VelloSharp.Charting.Avalonia` — Avalonia controls and services that host the chart engine.
+- `VelloSharp.Charting.Wpf` — WPF controls, render surfaces, and tooling for the chart engine.
+- `VelloSharp.Charting.WinForms` — WinForms controls and adapters for hosting high-performance charts.
+
+### Industrial and dashboard modules
+- `VelloSharp.Gauges` — Industrial gauge primitives, render helpers, and animation profiles for dashboards.
+- `VelloSharp.TreeDataGrid` — Tree-structured data models, render loops, and native interop for analytic dashboards.
+- `VelloSharp.Scada` — SCADA-view composition, alarms, and dashboard orchestration built on the runtime.
+- `VelloSharp.Editor` — Managed bindings for the VelloSharp visual editor, including composition tooling and runtime bridges.
+
+## Native runtime packages
+- `VelloSharp.Native.Vello` — Vello renderer FFI (`vello_ffi`) bundle, with RID-specific packages such as `.win-x64`, `.linux-arm64`, `.osx-arm64`, `.ios-arm64`, `.android-arm64`, `.browser-wasm`, and more for each supported platform.
+- `VelloSharp.Native.VelloSparse` — Sparse Vello renderer FFI (`vello_sparse_ffi`) with the same RID coverage.
+- `VelloSharp.Native.Winit` — Winit windowing FFI (`winit_ffi`) for all desktop, mobile, and browser targets produced in the build matrix.
+- `VelloSharp.Native.AccessKit` — AccessKit accessibility bridge (`accesskit_ffi`) across the full RID set.
+- `VelloSharp.Native.Peniko` — Peniko paint FFI (`peniko_ffi`) runtime packages for GPU-enabled composition pipelines.
+- `VelloSharp.Native.Kurbo` — Kurbo geometry FFI (`kurbo_ffi`) distribution for computational geometry support.
+- `VelloSharp.Native.Composition` — Shared composition runtime (`vello_composition`) for dashboard workloads.
+- `VelloSharp.Native.ChartEngine` — Native runtime for chart execution (`vello_chart_engine`) aligned with the charting packages.
+- `VelloSharp.Native.Gauges` — Gauge runtime (`vello_gauges_core`) to back the industrial visualization stack.
+- `VelloSharp.Native.Editor` — Editor core runtime (`vello_editor_core`) for the design tooling.
+- `VelloSharp.Native.TreeDataGrid` — Native engine (`vello_tree_datagrid`) powering the hierarchical data surface.
+- `VelloSharp.Native.Scada` — SCADA runtime (`vello_scada_runtime`) for operations dashboards.
+
+Each meta package above bundles the RID-specific NuGet packages (for `android-arm64`, `browser-wasm`, `ios-arm64`, `iossimulator-x64`, `linux-arm64`, `linux-x64`, `osx-arm64`, `osx-x64`, `win-arm64`, and `win-x64`) that are emitted by the release pipeline. Consume the meta package when you need full platform coverage or reference an individual RID package to keep your distribution lean.
+
+## Getting started
+- Install the primary renderer: `dotnet add package VelloSharp`.
+- Add the framework bridge you need, for example `dotnet add package VelloSharp.Avalonia.Vello`, `dotnet add package VelloSharp.Integration.Wpf`, or `dotnet add package VelloSharp.Integration.WinForms`.
+- Pull in Skia or text shims when migrating existing pipelines: `dotnet add package VelloSharp.Skia.Core` and `dotnet add package VelloSharp.HarfBuzzSharp`.
+- When targeting a specific runtime, reference the matching `VelloSharp.Native.*.<rid>` package or rely on the meta package to light up every supported platform.
+
+## Links
+- Release artifacts and source: https://github.com/wieslawsoltes/VelloSharp/releases/tag/v0.5.0-alpha.1
