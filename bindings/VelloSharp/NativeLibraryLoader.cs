@@ -15,12 +15,14 @@ internal static class NativeLibraryLoader
     private static bool _initialized;
     private static readonly HashSet<string> NativeLibraries = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> CustomProbeRoots = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<Assembly> AssembliesWithResolver = new();
 
 #pragma warning disable CA2255 // Module initializers limited use warning suppressed intentionally for native resolver registration.
     [ModuleInitializer]
     internal static void Initialize() => EnsureInitialized();
 #pragma warning restore CA2255
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void RegisterNativeLibrary(string libraryName)
     {
         if (string.IsNullOrWhiteSpace(libraryName))
@@ -28,7 +30,7 @@ internal static class NativeLibraryLoader
             return;
         }
 
-        EnsureInitialized();
+        RegisterResolverForAssembly(Assembly.GetCallingAssembly());
 
         lock (Sync)
         {
@@ -36,6 +38,7 @@ internal static class NativeLibraryLoader
         }
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void RegisterNativeLibraries(params string[] libraryNames)
     {
         if (libraryNames is null || libraryNames.Length == 0)
@@ -43,7 +46,7 @@ internal static class NativeLibraryLoader
             return;
         }
 
-        EnsureInitialized();
+        RegisterResolverForAssembly(Assembly.GetCallingAssembly());
 
         lock (Sync)
         {
@@ -59,6 +62,7 @@ internal static class NativeLibraryLoader
         }
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void RegisterProbingPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -66,7 +70,7 @@ internal static class NativeLibraryLoader
             return;
         }
 
-        EnsureInitialized();
+        RegisterResolverForAssembly(Assembly.GetCallingAssembly());
 
         lock (Sync)
         {
@@ -88,9 +92,35 @@ internal static class NativeLibraryLoader
                 return;
             }
 
-            NativeLibrary.SetDllImportResolver(typeof(NativeLibraryLoader).Assembly, Resolve);
+            RegisterResolverUnsafe(typeof(NativeLibraryLoader).Assembly);
             _initialized = true;
         }
+    }
+
+    internal static void RegisterResolverForAssembly(Assembly assembly)
+    {
+        if (assembly is null)
+        {
+            return;
+        }
+
+        EnsureInitialized();
+
+        lock (Sync)
+        {
+            RegisterResolverUnsafe(assembly);
+        }
+    }
+
+    private static void RegisterResolverUnsafe(Assembly assembly)
+    {
+        if (assembly is null || AssembliesWithResolver.Contains(assembly))
+        {
+            return;
+        }
+
+        NativeLibrary.SetDllImportResolver(assembly, Resolve);
+        AssembliesWithResolver.Add(assembly);
     }
 
     private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
