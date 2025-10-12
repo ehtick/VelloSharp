@@ -4,7 +4,7 @@ use std::env;
 use std::process;
 use std::time::{Duration, Instant};
 
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use serde::Serialize;
 use vello_chart_engine::{ChartEngine, ChartSample, EngineOptions};
 use vello_composition::{

@@ -3288,6 +3288,7 @@ dependencies = [
  "png",
  "pollster",
  "raw-window-handle",
+ "read-fonts 0.34.0",
  "skrifa 0.31.3",
  "swash",
  "velato",

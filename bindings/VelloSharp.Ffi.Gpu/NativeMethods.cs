@@ -791,6 +791,13 @@ internal static partial class NativeMethods
         out IntPtr handle,
         out VelloParleyFontInfoNative info);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_count_faces")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_count_faces(
+        IntPtr data,
+        nuint length,
+        out uint count);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_font_get_glyph_index")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_font_get_glyph_index(
@@ -803,6 +810,69 @@ internal static partial class NativeMethods
     internal static partial VelloStatus vello_font_get_glyph_count(
         IntPtr font,
         out uint count);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_table_tags")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_get_table_tags(
+        IntPtr font,
+        out IntPtr handle,
+        out VelloFontTableTagArrayNative array);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_table_tags_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_font_table_tags_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_reference_table")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_font_reference_table(
+        IntPtr font,
+        uint tag,
+        out IntPtr handle,
+        out VelloFontTableDataNative table);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_table_data_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_font_table_data_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_ot_metric")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_font_get_ot_metric(
+        IntPtr font,
+        uint metricsTag,
+        int xScale,
+        int yScale,
+        VelloVariationAxisValueNative* variationAxes,
+        nuint variationAxisCount,
+        out int position);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_ot_variation")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_font_get_ot_variation(
+        IntPtr font,
+        uint metricsTag,
+        VelloVariationAxisValueNative* variationAxes,
+        nuint variationAxisCount,
+        out float delta);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_ot_variation_x")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_font_get_ot_variation_x(
+        IntPtr font,
+        uint metricsTag,
+        int xScale,
+        VelloVariationAxisValueNative* variationAxes,
+        nuint variationAxisCount,
+        out int delta);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_font_get_ot_variation_y")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_font_get_ot_variation_y(
+        IntPtr font,
+        uint metricsTag,
+        int yScale,
+        VelloVariationAxisValueNative* variationAxes,
+        nuint variationAxisCount,
+        out int delta);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_font_get_metrics")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

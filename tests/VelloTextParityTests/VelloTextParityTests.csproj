@@ -28,6 +28,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf" Link="Assets/Roboto-Regular.ttf" />
+    <EmbeddedResource Include="../../extern/fontations/font-test-data/test_data/ttf/vazirmatn_var_trimmed.ttf" Link="Assets/Vazirmatn-Var.ttf" />
+    <EmbeddedResource Include="../../extern/Avalonia/samples/ControlCatalog/Assets/Fonts/WenQuanYiMicroHei-01.ttf" Link="Assets/WenQuanYiMicroHei.ttf" />
   </ItemGroup>
 
   <ItemGroup>

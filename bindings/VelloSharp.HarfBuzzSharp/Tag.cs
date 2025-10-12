@@ -4,37 +4,81 @@ namespace HarfBuzzSharp;
 
 public readonly struct Tag : IEquatable<Tag>
 {
-    public Tag(uint value)
+    public static readonly Tag None = new(0, 0, 0, 0);
+    public static readonly Tag Max = new(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
+    public static readonly Tag MaxSigned = new((byte)sbyte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
+
+    private readonly uint _value;
+
+    private Tag(uint value)
     {
-        Value = value;
+        _value = value;
     }
 
-    public uint Value { get; }
+    private Tag(byte c1, byte c2, byte c3, byte c4)
+    {
+        _value = (uint)((c1 << 24) | (c2 << 16) | (c3 << 8) | c4);
+    }
+
+    public Tag(char c1, char c2, char c3, char c4)
+    {
+        _value = (uint)(((byte)c1 << 24) | ((byte)c2 << 16) | ((byte)c3 << 8) | (byte)c4);
+    }
 
     public static Tag Parse(string tag)
     {
-        if (tag is null)
+        if (string.IsNullOrEmpty(tag))
         {
-            throw new ArgumentNullException(nameof(tag));
+            return None;
         }
 
-        if (tag.Length != 4)
+        var buffer = new char[4];
+        var len = Math.Min(4, tag.Length);
+        var index = 0;
+        for (; index < len; index++)
         {
-            throw new ArgumentException("Tag must be exactly four characters.", nameof(tag));
+            buffer[index] = tag[index];
         }
 
-        var value = ((uint)tag[0] << 24) | ((uint)tag[1] << 16) | ((uint)tag[2] << 8) | tag[3];
-        return new Tag(value);
+        for (; index < 4; index++)
+        {
+            buffer[index] = ' ';
+        }
+
+        return new Tag(buffer[0], buffer[1], buffer[2], buffer[3]);
     }
 
-    public bool Equals(Tag other) => Value == other.Value;
+    public override string ToString()
+    {
+        if (_value == None)
+        {
+            return nameof(None);
+        }
+
+        if (_value == Max)
+        {
+            return nameof(Max);
+        }
+
+        if (_value == MaxSigned)
+        {
+            return nameof(MaxSigned);
+        }
+
+        return string.Concat(
+            (char)(byte)(_value >> 24),
+            (char)(byte)(_value >> 16),
+            (char)(byte)(_value >> 8),
+            (char)(byte)_value);
+    }
+
+    public static implicit operator uint(Tag tag) => tag._value;
+
+    public static implicit operator Tag(uint tag) => new(tag);
+
+    public bool Equals(Tag other) => _value == other._value;
 
     public override bool Equals(object? obj) => obj is Tag tag && Equals(tag);
 
-    public override int GetHashCode() => Value.GetHashCode();
-
-    public override string ToString()
-        => new string(new[] { (char)((Value >> 24) & 0xFF), (char)((Value >> 16) & 0xFF), (char)((Value >> 8) & 0xFF), (char)(Value & 0xFF) });
-
-    public static implicit operator uint(Tag tag) => tag.Value;
+    public override int GetHashCode() => unchecked((int)_value);
 }

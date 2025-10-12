@@ -2,14 +2,16 @@ namespace HarfBuzzSharp;
 
 public struct GlyphInfo
 {
-    public GlyphInfo(uint codepoint, uint cluster)
+    public GlyphInfo(uint codepoint, uint cluster, GlyphFlags flags = 0)
     {
         Codepoint = codepoint;
         Cluster = cluster;
+        Flags = flags;
     }
 
     public uint Codepoint { get; set; }
     public uint Cluster { get; set; }
+    public GlyphFlags Flags { get; set; }
 }
 
 public struct GlyphPosition

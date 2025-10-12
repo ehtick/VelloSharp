@@ -97,8 +97,7 @@ pub fn simulate_editor_session(mut config: CanvasConfig) -> EditorStats {
     let sum: f64 = durations.iter().sum();
     let avg = sum / durations.len() as f64;
     let max = *durations.last().unwrap();
-    let p99_index =
-        ((durations.len() as f64 * 0.99).ceil() as usize).saturating_sub(1);
+    let p99_index = ((durations.len() as f64 * 0.99).ceil() as usize).saturating_sub(1);
     let p99 = durations[p99_index];
 
     EditorStats {

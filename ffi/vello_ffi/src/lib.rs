@@ -35,9 +35,13 @@ use raw_window_handle::{
     XlibDisplayHandle, XlibWindowHandle,
 };
 use skrifa::raw::TableProvider;
+use skrifa::raw::{self, ReadError, tables::mvar::tags as MvarTag};
 use skrifa::{
-    FontRef, GlyphId as SkrifaGlyphId, MetadataProvider, instance::Size as SkrifaSize,
-    metrics::GlyphMetrics as SkrifaGlyphMetrics, prelude::LocationRef as SkrifaLocationRef,
+    FontRef, GlyphId as SkrifaGlyphId, MetadataProvider, Tag as SkrifaTag,
+    instance::{Location, NormalizedCoord, Size as SkrifaSize},
+    metrics::GlyphMetrics as SkrifaGlyphMetrics,
+    prelude::LocationRef as SkrifaLocationRef,
+    setting::VariationSetting,
 };
 use swash::{
     FontRef as SwashFontRef, GlyphId as SwashGlyphId,
@@ -1496,6 +1500,7 @@ fn resize_surface_if_needed(
 mod tests {
     use super::*;
     use std::ptr;
+    use std::slice;
     use vello::kurbo::{Affine, Rect};
     use vello::peniko::{Color, Fill};
 
@@ -1561,6 +1566,322 @@ mod tests {
             vello_surface_renderer_destroy(renderer);
             vello_render_surface_destroy(surface);
         }
+    }
+
+    fn load_font_handle(data: &[u8]) -> *mut VelloFontHandle {
+        let handle =
+            unsafe { vello_font_create(data.as_ptr(), data.len(), 0) };
+        assert!(!handle.is_null(), "font handle should not be null");
+        handle
+    }
+
+    fn destroy_font_handle(handle: *mut VelloFontHandle) {
+        unsafe { vello_font_destroy(handle) };
+    }
+
+    #[test]
+    fn font_glyph_index_matches_skrifa() {
+        let data =
+            include_bytes!("../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf");
+        let handle = load_font_handle(data);
+
+        let mut glyph = 0u16;
+        let status =
+            unsafe { vello_font_get_glyph_index(handle, 'A' as u32, &mut glyph) };
+        assert_eq!(status, VelloStatus::Success);
+        assert_ne!(glyph, 0);
+
+        let font_ref = FontRef::from_index(data, 0).expect("valid font");
+        let expected = font_ref
+            .charmap()
+            .map('A' as u32)
+            .map(|gid| gid.to_u32() as u16)
+            .unwrap_or(0);
+        assert_eq!(glyph, expected);
+
+        let status = unsafe {
+            vello_font_get_glyph_index(handle, 0x10FFFF, &mut glyph)
+        };
+        assert_eq!(status, VelloStatus::Success);
+        assert_eq!(glyph, 0, "missing codepoint should map to zero glyph");
+
+        destroy_font_handle(handle);
+    }
+
+    #[test]
+    fn font_glyph_metrics_match_skrifa() {
+        let data =
+            include_bytes!("../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf");
+        let handle = load_font_handle(data);
+        let font_ref = FontRef::from_index(data, 0).expect("valid font");
+
+        let glyph = font_ref
+            .charmap()
+            .map('H' as u32)
+            .map(|gid| gid.to_u32() as u16)
+            .expect("glyph id");
+
+        let mut metrics = VelloGlyphMetrics::default();
+        let status = unsafe {
+            vello_font_get_glyph_metrics(handle, glyph, 24.0, &mut metrics)
+        };
+        assert_eq!(status, VelloStatus::Success);
+
+        let skrifa_metrics =
+            SkrifaGlyphMetrics::new(&font_ref, SkrifaSize::new(24.0), SkrifaLocationRef::default());
+        let glyph_id = SkrifaGlyphId::new(glyph as u32);
+
+        let expected_advance =
+            skrifa_metrics.advance_width(glyph_id).unwrap_or(0.0);
+        let bounds = skrifa_metrics.bounds(glyph_id);
+        let expected_width = bounds.map(|b| b.x_max - b.x_min).unwrap_or(0.0);
+        let expected_height = bounds.map(|b| b.y_max - b.y_min).unwrap_or(0.0);
+        let expected_y_bearing = bounds.map(|b| b.y_max).unwrap_or(0.0);
+        let mut expected_x_bearing = bounds
+            .map(|b| b.x_min)
+            .unwrap_or_else(|| skrifa_metrics.left_side_bearing(glyph_id).unwrap_or(0.0));
+        if expected_width == 0.0 {
+            expected_x_bearing = skrifa_metrics
+                .left_side_bearing(glyph_id)
+                .unwrap_or(expected_x_bearing);
+        }
+
+        let epsilon = 0.01;
+        assert!((metrics.advance - expected_advance).abs() < epsilon);
+        assert!((metrics.width - expected_width).abs() < epsilon);
+        assert!((metrics.height - expected_height).abs() < epsilon);
+        assert!((metrics.x_bearing - expected_x_bearing).abs() < epsilon);
+        assert!((metrics.y_bearing - expected_y_bearing).abs() < epsilon);
+
+        destroy_font_handle(handle);
+    }
+
+    #[test]
+    fn font_variation_axes_expose_expected_data() {
+        let data = include_bytes!(
+            "../../../extern/fontations/font-test-data/test_data/ttf/vazirmatn_var_trimmed.ttf"
+        );
+        let handle = load_font_handle(data);
+        let font_ref = FontRef::from_index(data, 0).expect("valid font");
+
+        let mut axes_handle: *mut VelloVariationAxisHandle = std::ptr::null_mut();
+        let mut array = VelloVariationAxisArray {
+            axes: std::ptr::null(),
+            count: 0,
+        };
+
+        let status = unsafe {
+            vello_font_get_variation_axes(handle, &mut axes_handle, &mut array)
+        };
+        assert_eq!(status, VelloStatus::Success);
+
+        if array.count == 0 {
+            unsafe { vello_font_variation_axes_destroy(axes_handle) };
+            destroy_font_handle(handle);
+            panic!("expected variation axes for variable font");
+        }
+
+        let axes = unsafe { slice::from_raw_parts(array.axes, array.count) };
+        let wght_tag = u32::from_be_bytes(*b"wght");
+        let axis = axes
+            .iter()
+            .find(|axis| axis.tag == wght_tag)
+            .expect("wght axis present");
+
+        let mut expected = None;
+        let axes_collection = font_ref.axes();
+        for index in 0..axes_collection.len() {
+            if let Some(entry) = axes_collection.get(index) {
+                if entry.tag().to_be_bytes() == *b"wght" {
+                    expected = Some((
+                        entry.min_value(),
+                        entry.default_value(),
+                        entry.max_value(),
+                    ));
+                    break;
+                }
+            }
+        }
+        let (expected_min, expected_default, expected_max) =
+            expected.expect("expected axis metadata");
+
+        let epsilon = 0.01;
+        assert!((axis.min_value - expected_min).abs() < epsilon);
+        assert!((axis.default_value - expected_default).abs() < epsilon);
+        assert!((axis.max_value - expected_max).abs() < epsilon);
+
+        unsafe { vello_font_variation_axes_destroy(axes_handle) };
+        destroy_font_handle(handle);
+    }
+
+    #[test]
+    fn font_ot_metric_and_variations_match_skrifa() {
+        let data = include_bytes!(
+            "../../../extern/fontations/font-test-data/test_data/ttf/vazirmatn_var_trimmed.ttf"
+        );
+        let handle = load_font_handle(data);
+        let font_ref = FontRef::from_index(data, 0).expect("valid font");
+
+        let wght_tag = u32::from_be_bytes(*b"wght");
+        let axes = [VelloVariationAxisValue {
+            tag: wght_tag,
+            value: 900.0,
+        }];
+
+        let location = build_variation_location(&font_ref, axes.as_ptr(), axes.len());
+        let coords_storage = location
+            .as_ref()
+            .map(|loc| loc.coords().to_vec());
+        let coords: &[NormalizedCoord] =
+            coords_storage.as_deref().unwrap_or(&[]);
+
+        let location_ref = location
+            .as_ref()
+            .map(|loc| SkrifaLocationRef::from(loc))
+            .unwrap_or_default();
+        let metrics = skrifa::metrics::Metrics::new(&font_ref, SkrifaSize::unscaled(), location_ref);
+        let os2 = font_ref.os2().ok();
+        let hhea = font_ref.hhea().ok();
+        let vhea = font_ref.vhea().ok();
+        let mvar = font_ref.mvar().ok();
+
+        let asc_tag = u32::from_be_bytes(*b"hasc");
+        let skr_tag = SkrifaTag::new(b"hasc");
+        let (raw_value, orientation) = compute_ot_metric(
+            &metrics,
+            os2.as_ref(),
+            hhea.as_ref(),
+            vhea.as_ref(),
+            mvar.as_ref(),
+            coords,
+            skr_tag,
+        )
+        .expect("metric present");
+
+        let upem = metrics.units_per_em as i32;
+        let mut position = 0i32;
+        let status = unsafe {
+            vello_font_get_ot_metric(
+                handle,
+                asc_tag,
+                upem,
+                upem,
+                axes.as_ptr(),
+                axes.len(),
+                &mut position,
+            )
+        };
+        assert_eq!(status, VelloStatus::Success);
+
+        let scale_factor = match orientation {
+            MetricOrientation::X => upem as f32 / metrics.units_per_em as f32,
+            MetricOrientation::Y => upem as f32 / metrics.units_per_em as f32,
+        };
+        let expected_position = (raw_value * scale_factor).round() as i32;
+        assert_eq!(position, expected_position);
+
+        let mut delta = 0.0f32;
+        let status = unsafe {
+            vello_font_get_ot_variation(
+                handle,
+                asc_tag,
+                axes.as_ptr(),
+                axes.len(),
+                &mut delta,
+            )
+        };
+        assert_eq!(status, VelloStatus::Success);
+
+        let expected_delta = mvar_delta(mvar.as_ref(), skr_tag, coords);
+        let epsilon = 0.01;
+        assert!((delta - expected_delta).abs() < epsilon);
+
+        let mut delta_x = 0i32;
+        let status = unsafe {
+            vello_font_get_ot_variation_x(
+                handle,
+                asc_tag,
+                upem,
+                axes.as_ptr(),
+                axes.len(),
+                &mut delta_x,
+            )
+        };
+        assert_eq!(status, VelloStatus::Success);
+        let expected_delta_x =
+            (expected_delta * (upem as f32 / metrics.units_per_em as f32)).round() as i32;
+        assert_eq!(delta_x, expected_delta_x);
+
+        let mut delta_y = 0i32;
+        let status = unsafe {
+            vello_font_get_ot_variation_y(
+                handle,
+                asc_tag,
+                upem,
+                axes.as_ptr(),
+                axes.len(),
+                &mut delta_y,
+            )
+        };
+        assert_eq!(status, VelloStatus::Success);
+        let expected_delta_y =
+            (expected_delta * (upem as f32 / metrics.units_per_em as f32)).round() as i32;
+        assert_eq!(delta_y, expected_delta_y);
+
+        destroy_font_handle(handle);
+    }
+
+    #[test]
+    fn font_table_enumeration_and_reference_succeeds() {
+        let data =
+            include_bytes!("../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf");
+        let handle = load_font_handle(data);
+        let font_ref = FontRef::from_index(data, 0).expect("valid font");
+
+        let mut tag_handle: *mut VelloFontTableTagHandle = std::ptr::null_mut();
+        let mut tag_array = VelloFontTableTagArray {
+            tags: std::ptr::null(),
+            count: 0,
+        };
+        let status = unsafe {
+            vello_font_get_table_tags(handle, &mut tag_handle, &mut tag_array)
+        };
+        assert_eq!(status, VelloStatus::Success);
+        assert!(tag_array.count > 0);
+
+        let tags = unsafe { slice::from_raw_parts(tag_array.tags, tag_array.count) };
+        let head_tag = u32::from_be_bytes(*b"head");
+        assert!(tags.iter().any(|tag| *tag == head_tag));
+
+        let expected_count = font_ref.table_directory.table_records().len();
+        assert_eq!(tags.len(), expected_count);
+
+        let mut table_handle: *mut VelloFontTableDataHandle = std::ptr::null_mut();
+        let mut table = VelloFontTableData {
+            data: std::ptr::null(),
+            length: 0,
+        };
+        let status = unsafe {
+            vello_font_reference_table(handle, head_tag, &mut table_handle, &mut table)
+        };
+        assert_eq!(status, VelloStatus::Success);
+        assert!(!table.data.is_null());
+        assert!(table.length > 0);
+
+        // Ensure table data matches expected length from directory.
+        let record = font_ref
+            .table_directory
+            .table_records()
+            .iter()
+            .find(|record| record.tag().to_be_bytes() == *b"head")
+            .expect("head record present");
+        assert_eq!(table.length as u32, record.length());
+
+        unsafe {
+            vello_font_table_data_destroy(table_handle);
+            vello_font_table_tags_destroy(tag_handle);
+        }
+        destroy_font_handle(handle);
     }
 }
 
@@ -2271,6 +2592,26 @@ pub struct VelloImageHandle {
 #[repr(C)]
 pub struct VelloFontHandle {
     font: FontData,
+}
+
+#[repr(C)]
+pub struct VelloFontTableTagArray {
+    pub tags: *const u32,
+    pub count: usize,
+}
+
+pub struct VelloFontTableTagHandle {
+    _tags: Box<[u32]>,
+}
+
+#[repr(C)]
+pub struct VelloFontTableData {
+    pub data: *const u8,
+    pub length: usize,
+}
+
+pub struct VelloFontTableDataHandle {
+    _blob: Blob<u8>,
 }
 
 #[repr(C)]
@@ -4408,6 +4749,646 @@ pub unsafe extern "C" fn vello_font_get_glyph_count(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_count_faces(
+    data: *const u8,
+    length: usize,
+    out_count: *mut u32,
+) -> VelloStatus {
+    clear_last_error();
+    if out_count.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_count = 0;
+    }
+
+    if data.is_null() || length == 0 {
+        return VelloStatus::Success;
+    }
+
+    let slice = unsafe { slice::from_raw_parts(data, length) };
+    let file_ref = match raw::FileRef::new(slice) {
+        Ok(file_ref) => file_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to parse font data: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let count = match file_ref {
+        raw::FileRef::Font(_) => 1,
+        raw::FileRef::Collection(collection) => match u32::try_from(collection.len()) {
+            Ok(value) => value,
+            Err(_) => u32::MAX,
+        },
+    };
+
+    unsafe {
+        *out_count = count;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_table_tags(
+    font: *const VelloFontHandle,
+    out_handle: *mut *mut VelloFontTableTagHandle,
+    out_array: *mut VelloFontTableTagArray,
+) -> VelloStatus {
+    if font.is_null() || out_handle.is_null() || out_array.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+        *out_array = VelloFontTableTagArray {
+            tags: std::ptr::null(),
+            count: 0,
+        };
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let records = font_ref.table_directory.table_records();
+    let mut tags = Vec::with_capacity(records.len());
+    for record in records.iter() {
+        let raw = record.tag().to_be_bytes();
+        tags.push(u32::from_be_bytes(raw));
+    }
+
+    if tags.is_empty() {
+        return VelloStatus::Success;
+    }
+
+    let boxed = tags.into_boxed_slice();
+    let array = VelloFontTableTagArray {
+        tags: boxed.as_ptr(),
+        count: boxed.len(),
+    };
+
+    unsafe {
+        *out_array = array;
+        *out_handle = Box::into_raw(Box::new(VelloFontTableTagHandle { _tags: boxed }));
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_table_tags_destroy(handle: *mut VelloFontTableTagHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_reference_table(
+    font: *const VelloFontHandle,
+    tag: u32,
+    out_handle: *mut *mut VelloFontTableDataHandle,
+    out_data: *mut VelloFontTableData,
+) -> VelloStatus {
+    if font.is_null() || out_handle.is_null() || out_data.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    unsafe {
+        *out_handle = std::ptr::null_mut();
+        *out_data = VelloFontTableData {
+            data: std::ptr::null(),
+            length: 0,
+        };
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let tag = SkrifaTag::from_be_bytes(tag.to_be_bytes());
+    let Some(table) = font_ref.table_data(tag) else {
+        return VelloStatus::Success;
+    };
+
+    let bytes = table.as_bytes();
+    let length = bytes.len();
+    let blob = font_handle.font.data.clone();
+
+    let data_ptr = if length == 0 {
+        std::ptr::null()
+    } else {
+        bytes.as_ptr()
+    };
+
+    let handle = Box::new(VelloFontTableDataHandle { _blob: blob });
+    unsafe {
+        *out_data = VelloFontTableData {
+            data: data_ptr,
+            length,
+        };
+        *out_handle = Box::into_raw(handle);
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_table_data_destroy(handle: *mut VelloFontTableDataHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[derive(Copy, Clone)]
+enum MetricOrientation {
+    X,
+    Y,
+}
+
+const TAG_HORIZONTAL_ASCENDER: SkrifaTag = SkrifaTag::new(b"hasc");
+const TAG_HORIZONTAL_DESCENDER: SkrifaTag = SkrifaTag::new(b"hdsc");
+const TAG_HORIZONTAL_LINE_GAP: SkrifaTag = SkrifaTag::new(b"hlgp");
+const TAG_HORIZONTAL_CLIPPING_ASCENT: SkrifaTag = SkrifaTag::new(b"hcla");
+const TAG_HORIZONTAL_CLIPPING_DESCENT: SkrifaTag = SkrifaTag::new(b"hcld");
+const TAG_VERTICAL_ASCENDER: SkrifaTag = SkrifaTag::new(b"vasc");
+const TAG_VERTICAL_DESCENDER: SkrifaTag = SkrifaTag::new(b"vdsc");
+const TAG_VERTICAL_LINE_GAP: SkrifaTag = SkrifaTag::new(b"vlgp");
+const TAG_HORIZONTAL_CARET_RISE: SkrifaTag = SkrifaTag::new(b"hcrs");
+const TAG_HORIZONTAL_CARET_RUN: SkrifaTag = SkrifaTag::new(b"hcrn");
+const TAG_HORIZONTAL_CARET_OFFSET: SkrifaTag = SkrifaTag::new(b"hcof");
+const TAG_VERTICAL_CARET_RISE: SkrifaTag = SkrifaTag::new(b"vcrs");
+const TAG_VERTICAL_CARET_RUN: SkrifaTag = SkrifaTag::new(b"vcrn");
+const TAG_VERTICAL_CARET_OFFSET: SkrifaTag = SkrifaTag::new(b"vcof");
+const TAG_X_HEIGHT: SkrifaTag = SkrifaTag::new(b"xhgt");
+const TAG_CAP_HEIGHT: SkrifaTag = SkrifaTag::new(b"cpht");
+const TAG_SUBSCRIPT_EM_X_SIZE: SkrifaTag = SkrifaTag::new(b"sbxs");
+const TAG_SUBSCRIPT_EM_Y_SIZE: SkrifaTag = SkrifaTag::new(b"sbys");
+const TAG_SUBSCRIPT_EM_X_OFFSET: SkrifaTag = SkrifaTag::new(b"sbxo");
+const TAG_SUBSCRIPT_EM_Y_OFFSET: SkrifaTag = SkrifaTag::new(b"sbyo");
+const TAG_SUPERSCRIPT_EM_X_SIZE: SkrifaTag = SkrifaTag::new(b"spxs");
+const TAG_SUPERSCRIPT_EM_Y_SIZE: SkrifaTag = SkrifaTag::new(b"spys");
+const TAG_SUPERSCRIPT_EM_X_OFFSET: SkrifaTag = SkrifaTag::new(b"spxo");
+const TAG_SUPERSCRIPT_EM_Y_OFFSET: SkrifaTag = SkrifaTag::new(b"spyo");
+const TAG_STRIKEOUT_SIZE: SkrifaTag = SkrifaTag::new(b"strs");
+const TAG_STRIKEOUT_OFFSET: SkrifaTag = SkrifaTag::new(b"stro");
+const TAG_UNDERLINE_SIZE: SkrifaTag = SkrifaTag::new(b"unds");
+const TAG_UNDERLINE_OFFSET: SkrifaTag = SkrifaTag::new(b"undo");
+
+fn build_variation_location<'a>(
+    font_ref: &FontRef<'a>,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+) -> Option<Location> {
+    if variations.is_null() || variation_count == 0 {
+        return None;
+    }
+
+    let axes = font_ref.axes();
+    if axes.is_empty() {
+        return None;
+    }
+
+    let slice = unsafe { slice::from_raw_parts(variations, variation_count) };
+    if slice.is_empty() {
+        return None;
+    }
+
+    let filtered: Vec<_> = axes
+        .filter(slice.iter().map(|value| {
+            let tag_bytes = value.tag.to_be_bytes();
+            VariationSetting::new(SkrifaTag::new(&tag_bytes), value.value)
+        }))
+        .collect();
+
+    if filtered.is_empty() {
+        return None;
+    }
+
+    Some(axes.location(filtered.iter().copied()))
+}
+
+fn mvar_delta<'a>(
+    mvar: Option<&raw::tables::mvar::Mvar<'a>>,
+    tag: SkrifaTag,
+    coords: &[NormalizedCoord],
+) -> f32 {
+    if coords.is_empty() {
+        return 0.0;
+    }
+
+    if let Some(mvar) = mvar {
+        match mvar.metric_delta(tag, coords) {
+            Ok(delta) => delta.to_f64() as f32,
+            Err(ReadError::MetricIsMissing(_)) | Err(ReadError::NullOffset) => 0.0,
+            Err(_) => 0.0,
+        }
+    } else {
+        0.0
+    }
+}
+
+fn compute_ot_metric<'a>(
+    metrics: &skrifa::metrics::Metrics,
+    os2: Option<&raw::tables::os2::Os2<'a>>,
+    hhea: Option<&raw::tables::hhea::Hhea<'a>>,
+    vhea: Option<&raw::tables::vhea::Vhea<'a>>,
+    mvar: Option<&raw::tables::mvar::Mvar<'a>>,
+    coords: &[NormalizedCoord],
+    tag: SkrifaTag,
+) -> Option<(f32, MetricOrientation)> {
+    match tag {
+        TAG_HORIZONTAL_ASCENDER => {
+            let value = metrics.ascent.abs();
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_HORIZONTAL_DESCENDER => {
+            let value = if metrics.descent == 0.0 {
+                0.0
+            } else {
+                -metrics.descent.abs()
+            };
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_HORIZONTAL_LINE_GAP => Some((metrics.leading, MetricOrientation::Y)),
+        TAG_HORIZONTAL_CLIPPING_ASCENT => {
+            let os2 = os2?;
+            let mut value = os2.us_win_ascent() as f32;
+            value += mvar_delta(mvar, MvarTag::HCLA, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_HORIZONTAL_CLIPPING_DESCENT => {
+            let os2 = os2?;
+            let mut value = os2.us_win_descent() as f32;
+            value += mvar_delta(mvar, MvarTag::HCLD, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_HORIZONTAL_CARET_RISE => {
+            let hhea = hhea?;
+            let mut value = hhea.caret_slope_rise() as f32;
+            value += mvar_delta(mvar, MvarTag::HCRS, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_HORIZONTAL_CARET_RUN => {
+            let hhea = hhea?;
+            let mut value = hhea.caret_slope_run() as f32;
+            value += mvar_delta(mvar, MvarTag::HCRN, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_HORIZONTAL_CARET_OFFSET => {
+            let hhea = hhea?;
+            let mut value = hhea.caret_offset() as f32;
+            value += mvar_delta(mvar, MvarTag::HCOF, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_VERTICAL_ASCENDER => {
+            let vhea = vhea?;
+            let mut value = vhea.ascender().to_i16() as f32;
+            value += mvar_delta(mvar, MvarTag::VASC, coords);
+            Some((value.abs(), MetricOrientation::X))
+        }
+        TAG_VERTICAL_DESCENDER => {
+            let vhea = vhea?;
+            let mut value = vhea.descender().to_i16() as f32;
+            value += mvar_delta(mvar, MvarTag::VDSC, coords);
+            if value == 0.0 {
+                Some((0.0, MetricOrientation::X))
+            } else {
+                Some((-value.abs(), MetricOrientation::X))
+            }
+        }
+        TAG_VERTICAL_LINE_GAP => {
+            let vhea = vhea?;
+            let mut value = vhea.line_gap().to_i16() as f32;
+            value += mvar_delta(mvar, MvarTag::VLGP, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_VERTICAL_CARET_RISE => {
+            let vhea = vhea?;
+            let mut value = vhea.caret_slope_rise() as f32;
+            value += mvar_delta(mvar, MvarTag::VCRS, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_VERTICAL_CARET_RUN => {
+            let vhea = vhea?;
+            let mut value = vhea.caret_slope_run() as f32;
+            value += mvar_delta(mvar, MvarTag::VCRN, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_VERTICAL_CARET_OFFSET => {
+            let vhea = vhea?;
+            let mut value = vhea.caret_offset() as f32;
+            value += mvar_delta(mvar, MvarTag::VCOF, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_X_HEIGHT => metrics.x_height.map(|value| (value, MetricOrientation::Y)),
+        TAG_CAP_HEIGHT => metrics
+            .cap_height
+            .map(|value| (value, MetricOrientation::Y)),
+        TAG_SUBSCRIPT_EM_X_SIZE => {
+            let os2 = os2?;
+            let mut value = os2.y_subscript_x_size() as f32;
+            value += mvar_delta(mvar, MvarTag::SBXS, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_SUBSCRIPT_EM_Y_SIZE => {
+            let os2 = os2?;
+            let mut value = os2.y_subscript_y_size() as f32;
+            value += mvar_delta(mvar, MvarTag::SBYS, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_SUBSCRIPT_EM_X_OFFSET => {
+            let os2 = os2?;
+            let mut value = os2.y_subscript_x_offset() as f32;
+            value += mvar_delta(mvar, MvarTag::SBXO, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_SUBSCRIPT_EM_Y_OFFSET => {
+            let os2 = os2?;
+            let mut value = os2.y_subscript_y_offset() as f32;
+            value += mvar_delta(mvar, MvarTag::SBYO, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_SUPERSCRIPT_EM_X_SIZE => {
+            let os2 = os2?;
+            let mut value = os2.y_superscript_x_size() as f32;
+            value += mvar_delta(mvar, MvarTag::SPXS, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_SUPERSCRIPT_EM_Y_SIZE => {
+            let os2 = os2?;
+            let mut value = os2.y_superscript_y_size() as f32;
+            value += mvar_delta(mvar, MvarTag::SPYS, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_SUPERSCRIPT_EM_X_OFFSET => {
+            let os2 = os2?;
+            let mut value = os2.y_superscript_x_offset() as f32;
+            value += mvar_delta(mvar, MvarTag::SPXO, coords);
+            Some((value, MetricOrientation::X))
+        }
+        TAG_SUPERSCRIPT_EM_Y_OFFSET => {
+            let os2 = os2?;
+            let mut value = os2.y_superscript_y_offset() as f32;
+            value += mvar_delta(mvar, MvarTag::SPYO, coords);
+            Some((value, MetricOrientation::Y))
+        }
+        TAG_STRIKEOUT_SIZE => metrics
+            .strikeout
+            .map(|decoration| (decoration.thickness, MetricOrientation::Y)),
+        TAG_STRIKEOUT_OFFSET => metrics
+            .strikeout
+            .map(|decoration| (decoration.offset, MetricOrientation::Y)),
+        TAG_UNDERLINE_SIZE => metrics
+            .underline
+            .map(|decoration| (decoration.thickness, MetricOrientation::Y)),
+        TAG_UNDERLINE_OFFSET => metrics
+            .underline
+            .map(|decoration| (decoration.offset, MetricOrientation::Y)),
+        _ => None,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_ot_metric(
+    font: *const VelloFontHandle,
+    metrics_tag: u32,
+    x_scale: i32,
+    y_scale: i32,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+    out_position: *mut i32,
+) -> VelloStatus {
+    if font.is_null() || out_position.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let tag = SkrifaTag::new(&metrics_tag.to_be_bytes());
+    let location = build_variation_location(&font_ref, variations, variation_count);
+    let location_ref = location
+        .as_ref()
+        .map(|loc| SkrifaLocationRef::from(loc))
+        .unwrap_or_default();
+    let coords: &[NormalizedCoord] = location.as_ref().map_or(&[], |loc| loc.coords());
+
+    let metrics = skrifa::metrics::Metrics::new(&font_ref, SkrifaSize::unscaled(), location_ref);
+    let os2 = font_ref.os2().ok();
+    let hhea = font_ref.hhea().ok();
+    let vhea = font_ref.vhea().ok();
+    let mvar = font_ref.mvar().ok();
+
+    let Some((value, orientation)) = compute_ot_metric(
+        &metrics,
+        os2.as_ref(),
+        hhea.as_ref(),
+        vhea.as_ref(),
+        mvar.as_ref(),
+        coords,
+        tag,
+    ) else {
+        return VelloStatus::Unsupported;
+    };
+
+    let upem = metrics.units_per_em;
+    let (scale_x, scale_y) = if upem == 0 {
+        (0.0f32, 0.0f32)
+    } else {
+        (x_scale as f32 / upem as f32, y_scale as f32 / upem as f32)
+    };
+
+    let scaled = match orientation {
+        MetricOrientation::X => value * scale_x,
+        MetricOrientation::Y => value * scale_y,
+    };
+
+    let rounded = scaled.round();
+    let clamped = rounded.clamp(i32::MIN as f32, i32::MAX as f32);
+    unsafe {
+        *out_position = clamped as i32;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_ot_variation(
+    font: *const VelloFontHandle,
+    metrics_tag: u32,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+    out_delta: *mut f32,
+) -> VelloStatus {
+    if font.is_null() || out_delta.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let tag = SkrifaTag::new(&metrics_tag.to_be_bytes());
+    let location = build_variation_location(&font_ref, variations, variation_count);
+    let location_ref = location
+        .as_ref()
+        .map(|loc| SkrifaLocationRef::from(loc))
+        .unwrap_or_default();
+    let coords: &[NormalizedCoord] = location.as_ref().map_or(&[], |loc| loc.coords());
+    let mvar = font_ref.mvar().ok();
+
+    let delta = mvar_delta(mvar.as_ref(), tag, coords);
+
+    unsafe {
+        *out_delta = delta;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_ot_variation_x(
+    font: *const VelloFontHandle,
+    metrics_tag: u32,
+    x_scale: i32,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+    out_delta: *mut i32,
+) -> VelloStatus {
+    if font.is_null() || out_delta.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let tag = SkrifaTag::new(&metrics_tag.to_be_bytes());
+    let location = build_variation_location(&font_ref, variations, variation_count);
+    let location_ref = location
+        .as_ref()
+        .map(|loc| SkrifaLocationRef::from(loc))
+        .unwrap_or_default();
+    let coords: &[NormalizedCoord] = location.as_ref().map_or(&[], |loc| loc.coords());
+    let mvar = font_ref.mvar().ok();
+
+    let delta = mvar_delta(mvar.as_ref(), tag, coords);
+    let upem = font_ref
+        .head()
+        .map(|head| head.units_per_em() as i32)
+        .unwrap_or(0);
+
+    let scale = if upem == 0 {
+        0.0f32
+    } else {
+        x_scale as f32 / upem as f32
+    };
+
+    let value = (delta * scale).round();
+    let clamped = value.clamp(i32::MIN as f32, i32::MAX as f32);
+
+    unsafe {
+        *out_delta = clamped as i32;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_font_get_ot_variation_y(
+    font: *const VelloFontHandle,
+    metrics_tag: u32,
+    y_scale: i32,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+    out_delta: *mut i32,
+) -> VelloStatus {
+    if font.is_null() || out_delta.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let tag = SkrifaTag::new(&metrics_tag.to_be_bytes());
+    let location = build_variation_location(&font_ref, variations, variation_count);
+    let location_ref = location
+        .as_ref()
+        .map(|loc| SkrifaLocationRef::from(loc))
+        .unwrap_or_default();
+    let coords: &[NormalizedCoord] = location.as_ref().map_or(&[], |loc| loc.coords());
+    let mvar = font_ref.mvar().ok();
+
+    let delta = mvar_delta(mvar.as_ref(), tag, coords);
+    let upem = font_ref
+        .head()
+        .map(|head| head.units_per_em() as i32)
+        .unwrap_or(0);
+
+    let scale = if upem == 0 {
+        0.0f32
+    } else {
+        y_scale as f32 / upem as f32
+    };
+
+    let value = (delta * scale).round();
+    let clamped = value.clamp(i32::MIN as f32, i32::MAX as f32);
+
+    unsafe {
+        *out_delta = clamped as i32;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_font_get_metrics(
     font: *const VelloFontHandle,
     font_size: f32,
@@ -4510,11 +5491,11 @@ pub unsafe extern "C" fn vello_font_get_glyph_metrics(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_font_get_variation_axes(
-    _font: *const VelloFontHandle,
+    font: *const VelloFontHandle,
     out_handle: *mut *mut VelloVariationAxisHandle,
     out_array: *mut VelloVariationAxisArray,
 ) -> VelloStatus {
-    if out_handle.is_null() || out_array.is_null() {
+    if font.is_null() || out_handle.is_null() || out_array.is_null() {
         return VelloStatus::NullPointer;
     }
 
@@ -4526,7 +5507,51 @@ pub unsafe extern "C" fn vello_font_get_variation_axes(
         };
     }
 
-    VelloStatus::Unsupported
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let axes = font_ref.axes();
+    if axes.is_empty() {
+        return VelloStatus::Success;
+    }
+
+    let mut collected = Vec::with_capacity(axes.len());
+    for index in 0..axes.len() {
+        if let Some(axis) = axes.get(index) {
+            let tag_bytes = axis.tag().to_be_bytes();
+            collected.push(VelloVariationAxis {
+                tag: u32::from_be_bytes(tag_bytes),
+                min_value: axis.min_value(),
+                default_value: axis.default_value(),
+                max_value: axis.max_value(),
+            });
+        }
+    }
+
+    if collected.is_empty() {
+        return VelloStatus::Success;
+    }
+
+    let boxed = collected.into_boxed_slice();
+    let array = VelloVariationAxisArray {
+        axes: boxed.as_ptr(),
+        count: boxed.len(),
+    };
+
+    unsafe {
+        *out_array = array;
+        *out_handle = Box::into_raw(Box::new(VelloVariationAxisHandle { axes: boxed }));
+    }
+
+    VelloStatus::Success
 }
 
 #[unsafe(no_mangle)]

@@ -94,14 +94,14 @@ pub(crate) fn build_dashboard_scene(config: &DashboardConfig, inputs: FrameInput
     let mut chart_config = config.chart.clone();
     chart_config.seed = inputs.chart_seed;
     let chart_scene = build_chart_scene(&chart_config);
-    let chart_transform = Affine::scale_non_uniform(0.72, 0.48)
-        .then_translate(Vec2::new(48.0, 48.0));
+    let chart_transform =
+        Affine::scale_non_uniform(0.72, 0.48).then_translate(Vec2::new(48.0, 48.0));
     scene.append(&chart_scene, Some(chart_transform));
 
     // Compose analog gauge.
     let analog_scene = build_analog_gauge_scene(&config.analog, inputs.analog_value);
-    let analog_transform = Affine::scale_non_uniform(0.75, 0.75)
-        .then_translate(Vec2::new(config.width - 360.0, 64.0));
+    let analog_transform =
+        Affine::scale_non_uniform(0.75, 0.75).then_translate(Vec2::new(config.width - 360.0, 64.0));
     scene.append(&analog_scene, Some(analog_transform));
 
     // Compose bar graph gauge.
@@ -139,11 +139,11 @@ pub fn simulate_dashboard(config: &DashboardConfig, frames: usize) -> DashboardS
     for frame in 0..frames {
         let phase = frame as f64 / frames as f64;
         let analog_span = config.analog.max_value - config.analog.min_value;
-        let analog_value =
-            config.analog.min_value + analog_span * (0.5 + 0.5 * (phase * std::f64::consts::TAU).sin());
+        let analog_value = config.analog.min_value
+            + analog_span * (0.5 + 0.5 * (phase * std::f64::consts::TAU).sin());
         let bar_span = config.bar.max_value - config.bar.min_value;
-        let bar_value =
-            config.bar.min_value + bar_span * (0.5 + 0.5 * (phase * 2.0 * std::f64::consts::PI).cos());
+        let bar_value = config.bar.min_value
+            + bar_span * (0.5 + 0.5 * (phase * 2.0 * std::f64::consts::PI).cos());
         let inputs = FrameInputs {
             chart_seed: config.chart_seed_base.wrapping_add(frame as u64),
             analog_value,
@@ -229,12 +229,7 @@ fn build_data_grid_scene(config: &GridConfig, highlight_row: usize) -> Scene {
         let column_width = config.width / config.columns as f64;
         for column in 1..config.columns {
             let x = column as f64 * column_width;
-            let separator = Rect::new(
-                x - 0.5,
-                config.header_height,
-                x + 0.5,
-                config.height,
-            );
+            let separator = Rect::new(x - 0.5, config.header_height, x + 0.5, config.height);
             scene.fill(
                 Fill::NonZero,
                 Affine::IDENTITY,

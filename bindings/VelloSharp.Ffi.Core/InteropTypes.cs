@@ -629,6 +629,20 @@ internal struct VelloFontMetricsNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloFontTableTagArrayNative
+{
+    public IntPtr Tags;
+    public nuint Count;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloFontTableDataNative
+{
+    public IntPtr Data;
+    public nuint Length;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloParleyFontInfoNative
 {
     public IntPtr FamilyName;

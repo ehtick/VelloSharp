@@ -5,7 +5,7 @@
 
 use std::{f64::consts::PI, time::Instant};
 
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use serde::Serialize;
 use vello::{
     Scene,
@@ -100,7 +100,13 @@ pub fn build_analog_gauge_scene(config: &AnalogGaugeConfig, value: f64) -> Scene
     // Outer bezel.
     let bezel = Circle::new(center, radius + 6.0);
     scene.fill(Fill::NonZero, Affine::IDENTITY, &background, None, &bezel);
-    scene.stroke(&Stroke::new(4.0), Affine::IDENTITY, &tick_color, None, &bezel);
+    scene.stroke(
+        &Stroke::new(4.0),
+        Affine::IDENTITY,
+        &tick_color,
+        None,
+        &bezel,
+    );
 
     // Dial background.
     let dial = Circle::new(center, radius);
@@ -111,23 +117,45 @@ pub fn build_analog_gauge_scene(config: &AnalogGaugeConfig, value: f64) -> Scene
     let sweep_radians = config.sweep_degrees.to_radians();
     let warn_start_angle = arc_start + sweep_radians * 0.8;
     let warn_end_angle = arc_start + sweep_radians;
-    let warning_path = build_arc(center, inner_radius + 10.0, warn_start_angle, warn_end_angle);
-    scene.stroke(&Stroke::new(12.0), Affine::IDENTITY, &alarm_color, None, &warning_path);
+    let warning_path = build_arc(
+        center,
+        inner_radius + 10.0,
+        warn_start_angle,
+        warn_end_angle,
+    );
+    scene.stroke(
+        &Stroke::new(12.0),
+        Affine::IDENTITY,
+        &alarm_color,
+        None,
+        &warning_path,
+    );
 
     // Major ticks.
     for major in 0..=config.major_tick_count {
-        let angle = arc_start
-            + sweep_radians * (major as f64 / config.major_tick_count as f64);
+        let angle = arc_start + sweep_radians * (major as f64 / config.major_tick_count as f64);
         let tick_path = build_tick(center, radius, inner_radius, angle);
-        scene.stroke(&Stroke::new(3.2), Affine::IDENTITY, &tick_color, None, &tick_path);
+        scene.stroke(
+            &Stroke::new(3.2),
+            Affine::IDENTITY,
+            &tick_color,
+            None,
+            &tick_path,
+        );
 
         if major < config.major_tick_count {
             for minor in 1..config.minor_ticks_per_major {
                 let minor_ratio = minor as f64 / config.minor_ticks_per_major as f64;
-                let minor_angle = angle
-                    + sweep_radians * minor_ratio / config.major_tick_count as f64;
+                let minor_angle =
+                    angle + sweep_radians * minor_ratio / config.major_tick_count as f64;
                 let minor_path = build_tick(center, radius, radius - 14.0, minor_angle);
-                scene.stroke(&Stroke::new(1.6), Affine::IDENTITY, &tick_color, None, &minor_path);
+                scene.stroke(
+                    &Stroke::new(1.6),
+                    Affine::IDENTITY,
+                    &tick_color,
+                    None,
+                    &minor_path,
+                );
             }
         }
     }
@@ -151,7 +179,13 @@ pub fn build_analog_gauge_scene(config: &AnalogGaugeConfig, value: f64) -> Scene
     needle.close_path();
 
     let needle_brush = Brush::Solid(accent);
-    scene.fill(Fill::NonZero, Affine::IDENTITY, &needle_brush, None, &needle);
+    scene.fill(
+        Fill::NonZero,
+        Affine::IDENTITY,
+        &needle_brush,
+        None,
+        &needle,
+    );
 
     // Needle hub.
     let hub = Circle::new(center, 9.5);
@@ -172,7 +206,13 @@ pub fn build_vertical_bar_scene(config: &LinearBarConfig, value: f64) -> Scene {
     let mut scene = Scene::new();
     let frame_rect = Rect::new(0.0, 0.0, config.width, config.height);
     let frame_brush = Brush::Solid(Color::from_rgb8(18, 22, 27));
-    scene.fill(Fill::NonZero, Affine::IDENTITY, &frame_brush, None, &frame_rect);
+    scene.fill(
+        Fill::NonZero,
+        Affine::IDENTITY,
+        &frame_brush,
+        None,
+        &frame_rect,
+    );
 
     let border = frame_rect.inset(-4.0);
     scene.stroke(
@@ -193,7 +233,13 @@ pub fn build_vertical_bar_scene(config: &LinearBarConfig, value: f64) -> Scene {
             config.height - threshold_height + 18.0,
         );
         let alarm_brush = Brush::Solid(Color::from_rgb8(0xFF, 0x5A, 0x5F));
-        scene.fill(Fill::NonZero, Affine::IDENTITY, &alarm_brush, None, &alarm_rect);
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            &alarm_brush,
+            None,
+            &alarm_rect,
+        );
     }
 
     let normalized_value = normalize_value(value, config.min_value, config.max_value);
@@ -205,7 +251,13 @@ pub fn build_vertical_bar_scene(config: &LinearBarConfig, value: f64) -> Scene {
         config.height - 20.0,
     );
     let value_brush = Brush::Solid(Color::from_rgb8(0x5A, 0xC8, 0xFF));
-    scene.fill(Fill::NonZero, Affine::IDENTITY, &value_brush, None, &value_rect);
+    scene.fill(
+        Fill::NonZero,
+        Affine::IDENTITY,
+        &value_brush,
+        None,
+        &value_rect,
+    );
 
     // Gridlines every 10 percent.
     for step in 1..10 {
@@ -214,50 +266,45 @@ pub fn build_vertical_bar_scene(config: &LinearBarConfig, value: f64) -> Scene {
         let mut grid_path = BezPath::new();
         grid_path.move_to(Point::new(16.0, y));
         grid_path.line_to(Point::new(config.width - 16.0, y));
-        scene.stroke(&Stroke::new(1.0), Affine::IDENTITY, &Color::from_rgb8(0x3A, 0x42, 0x4A), None, &grid_path);
+        scene.stroke(
+            &Stroke::new(1.0),
+            Affine::IDENTITY,
+            &Color::from_rgb8(0x3A, 0x42, 0x4A),
+            None,
+            &grid_path,
+        );
     }
 
     scene
 }
 
 /// Runs an analog gauge simulation and returns performance statistics.
-pub fn simulate_analog_gauge(
-    config: &AnalogGaugeConfig,
-    frame_count: usize,
-) -> PrototypeStats {
-    simulate_internal(
-        "analog_dial",
-        frame_count,
-        |frame| {
-            let phase = frame as f64 / frame_count.max(1) as f64;
-            let value = config.min_value
-                + (config.max_value - config.min_value) * (0.5 + 0.5 * (phase * PI * 2.0).sin());
-            build_analog_gauge_scene(config, value)
-        },
-    )
+pub fn simulate_analog_gauge(config: &AnalogGaugeConfig, frame_count: usize) -> PrototypeStats {
+    simulate_internal("analog_dial", frame_count, |frame| {
+        let phase = frame as f64 / frame_count.max(1) as f64;
+        let value = config.min_value
+            + (config.max_value - config.min_value) * (0.5 + 0.5 * (phase * PI * 2.0).sin());
+        build_analog_gauge_scene(config, value)
+    })
 }
 
 /// Runs a vertical bar graph simulation and returns performance statistics.
-pub fn simulate_vertical_bar(
-    config: &LinearBarConfig,
-    frame_count: usize,
-) -> PrototypeStats {
+pub fn simulate_vertical_bar(config: &LinearBarConfig, frame_count: usize) -> PrototypeStats {
     let mut rng = StdRng::seed_from_u64(42);
-    simulate_internal(
-        "vertical_bargraph",
-        frame_count,
-        |_| {
-            let jitter: f64 = rng.random_range(-0.05..=0.05);
-            let base: f64 = rng.random_range(0.2..=0.85);
-            let clamped = (base + jitter).clamp(0.0_f64, 1.0_f64);
-            let value =
-                config.min_value + (config.max_value - config.min_value) * clamped;
-            build_vertical_bar_scene(config, value)
-        },
-    )
+    simulate_internal("vertical_bargraph", frame_count, |_| {
+        let jitter: f64 = rng.random_range(-0.05..=0.05);
+        let base: f64 = rng.random_range(0.2..=0.85);
+        let clamped = (base + jitter).clamp(0.0_f64, 1.0_f64);
+        let value = config.min_value + (config.max_value - config.min_value) * clamped;
+        build_vertical_bar_scene(config, value)
+    })
 }
 
-fn simulate_internal<F>(scenario: &'static str, frame_count: usize, mut builder: F) -> PrototypeStats
+fn simulate_internal<F>(
+    scenario: &'static str,
+    frame_count: usize,
+    mut builder: F,
+) -> PrototypeStats
 where
     F: FnMut(usize) -> Scene,
 {

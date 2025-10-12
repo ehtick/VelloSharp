@@ -11,7 +11,7 @@ use hashbrown::HashMap;
 use vello::Scene;
 use vello::kurbo::{Affine, Rect};
 use vello::peniko::{Brush, Color, Fill};
-use vello_composition::{SceneGraphCache, layout_label, label_font};
+use vello_composition::{SceneGraphCache, label_font, layout_label};
 
 const DEFAULT_TEXT_FONT_SIZE: f32 = 13.0;
 const DEFAULT_TEXT_HORIZONTAL_PADDING: f64 = 8.0;
@@ -277,7 +277,10 @@ impl TextTemplate {
                 DEFAULT_TEXTBOX_HORIZONTAL_PADDING,
                 DEFAULT_TEXTBOX_VERTICAL_PADDING,
             ),
-            _ => (DEFAULT_TEXT_HORIZONTAL_PADDING, DEFAULT_TEXT_VERTICAL_PADDING),
+            _ => (
+                DEFAULT_TEXT_HORIZONTAL_PADDING,
+                DEFAULT_TEXT_VERTICAL_PADDING,
+            ),
         }
     }
 }
@@ -349,22 +352,15 @@ impl TemplateProgram {
                                     }
                                 }
                                 (VelloTdgTemplateNodeKind::CellTemplate, "ColumnKey") => {
-                                    current.column_key =
-                                        parse_column_key(instruction, raw);
+                                    current.column_key = parse_column_key(instruction, raw);
                                 }
                                 (_, "Material") => {
-                                    current.material = parse_u32_value(
-                                        instruction,
-                                        raw,
-                                    )
-                                    .map(|value| value as MaterialHandle);
+                                    current.material = parse_u32_value(instruction, raw)
+                                        .map(|value| value as MaterialHandle);
                                 }
                                 (_, "RenderHook") => {
-                                    current.render_hook = parse_u32_value(
-                                        instruction,
-                                        raw,
-                                    )
-                                    .map(|value| value as RenderHookHandle);
+                                    current.render_hook = parse_u32_value(instruction, raw)
+                                        .map(|value| value as RenderHookHandle);
                                 }
                                 _ => {}
                             }
@@ -572,9 +568,9 @@ impl TemplateProgram {
         }
 
         if pane != VelloTdgTemplatePaneKind::Primary {
-            if let Some(templates) =
-                self.column_text
-                    .get(&(column.key, VelloTdgTemplatePaneKind::Primary))
+            if let Some(templates) = self
+                .column_text
+                .get(&(column.key, VelloTdgTemplatePaneKind::Primary))
             {
                 for template in templates {
                     self.draw_text(scene, column, height, template, bindings);
@@ -596,10 +592,7 @@ impl TemplateProgram {
         }
 
         let left = columns.first().map(|c| c.offset).unwrap_or(0.0);
-        let right = columns
-            .last()
-            .map(|c| c.offset + c.width)
-            .unwrap_or(left);
+        let right = columns.last().map(|c| c.offset + c.width).unwrap_or(left);
         let width = (right - left).max(0.0);
 
         if width <= 0.0 {
@@ -615,10 +608,7 @@ impl TemplateProgram {
         }
 
         if pane != VelloTdgTemplatePaneKind::Primary {
-            if let Some(templates) =
-                self.pane_text
-                    .get(&VelloTdgTemplatePaneKind::Primary)
-            {
+            if let Some(templates) = self.pane_text.get(&VelloTdgTemplatePaneKind::Primary) {
                 for template in templates {
                     self.draw_text(scene, &pane_strip, height, template, bindings);
                 }
@@ -665,9 +655,7 @@ impl TemplateProgram {
             baseline_y = ascent;
         }
 
-        let brush_color = template
-            .foreground
-            .unwrap_or_else(default_text_foreground);
+        let brush_color = template.foreground.unwrap_or_else(default_text_foreground);
 
         scene
             .draw_glyphs(label_font())
@@ -704,7 +692,7 @@ impl TemplateProgram {
         false
     }
 
-fn fill_with_material_or_fallback(
+    fn fill_with_material_or_fallback(
         &self,
         scene: &mut Scene,
         column: &ColumnStrip,
@@ -736,10 +724,7 @@ enum BindingValue {
 }
 
 impl BindingMap {
-    fn from_slice(
-        bindings_ptr: *const VelloTdgTemplateBinding,
-        binding_len: usize,
-    ) -> Self {
+    fn from_slice(bindings_ptr: *const VelloTdgTemplateBinding, binding_len: usize) -> Self {
         if bindings_ptr.is_null() || binding_len == 0 {
             return Self {
                 values: HashMap::new(),
@@ -755,7 +740,9 @@ impl BindingMap {
 
             let value = match entry.kind {
                 VelloTdgTemplateValueKind::Number => BindingValue::Number(entry.number_value),
-                VelloTdgTemplateValueKind::Boolean => BindingValue::Boolean(entry.boolean_value != 0),
+                VelloTdgTemplateValueKind::Boolean => {
+                    BindingValue::Boolean(entry.boolean_value != 0)
+                }
                 _ => {
                     let text = cstr_to_str(entry.string_value).unwrap_or_default();
                     BindingValue::Text(text.to_owned())
@@ -784,10 +771,7 @@ impl BindingMap {
     }
 }
 
-fn parse_f32_value(
-    instruction: &VelloTdgTemplateInstruction,
-    raw: Option<&str>,
-) -> Option<f32> {
+fn parse_f32_value(instruction: &VelloTdgTemplateInstruction, raw: Option<&str>) -> Option<f32> {
     match instruction.value_kind {
         VelloTdgTemplateValueKind::Number => Some(instruction.number_value as f32),
         _ => raw?.trim().parse::<f32>().ok(),
