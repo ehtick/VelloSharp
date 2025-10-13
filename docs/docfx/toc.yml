@@ -1,7 +1,9 @@
 - name: Home
   href: index.md
 - name: Documentation
-  href: articles/toc.yml
+  href: articles/index.md
+  topicHref: articles/index.md
+  tocHref: articles/toc.yml
 - name: Guides
   href: ../guides/index.md
 - name: API Reference

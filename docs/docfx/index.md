@@ -9,17 +9,17 @@ title: VelloSharp Documentation
 > [Documentation Overview](articles/index.md) · [API Reference](api/index.md) · [GitHub Repository](https://github.com/wieslawsoltes/VelloSharp)
 
 > [!div class="cards cards-3"]
-> [!div class="card"]
-> ### Conceptual Guides
-> [Start with the documentation overview](articles/index.md) to explore renderer, charting, and visualization libraries, plus platform integrations.
-> 
-> [!div class="card"]
-> ### API Reference
-> [Browse the generated API reference](api/index.md) for namespaces, types, and members sourced directly from the latest `main` branch builds.
-> 
-> [!div class="card"]
-> ### Samples & Tooling
-> Clone the repository and jump into the [integration samples](https://github.com/wieslawsoltes/VelloSharp/tree/main/integration) and [Avalonia demos](https://github.com/wieslawsoltes/VelloSharp/tree/main/samples) to see the runtime in action.
+> > [!div class="card"]
+> > ### Conceptual Guides
+> > [Start with the documentation overview](articles/index.md) to explore renderer, charting, and visualization libraries, plus platform integrations.
+> > 
+> > [!div class="card"]
+> > ### API Reference
+> > [Browse the generated API reference](api/index.md) for namespaces, types, and members sourced directly from the latest `main` branch builds.
+> > 
+> > [!div class="card"]
+> > ### Samples & Tooling
+> > Clone the repository and jump into the [integration samples](https://github.com/wieslawsoltes/VelloSharp/tree/main/integration) and [Avalonia demos](https://github.com/wieslawsoltes/VelloSharp/tree/main/samples) to see the runtime in action.
 
 > [!div class="quick-links"]
 > ## Quick Start
