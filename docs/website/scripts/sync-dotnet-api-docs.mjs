@@ -32,7 +32,8 @@ const websiteDir = join(repoRoot, 'docs', 'website');
 const generatedDir = join(websiteDir, 'generated', 'dotnet-api');
 const docfxOutputDir = join(docfxDir, 'obj', 'api');
 const apiIndex = join(docfxDir, 'api', 'index.md');
-const tocPath = join(docfxDir, 'api', 'toc.yml');
+const tocPrimaryPath = join(docfxOutputDir, 'toc.yml');
+const tocFallbackPath = join(docfxDir, 'api', 'toc.yml');
 const generatedSidebarPath = join(websiteDir, 'sidebars.dotnet.generated.ts');
 
 function run(command, args, options) {
@@ -186,10 +187,14 @@ function normalizeHeadings(content) {
 }
 
 function buildSidebar() {
+  const tocSourcePath = [tocPrimaryPath, tocFallbackPath].find((candidate) => existsSync(candidate));
   let sidebarItems = [];
-  if (existsSync(tocPath)) {
-    const toc = parseYaml(readFileSync(tocPath, 'utf8'));
-    sidebarItems = extractNodes(toc?.items ?? []).filter(Boolean);
+  if (tocSourcePath) {
+    const toc = parseYaml(readFileSync(tocSourcePath, 'utf8'));
+    const tocItems = Array.isArray(toc) ? toc : toc?.items ?? [];
+    sidebarItems = extractNodes(tocItems).filter(Boolean);
+  } else {
+    console.warn('DocFX toc.yml not found; dotnet sidebar will include only the index page.');
   }
 
   const sidebarConfig = {
@@ -223,10 +228,10 @@ function extractNodes(nodes) {
 }
 
 function mapNode(node) {
-  const uid = node?.uid;
-  const label = node?.name ?? uid;
+  const docId = getDocId(node);
+  const label = node?.name ?? docId;
   const children = extractNodes(node?.items ?? []);
-  const docPath = uid ? join(generatedDir, `${uid}.md`) : null;
+  const docPath = docId ? getDocFilePath(docId) : null;
   const docExists = !!(docPath && existsSync(docPath));
 
   if (!docExists && children.length === 0) {
@@ -234,7 +239,7 @@ function mapNode(node) {
   }
 
   if (children.length === 0) {
-    return uid ?? null;
+    return docId ?? null;
   }
 
   const category = {
@@ -243,12 +248,38 @@ function mapNode(node) {
     items: children,
   };
 
-  if (docExists && uid) {
+  if (docExists && docId) {
     category.link = {
       type: 'doc',
-      id: uid,
+      id: docId,
     };
   }
 
   return category;
+}
+
+function getDocId(node) {
+  if (!node) {
+    return null;
+  }
+
+  if (typeof node.uid === 'string' && node.uid.length > 0) {
+    return node.uid;
+  }
+
+  const href = node.href;
+  if (typeof href === 'string' && href.length > 0) {
+    const [withoutFragment] = href.split('#');
+    const normalized = withoutFragment.replace(/\\/g, '/');
+    if (normalized.endsWith('.md')) {
+      const withoutExtension = normalized.slice(0, -3);
+      return withoutExtension.startsWith('./') ? withoutExtension.slice(2) : withoutExtension;
+    }
+  }
+
+  return null;
+}
+
+function getDocFilePath(docId) {
+  return join(generatedDir, ...docId.split('/')) + '.md';
 }
