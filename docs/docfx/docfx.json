@@ -35,9 +35,10 @@
         ]
       },
       {
+        "src": "../guides",
         "files": [
-          "../guides/**.md",
-          "../guides/**/toc.yml"
+          "**.md",
+          "**/toc.yml"
         ],
         "dest": "guides"
       },

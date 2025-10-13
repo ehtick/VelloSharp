@@ -1,0 +1,101 @@
+/* Custom landing page styling for DocFX site */
+.hero {
+  background: linear-gradient(135deg, #1f3c88, #4cc3ff);
+  border-radius: 12px;
+  color: #fff;
+  margin-bottom: 2.5rem;
+  padding: 2.5rem 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.08);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.hero h1 {
+  color: inherit;
+  font-size: 2.6rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  max-width: 60ch;
+}
+
+.hero a {
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.cards {
+  display: grid;
+  gap: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 2.5rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #dce1f3;
+  border-radius: 12px;
+  box-shadow: 0 12px 25px rgba(7, 30, 84, 0.08);
+  padding: 1.75rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 18px 32px rgba(7, 30, 84, 0.12);
+  transform: translateY(-4px);
+}
+
+.card h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.card p {
+  margin-bottom: 0;
+}
+
+.body-content pre {
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(27, 37, 89, 0.12);
+}
+
+.quick-links {
+  background: #f9fbff;
+  border: 1px solid #dce1f3;
+  border-radius: 12px;
+  margin-top: 2.5rem;
+  padding: 2rem 2.5rem;
+}
+
+.quick-links h2 {
+  margin-top: 0;
+}
+
+@media (max-width: 767px) {
+  .hero {
+    padding: 2rem;
+  }
+
+  .hero h1 {
+    font-size: 2.1rem;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}

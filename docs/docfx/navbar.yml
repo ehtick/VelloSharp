@@ -1,0 +1,11 @@
+- name: Home
+  href: index.md
+- name: Documentation
+  href: articles/index.md
+- name: Guides
+  href: guides/index.md
+- name: API Reference
+  href: api/index.md
+- name: GitHub
+  href: https://github.com/wieslawsoltes/VelloSharp
+  external: true

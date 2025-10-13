@@ -21,18 +21,17 @@ title: VelloSharp Documentation
 > ### Samples & Tooling
 > Clone the repository and jump into the [integration samples](https://github.com/wieslawsoltes/VelloSharp/tree/main/integration) and [Avalonia demos](https://github.com/wieslawsoltes/VelloSharp/tree/main/samples) to see the runtime in action.
 
-## Quick Start
-
-```powershell
-git clone https://github.com/wieslawsoltes/VelloSharp.git
-cd VelloSharp
-dotnet tool restore
-docfx docs/docfx/docfx.json --serve
-```
-
-- Review the [DocFX maintenance guide](articles/docs-maintenance.md) for local build, preview, and cleanup workflows.
-- Use `dotnet build` on targeted integration projects (e.g., `integration/managed/VelloSharp.Rendering.Integration`) to validate the end-to-end pipelines.
-- Check the [STATUS.md](../STATUS.md) dashboard for roadmap and milestone tracking.
+> [!div class="quick-links"]
+> ## Quick Start
+> ```powershell
+> git clone https://github.com/wieslawsoltes/VelloSharp.git
+> cd VelloSharp
+> dotnet tool restore
+> docfx docs/docfx/docfx.json --serve
+> ```
+> - Review the [DocFX maintenance guide](articles/docs-maintenance.md) for local build, preview, and cleanup workflows.
+> - Use `dotnet build` on targeted integration projects (e.g., `integration/managed/VelloSharp.Rendering.Integration`) to validate the end-to-end pipelines.
+> - Check the [STATUS.md](../STATUS.md) dashboard for roadmap and milestone tracking.
 
 ## Ecosystem Highlights
 

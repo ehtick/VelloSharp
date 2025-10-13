@@ -3,6 +3,6 @@
 - name: Documentation
   href: articles/toc.yml
 - name: Guides
-  href: guides/toc.yml
+  href: ../guides/index.md
 - name: API Reference
   href: api/toc.yml
