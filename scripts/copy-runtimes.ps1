@@ -39,6 +39,8 @@ if (-not $Targets -or $Targets.Count -eq 0) {
         'samples/VelloSharp.WpfSample',
         'samples/VelloSharp.Uno.WinAppSdkSample',
         'samples/MauiVelloGallery',
+        'samples/UwpVelloGallery',
+        'samples/WinUIVelloGallery',
         'samples/WinFormsMotionMarkShim'
     )
 

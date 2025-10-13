@@ -1,9 +1,7 @@
-#if HAS_UNO
-
 using System;
 using VelloSharp.Windows;
 
-namespace VelloSharp.Uno.Controls;
+namespace VelloSharp.Windows.Shared.Diagnostics;
 
 public interface IVelloDiagnosticsProvider
 {
@@ -11,5 +9,3 @@ public interface IVelloDiagnosticsProvider
 
     event EventHandler<VelloDiagnosticsChangedEventArgs> DiagnosticsUpdated;
 }
-
-#endif

@@ -13,6 +13,11 @@ using Windows.UI.Core;
 using VelloSharp;
 using VelloSharp.Uno.Interop;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Shared.Contracts;
+using VelloSharp.Windows.Shared.Diagnostics;
+using VelloSharp.Windows.Shared.Presenters;
+using VelloSharp.Windows.Shared.Dispatching;
+using VelloSharp.Uno.Dispatching;
 using VelloPaintSurfaceEventArgs = VelloSharp.WinForms.Integration.VelloPaintSurfaceEventArgs;
 using CoreWindowActivatedEventArgs = Windows.UI.Core.WindowActivatedEventArgs;
 
@@ -392,8 +397,11 @@ public sealed class VelloCoreWindowHost : FrameworkElement, IDisposable, IVelloS
         }
     }
 
-    DispatcherQueue? IVelloSwapChainPresenterHost.DispatcherQueue
-        => DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+    IVelloWindowsDispatcher? IVelloSwapChainPresenterHost.Dispatcher
+        => UnoDispatcher.Wrap(DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
+
+    IVelloCompositionTarget? IVelloSwapChainPresenterHost.CompositionTarget
+        => UnoCompositionTargetAdapter.Instance;
 
     bool IVelloSwapChainPresenterHost.IsContinuousRendering => IsContinuousRendering;
 

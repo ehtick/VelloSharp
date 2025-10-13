@@ -1,16 +1,21 @@
-#if HAS_UNO && WINDOWS
-using Microsoft.UI.Dispatching;
+#nullable enable
+
 using VelloSharp.WinForms.Integration;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Shared.Contracts;
+using VelloSharp.Windows.Shared.Dispatching;
+using VelloSharp.Windows.Shared.Presenters;
 
-namespace VelloSharp.Uno.Controls;
+namespace VelloSharp.Windows.Core.Tests.Helpers;
 
 /// <summary>
 /// Test host implementation used by unit tests to exercise <see cref="VelloSwapChainPresenter"/> without WinUI dependencies.
 /// </summary>
 internal sealed class TestSwapChainPresenterHost : IVelloSwapChainPresenterHost
 {
-    public DispatcherQueue? DispatcherQueue { get; set; }
+    public IVelloWindowsDispatcher? Dispatcher { get; set; }
+
+    public IVelloCompositionTarget? CompositionTarget { get; set; }
 
     public bool IsDesignMode { get; set; }
 
@@ -53,4 +58,3 @@ internal sealed class TestSwapChainPresenterHost : IVelloSwapChainPresenterHost
     public void OnDiagnosticsUpdated(WindowsGpuDiagnostics diagnostics)
         => DiagnosticsUpdatedCount++;
 }
-#endif

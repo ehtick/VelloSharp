@@ -1,9 +1,7 @@
-#if HAS_UNO
-
 using System;
 using VelloSharp.Windows;
 
-namespace VelloSharp.Uno.Controls;
+namespace VelloSharp.Windows.Shared.Presenters;
 
 public sealed class VelloSwapChainRenderEventArgs : EventArgs
 {
@@ -35,6 +33,3 @@ public sealed class VelloSwapChainRenderEventArgs : EventArgs
 
     public long FrameId { get; }
 }
-
-#endif
-

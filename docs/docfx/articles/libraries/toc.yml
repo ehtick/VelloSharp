@@ -46,6 +46,12 @@
       href: vellosharp-integration-winforms.md
     - name: VelloSharp.Windows.Core
       href: vellosharp-windows-core.md
+    - name: VelloSharp.Windows.Shared
+      href: vellosharp-windows-shared.md
+    - name: VelloSharp.WinUI
+      href: vellosharp-winui.md
+    - name: VelloSharp.Uwp
+      href: vellosharp-uwp.md
     - name: VelloSharp.WinForms.Core
       href: vellosharp-winforms-core.md
     - name: VelloSharp.Uno

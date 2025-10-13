@@ -36,6 +36,13 @@
       },
       {
         "files": [
+          "../guides/**.md",
+          "../guides/**/toc.yml"
+        ],
+        "dest": "guides"
+      },
+      {
+        "files": [
           "api/**.yml",
           "api/index.md"
         ]

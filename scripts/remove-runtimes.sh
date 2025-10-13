@@ -10,14 +10,23 @@ else
     "VelloSharp"
     "VelloSharp.Integration"
     "samples/AvaloniaVelloExamples"
+    "samples/AvaloniaVelloPlayground"
     "samples/AvaloniaVelloWinitDemo"
     "samples/AvaloniaVelloX11Demo"
     "samples/AvaloniaVelloWin32Demo"
     "samples/AvaloniaVelloNativeDemo"
     "samples/AvaloniaVelloControlsSample"
+    "samples/AvaloniaVelloHarfBuzzSample"
+    "samples/AvaloniaVelloSkiaSharpSample"
     "samples/VelloSharp.Charting.AvaloniaSample"
+    "samples/VelloSharp.TreeDataGrid.CompositionSample"
     "samples/VelloSharp.WithWinit"
+    "samples/VelloSharp.WpfSample"
     "samples/VelloSharp.Uno.WinAppSdkSample"
+    "samples/MauiVelloGallery"
+    "samples/UwpVelloGallery"
+    "samples/WinUIVelloGallery"
+    "samples/WinFormsMotionMarkShim"
   )
 fi
 

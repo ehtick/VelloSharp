@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace VelloSharp;
 
@@ -19,6 +20,9 @@ internal static class NativeLibraryLoader
     private static bool? _androidOverride;
     private static bool? _iosOverride;
     private static bool? _macCatalystOverride;
+    private const int AppModelErrorNoPackage = 15700;
+    private const int ErrorInsufficientBuffer = 122;
+    private static readonly Lazy<AppContainerInfo> AppContainer = new(GetAppContainerInfo);
 
     internal static void SetPlatformOverrides(bool? isAndroid = null, bool? isIos = null, bool? isMacCatalyst = null)
     {
@@ -198,6 +202,11 @@ internal static class NativeLibraryLoader
             yield return path;
         }
 
+        foreach (var path in EnumerateAppContainerProbePaths(fileName))
+        {
+            yield return path;
+        }
+
         foreach (var path in EnumerateMauiSpecificPaths(AppContext.BaseDirectory, fileName))
         {
             yield return path;
@@ -243,6 +252,163 @@ internal static class NativeLibraryLoader
         }
 
         yield return fileName;
+    }
+
+    private static IEnumerable<string> EnumerateAppContainerProbePaths(string fileName)
+    {
+        var info = AppContainer.Value;
+        if (!info.IsPackaged)
+        {
+            yield break;
+        }
+
+        foreach (var root in new[] { info.PackagePath, info.LocalStatePath, info.TempStatePath })
+        {
+            if (string.IsNullOrEmpty(root))
+            {
+                continue;
+            }
+
+            foreach (var path in EnumerateDirectoryProbePaths(root, fileName))
+            {
+                yield return path;
+            }
+        }
+    }
+
+    private static AppContainerInfo GetAppContainerInfo()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return new AppContainerInfo(false, null, null, null);
+        }
+
+        try
+        {
+            var packagePath = TryGetPackagePath();
+            var familyName = TryGetPackageFamilyName();
+
+            if (string.IsNullOrEmpty(packagePath) && string.IsNullOrEmpty(familyName))
+            {
+                return new AppContainerInfo(false, null, null, null);
+            }
+
+            string? localState = null;
+            string? tempState = null;
+
+            if (!string.IsNullOrEmpty(familyName))
+            {
+                try
+                {
+                    var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    if (!string.IsNullOrEmpty(localAppData))
+                    {
+                        var packagesRoot = Path.Combine(localAppData, "Packages", familyName);
+                        localState = Path.Combine(packagesRoot, "LocalState");
+                        tempState = Path.Combine(packagesRoot, "TempState");
+                    }
+                }
+                catch
+                {
+                    localState = null;
+                    tempState = null;
+                }
+            }
+
+            return new AppContainerInfo(true, packagePath, localState, tempState);
+        }
+        catch
+        {
+            return new AppContainerInfo(false, null, null, null);
+        }
+    }
+
+    private static string? TryGetPackagePath()
+    {
+        try
+        {
+            var length = 0;
+            var result = GetCurrentPackagePath(ref length, null);
+            if (result == AppModelErrorNoPackage)
+            {
+                return null;
+            }
+
+            if ((result != ErrorInsufficientBuffer && result != 0) || length <= 0)
+            {
+                return null;
+            }
+
+            if (length == 0)
+            {
+                return null;
+            }
+
+            var buffer = new StringBuilder(length);
+            result = GetCurrentPackagePath(ref length, buffer);
+            if (result != 0)
+            {
+                return null;
+            }
+
+            var value = buffer.ToString();
+            return string.IsNullOrWhiteSpace(value) ? null : value.TrimEnd('\0');
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetPackageFamilyName()
+    {
+        try
+        {
+            var length = 0;
+            var result = GetCurrentPackageFamilyName(ref length, null);
+            if (result == AppModelErrorNoPackage)
+            {
+                return null;
+            }
+
+            if ((result != ErrorInsufficientBuffer && result != 0) || length <= 0)
+            {
+                return null;
+            }
+
+            var buffer = new StringBuilder(length);
+            result = GetCurrentPackageFamilyName(ref length, buffer);
+            if (result != 0)
+            {
+                return null;
+            }
+
+            var value = buffer.ToString();
+            return string.IsNullOrWhiteSpace(value) ? null : value.TrimEnd('\0');
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private sealed class AppContainerInfo
+    {
+        internal AppContainerInfo(bool isPackaged, string? packagePath, string? localStatePath, string? tempStatePath)
+        {
+            IsPackaged = isPackaged;
+            PackagePath = packagePath;
+            LocalStatePath = localStatePath;
+            TempStatePath = tempStatePath;
+        }
+
+        internal bool IsPackaged { get; }
+
+        internal string? PackagePath { get; }
+
+        internal string? LocalStatePath { get; }
+
+        internal string? TempStatePath { get; }
     }
 
     private static IEnumerable<string> EnumerateDirectoryProbePaths(string? directory, string fileName)
@@ -495,6 +661,12 @@ internal static class NativeLibraryLoader
 
         return $"lib{libraryName}.so";
     }
+
+    [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+    private static extern int GetCurrentPackagePath(ref int length, StringBuilder? path);
+
+    [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+    private static extern int GetCurrentPackageFamilyName(ref int length, StringBuilder? packageFamilyName);
 }
 #pragma warning restore CS0436
 

@@ -1,21 +1,20 @@
-#if HAS_UNO
-
 using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.UI.Composition;
-using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Media;
 using VelloSharp;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Shared.Contracts;
+using VelloSharp.Windows.Shared.Dispatching;
+using VelloSharp.Windows.Shared.Diagnostics;
 using VelloPaintSurfaceEventArgs = VelloSharp.WinForms.Integration.VelloPaintSurfaceEventArgs;
 
-namespace VelloSharp.Uno.Controls;
+namespace VelloSharp.Windows.Shared.Presenters;
 
-internal interface IVelloSwapChainPresenterHost
+public interface IVelloSwapChainPresenterHost
 {
-    DispatcherQueue? DispatcherQueue { get; }
+    IVelloWindowsDispatcher? Dispatcher { get; }
+    IVelloCompositionTarget? CompositionTarget { get; }
     bool IsContinuousRendering { get; }
     bool IsDesignMode { get; }
     VelloGraphicsDeviceOptions DeviceOptions { get; }
@@ -30,7 +29,7 @@ internal interface IVelloSwapChainPresenterHost
     void RemoveSkiaOptOut();
 }
 
-internal sealed class VelloSwapChainPresenter : IDisposable
+public sealed class VelloSwapChainPresenter : IDisposable
 {
     internal static Func<VelloGraphicsDeviceOptions, WindowsGpuContextLease?> AcquireContext { get; set; } = WindowsGpuContext.Acquire;
 
@@ -45,8 +44,9 @@ internal sealed class VelloSwapChainPresenter : IDisposable
     private WindowsGpuContextLease? _gpuLease;
     private WindowsSwapChainSurface? _swapChain;
     private VelloGraphicsDevice? _device;
-    private DispatcherQueueTimer? _renderTimer;
+    private IVelloWindowsDispatcherTimer? _renderTimer;
     private EventHandler<object>? _compositionRenderingHandler;
+    private IVelloCompositionTarget? _compositionTarget;
     private bool _disposed;
     private bool _isLoaded;
     private int _pendingRender;
@@ -86,7 +86,7 @@ internal sealed class VelloSwapChainPresenter : IDisposable
             return;
         }
 
-        var dispatcher = GetDispatcherQueue();
+        var dispatcher = GetDispatcher();
         if (dispatcher is null)
         {
             return;
@@ -259,8 +259,8 @@ internal sealed class VelloSwapChainPresenter : IDisposable
         _renderIdle.Dispose();
     }
 
-    private DispatcherQueue? GetDispatcherQueue()
-        => _host.DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+    private IVelloWindowsDispatcher? GetDispatcher()
+        => _host.Dispatcher ?? VelloWindowsDispatcher.GetForCurrentThread();
 
     private void AcquireGpuLeaseIfNeeded()
     {
@@ -392,7 +392,7 @@ internal sealed class VelloSwapChainPresenter : IDisposable
             _renderTimer.Stop();
         }
 
-        var dispatcher = GetDispatcherQueue();
+        var dispatcher = GetDispatcher();
         if (dispatcher is null)
         {
             return;
@@ -409,8 +409,15 @@ internal sealed class VelloSwapChainPresenter : IDisposable
 
     private void AttachCompositionLoop()
     {
+        var target = _host.CompositionTarget ?? VelloCompositionTarget.GetForCurrentThread();
+        if (target is null)
+        {
+            return;
+        }
+
         _compositionRenderingHandler ??= OnCompositionRendering;
-        CompositionTarget.Rendering += _compositionRenderingHandler;
+        target.AddRenderingHandler(_compositionRenderingHandler);
+        _compositionTarget = target;
         _activeRenderLoopDriver = RenderLoopDriver.CompositionTarget;
     }
 
@@ -420,20 +427,22 @@ internal sealed class VelloSwapChainPresenter : IDisposable
         {
             _renderTimer.Tick -= OnRenderTimerTick;
             _renderTimer.Stop();
+            _renderTimer.Dispose();
             _renderTimer = null;
         }
 
-        if (_compositionRenderingHandler is not null)
+        if (_compositionRenderingHandler is not null && _compositionTarget is not null)
         {
-            CompositionTarget.Rendering -= _compositionRenderingHandler;
+            _compositionTarget.RemoveRenderingHandler(_compositionRenderingHandler);
             _compositionRenderingHandler = null;
         }
 
+        _compositionTarget = null;
         _activeRenderLoopDriver = RenderLoopDriver.None;
         Interlocked.Exchange(ref _pendingRender, 0);
     }
 
-    private void OnRenderTimerTick(DispatcherQueueTimer sender, object args)
+    private void OnRenderTimerTick(object? sender, EventArgs args)
     {
         if (ShouldThrottleFrameTick())
         {
@@ -579,7 +588,7 @@ internal sealed class VelloSwapChainPresenter : IDisposable
 
     private void DispatchRenderEvents(VelloSwapChainRenderEventArgs renderArgs)
     {
-        var dispatcher = GetDispatcherQueue();
+        var dispatcher = GetDispatcher();
         if (dispatcher is null)
         {
             _host.OnContentInvalidated();
@@ -618,7 +627,7 @@ internal sealed class VelloSwapChainPresenter : IDisposable
             return;
         }
 
-        var dispatcher = GetDispatcherQueue();
+        var dispatcher = GetDispatcher();
         if (dispatcher is null)
         {
             Interlocked.Exchange(ref _pendingRender, 0);
@@ -663,7 +672,7 @@ internal sealed class VelloSwapChainPresenter : IDisposable
             return;
         }
 
-        var dispatcher = GetDispatcherQueue();
+        var dispatcher = GetDispatcher();
         if (dispatcher is null)
         {
             _host.OnDiagnosticsUpdated(diagnostics);
@@ -810,9 +819,9 @@ internal sealed class VelloSwapChainPresenter : IDisposable
         }
 
         WindowsSurfaceFactory.ReleaseSwapChain(_surfaceSource, _swapChain);
-       _swapChain = null;
-       ResetDevice();
-       InvalidateDiagnosticsSnapshot();
+        _swapChain = null;
+        ResetDevice();
+        InvalidateDiagnosticsSnapshot();
         NotifyDiagnosticsUpdated(_fallbackDiagnostics);
     }
 
@@ -826,5 +835,3 @@ internal sealed class VelloSwapChainPresenter : IDisposable
         }
     }
 }
-
-#endif

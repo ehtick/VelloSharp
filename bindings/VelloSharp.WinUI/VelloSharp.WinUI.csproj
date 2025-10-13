@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WindowsAppSDKPlatforms>win10-x64</WindowsAppSDKPlatforms>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
+    <AssemblyName>VelloSharp.WinUI</AssemblyName>
+    <RootNamespace>VelloSharp.Windows</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.WinUI</PackageId>
+    <Title>VelloSharp.WinUI</Title>
+    <Description>WinUI 3 controls for hosting the VelloSharp GPU renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\VelloSharp.Gpu\VelloSharp.Gpu.csproj" />
+    <ProjectReference Include="..\VelloSharp.Windows.Core\VelloSharp.Windows.Core.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Composition\VelloSharp.Composition.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Windows.Shared\VelloSharp.Windows.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+</Project>

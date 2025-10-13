@@ -1,0 +1,26 @@
+{
+  "platform": "windows-arm64",
+  "runtimes": [
+    {
+      "backend": "dx12",
+      "library": "vello_ffi.dll",
+      "description": "Direct3D 12 via WGPU (default)"
+    },
+    {
+      "backend": "vulkan",
+      "library": "vello_ffi.dll",
+      "description": "Vulkan via WGPU (requires system Vulkan runtime)"
+    }
+  ],
+  "warpFallback": {
+    "appContextSwitch": "Vello:Windows:ForceWarp",
+    "environmentVariable": "VELLO_WINDOWS_FORCE_WARP",
+    "disableSwitch": "Vello:Windows:DisableWarp",
+    "disableEnvironmentVariable": "VELLO_WINDOWS_DISABLE_WARP"
+  },
+  "backendSelection": {
+    "appContextKey": "Vello:Windows:Backends",
+    "environmentVariable": "VELLO_WINDOWS_BACKENDS",
+    "format": "Comma, semicolon, or pipe separated values (dx12, vulkan, gl, metal, webgpu, auto)"
+  }
+}

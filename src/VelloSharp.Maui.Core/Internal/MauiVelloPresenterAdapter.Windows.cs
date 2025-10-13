@@ -8,6 +8,9 @@ using VelloSharp.Maui.Rendering;
 using WinFormsIntegration = global::VelloSharp.WinForms.Integration;
 using UnoControls = VelloSharp.Uno.Controls;
 using MauiRendering = VelloSharp.Maui.Rendering;
+using WindowsContracts = VelloSharp.Windows.Shared.Contracts;
+using WindowsDiagnostics = VelloSharp.Windows.Shared.Diagnostics;
+using WindowsPresenters = VelloSharp.Windows.Shared.Presenters;
 
 namespace VelloSharp.Maui.Internal;
 
@@ -41,7 +44,7 @@ internal sealed class WindowsVelloPresenterAdapter : MauiVelloPresenterAdapter
         _panel.RenderSurface += OnRenderSurface;
         _panel.ContentInvalidated += OnContentInvalidated;
 
-        if (_panel is UnoControls.IVelloDiagnosticsProvider diagnosticsProvider)
+        if (_panel is WindowsDiagnostics.IVelloDiagnosticsProvider diagnosticsProvider)
         {
             diagnosticsProvider.DiagnosticsUpdated += OnDiagnosticsUpdated;
         }
@@ -57,7 +60,7 @@ internal sealed class WindowsVelloPresenterAdapter : MauiVelloPresenterAdapter
         _panel.PaintSurface -= OnPaintSurface;
         _panel.RenderSurface -= OnRenderSurface;
         _panel.ContentInvalidated -= OnContentInvalidated;
-        if (_panel is UnoControls.IVelloDiagnosticsProvider diagnosticsProvider)
+        if (_panel is WindowsDiagnostics.IVelloDiagnosticsProvider diagnosticsProvider)
         {
             diagnosticsProvider.DiagnosticsUpdated -= OnDiagnosticsUpdated;
         }
@@ -194,7 +197,7 @@ internal sealed class WindowsVelloPresenterAdapter : MauiVelloPresenterAdapter
     private void OnPaintSurface(object? sender, WinFormsIntegration.VelloPaintSurfaceEventArgs e)
         => RaisePaintSurface(e);
 
-    private void OnRenderSurface(object? sender, UnoControls.VelloSwapChainRenderEventArgs e)
+    private void OnRenderSurface(object? sender, WindowsPresenters.VelloSwapChainRenderEventArgs e)
     {
         var instantaneousFps = e.Delta > TimeSpan.Zero ? 1.0 / e.Delta.TotalSeconds : 0.0;
 
@@ -242,7 +245,7 @@ internal sealed class WindowsVelloPresenterAdapter : MauiVelloPresenterAdapter
         RequestRender();
     }
 
-    private void OnDiagnosticsUpdated(object? sender, UnoControls.VelloDiagnosticsChangedEventArgs e)
+    private void OnDiagnosticsUpdated(object? sender, WindowsDiagnostics.VelloDiagnosticsChangedEventArgs e)
     {
         var diagnostics = e.Diagnostics;
         var snapshot = new VelloDiagnosticsSnapshot(
@@ -271,15 +274,15 @@ internal sealed class WindowsVelloPresenterAdapter : MauiVelloPresenterAdapter
         };
     }
 
-    private static UnoControls.VelloRenderBackend ConvertBackend(MauiRendering.VelloRenderBackend backend)
+    private static WindowsContracts.VelloRenderBackend ConvertBackend(MauiRendering.VelloRenderBackend backend)
         => backend == MauiRendering.VelloRenderBackend.Cpu
-            ? UnoControls.VelloRenderBackend.Cpu
-            : UnoControls.VelloRenderBackend.Gpu;
+            ? WindowsContracts.VelloRenderBackend.Cpu
+            : WindowsContracts.VelloRenderBackend.Gpu;
 
-    private static UnoControls.VelloRenderMode ConvertRenderMode(MauiRendering.VelloRenderMode mode)
+    private static WindowsContracts.VelloRenderMode ConvertRenderMode(MauiRendering.VelloRenderMode mode)
         => mode == MauiRendering.VelloRenderMode.Continuous
-            ? UnoControls.VelloRenderMode.Continuous
-            : UnoControls.VelloRenderMode.OnDemand;
+            ? WindowsContracts.VelloRenderMode.Continuous
+            : WindowsContracts.VelloRenderMode.OnDemand;
 
     private static VelloSharp.Windows.RenderLoopDriver ConvertRenderLoopDriver(MauiRendering.RenderLoopDriver driver)
         => driver switch

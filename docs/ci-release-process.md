@@ -60,6 +60,7 @@ resulting packages across the supported operating systems.
 - Each matrix entry runs a managed smoke project (`dotnet run`) and a native
   validation project to ensure the freshly created packages can be restored and
   load their native dependencies correctly from the local packages feed.
+- The Windows matrix additionally builds the WinUI/UWP bindings (`VelloSharp.WinUI`, `VelloSharp.Uwp`, `VelloSharp.Windows.Shared`) and executes `scripts/verify-winui-native-assets.ps1` / `scripts/verify-uwp-native-assets.ps1` to confirm GPU backends (D3D12/Vulkan/WARP) and AccessKit FFIs are present.
 
 ## Release workflow
 
@@ -69,7 +70,7 @@ build pipeline.
 1. The `build` job simply reuses `build-pack.yml`, guaranteeing releases and CI
    share the same build artifacts.
 2. The `publish` job downloads the `nuget-packages` artifact and pushes every
-   `.nupkg`/`.snupkg` to NuGet.org using `dotnet nuget push`. The API key is
+   `.nupkg`/`.snupkg` to NuGet.org using `dotnet nuget push`, including the Windows host packages (`VelloSharp.WinUI`, `VelloSharp.Uwp`, `VelloSharp.Windows.Shared`) alongside the existing bindings. The API key is
    provided via the `NUGET_API_KEY` secret; duplicates are ignored to keep
    re-runs idempotent.
 3. After NuGet publication succeeds, the workflow queries GitHub for an existing

@@ -30,6 +30,9 @@ layout share a cohesive managed API while still exposing low-level control over 
 | `VelloSharp.Avalonia.Winit` | Avalonia windowing backend that routes through winit and Vello. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Winit.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Winit/) |
 | `VelloSharp.Avalonia.Controls` | Reusable Vello-powered Avalonia controls (`VelloCanvasControl`, `VelloAnimatedCanvasControl`, `VelloSvgControl`) for rapid UI embedding. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Controls.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Controls/) |
 | `VelloSharp.Windows.Core` | Windows swapchain, device, and interop helpers shared by WinForms/WPF hosts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Windows.Core.svg)](https://www.nuget.org/packages/VelloSharp.Windows.Core/) |
+| `VelloSharp.Windows.Shared` | Shared presenter, diagnostics, dispatcher, and AccessKit plumbing reused by WinUI, UWP, Uno, and MAUI controls. | _(preview)_ |
+| `VelloSharp.WinUI` | WinUI 3 `VelloSwapChainControl` with GPU backend selection, diagnostics overlays, and AccessKit automation. | _(preview)_ |
+| `VelloSharp.Uwp` | UWP/WinAppSDK `VelloSwapChainPanel` with D3D12/Vulkan backends, WARP fallback, and AppContainer-safe AccessKit automation. | _(preview)_ |
 | `VelloSharp.WinForms.Core` | WinForms-friendly drawing abstractions and bitmap helpers. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.WinForms.Core.svg)](https://www.nuget.org/packages/VelloSharp.WinForms.Core/) |
 | `VelloSharp.Integration.WinForms` | Drop-in WinForms control that renders through the shared Vello renderer. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.WinForms.svg)](https://www.nuget.org/packages/VelloSharp.Integration.WinForms/) |
 | `VelloSharp.Integration.Wpf` | Swapchain-backed WPF controls with GPU/CPU fallback support. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Integration.Wpf.svg)](https://www.nuget.org/packages/VelloSharp.Integration.Wpf/) |
@@ -482,6 +485,60 @@ var panel = new VelloSwapChainPanel();
 {
     Console.WriteLine($"GPU presentations: {e.Diagnostics.SwapChainPresentations}");
 };
+```
+
+### VelloSharp.Windows.Shared (preview)
+
+- Shared `VelloSwapChainPresenter`, diagnostics, dispatcher, and AccessKit host helpers reused by WinUI, UWP, Uno, and MAUI bindings.
+- Targets `net8.0-windows10.0.17763` today and ships AppContainer-safe dispatcher abstractions consumed by the UWP control.
+
+```csharp
+using VelloSharp.Windows.Shared.Presenters;
+
+var presenter = new VelloSwapChainPresenter(host, surfaceSource);
+presenter.OnLoaded();
+presenter.RequestRender();
+```
+
+### VelloSharp.WinUI (preview)
+
+- `VelloSwapChainControl` is a WinUI 3 `SwapChainPanel` that renders Vello scenes with full GPU acceleration.
+- See `samples/WinUIVelloGallery` for an animated example and diagnostics overlay.
+
+```xml
+<Grid xmlns:vello="using:VelloSharp.Windows.Controls">
+  <vello:VelloSwapChainControl x:Name="SwapChain"
+                                PreferredBackend="Gpu"
+                                RenderMode="Continuous" />
+</Grid>
+```
+
+```csharp
+SwapChain.PaintSurface += (_, e) =>
+{
+    var scene = e.Session.Scene;
+    scene.Reset();
+
+    var rect = new PathBuilder()
+        .MoveTo(0, 0).LineTo(e.Session.Width, 0)
+        .LineTo(e.Session.Width, e.Session.Height).LineTo(0, e.Session.Height)
+        .Close();
+
+    scene.FillPath(rect, FillRule.NonZero, Matrix3x2.Identity, new RgbaColor(0.2f, 0.3f, 0.65f, 1f));
+};
+```
+
+### VelloSharp.Uwp (preview)
+
+- `VelloSwapChainPanel` now mirrors the WinUI control with D3D12/Vulkan backends, WARP fallback, diagnostics, and AccessKit automation peers for UIA/AppContainer scenarios.
+- Targets `net8.0-windows10.0.19041` (WinAppSDK) today; the `uap10.0.19041` packaging target remains tracked in `docs/winui-uwp-vello-full-gpu-integration-plan.md`.
+
+```xml
+<Grid xmlns:vello="using:VelloSharp.Uwp.Controls">
+  <vello:VelloSwapChainPanel x:Name="SwapChain"
+                              PreferredBackend="Gpu"
+                              RenderMode="OnDemand" />
+</Grid>
 ```
 
 ### VelloSharp.Composition

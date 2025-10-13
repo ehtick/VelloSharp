@@ -1,9 +1,7 @@
-#if HAS_UNO
-
 using System;
 using VelloSharp.Windows;
 
-namespace VelloSharp.Uno.Controls;
+namespace VelloSharp.Windows.Shared.Diagnostics;
 
 public sealed class VelloDiagnosticsChangedEventArgs : EventArgs
 {
@@ -14,5 +12,3 @@ public sealed class VelloDiagnosticsChangedEventArgs : EventArgs
 
     public WindowsGpuDiagnostics Diagnostics { get; }
 }
-
-#endif

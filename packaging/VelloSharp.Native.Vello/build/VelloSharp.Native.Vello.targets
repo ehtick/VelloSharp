@@ -1,0 +1,31 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <_VelloNativeContent Include="@(ContentWithTargetPath)">
+      <NativeRid Condition="$([System.String]::Copy('%(NuGetPackageId)')).StartsWith('VelloSharp.Native.') and $([System.String]::Copy('%(PackagePath)')).StartsWith('runtimes/') and $([System.String]::Copy('%(PackagePath)')).Contains('native/')">$([System.String]::Copy('%(PackagePath)').Split('/')[1])</NativeRid>
+      <NativeSubPath Condition="$([System.String]::Copy('%(NuGetPackageId)')).StartsWith('VelloSharp.Native.') and $([System.String]::Copy('%(PackagePath)')).StartsWith('runtimes/') and $([System.String]::Copy('%(PackagePath)')).Contains('native/')">$([System.String]::Copy('%(PackagePath)').Substring($([System.String]::Copy('%(PackagePath)').IndexOf('native/')) + 7))</NativeSubPath>
+    </_VelloNativeContent>
+  </ItemGroup>
+
+  <Target Name="VelloSharpIncludeWindowsNativeAssets"
+          AfterTargets="ResolvePackageAssets"
+          Condition="@(_VelloNativeContent) != ''">
+    <Copy SourceFiles="@(_VelloNativeContent->'%(FullPath)')"
+          DestinationFiles="@(_VelloNativeContent -> '$(IntermediateOutputPath)\VelloSharp\runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)')"
+          SkipUnchangedFiles="true"
+          Condition="'%(_VelloNativeContent.NativeRid)' != '' and $([System.String]::Copy('%(_VelloNativeContent.NativeRid)')).StartsWith('win-')" />
+
+    <ItemGroup>
+      <Content Include="@(_VelloNativeContent -> '$(IntermediateOutputPath)\VelloSharp\runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)')"
+               Condition="'%(_VelloNativeContent.NativeRid)' != '' and $([System.String]::Copy('%(_VelloNativeContent.NativeRid)')).StartsWith('win-')">
+        <Link>runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <IncludeInPackage>true</IncludeInPackage>
+        <Visible>false</Visible>
+        <DeploymentContent Condition="'$(TargetPlatformIdentifier)' == 'UAP' or ('$(WindowsPackageType)' != '' and '$(WindowsPackageType)' != 'None')">true</DeploymentContent>
+        <AppxPackageFile Condition="'$(TargetPlatformIdentifier)' == 'UAP' or ('$(WindowsPackageType)' != '' and '$(WindowsPackageType)' != 'None')">runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)</AppxPackageFile>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+    </ItemGroup>
+  </Target>
+</Project>

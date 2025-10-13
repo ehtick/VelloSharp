@@ -1,0 +1,40 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(TargetPlatformIdentifier)' == 'UAP' and '$(VelloEnableD3D12Capability)' != 'false'">
+    <_VelloRescapNamespace>rescap=http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities</_VelloRescapNamespace>
+    <_VelloRestrictedCapability>rescap|d3d12</_VelloRestrictedCapability>
+    <AppxManifestCapabilities Condition="'$(AppxManifestCapabilities)' == ''">$(_VelloRestrictedCapability)</AppxManifestCapabilities>
+    <AppxManifestCapabilities Condition="'$(AppxManifestCapabilities)' != '' and !$([System.String]::Copy('$(AppxManifestCapabilities)').Contains('rescap|d3d12'))">$(AppxManifestCapabilities);$(_VelloRestrictedCapability)</AppxManifestCapabilities>
+    <AppxManifestIgnorableNamespaces Condition="'$(AppxManifestIgnorableNamespaces)' == ''">rescap</AppxManifestIgnorableNamespaces>
+    <AppxManifestIgnorableNamespaces Condition="'$(AppxManifestIgnorableNamespaces)' != '' and !$([System.String]::Copy('$(AppxManifestIgnorableNamespaces)').Contains('rescap'))">$(AppxManifestIgnorableNamespaces);rescap</AppxManifestIgnorableNamespaces>
+    <AppxManifestNamespaces Condition="'$(AppxManifestNamespaces)' == ''">$(_VelloRescapNamespace)</AppxManifestNamespaces>
+    <AppxManifestNamespaces Condition="'$(AppxManifestNamespaces)' != '' and !$([System.String]::Copy('$(AppxManifestNamespaces)').Contains('rescap=http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities'))">$(AppxManifestNamespaces);$(_VelloRescapNamespace)</AppxManifestNamespaces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_VelloNativeContent Include="@(ContentWithTargetPath)">
+      <NativeRid Condition="$([System.String]::Copy('%(NuGetPackageId)')).StartsWith('VelloSharp.Native.') and $([System.String]::Copy('%(PackagePath)')).StartsWith('runtimes/') and $([System.String]::Copy('%(PackagePath)')).Contains('native/')">$([System.String]::Copy('%(PackagePath)').Split('/')[1])</NativeRid>
+      <NativeSubPath Condition="$([System.String]::Copy('%(NuGetPackageId)')).StartsWith('VelloSharp.Native.') and $([System.String]::Copy('%(PackagePath)')).StartsWith('runtimes/') and $([System.String]::Copy('%(PackagePath)')).Contains('native/')">$([System.String]::Copy('%(PackagePath)').Substring($([System.String]::Copy('%(PackagePath)').IndexOf('native/')) + 7))</NativeSubPath>
+    </_VelloNativeContent>
+  </ItemGroup>
+
+  <Target Name="VelloSharpIncludeUwpNativeAssets"
+          AfterTargets="ResolvePackageAssets"
+          Condition="@(_VelloNativeContent) != ''">
+    <Copy SourceFiles="@(_VelloNativeContent->'%(FullPath)')"
+          DestinationFiles="@(_VelloNativeContent -> '$(IntermediateOutputPath)\VelloSharp\runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)')"
+          SkipUnchangedFiles="true"
+          Condition="'%(_VelloNativeContent.NativeRid)' != ''" />
+
+    <ItemGroup>
+      <Content Include="@(_VelloNativeContent -> '$(IntermediateOutputPath)\VelloSharp\runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)')"
+               Condition="'%(_VelloNativeContent.NativeRid)' != '' and $([System.String]::Copy('%(_VelloNativeContent.NativeRid)')).StartsWith('win-')">
+        <Link>runtimes\%(_VelloNativeContent.NativeRid)\native\%(_VelloNativeContent.NativeSubPath)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <IncludeInPackage>true</IncludeInPackage>
+        <Visible>false</Visible>
+        <DeploymentContent>true</DeploymentContent>
+      </Content>
+    </ItemGroup>
+  </Target>
+</Project>

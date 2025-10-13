@@ -14,6 +14,8 @@ using VelloSharp.Charting.Rendering;
 using VelloSharp.Charting.Styling;
 using VelloSharp.Uno.Controls;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Shared.Contracts;
+using VelloSharp.Windows.Shared.Presenters;
 using Windows.ApplicationModel;
 using VelloPaintSurfaceEventArgs = VelloSharp.WinForms.Integration.VelloPaintSurfaceEventArgs;
 

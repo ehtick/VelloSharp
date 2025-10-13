@@ -29,6 +29,8 @@ public sealed class WindowsGpuDiagnostics
     private string? _lastError;
     private int _lastSurfaceWidth;
     private int _lastSurfaceHeight;
+    private int _warpFallbackActive;
+    private string? _warpFallbackReason;
 
     public long SurfaceConfigurations => Interlocked.Read(ref _surfaceConfigurations);
 
@@ -81,6 +83,10 @@ public sealed class WindowsGpuDiagnostics
     public (int Width, int Height) LastSurfaceSize =>
         (Interlocked.CompareExchange(ref _lastSurfaceWidth, 0, 0),
          Interlocked.CompareExchange(ref _lastSurfaceHeight, 0, 0));
+
+    public bool IsWarpFallbackActive => Interlocked.CompareExchange(ref _warpFallbackActive, 0, 0) == 1;
+
+    public string? WarpFallbackReason => Interlocked.CompareExchange(ref _warpFallbackReason, null, null);
 
     internal void RecordSurfaceConfiguration(uint width, uint height)
     {
@@ -167,6 +173,22 @@ public sealed class WindowsGpuDiagnostics
     {
         Interlocked.Increment(ref _sharedTextureFailures);
         Interlocked.Exchange(ref _lastError, message);
+    }
+
+    internal void RecordWarpFallback(string? reason = null)
+    {
+        Interlocked.Exchange(ref _warpFallbackActive, 1);
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            Interlocked.Exchange(ref _warpFallbackReason, reason);
+            Interlocked.Exchange(ref _lastError, reason);
+        }
+    }
+
+    internal void ClearWarpFallback()
+    {
+        Interlocked.Exchange(ref _warpFallbackActive, 0);
+        Interlocked.Exchange(ref _warpFallbackReason, null);
     }
 
     private static void UpdatePeak(ref long target, long candidate)

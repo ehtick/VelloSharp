@@ -28,6 +28,8 @@ declare -a TARGETS=(
   "samples/VelloSharp.WpfSample"
   "samples/VelloSharp.Uno.WinAppSdkSample"
   "samples/MauiVelloGallery"
+  "samples/UwpVelloGallery"
+  "samples/WinUIVelloGallery"
   "samples/WinFormsMotionMarkShim"
 )
 declare -A TARGET_SET=()

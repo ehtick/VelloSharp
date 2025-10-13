@@ -2,9 +2,11 @@
 
 using System;
 using VelloSharp;
-using VelloSharp.Uno.Controls;
-using VelloSharp.WinForms.Integration;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Core.Tests.Helpers;
+using VelloSharp.Windows.Shared.Contracts;
+using VelloSharp.Windows.Shared.Presenters;
+using VelloSharp.WinForms.Integration;
 using Xunit;
 
 namespace VelloSharp.Windows.Core.Tests;

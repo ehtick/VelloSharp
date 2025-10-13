@@ -35,7 +35,11 @@
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.2" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.5.240802000" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="Appium.WebDriver" Version="5.1.0" />
+    <PackageVersion Include="Selenium.Support" Version="4.25.0" />
     <PackageVersion Include="xunit" Version="2.5.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.0" />
     <PackageVersion Include="Uno.WinUI" Version="5.2.175" />

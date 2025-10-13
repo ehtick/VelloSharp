@@ -1,5 +1,6 @@
 using VelloSharp.Uno.Controls;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Shared.Diagnostics;
 
 Console.WriteLine("Verifying VelloSharp.Uno package usage…");
 

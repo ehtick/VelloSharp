@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WindowsAppSDKPlatforms>win10-x64</WindowsAppSDKPlatforms>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
+    <AssemblyName>VelloSharp.Uwp</AssemblyName>
+    <RootNamespace>VelloSharp.Uwp</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Uwp</PackageId>
+    <Title>VelloSharp.Uwp</Title>
+    <Description>UWP/WinUI 3 controls for hosting the VelloSharp renderer (preview).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VelloSharp\VelloSharp.csproj" />
+    <ProjectReference Include="..\VelloSharp.Windows.Core\VelloSharp.Windows.Core.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Composition\VelloSharp.Composition.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Windows.Shared\VelloSharp.Windows.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="buildTransitive\VelloSharp.Uwp.targets" Pack="true" PackagePath="buildTransitive\VelloSharp.Uwp.targets" />
+  </ItemGroup>
+
+  <Import Project="buildTransitive\VelloSharp.Uwp.targets" Condition="Exists('buildTransitive\VelloSharp.Uwp.targets')" />
+</Project>

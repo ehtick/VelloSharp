@@ -30,10 +30,13 @@
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj"
                       Condition="'$(TargetFramework)' != 'net8.0'" />
+    <ProjectReference Include="..\..\src\VelloSharp.Windows.Shared\VelloSharp.Windows.Shared.csproj"
+                      Condition="'$(TargetFramework)' != 'net8.0'" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' != 'net8.0'">
     <PackageReference Include="Uno.WinUI" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
@@ -46,6 +49,7 @@
     <Compile Remove="Interop\UnoSwapChainPanelSurfaceSource.cs" />
     <Compile Remove="Controls\VelloXamlIslandSwapChainHost.cs" />
     <Compile Remove="Interop\UnoCoreWindowSurfaceSource.cs" />
+    <Compile Remove="Dispatching\UnoDispatchers.cs" />
   </ItemGroup>
 
 </Project>

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using VelloSharp.Windows;
+using VelloSharp.Windows.Shared.Contracts;
 
 namespace VelloSharp.Uno.Controls;
 

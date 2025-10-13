@@ -66,7 +66,7 @@ supports_sample() {
   local rel="${project_path#"${ROOT}/"}"
 
   case "${rel}" in
-    samples/*WinForms*|samples/*Wpf*|samples/*WinAppSdk*|samples/*Win32*)
+    samples/*WinForms*|samples/*Wpf*|samples/*WinAppSdk*|samples/*Win32*|samples/WinUIVelloGallery/*|samples/UwpVelloGallery/*)
       [[ "${platform}" == "windows" ]] || return 1
       ;;
     samples/MauiVelloGallery/*)

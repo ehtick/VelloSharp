@@ -1,6 +1,4 @@
-#if HAS_UNO
-
-namespace VelloSharp.Uno.Controls;
+namespace VelloSharp.Windows.Shared.Contracts;
 
 public enum VelloRenderBackend
 {
@@ -13,6 +11,3 @@ public enum VelloRenderMode
     OnDemand,
     Continuous,
 }
-
-#endif
-

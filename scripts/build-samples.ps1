@@ -33,6 +33,8 @@ function Supports-Sample {
         'samples/*Wpf*'      { return $Platform -eq 'windows' }
         'samples/*WinAppSdk*' { return $Platform -eq 'windows' }
         'samples/*Win32*'    { return $Platform -eq 'windows' }
+        'samples/WinUIVelloGallery/*' { return $Platform -eq 'windows' }
+        'samples/UwpVelloGallery/*' { return $Platform -eq 'windows' }
         'samples/*X11Demo*'  { return $Platform -eq 'linux' }
         'samples/MauiVelloGallery/*' { return $Platform -eq 'windows' }
         default              { return $true }

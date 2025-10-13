@@ -12,6 +12,7 @@ public sealed class WindowsGpuContext : IDisposable
     private readonly object _sync = new();
     private readonly VelloGraphicsDeviceOptions _options;
     private readonly RendererOptions _baseRendererOptions;
+    private readonly WindowsGpuRuntimeConfiguration _runtimeConfiguration;
     private readonly WgpuInstance _instance;
     private readonly WindowsGpuResourcePool _resourcePool;
 
@@ -21,6 +22,7 @@ public sealed class WindowsGpuContext : IDisposable
     private WgpuRenderer? _renderer;
     private WgpuFeature _deviceFeatures;
     private bool _disposed;
+    private bool _usingFallbackAdapter;
 
     public WindowsGpuDiagnostics Diagnostics { get; } = new();
 
@@ -28,9 +30,15 @@ public sealed class WindowsGpuContext : IDisposable
     {
         _options = options;
         _baseRendererOptions = options.RendererOptions ?? new RendererOptions();
+        _runtimeConfiguration = WindowsGpuConfiguration.Load();
+        var selectedBackends = _runtimeConfiguration.Backends;
+        if (selectedBackends == 0)
+        {
+            selectedBackends = WindowsGpuConfiguration.DefaultBackends;
+        }
         var instanceOptions = new WgpuInstanceOptions
         {
-            Backends = WgpuBackend.Dx12,
+            Backends = selectedBackends,
         };
         _instance = new WgpuInstance(instanceOptions);
         _resourcePool = new WindowsGpuResourcePool();
@@ -135,6 +143,8 @@ public sealed class WindowsGpuContext : IDisposable
         }
     }
 
+    public bool IsWarpFallback => _usingFallbackAdapter;
+
     public WindowsSwapChainSurface CreateSwapChainSurface(WindowsSurfaceDescriptor surfaceDescriptor, uint width, uint height)
     {
         if (surfaceDescriptor.IsEmpty)
@@ -219,13 +229,33 @@ public sealed class WindowsGpuContext : IDisposable
                 return;
             }
 
+            Diagnostics.ClearWarpFallback();
             var requestOptions = new WgpuRequestAdapterOptions
             {
                 PowerPreference = _options.PreferDiscreteAdapter ? WgpuPowerPreference.HighPerformance : WgpuPowerPreference.LowPower,
                 CompatibleSurface = surface,
+                ForceFallbackAdapter = _runtimeConfiguration.ForceWarpFallback,
             };
 
-            _adapter = _instance.RequestAdapter(requestOptions);
+            try
+            {
+                _adapter = _instance.RequestAdapter(requestOptions);
+                _usingFallbackAdapter = requestOptions.ForceFallbackAdapter;
+                if (_usingFallbackAdapter)
+                {
+                    Diagnostics.RecordWarpFallback("Forced by configuration");
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!_runtimeConfiguration.AllowWarpFallback)
+                {
+                    throw;
+                }
+
+                _adapter = AcquireFallbackAdapter(surface, ex);
+                _usingFallbackAdapter = true;
+            }
         }
     }
 
@@ -376,11 +406,44 @@ public sealed class WindowsGpuContext : IDisposable
 
             _adapter?.Dispose();
             _adapter = null;
+            _usingFallbackAdapter = false;
+            Diagnostics.ClearWarpFallback();
 
             _resourcePool.Reset();
             _instance.Dispose();
             _disposed = true;
             Diagnostics.RecordDeviceReset();
+        }
+    }
+
+    private WgpuAdapter AcquireFallbackAdapter(WgpuSurface? surface, Exception failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        var primaryFailure = failure;
+        var reason = primaryFailure.Message;
+        Diagnostics.RecordDeviceReset(reason);
+
+        var fallbackOptions = new WgpuRequestAdapterOptions
+        {
+            PowerPreference = WgpuPowerPreference.LowPower,
+            ForceFallbackAdapter = true,
+            CompatibleSurface = surface,
+        };
+
+        try
+        {
+            var adapter = _instance.RequestAdapter(fallbackOptions);
+            Diagnostics.RecordWarpFallback(reason);
+            return adapter;
+        }
+        catch (Exception fallbackEx)
+        {
+            Diagnostics.RecordDeviceReset(fallbackEx.Message);
+            var fallbackMessage = fallbackEx.Message ?? fallbackEx.GetType().Name;
+            var message = $"Unable to acquire a Windows GPU adapter. Hardware initialisation failed ({reason ?? primaryFailure.GetType().Name}) and WARP fallback was not available ({fallbackMessage}).";
+            var composite = new InvalidOperationException(message, fallbackEx);
+            composite.Data["VelloPrimaryAdapterException"] = primaryFailure;
+            throw composite;
         }
     }
 }

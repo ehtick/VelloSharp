@@ -286,6 +286,146 @@ jobs:
           path: artifacts/nuget
           if-no-files-found: error
 
+  winui-uwp-validation:
+    name: WinUI & UWP Validation
+    needs:
+      - pack-managed
+    runs-on: windows-latest
+    env:
+      BUILD_CONFIGURATION: Release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install WinAppDriver
+        shell: pwsh
+        run: choco install winappdriver --version=1.2.1 -y
+
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/nuget
+
+      - name: List packaged artifacts
+        shell: pwsh
+        run: Get-ChildItem -Recurse -Path artifacts/nuget
+
+      - name: Configure local NuGet source
+        shell: pwsh
+        run: |
+          $sourcePath = (Resolve-Path "artifacts/nuget").ProviderPath
+          dotnet nuget remove source VelloNativeLocal --configfile NuGet.Config > $null 2>&1
+          dotnet nuget add source $sourcePath --name VelloNativeLocal --configfile NuGet.Config
+
+      - name: Restore Windows App SDK workloads
+        shell: pwsh
+        run: |
+          dotnet workload restore --project bindings/VelloSharp.WinUI/VelloSharp.WinUI.csproj
+          dotnet workload restore --project bindings/VelloSharp.Uwp/VelloSharp.Uwp.csproj
+
+      - name: Start WinAppDriver
+        shell: pwsh
+        run: |
+          $candidatePaths = @(
+            "$Env:ProgramFiles\Windows Application Driver\WinAppDriver.exe",
+            "${Env:ProgramFiles(x86)}\Windows Application Driver\WinAppDriver.exe"
+          )
+          $executable = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $executable) {
+            throw "Unable to locate WinAppDriver.exe after installation."
+          }
+          $process = Start-Process -FilePath $executable -WindowStyle Hidden -PassThru
+          $process.Id | Out-File -FilePath winappdriver.pid -Encoding ascii
+          Start-Sleep -Seconds 5
+
+      - name: Build WinUI and UWP bindings
+        shell: pwsh
+        run: |
+          dotnet build bindings/VelloSharp.WinUI/VelloSharp.WinUI.csproj -c $env:BUILD_CONFIGURATION --no-restore
+          dotnet build bindings/VelloSharp.Uwp/VelloSharp.Uwp.csproj -c $env:BUILD_CONFIGURATION --no-restore
+
+      - name: Build sample applications
+        shell: pwsh
+        run: |
+          dotnet build samples/WinUIVelloGallery/WinUIVelloGallery.csproj -c $env:BUILD_CONFIGURATION --no-restore
+          dotnet build samples/UwpVelloGallery/UwpVelloGallery.csproj -c $env:BUILD_CONFIGURATION --no-restore
+
+      - name: Extract WinUI & UWP packages
+        shell: pwsh
+        run: |
+          $extractRoot = Join-Path (Get-Location) 'artifacts\extracted'
+          New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+
+          $winuiPackage = Get-ChildItem 'artifacts/nuget' -Filter 'VelloSharp.WinUI*.nupkg' | Where-Object {
+            $_.Extension -eq '.nupkg' -and $_.Name -notlike '*.symbols.*' -and $_.Name -notlike '*.snupkg'
+          } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $winuiPackage) {
+            throw "VelloSharp.WinUI package not found under artifacts/nuget."
+          }
+          $winuiExtract = Join-Path $extractRoot 'winui'
+          Expand-Archive -Path $winuiPackage.FullName -DestinationPath $winuiExtract -Force
+
+          $uwpPackage = Get-ChildItem 'artifacts/nuget' -Filter 'VelloSharp.Uwp*.nupkg' | Where-Object {
+            $_.Extension -eq '.nupkg' -and $_.Name -notlike '*.symbols.*' -and $_.Name -notlike '*.snupkg'
+          } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $uwpPackage) {
+            throw "VelloSharp.Uwp package not found under artifacts/nuget."
+          }
+          $uwpExtract = Join-Path $extractRoot 'uwp'
+          Expand-Archive -Path $uwpPackage.FullName -DestinationPath $uwpExtract -Force
+
+      - name: Verify WinUI native assets
+        shell: pwsh
+        run: |
+          $bundle = Join-Path (Get-Location) 'artifacts\extracted\winui'
+          ./scripts/verify-winui-native-assets.ps1 -BundlePath $bundle -RuntimeIdentifier win-x64 -AllowUnsigned
+          ./scripts/verify-winui-native-assets.ps1 -BundlePath $bundle -RuntimeIdentifier win-arm64 -AllowUnsigned
+
+      - name: Verify UWP native assets
+        shell: pwsh
+        run: |
+          $bundle = Join-Path (Get-Location) 'artifacts\extracted\uwp'
+          ./scripts/verify-uwp-native-assets.ps1 -BundlePath $bundle -RuntimeIdentifier win10-x64 -AllowUnsigned
+          ./scripts/verify-uwp-native-assets.ps1 -BundlePath $bundle -RuntimeIdentifier win10-arm64 -AllowUnsigned
+
+      - name: Run WinUI/UWP UI smoke tests
+        shell: pwsh
+        run: |
+          $resultsDir = Join-Path (Get-Location) 'artifacts\test-results'
+          New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
+          dotnet test tests/VelloSharp.Windows.UiSmokeTests/VelloSharp.Windows.UiSmokeTests.csproj `
+            -c $env:BUILD_CONFIGURATION `
+            --no-build `
+            --logger "trx;LogFileName=winui-uwp-smoke.trx" `
+            --results-directory $resultsDir
+
+      - name: Stop WinAppDriver
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path winappdriver.pid) {
+            $pid = Get-Content winappdriver.pid | Select-Object -First 1
+            if ($pid) {
+              Stop-Process -Id [int]$pid -Force -ErrorAction SilentlyContinue
+            }
+          }
+          Get-Process -Name WinAppDriver -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+      - name: Publish smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: winui-uwp-smoke-tests
+          path: artifacts/test-results
+          if-no-files-found: ignore
+
   integration-managed:
     name: Managed Integrations (${{ matrix.os }})
     needs:

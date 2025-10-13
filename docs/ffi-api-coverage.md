@@ -13,6 +13,13 @@ This document compares the public C ABI exported by each native FFI crate with t
 
 > **Note:** The upstream Rust crates (`vello`, `kurbo`, `peniko`, `winit`) expose a much richer API surface than what is currently bridged via FFI. The tables below focus only on functions exported from the `*_ffi` crates and indicate whether a managed binding is present.
 
+### Windows Host Integration (WinUI/UWP)
+
+| Host | GPU backends | Accessibility | Notes |
+| --- | --- | --- | --- |
+| WinUI 3 `VelloSwapChainControl` | `D3D12`, `Vulkan`, `WARP` fallback | AccessKit automation peers wired into UIA; tree/action routing exposed via `SubmitAccessKitTreeUpdate` / `SubmitAccessKitActionRequest`. | Shares `VelloSwapChainPresenter` diagnostics and render loop controls with Uno/Maui/WinForms hosts. |
+| UWP `VelloSwapChainPanel` | `D3D12`, `Vulkan`, `WARP` fallback (AppContainer-safe) | AccessKit automation peers implemented for UWP automation surfaces, including AppContainer-compliant action dispatch. | Packages AccessKit/WGPU runtimes via `VelloSharp.Native.*`; presenter + diagnostics parity with WinUI control. |
+
 ### Vello (renderer/runtime) (`vello_ffi`)
 
 Rust crate: `vello` (subset exposed here).

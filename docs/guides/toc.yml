@@ -1,0 +1,20 @@
+- name: Getting Started
+  items:
+    - name: WinUI Vello
+      href: winui-vello-getting-started.md
+    - name: UWP Vello
+      href: uwp-vello-getting-started.md
+- name: Architecture Guides
+  items:
+    - name: Engine Initialization
+      href: engine-initialization.md
+    - name: Composition Reuse
+      href: composition-reuse.md
+    - name: Native Library Loader
+      href: native-library-loader.md
+- name: Samples & Walkthroughs
+  items:
+    - name: Layout Gallery
+      href: layout-gallery.md
+    - name: Avalonia Controls
+      href: avalonia-controls.md

@@ -135,6 +135,14 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
 - **Usage**: `pwsh ./verify-maui-native-assets.ps1 -BundlePath <publish-dir> -Platform <android|ios|iossimulator|maccatalyst|windows>`
 - **Description**: Checks a published MAUI bundle for the expected VelloSharp native binaries and reports any missing assets before distribution.
 
+### `verify-winui-native-assets.ps1`
+- **Usage**: `pwsh ./verify-winui-native-assets.ps1 -BundlePath <package-root> -RuntimeIdentifier <win-x64|win-arm64> [-AllowUnsigned]`
+- **Description**: Validates the Windows App SDK (WinUI) native payload within a nupkg or unpacked build output. Reports missing binaries or invalid Authenticode signatures for each Windows RID. Use `-AllowUnsigned` when auditing unsigned nightly builds.
+
+### `verify-uwp-native-assets.ps1`
+- **Usage**: `pwsh ./verify-uwp-native-assets.ps1 -BundlePath <extracted-appx> -RuntimeIdentifier <win10-x64|win10-arm64> [-AllowUnsigned]`
+- **Description**: Scans a UWP/AppX package layout to ensure the VelloSharp native assets (including the GPU backend manifest) are present and signed for each supported RID. Useful before sideloading or submitting to the Store.
+
 ## Integration validation
 
 ### `run-integration-tests.sh` / `run-integration-tests.ps1`

@@ -21,6 +21,7 @@
     <ProjectReference Include="../../bindings/VelloSharp.Integration.Wpf/VelloSharp.Integration.Wpf.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Uno/VelloSharp.Uno.csproj" AdditionalProperties="TargetFramework=net8.0-windows10.0.19041" />
+    <ProjectReference Include="../../src/VelloSharp.Windows.Shared/VelloSharp.Windows.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(EnableMauiTests)' == 'true'">

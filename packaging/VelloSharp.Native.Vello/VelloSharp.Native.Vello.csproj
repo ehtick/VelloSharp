@@ -37,4 +37,18 @@
       <TargetPath>runtimes\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
     </Content>
   </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)build')">
+    <None Include="$(MSBuildThisFileDirectory)build\**\*"
+          Pack="true"
+          PackagePath="build\%(RecursiveDir)%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)buildTransitive')">
+    <None Include="$(MSBuildThisFileDirectory)buildTransitive\**\*"
+          Pack="true"
+          PackagePath="buildTransitive\%(RecursiveDir)%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
 </Project>
