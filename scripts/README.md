@@ -109,11 +109,14 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
   `VelloSharp.Native.<Component>.<rid>` NuGet packages with `dotnet pack`.
 
 ### `pack-managed-nugets.sh` / `pack-managed-nugets.ps1`
-- **Usage (bash)**: `./pack-managed-nugets.sh [output-dir] [native-feed]`
-- **Usage (PowerShell)**: `pwsh ./pack-managed-nugets.ps1 [-OutputDir <path>] [-NativeFeed <path>]`
+- **Usage (bash)**: `./pack-managed-nugets.sh [output-dir] [native-feed] [--profile linux|windows|all] [--include pattern ...] [--exclude pattern ...] [--print-projects]`
+- **Usage (PowerShell)**: `pwsh ./pack-managed-nugets.ps1 [-OutputDir <path>] [-NativeFeed <path>] [-Profile <linux|windows|all>] [-Include <pattern>...] [-Exclude <pattern>...] [-PrintProjects]`
 - **Defaults**: `output-dir=artifacts/nuget`, `native-feed=<output-dir>`.
 - **Description**: Builds the managed solution in `Release`, registers a temporary NuGet feed pointing at the native
   packages, and packs every managed component. Populate the feed with `pack-native-nugets` before invoking this script.
+  Use `--profile`/`-Profile` to choose Linux-only, Windows-only, or all managed packages; add `--include`/`-Include` and
+  `--exclude`/`-Exclude` patterns for finer control. `--print-projects`/`-PrintProjects` emits the resolved project list
+  without running `dotnet pack`, making it easy for CI to drive auxiliary steps such as workload restores.
 
 ## Documentation
 
@@ -122,7 +125,13 @@ and copy the resulting binaries into `artifacts/runtimes/<rid>/native/`.
 - **Usage (PowerShell)**: `pwsh ./build-docs.ps1 [-DocFxArgs <args...>]`
 - **Defaults**: No additional DocFX arguments. Both scripts restore local tools automatically.
 - **Description**: Generates the DocFX site with `EnableWindowsTargeting=true` so Windows-targeted assemblies build on
-  non-Windows hosts. Pass extra DocFX arguments to tweak the build (for example `--serve`).
+  non-Windows hosts. Use this when you need a one-off build or to export the static site without running the preview server.
+
+### `run-docfx-site.sh` / `run-docfx-site.ps1`
+- **Usage (bash)**: `./run-docfx-site.sh [--port <port>] [docfx-args...]`
+- **Usage (PowerShell)**: `pwsh ./run-docfx-site.ps1 [-Port <port>] [-- <docfx-args...>]`
+- **Defaults**: Port `8080`, no additional DocFX arguments. Both scripts restore local tools automatically.
+- **Description**: Builds the documentation and launches the DocFX preview server with file watching enabled, so you can test changes locally. Forward extra DocFX switches after the positional arguments.
 
 ## Diagnostics
 
