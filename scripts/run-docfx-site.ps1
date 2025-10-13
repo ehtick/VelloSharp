@@ -1,29 +1,21 @@
 [CmdletBinding()]
 param(
-    [int]$Port = 8080,
+    [int]$Port = 3000,
+    [switch]$NoSync,
     [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$DocFxArgs
+    [string[]]$RemainingArgs
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$rootPath = (Resolve-Path (Join-Path $scriptRoot '..')).Path
-$docfxJson = Join-Path $rootPath 'docs/docfx/docfx.json'
+$runDocsScript = Join-Path $scriptRoot 'run-docs-site.ps1'
 
-if (-not (Test-Path $docfxJson -PathType Leaf)) {
-    throw "DocFX configuration not found at '$docfxJson'."
+if ($RemainingArgs) {
+    Write-Warning 'Extra DocFX arguments are no longer supported and will be ignored.'
 }
 
-$env:DOCFX_MSBUILD_ARGS = '/p:EnableWindowsTargeting=true'
+Write-Warning 'DocFX preview has been replaced by the Docusaurus site. Redirecting to run-docs-site.ps1.'
 
-dotnet tool restore | Out-Null
-
-$serveArgs = @('--serve', '--port', $Port.ToString())
-if ($DocFxArgs) {
-    $serveArgs += $DocFxArgs
-}
-
-Write-Host ("Starting DocFX preview on http://localhost:{0} ..." -f $Port)
-dotnet tool run docfx $docfxJson @serveArgs
+& $runDocsScript -Port $Port -NoSync:$NoSync

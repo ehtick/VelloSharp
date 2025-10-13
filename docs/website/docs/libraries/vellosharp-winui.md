@@ -8,4 +8,4 @@ Key features:
 - Reuses `VelloSharp.Windows.Shared` presenters, diagnostics, and surface abstractions.
 - Ships with `samples/WinUIVelloGallery`, showcasing animated rendering and an overlay fed by `VelloSwapChainRenderEventArgs`.
 
-Refer to [WinUI – Getting Started](../../guides/winui-vello-getting-started.md) for integration steps and code snippets.
+Refer to [WinUI – Getting Started](../guides/winui-vello-getting-started.md) for integration steps and code snippets.

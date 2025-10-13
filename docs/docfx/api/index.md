@@ -1,4 +1,8 @@
-# API Reference
+---
+id: index
+title: .NET API Reference
+sidebar_position: 0
+---
 
 The API reference is generated from the source projects during every documentation build. Use the table of contents to navigate by namespace or search for specific types.
 

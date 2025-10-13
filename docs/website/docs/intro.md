@@ -1,10 +1,14 @@
-# VelloSharp Documentation
+---
+id: intro
+title: VelloSharp Documentation
+sidebar_position: 1
+---
 
 VelloSharp delivers a family of .NET libraries for GPU accelerated rendering, real-time data visualizations, and cross-platform UI integration. This site combines conceptual guides with full API reference generated from the source projects.
 
 - Browse the [Libraries catalog](./libraries/vellosharp.md) for getting started guides tailored to each package family.
-- Explore the [API Reference](../api/index.md) for namespace and member details generated directly from the builds.
-- Follow the [DocFX Maintenance guide](./docs-maintenance.md) to rebuild, preview, or clean the documentation artifacts locally.
+- Explore the [.NET API Reference](/api/dotnet/) for namespace and member details generated directly from the builds.
+- Follow the [Documentation maintenance guide](./operations/docs-maintenance.md) to rebuild, preview, or clean the documentation artifacts locally.
 
 ## Explore the Libraries
 
@@ -22,8 +26,6 @@ VelloSharp delivers a family of .NET libraries for GPU accelerated rendering, re
 
 ## Maintenance & Community
 
-- Rebuild and preview the site using the [DocFX maintenance guide](./docs-maintenance.md).
-- Track upcoming work in the `/docs` planning outlines and the repository [STATUS.md](../../STATUS.md).
+- Rebuild and preview the site using the [Documentation maintenance guide](./operations/docs-maintenance.md).
+- Track upcoming work in the `/docs` planning outlines and the repository [STATUS.md](https://github.com/wieslawsoltes/VelloSharp/blob/main/STATUS.md).
 - Report issues or propose enhancements via the [GitHub issue tracker](https://github.com/wieslawsoltes/VelloSharp/issues).
-
-The documentation is produced with DocFX during continuous integration, ensuring the content always matches the latest code in `main`.

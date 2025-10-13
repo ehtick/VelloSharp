@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$NoSync
+    [switch]$NoSync,
+    [int]$Port = 3000
 )
 
 Set-StrictMode -Version Latest
@@ -23,7 +24,8 @@ if ($NoSync) {
 
 Push-Location $websiteDir
 try {
-    npm run build
+    Write-Host "Starting Docusaurus dev server on http://localhost:$Port ..."
+    npm run start -- --port $Port
 }
 finally {
     Pop-Location

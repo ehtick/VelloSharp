@@ -17,7 +17,8 @@
           ]
         }
       ],
-      "dest": "api",
+      "dest": "obj/api",
+      "outputFormat": "markdown",
       "disableGitFeatures": true,
       "properties": {
         "Configuration": "Release"
@@ -28,41 +29,17 @@
     "content": [
       {
         "files": [
-          "index.md",
-          "articles/**.md",
-          "articles/**/toc.yml",
-          "toc.yml"
-        ]
-      },
-      {
-        "src": "../guides",
-        "files": [
-          "**.md",
-          "**/toc.yml"
-        ],
-        "dest": "guides"
-      },
-      {
-        "files": [
-          "api/**.yml",
           "api/index.md"
-        ]
-      }
-    ],
-    "resource": [
-      {
-        "files": [
-          "images/**"
-        ]
+        ],
+        "dest": "dotnet-api"
       }
     ],
     "xrefService": [
       "https://xref.docs.microsoft.com/query?uid={uid}"
     ],
     "globalMetadata": {
-      "_appTitle": "VelloSharp Documentation",
-      "_enableSearch": true
+      "_appTitle": "VelloSharp API Reference"
     },
-    "dest": "_site"
+    "dest": "obj/site"
   }
 }

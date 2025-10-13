@@ -8,5 +8,5 @@
 
 See also:
 
-- [WinUI getting started guide](../../guides/winui-vello-getting-started.md)
-- [UWP preview notes](../../guides/uwp-vello-getting-started.md)
+- [WinUI getting started guide](../guides/winui-vello-getting-started.md)
+- [UWP preview notes](../guides/uwp-vello-getting-started.md)

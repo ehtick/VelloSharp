@@ -6,4 +6,4 @@ The `VelloSharp.Uwp` package delivers a `VelloSwapChainPanel` that mirrors the W
 - Sample app: `samples/UwpVelloGallery` (WinAppSDK preview) demonstrates scene updates and diagnostics overlays.
 - Follow the progress and outstanding tasks in `docs/winui-uwp-vello-full-gpu-integration-plan.md`.
 
-For current setup guidance see [UWP – Preview Notes](../../guides/uwp-vello-getting-started.md).
+For current setup guidance see [UWP – Preview Notes](../guides/uwp-vello-getting-started.md).
