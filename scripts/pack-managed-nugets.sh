@@ -2,6 +2,102 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+log() {
+  echo "$@" >&2
+}
+
+declare -a INCLUDE_FILTERS=()
+declare -a EXCLUDE_FILTERS=()
+declare -a POSITIONAL=()
+PROFILE="all"
+PRINT_PROJECTS="false"
+
+declare -a WINDOWS_SPECIFIC_PROJECTS=(
+  "bindings/VelloSharp.Integration.WinForms/VelloSharp.Integration.WinForms.csproj"
+  "bindings/VelloSharp.Integration.Wpf/VelloSharp.Integration.Wpf.csproj"
+  "bindings/VelloSharp.Maui/VelloSharp.Maui.csproj"
+  "bindings/VelloSharp.Uno/VelloSharp.Uno.csproj"
+  "bindings/VelloSharp.Uwp/VelloSharp.Uwp.csproj"
+  "bindings/VelloSharp.WinForms.Core/VelloSharp.WinForms.Core.csproj"
+  "bindings/VelloSharp.WinUI/VelloSharp.WinUI.csproj"
+  "bindings/VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj"
+  "src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj"
+  "src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj"
+  "src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj"
+  "src/VelloSharp.Maui.Core/VelloSharp.Maui.Core.csproj"
+  "src/VelloSharp.Windows.Shared/VelloSharp.Windows.Shared.csproj"
+)
+
+is_windows_specific() {
+  local candidate="$1"
+  local project
+  for project in "${WINDOWS_SPECIFIC_PROJECTS[@]}"; do
+    if [[ "${candidate}" == "${project}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --include)
+      shift
+      if (($# == 0)); then
+        echo "Missing value for --include option." >&2
+        exit 1
+      fi
+      INCLUDE_FILTERS+=("$1")
+      ;;
+    --exclude)
+      shift
+      if (($# == 0)); then
+        echo "Missing value for --exclude option." >&2
+        exit 1
+      fi
+      EXCLUDE_FILTERS+=("$1")
+      ;;
+    --profile)
+      shift
+      if (($# == 0)); then
+        echo "Missing value for --profile option." >&2
+        exit 1
+      fi
+      case "$1" in
+        linux|windows|all)
+          PROFILE="$1"
+          ;;
+        *)
+          echo "Unknown profile '$1'. Expected one of: linux, windows, all." >&2
+          exit 1
+          ;;
+      esac
+      ;;
+    --print-projects)
+      PRINT_PROJECTS="true"
+      ;;
+    --help)
+      cat <<'EOF'
+Usage: pack-managed-nugets.sh [nuget-output] [native-feed]
+       [--profile linux|windows|all] [--print-projects]
+       [--include pattern]... [--exclude pattern]...
+EOF
+      exit 0
+      ;;
+    --*)
+      echo "Unknown option '$1'." >&2
+      exit 1
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      ;;
+  esac
+  shift
+done
+
+set -- "${POSITIONAL[@]:-}"
+
 NUGET_OUTPUT="${1:-${ROOT}/artifacts/nuget}"
 NATIVE_FEED="${2:-${NUGET_OUTPUT}}"
 
@@ -34,13 +130,73 @@ for candidate in "${PROJECT_PATHS[@]}"; do
   fi
 done
 
-if ((${#PROJECTS[@]} == 0)); then
-  echo "No packable managed projects found under 'bindings' or 'src'." >&2
-fi
-
 if ((${#PROJECTS[@]} > 0)); then
   IFS=$'\n' PROJECTS=($(printf '%s\n' "${PROJECTS[@]}" | sort))
   unset IFS
+fi
+
+if [[ "${PROFILE}" == "linux" ]]; then
+  declare -a filtered=()
+  for project in "${PROJECTS[@]}"; do
+    if ! is_windows_specific "${project}"; then
+      filtered+=("${project}")
+    fi
+  done
+  PROJECTS=("${filtered[@]}")
+elif [[ "${PROFILE}" == "windows" ]]; then
+  declare -a filtered=()
+  for project in "${PROJECTS[@]}"; do
+    if is_windows_specific "${project}"; then
+      filtered+=("${project}")
+    fi
+  done
+  PROJECTS=("${filtered[@]}")
+fi
+
+if ((${#INCLUDE_FILTERS[@]} > 0)); then
+  log "Applying include filters: ${INCLUDE_FILTERS[*]}"
+  declare -a filtered=()
+  for project in "${PROJECTS[@]}"; do
+    for pattern in "${INCLUDE_FILTERS[@]}"; do
+      if [[ "${project}" == ${pattern} ]]; then
+        filtered+=("${project}")
+        break
+      fi
+    done
+  done
+  PROJECTS=("${filtered[@]}")
+fi
+
+if ((${#EXCLUDE_FILTERS[@]} > 0)); then
+  log "Applying exclude filters: ${EXCLUDE_FILTERS[*]}"
+  declare -a filtered=()
+  for project in "${PROJECTS[@]}"; do
+    skip=false
+    for pattern in "${EXCLUDE_FILTERS[@]}"; do
+      if [[ "${project}" == ${pattern} ]]; then
+        skip=true
+        break
+      fi
+    done
+    if [[ "${skip}" == "false" ]]; then
+      filtered+=("${project}")
+    fi
+  done
+  PROJECTS=("${filtered[@]}")
+fi
+
+if ((${#PROJECTS[@]} == 0)); then
+  log "No packable managed projects matched the provided filters under 'bindings' or 'src'."
+  if [[ "${PRINT_PROJECTS}" == "true" ]]; then
+    exit 0
+  fi
+fi
+
+if [[ "${PRINT_PROJECTS}" == "true" ]]; then
+  if ((${#PROJECTS[@]} > 0)); then
+    printf '%s\n' "${PROJECTS[@]}"
+  fi
+  exit 0
 fi
 
 add_extra_arg() {
@@ -97,8 +253,8 @@ for project in "${PROJECTS[@]}"; do
     args+=("${extra_args[@]}")
   fi
 
-  echo "Packing ${project}"
+  log "Packing ${project}"
   dotnet pack "${full_path}" "${args[@]}"
 done
 
-echo "Managed packages created in '${NUGET_OUTPUT_ABS}'."
+log "Managed packages created in '${NUGET_OUTPUT_ABS}'."

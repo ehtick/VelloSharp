@@ -252,8 +252,8 @@ jobs:
           path: artifacts/nuget
           if-no-files-found: error
 
-  pack-managed:
-    name: Pack NuGet
+  pack-managed-linux:
+    name: Pack Managed NuGet (Linux)
     runs-on: ubuntu-latest
     needs:
       - collect-native-nugets
@@ -276,20 +276,108 @@ jobs:
       - name: List native NuGet packages
         run: ls -R artifacts/nuget
 
-      - name: Pack managed NuGet packages
-        run: ./scripts/pack-managed-nugets.sh artifacts/nuget artifacts/nuget
+      - name: Pack managed NuGet packages (Linux)
+        run: ./scripts/pack-managed-nugets.sh artifacts/nuget artifacts/nuget --profile linux
 
-      - name: Upload NuGet packages
+      - name: Upload NuGet packages (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-linux
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  pack-managed-windows:
+    name: Pack Managed NuGet (Windows)
+    runs-on: windows-latest
+    needs:
+      - collect-native-nugets
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download native NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          name: native-nuget-packages
+          path: artifacts/nuget
+
+      - name: Restore Windows workloads
+        shell: pwsh
+        run: |
+          $gitBash = Join-Path ${Env:ProgramFiles} 'Git\bin\bash.exe'
+          if (-not (Test-Path $gitBash)) {
+            $gitBash = Join-Path ${Env:ProgramFiles(x86)} 'Git\bin\bash.exe'
+          }
+          if (-not (Test-Path $gitBash)) {
+            throw "Unable to locate Git Bash (expected at '%ProgramFiles%\Git\bin\bash.exe')."
+          }
+
+          $bashCommand = "./scripts/pack-managed-nugets.sh --profile windows --print-projects"
+          $projectOutput = & $gitBash -lc $bashCommand
+          $projects = $projectOutput -split "`n" | Where-Object { $_.Trim() }
+          foreach ($project in $projects) {
+            dotnet workload restore --project $project
+          }
+
+      - name: Pack managed NuGet packages (Windows)
+        shell: bash
+        run: ./scripts/pack-managed-nugets.sh artifacts/nuget artifacts/nuget --profile windows
+
+      - name: Upload NuGet packages (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-windows
+          path: artifacts/nuget
+          if-no-files-found: error
+
+  pack-managed-merge:
+    name: Assemble Managed NuGets
+    runs-on: ubuntu-latest
+    needs:
+      - pack-managed-linux
+      - pack-managed-windows
+    steps:
+      - name: Prepare workspace
+        run: |
+          mkdir -p artifacts/nuget/linux
+          mkdir -p artifacts/nuget/windows
+          mkdir -p artifacts/nuget/all
+
+      - name: Download Linux managed packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages-linux
+          path: artifacts/nuget/linux
+
+      - name: Download Windows managed packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages-windows
+          path: artifacts/nuget/windows
+
+      - name: Combine managed packages
+        run: |
+          rsync -a --ignore-existing artifacts/nuget/linux/ artifacts/nuget/all/ || true
+          rsync -a artifacts/nuget/windows/ artifacts/nuget/all/ || true
+          ls -R artifacts/nuget/all
+
+      - name: Upload consolidated NuGet packages
         uses: actions/upload-artifact@v4
         with:
           name: nuget-packages
-          path: artifacts/nuget
+          path: artifacts/nuget/all
           if-no-files-found: error
 
   winui-uwp-validation:
     name: WinUI & UWP Validation
     needs:
-      - pack-managed
+      - pack-managed-merge
     runs-on: windows-latest
     env:
       BUILD_CONFIGURATION: Release
@@ -429,7 +517,7 @@ jobs:
   integration-managed:
     name: Managed Integrations (${{ matrix.os }})
     needs:
-      - pack-managed
+      - pack-managed-merge
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -497,7 +585,7 @@ jobs:
   integration-native:
     name: Native Integrations (${{ matrix.os }})
     needs:
-      - pack-managed
+      - pack-managed-merge
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

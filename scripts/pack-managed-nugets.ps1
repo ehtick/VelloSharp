@@ -1,7 +1,13 @@
 [CmdletBinding()]
 param(
+    [Alias('OutputDir')]
     [string]$NuGetOutput,
-    [string]$NativeFeed
+    [string]$NativeFeed,
+    [ValidateSet('linux', 'windows', 'all')]
+    [string]$Profile = 'all',
+    [string[]]$Include = @(),
+    [string[]]$Exclude = @(),
+    [switch]$PrintProjects
 )
 
 Set-StrictMode -Version Latest
@@ -9,6 +15,27 @@ $ErrorActionPreference = 'Stop'
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $rootPath = (Resolve-Path (Join-Path $scriptRoot '..')).Path
+
+$windowsSpecificProjects = @(
+    'bindings/VelloSharp.Integration.WinForms/VelloSharp.Integration.WinForms.csproj',
+    'bindings/VelloSharp.Integration.Wpf/VelloSharp.Integration.Wpf.csproj',
+    'bindings/VelloSharp.Maui/VelloSharp.Maui.csproj',
+    'bindings/VelloSharp.Uno/VelloSharp.Uno.csproj',
+    'bindings/VelloSharp.Uwp/VelloSharp.Uwp.csproj',
+    'bindings/VelloSharp.WinForms.Core/VelloSharp.WinForms.Core.csproj',
+    'bindings/VelloSharp.WinUI/VelloSharp.WinUI.csproj',
+    'bindings/VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj',
+    'src/VelloSharp.Charting.WinForms/VelloSharp.Charting.WinForms.csproj',
+    'src/VelloSharp.Charting.Wpf/VelloSharp.Charting.Wpf.csproj',
+    'src/VelloSharp.ChartRuntime.Windows/VelloSharp.ChartRuntime.Windows.csproj',
+    'src/VelloSharp.Maui.Core/VelloSharp.Maui.Core.csproj',
+    'src/VelloSharp.Windows.Shared/VelloSharp.Windows.Shared.csproj'
+)
+
+function Test-IsWindowsSpecificProject {
+    param([string]$Project)
+    return $windowsSpecificProjects -contains $Project
+}
 
 if ([string]::IsNullOrWhiteSpace($NuGetOutput)) {
     $NuGetOutput = Join-Path $rootPath 'artifacts/nuget'
@@ -148,6 +175,52 @@ function Get-ProjectExtraArgs {
 }
 
 $projects = Get-PackableProjects -Root $rootPath -Directories @('bindings', 'src')
+$projects = @($projects)
+
+switch ($Profile) {
+    'linux' {
+        $projects = $projects | Where-Object { -not (Test-IsWindowsSpecificProject $_) }
+    }
+    'windows' {
+        $projects = $projects | Where-Object { Test-IsWindowsSpecificProject $_ }
+    }
+}
+
+if ($Include.Count -gt 0) {
+    Write-Verbose ("Applying include filters: {0}" -f ($Include -join ', '))
+    $includeFiltered = foreach ($project in $projects) {
+        foreach ($pattern in $Include) {
+            if ([string]::IsNullOrWhiteSpace($pattern)) {
+                continue
+            }
+            if ($project -like $pattern) {
+                $project
+                break
+            }
+        }
+    }
+    $projects = @($includeFiltered | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+if ($Exclude.Count -gt 0) {
+    Write-Verbose ("Applying exclude filters: {0}" -f ($Exclude -join ', '))
+    $excludeFiltered = foreach ($project in $projects) {
+        $skip = $false
+        foreach ($pattern in $Exclude) {
+            if ([string]::IsNullOrWhiteSpace($pattern)) {
+                continue
+            }
+            if ($project -like $pattern) {
+                $skip = $true
+                break
+            }
+        }
+        if (-not $skip) {
+            $project
+        }
+    }
+    $projects = @($excludeFiltered)
+}
 
 $commonArgs = @('-c', 'Release', "-p:PackageOutputPath=$NuGetOutput", '-p:EnableWindowsTargeting=true', '-p:VelloUseNativePackageDependencies=true', '-p:VelloNativePackagesAvailable=true')
 if ($NativeFeed) {
@@ -155,10 +228,21 @@ if ($NativeFeed) {
 }
 
 if ($projects.Count -eq 0) {
-    Write-Warning "No packable managed projects were found under 'bindings' or 'src'."
+    $message = "No packable managed projects matched the requested filters under 'bindings' or 'src'."
+    if ($PrintProjects) {
+        Write-Verbose $message
+        return
+    }
+    Write-Warning $message
+    return
 }
 
-foreach ($project in @($projects)) {
+if ($PrintProjects) {
+    $projects | ForEach-Object { Write-Output $_ }
+    return
+}
+
+foreach ($project in $projects) {
     $projectPath = Join-Path $rootPath $project
     if (-not (Test-Path $projectPath -PathType Leaf)) {
         Write-Host "Skipping missing project '$project'."
