@@ -20,4 +20,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media screen and (max-width: 600px) {
+  .buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .buttons :global(.button) {
+    width: 100%;
+  }
 }
