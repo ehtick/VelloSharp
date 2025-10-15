@@ -37,7 +37,7 @@
 
   <!-- Default MAUI TFMs on Windows to avoid requiring mobile workloads -->
   <PropertyGroup Condition="'$(MauiTargetFrameworks)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">
-    <MauiTargetFrameworks>net8.0-windows10.0.19041</MauiTargetFrameworks>
+    <MauiTargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst;net8.0-windows10.0.19041</MauiTargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsTestProject)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(MSBuildProjectName)', 'Tests$'))">

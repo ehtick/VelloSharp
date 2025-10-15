@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <_DefaultMauiFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst;net8.0-windows10.0.19041</_DefaultMauiFrameworks>
+    <_DefaultMauiFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst</_DefaultMauiFrameworks>
     <TargetFrameworks Condition="'$(MauiTargetFrameworks)' == ''">$(_DefaultMauiFrameworks)</TargetFrameworks>
     <TargetFrameworks Condition="'$(MauiTargetFrameworks)' != ''">$(MauiTargetFrameworks)</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -35,6 +35,7 @@
   <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
     <ProjectReference Include="..\..\bindings\VelloSharp.Windows.Core\VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="..\..\bindings\VelloSharp.Uno\VelloSharp.Uno.csproj" />
+    <ProjectReference Include="..\..\src\VelloSharp.Windows.Shared\VelloSharp.Windows.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

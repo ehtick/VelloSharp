@@ -6,7 +6,7 @@
     <VelloPackageVersion Condition="'$(VelloPackageVersion)' == '' and '$(VersionSuffix)' == ''">$(VersionPrefix)</VelloPackageVersion>
     <VelloPackageVersion Condition="'$(VelloPackageVersion)' == '' and '$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</VelloPackageVersion>
     <VelloNativePackageVersion Condition="'$(VelloNativePackageVersion)' == ''">$(VelloPackageVersion)</VelloNativePackageVersion>
-    <MauiVersion Condition="'$(MauiVersion)' == ''">8.0.82</MauiVersion>
+    <MauiVersion Condition="'$(MauiVersion)' == ''">9.0.111</MauiVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="11.3.6" />
