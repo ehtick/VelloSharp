@@ -4,6 +4,13 @@ set -euo pipefail
 TARGET="${TARGET:-wasm32-unknown-unknown}"
 PROFILE="${PROFILE:-release}"
 CRATE="${CRATE:-vello_webgpu_ffi}"
+CARGO_HOME="${CARGO_HOME:-${HOME}/.cargo}"
+CARGO_BIN_DIR="${CARGO_BIN_DIR:-${CARGO_HOME}/bin}"
+
+# Prefer Cargo's bin directory so freshly installed tools win over system ones.
+if [[ -d "${CARGO_BIN_DIR}" ]]; then
+  PATH="${CARGO_BIN_DIR}:${PATH}"
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -35,6 +42,14 @@ fi
 if [[ "${current_bindgen_version}" != "${expected_bindgen_version}" ]]; then
   echo "Ensuring wasm-bindgen CLI ${expected_bindgen_version} (current: ${current_bindgen_version:-not installed})"
   cargo install wasm-bindgen-cli --version "${expected_bindgen_version}" --locked
+  # Clear Bash's command hash table so the new binary is picked up immediately.
+  hash -r
+  current_bindgen_version="$(wasm-bindgen --version | awk '{print $2}')"
+fi
+
+if [[ "${current_bindgen_version}" != "${expected_bindgen_version}" ]]; then
+  echo "Failed to ensure wasm-bindgen CLI ${expected_bindgen_version}; detected ${current_bindgen_version:-none}" >&2
+  exit 1
 fi
 
 if ! command -v wasm-opt >/dev/null 2>&1; then
