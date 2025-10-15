@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using VelloSharp;
 
 namespace SkiaSharp;
@@ -139,6 +140,18 @@ public sealed class SKPath : IDisposable
         var clone = new SKPath();
         clone._commands.AddRange(_commands);
         return clone;
+    }
+
+    public void Transform(SKMatrix matrix) => Transform(in matrix);
+
+    public void Transform(in SKMatrix matrix)
+    {
+        var transform = matrix.ToMatrix3x2();
+        for (var i = 0; i < _commands.Count; i++)
+        {
+            var command = _commands[i];
+            _commands[i] = TransformCommand(command, transform);
+        }
     }
 
     public Iterator CreateIterator(bool forceClose) => new(this, forceClose);
@@ -302,6 +315,23 @@ public sealed class SKPath : IDisposable
         public SKPoint Point1 { get; }
         public SKPoint Point2 { get; }
         public float Weight { get; }
+    }
+
+    private static PathCommand TransformCommand(PathCommand command, Matrix3x2 transform) => command.Verb switch
+    {
+        PathVerb.MoveTo => new PathCommand(PathVerb.MoveTo, TransformPoint(command.Point0, transform)),
+        PathVerb.LineTo => new PathCommand(PathVerb.LineTo, TransformPoint(command.Point0, transform)),
+        PathVerb.QuadTo => new PathCommand(PathVerb.QuadTo, TransformPoint(command.Point0, transform), TransformPoint(command.Point1, transform)),
+        PathVerb.ConicTo => new PathCommand(PathVerb.ConicTo, TransformPoint(command.Point0, transform), TransformPoint(command.Point1, transform), default, command.Weight),
+        PathVerb.CubicTo => new PathCommand(PathVerb.CubicTo, TransformPoint(command.Point0, transform), TransformPoint(command.Point1, transform), TransformPoint(command.Point2, transform)),
+        PathVerb.Close => PathCommand.ClosePath,
+        _ => command,
+    };
+
+    private static SKPoint TransformPoint(SKPoint point, Matrix3x2 transform)
+    {
+        var vector = Vector2.Transform(point.ToVector2(), transform);
+        return new SKPoint(vector.X, vector.Y);
     }
 
     private enum PathVerb

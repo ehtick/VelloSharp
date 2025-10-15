@@ -19,6 +19,7 @@ public enum SKMipmapMode
 public readonly struct SKCubicResampler
 {
     public static SKCubicResampler Mitchell { get; } = new(1f / 3f, 1f / 3f);
+    public static SKCubicResampler CatmullRom { get; } = new(0f, 0.5f);
 
     public SKCubicResampler(float b, float c)
     {

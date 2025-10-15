@@ -29,6 +29,15 @@ public readonly struct SKColorF
 
         return new SKColor(Clamp(Red), Clamp(Green), Clamp(Blue), Clamp(Alpha));
     }
+
+    public static implicit operator SKColorF(SKColor color) =>
+        new(
+            color.Red / 255f,
+            color.Green / 255f,
+            color.Blue / 255f,
+            color.Alpha / 255f);
+
+    public static implicit operator SKColor(SKColorF color) => color.ToColor();
 }
 
 public readonly struct SKSizeI

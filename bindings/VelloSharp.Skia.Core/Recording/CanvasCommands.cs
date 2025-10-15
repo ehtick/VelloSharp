@@ -195,16 +195,59 @@ internal sealed class DrawImageCommand : ICanvasCommand
 {
     private readonly SKImage _image;
     private readonly SKRect _destRect;
+    private readonly SKSamplingOptions _sampling;
+    private readonly bool _hasPaint;
+    private readonly PaintSnapshot _paint;
+    private readonly bool _hasSourceRect;
+    private readonly SKRect _sourceRect;
 
     public DrawImageCommand(SKImage image, SKRect destRect)
+        : this(image, destRect, SKSamplingOptions.Default, null, null)
+    {
+    }
+
+    public DrawImageCommand(SKImage image, SKRect destRect, SKSamplingOptions sampling, SKPaint? paint, SKRect? sourceRect)
     {
         _image = image ?? throw new ArgumentNullException(nameof(image));
         _destRect = destRect;
+        _sampling = sampling;
+
+        if (paint is not null)
+        {
+            _hasPaint = true;
+            _paint = new PaintSnapshot(paint);
+        }
+
+        if (sourceRect is SKRect rect)
+        {
+            _hasSourceRect = true;
+            _sourceRect = rect;
+        }
     }
 
     public void Replay(SKCanvas canvas)
     {
-        canvas.DrawImage(_image, _destRect);
+        SKPaint? paint = null;
+        try
+        {
+            if (_hasPaint)
+            {
+                paint = _paint.CreatePaint();
+            }
+
+            if (_hasSourceRect)
+            {
+                canvas.DrawImage(_image, _destRect, _sourceRect, _sampling, paint);
+            }
+            else
+            {
+                canvas.DrawImage(_image, _destRect, _sampling, paint);
+            }
+        }
+        finally
+        {
+            paint?.Dispose();
+        }
     }
 }
 

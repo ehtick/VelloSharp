@@ -1,38 +1,57 @@
+using System;
+
 namespace SkiaSharp;
 
-public readonly record struct SKSamplingOptions
+public readonly struct SKSamplingOptions
 {
-    public SKSamplingOptions(bool useHighQuality)
+    public static SKSamplingOptions Default => new();
+
+    public SKSamplingOptions()
     {
-        UseHighQuality = useHighQuality;
-        FilterMode = useHighQuality ? SKFilterMode.Linear : SKFilterMode.Nearest;
-        MipmapMode = SKMipmapMode.None;
+        Filter = SKFilterMode.Nearest;
+        Mipmap = SKMipmapMode.None;
         Cubic = null;
+        MaxAnisotropy = 0;
+    }
+
+    public SKSamplingOptions(SKFilterMode filter)
+        : this(filter, SKMipmapMode.None)
+    {
     }
 
     public SKSamplingOptions(SKFilterMode filter, SKMipmapMode mipmap)
     {
-        FilterMode = filter;
-        MipmapMode = mipmap;
-        UseHighQuality = filter != SKFilterMode.Nearest;
+        Filter = filter;
+        Mipmap = mipmap;
         Cubic = null;
+        MaxAnisotropy = 0;
     }
 
     public SKSamplingOptions(SKCubicResampler cubic)
     {
-        FilterMode = SKFilterMode.Cubic;
-        MipmapMode = SKMipmapMode.Linear;
+        Filter = SKFilterMode.Cubic;
+        Mipmap = SKMipmapMode.Linear;
         Cubic = cubic;
-        UseHighQuality = true;
+        MaxAnisotropy = 0;
     }
 
-    public bool UseHighQuality { get; }
+    public SKSamplingOptions(int maxAnisotropy)
+    {
+        Filter = SKFilterMode.Linear;
+        Mipmap = SKMipmapMode.Linear;
+        Cubic = null;
+        MaxAnisotropy = Math.Max(0, maxAnisotropy);
+    }
 
-    public SKFilterMode FilterMode { get; }
+    public SKFilterMode Filter { get; }
 
-    public SKMipmapMode MipmapMode { get; }
+    public SKMipmapMode Mipmap { get; }
 
     public SKCubicResampler? Cubic { get; }
 
-    public static SKSamplingOptions Default => new(false);
+    public int MaxAnisotropy { get; }
+
+    public bool UseCubic => Cubic.HasValue;
+
+    public bool IsAniso => MaxAnisotropy > 0;
 }

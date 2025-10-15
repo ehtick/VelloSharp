@@ -13,6 +13,25 @@ public readonly struct SKPoint(float x, float y)
     public static implicit operator Vector2(SKPoint point) => point.ToVector2();
 }
 
+public readonly struct SKPointI(int x, int y)
+{
+    public int X { get; } = x;
+    public int Y { get; } = y;
+
+    public SKPoint ToPoint() => new(X, Y);
+}
+
+public readonly struct SKPoint3(float x, float y, float z)
+{
+    public float X { get; } = x;
+    public float Y { get; } = y;
+    public float Z { get; } = z;
+
+    public static implicit operator Vector3(SKPoint3 point) => new(point.X, point.Y, point.Z);
+
+    public static implicit operator SKPoint3(Vector3 vector) => new(vector.X, vector.Y, vector.Z);
+}
+
 public readonly struct SKRect : IEquatable<SKRect>
 {
     public SKRect(float left, float top, float right, float bottom)

@@ -272,14 +272,47 @@ public sealed class SKCanvas
         _commandLog?.Add(new DrawPathCommand(path, paint));
     }
 
-    public void DrawImage(SKImage image, float x, float y)
+    public void DrawImage(SKImage image, float x, float y) =>
+        DrawImage(image, x, y, SKSamplingOptions.Default, paint: null);
+
+    public void DrawImage(SKImage image, float x, float y, SKSamplingOptions sampling) =>
+        DrawImage(image, x, y, sampling, paint: null);
+
+    public void DrawImage(SKImage image, float x, float y, SKPaint? paint) =>
+        DrawImage(image, x, y, SKSamplingOptions.Default, paint);
+
+    public void DrawImage(SKImage image, float x, float y, SKSamplingOptions sampling, SKPaint? paint)
     {
         ArgumentNullException.ThrowIfNull(image);
         var dest = SKRect.Create(x, y, image.Width, image.Height);
-        DrawImage(image, dest);
+        DrawImage(image, dest, sampling, paint);
     }
 
-    public void DrawImage(SKImage image, SKRect destRect)
+    public void DrawImage(SKImage image, SKPoint point) =>
+        DrawImage(image, point.X, point.Y, SKSamplingOptions.Default, paint: null);
+
+    public void DrawImage(SKImage image, SKPoint point, SKPaint? paint) =>
+        DrawImage(image, point.X, point.Y, SKSamplingOptions.Default, paint);
+
+    public void DrawImage(SKImage image, SKPoint point, SKSamplingOptions sampling, SKPaint? paint = null) =>
+        DrawImage(image, point.X, point.Y, sampling, paint);
+
+    public void DrawImage(SKImage image, SKRect destRect) =>
+        DrawImage(image, destRect, SKSamplingOptions.Default, paint: null);
+
+    public void DrawImage(SKImage image, SKRect destRect, SKPaint? paint) =>
+        DrawImage(image, destRect, SKSamplingOptions.Default, paint);
+
+    public void DrawImage(SKImage image, SKRect destRect, SKSamplingOptions sampling) =>
+        DrawImage(image, destRect, sampling, paint: null);
+
+    public void DrawImage(SKImage image, SKRect destRect, SKSamplingOptions sampling, SKPaint? paint) =>
+        DrawImageCore(image, destRect, sampling, paint, sourceRect: null);
+
+    public void DrawImage(SKImage image, SKRect destRect, SKRect sourceRect, SKSamplingOptions sampling, SKPaint? paint = null) =>
+        DrawImageCore(image, destRect, sampling, paint, sourceRect);
+
+    private void DrawImageCore(SKImage image, SKRect destRect, SKSamplingOptions sampling, SKPaint? paint, SKRect? sourceRect)
     {
         ArgumentNullException.ThrowIfNull(image);
         if (destRect.IsEmpty)
@@ -287,15 +320,71 @@ public sealed class SKCanvas
             return;
         }
 
-        var scale = Matrix3x2.CreateScale(
-            destRect.Width / Math.Max(image.Width, 1),
-            destRect.Height / Math.Max(image.Height, 1));
-        var translation = Matrix3x2.CreateTranslation(destRect.Left, destRect.Top);
-        var transform = scale * translation * _currentState.Transform;
+        paint?.ThrowIfDisposed();
 
-        var brush = new ImageBrush(image.Image);
-        _scene.DrawImage(brush, transform);
-        _commandLog?.Add(new DrawImageCommand(image, destRect));
+        if (paint is not null)
+        {
+            if (paint.Shader is not null ||
+                paint.PathEffect is not null ||
+                paint.ImageFilter is not null ||
+                paint.BlendMode != SKBlendMode.SrcOver)
+            {
+                ShimNotImplemented.Throw($"{nameof(SKCanvas)}.{nameof(DrawImage)}", "Advanced paint parameters");
+            }
+        }
+
+        if (sourceRect is SKRect rect && rect.IsEmpty)
+        {
+            sourceRect = null;
+        }
+
+        var effectiveSource = sourceRect ?? new SKRect(0, 0, image.Width, image.Height);
+        var effectiveDest = destRect;
+
+        if (!NormalizeSourceAndDestination(image, ref effectiveSource, ref effectiveDest))
+        {
+            return;
+        }
+
+        var translateToOrigin = Matrix3x2.CreateTranslation(-effectiveSource.Left, -effectiveSource.Top);
+        var scale = Matrix3x2.CreateScale(
+            effectiveDest.Width / Math.Max(effectiveSource.Width, float.Epsilon),
+            effectiveDest.Height / Math.Max(effectiveSource.Height, float.Epsilon));
+        var translation = Matrix3x2.CreateTranslation(effectiveDest.Left, effectiveDest.Top);
+        var transform = translateToOrigin * scale * translation * _currentState.Transform;
+
+        var alpha = 1f;
+        if (paint is not null)
+        {
+            alpha = Math.Clamp(paint.Opacity * (paint.Color.Alpha / 255f), 0f, 1f);
+        }
+
+        var brush = new ImageBrush(image.Image)
+        {
+            Quality = sampling.ToBrushQuality(),
+            Alpha = alpha,
+        };
+
+        PathBuilder? clip = null;
+        if (sourceRect.HasValue)
+        {
+            clip = effectiveDest.ToPathBuilder();
+            _scene.PushLayer(clip, s_clipLayerBlend, _currentState.Transform, 1f);
+        }
+
+        try
+        {
+            _scene.DrawImage(brush, transform);
+        }
+        finally
+        {
+            if (clip is not null)
+            {
+                _scene.PopLayer();
+            }
+        }
+
+        _commandLog?.Add(new DrawImageCommand(image, effectiveDest, sampling, paint, sourceRect.HasValue ? effectiveSource : null));
     }
 
     public void DrawText(string? text, float x, float y, SKPaint paint)
@@ -515,6 +604,48 @@ public sealed class SKCanvas
         var opacity = Math.Clamp(paint.Opacity, 0f, 1f);
         var colorAlpha = paint.Color.Alpha / 255f;
         return Math.Clamp(opacity * colorAlpha, 0f, 1f);
+    }
+
+    private static bool NormalizeSourceAndDestination(SKImage image, ref SKRect source, ref SKRect destination)
+    {
+        var imageRect = new SKRect(0, 0, image.Width, image.Height);
+
+        var srcWidth = source.Width;
+        var srcHeight = source.Height;
+        if (srcWidth <= 0 || srcHeight <= 0)
+        {
+            return false;
+        }
+
+        var left = Math.Clamp(source.Left, imageRect.Left, imageRect.Right);
+        var top = Math.Clamp(source.Top, imageRect.Top, imageRect.Bottom);
+        var right = Math.Clamp(source.Right, imageRect.Left, imageRect.Right);
+        var bottom = Math.Clamp(source.Bottom, imageRect.Top, imageRect.Bottom);
+
+        if (right <= left || bottom <= top)
+        {
+            return false;
+        }
+
+        if (left != source.Left || top != source.Top || right != source.Right || bottom != source.Bottom)
+        {
+            var scaleX = destination.Width / srcWidth;
+            var scaleY = destination.Height / srcHeight;
+
+            var destLeft = destination.Left + (left - source.Left) * scaleX;
+            var destTop = destination.Top + (top - source.Top) * scaleY;
+            var destRight = destination.Right - (source.Right - right) * scaleX;
+            var destBottom = destination.Bottom - (source.Bottom - bottom) * scaleY;
+
+            destination = new SKRect(destLeft, destTop, destRight, destBottom);
+            if (destination.IsEmpty)
+            {
+                return false;
+            }
+        }
+
+        source = new SKRect(left, top, right, bottom);
+        return true;
     }
 
     private static SKPath CreateOvalPath(SKRect rect)

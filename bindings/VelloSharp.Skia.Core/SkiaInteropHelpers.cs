@@ -194,6 +194,36 @@ internal readonly struct BrushNativeData : IDisposable
     }
 }
 
+internal static class SamplingOptionsInterop
+{
+    public static VelloSharp.VelloImageQualityMode ToImageQuality(this SKSamplingOptions sampling)
+    {
+        if (sampling.IsAniso || sampling.UseCubic || sampling.Filter == SKFilterMode.Cubic)
+        {
+            return VelloSharp.VelloImageQualityMode.High;
+        }
+
+        if (sampling.Mipmap != SKMipmapMode.None)
+        {
+            return VelloSharp.VelloImageQualityMode.High;
+        }
+
+        return sampling.Filter switch
+        {
+            SKFilterMode.Nearest => VelloSharp.VelloImageQualityMode.Low,
+            SKFilterMode.Linear => VelloSharp.VelloImageQualityMode.Medium,
+            _ => VelloSharp.VelloImageQualityMode.Medium,
+        };
+    }
+
+    public static VelloSharp.ImageQuality ToBrushQuality(this SKSamplingOptions sampling) => ToImageQuality(sampling) switch
+    {
+        VelloSharp.VelloImageQualityMode.Low => VelloSharp.ImageQuality.Low,
+        VelloSharp.VelloImageQualityMode.High => VelloSharp.ImageQuality.High,
+        _ => VelloSharp.ImageQuality.Medium,
+    };
+}
+
 internal static class NativeConversionExtensions
 {
     public static VelloSharp.VelloColor ToNative(this VelloSharp.RgbaColor color) => new()

@@ -71,7 +71,7 @@ public sealed class SKImage : IDisposable
 
             if (destInfo.Width != Width || destInfo.Height != Height)
             {
-                var quality = samplingOptions.UseHighQuality ? VelloImageQualityMode.High : VelloImageQualityMode.Medium;
+                var quality = samplingOptions.ToImageQuality();
                 var status = NativeMethods.vello_image_resize(handle, (uint)destInfo.Width, (uint)destInfo.Height, quality, out resizedHandle);
                 if (status != VelloStatus.Success || resizedHandle == IntPtr.Zero)
                 {
