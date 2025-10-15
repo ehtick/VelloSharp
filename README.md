@@ -1396,8 +1396,8 @@ available to packaging steps.
 ## License
 
 The entire repository—including the managed bindings, native FFI crates, integrations, and samples—is distributed
-under the GNU Affero General Public License v3.0. NuGet packages produced via `dotnet pack` ship with the same AGPLv3
-license text (`LICENSE`) so the published artifacts match the source tree.
+under the MIT License. NuGet packages produced via `dotnet pack` ship with the same MIT license text (`LICENSE`) so
+the published artifacts match the source tree.
 
 To honour upstream obligations, the packages also embed the MIT/Apache-2.0 notices from the Linebender components the
 FFI layer depends on (`vello`, `kurbo`, `peniko`, `wgpu`, etc.). Vendored submodules retain their original licenses—

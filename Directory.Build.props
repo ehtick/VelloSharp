@@ -6,7 +6,7 @@
     <RepositoryUrl>https://github.com/wieslawsoltes/VelloSharp</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/wieslawsoltes/VelloSharp</PackageProjectUrl>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageTags>vello;graphics;rendering;gpu</PackageTags>
     <VersionPrefix>0.5.0</VersionPrefix>
