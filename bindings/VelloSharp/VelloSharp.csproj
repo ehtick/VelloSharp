@@ -201,12 +201,19 @@ RuntimeIdentifier = rid;
           DestinationFiles="%(_VelloNativeCrate.OutputPath)"
           SkipUnchangedFiles="true" />
   </Target>
-  <Target Name="CollectVelloNativeAssets" AfterTargets="Build">
+  <Target Name="CollectVelloNativeAssets"
+          AfterTargets="Build"
+          BeforeTargets="GetCopyToOutputDirectoryItems;_GetCopyToOutputDirectoryItemsFromThisProject;ReferenceCopyLocalPathsOutputGroup">
     <ItemGroup>
-      <ReferenceCopyLocalPaths Include="$(OutDir)runtimes\**\*">
-        <DestinationSubDirectory>%(RecursiveDir)</DestinationSubDirectory>
+      <_VelloNativeAsset Include="$(VelloNativeAssetsDirectory)**/*" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Include="@(_VelloNativeAsset)">
+        <DestinationSubDirectory>runtimes/%(RecursiveDir)</DestinationSubDirectory>
       </ReferenceCopyLocalPaths>
-      <ReferenceCopyLocalPaths Include="$(OutDir)runtimes\**\*.dll">
+      <ReferenceCopyLocalPaths Include="@(_VelloNativeAsset)"
+                               Condition="'%(Extension)' == '.dll'">
         <DestinationSubDirectory></DestinationSubDirectory>
       </ReferenceCopyLocalPaths>
     </ItemGroup>
