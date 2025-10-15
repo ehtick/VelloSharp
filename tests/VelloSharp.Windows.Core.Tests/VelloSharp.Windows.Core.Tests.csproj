@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsWindowsHost>$([MSBuild]::IsOSPlatform('Windows'))</IsWindowsHost>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsWindowsHost)' == 'true'">
     <TargetFramework>net8.0-windows10.0.19041</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <DisableRuntimeIdentifierValidation>true</DisableRuntimeIdentifierValidation>
     <WindowsAppSDKPlatforms>win10-x64</WindowsAppSDKPlatforms>
@@ -16,7 +20,14 @@
     <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
   </PropertyGroup>
 
-  <ItemGroup>
+  <PropertyGroup Condition="'$(IsWindowsHost)' != 'true'">
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <EnableWindowsTargeting>false</EnableWindowsTargeting>
+    <SkipNonWindowsBuild>true</SkipNonWindowsBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsWindowsHost)' == 'true'">
     <ProjectReference Include="../../bindings/VelloSharp.Windows.Core/VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Integration.Wpf/VelloSharp.Integration.Wpf.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
@@ -24,12 +35,16 @@
     <ProjectReference Include="../../src/VelloSharp.Windows.Shared/VelloSharp.Windows.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(EnableMauiTests)' == 'true'">
+  <ItemGroup Condition="'$(IsWindowsHost)' == 'true' and '$(EnableMauiTests)' == 'true'">
     <ProjectReference Include="../../src/VelloSharp.Maui.Core/VelloSharp.Maui.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(EnableMauiTests)' != 'true'">
+  <ItemGroup Condition="'$(IsWindowsHost)' == 'true' and '$(EnableMauiTests)' != 'true'">
     <Compile Remove="MauiCompositionInputSourceTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsWindowsHost)' != 'true'">
+    <Compile Remove="**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +56,11 @@
     </PackageReference>
     <PackageReference Include="Xunit.StaFact" />
   </ItemGroup>
-</Project>
 
+  <Target Name="_SkipWindowsOnlyTestsOnNonWindows"
+          Condition="'$(SkipNonWindowsBuild)' == 'true'"
+          BeforeTargets="Build">
+    <Message Text="Skipping Windows-only tests in $(MSBuildProjectName) on non-Windows host." Importance="high" />
+  </Target>
+</Project>
 

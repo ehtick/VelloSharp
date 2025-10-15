@@ -26,7 +26,7 @@ internal sealed class ImagePixelsScene : ISkiaGalleryScene
         var scaledPixels = new byte[scaledInfo.RowBytes * scaledInfo.Height];
 #if SKIA_SHIM
         var pixmap = new SKPixmap(scaledInfo, scaledPixels, scaledInfo.RowBytes);
-        image.ScalePixels(pixmap, new SKSamplingOptions(useHighQuality: true));
+        image.ScalePixels(pixmap, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
 #else
         var scaledHandle = GCHandle.Alloc(scaledPixels, GCHandleType.Pinned);
         try

@@ -45,7 +45,7 @@ public sealed class ImageTests
         var buffer = new byte[destinationInfo.RowBytes * destinationInfo.Height];
         var pixmap = new SKPixmap(destinationInfo, buffer, destinationInfo.RowBytes);
 
-        var scaled = image.ScalePixels(pixmap, new SKSamplingOptions(useHighQuality: true));
+        var scaled = image.ScalePixels(pixmap, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
         Assert.True(scaled);
 
         // Ensure at least one non-white pixel was decoded

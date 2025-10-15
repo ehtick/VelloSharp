@@ -23,7 +23,7 @@ internal sealed class BitmapCodecScene : ISkiaGalleryScene
         using var codec = SKCodec.Create(data);
         var scaledInfo = codec.GetScaledDimensions(1.5f);
         using var decoded = SKBitmap.Decode(codec, scaledInfo);
-        var sampling = new SKSamplingOptions(useHighQuality: true);
+        var sampling = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear);
         using var resized = decoded.Resize(new SKImageInfo(128, 128, SKColorType.Rgba8888, SKAlphaType.Premul), sampling);
         using var copy = resized.Copy();
         var encodedSize = codec.ToEncodedBytes().Length;

@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <IsWindowsHost>$([MSBuild]::IsOSPlatform('Windows'))</IsWindowsHost>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsWindowsHost)' == 'true'">
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -14,14 +18,36 @@
     <EnableCoreMrtTooling>false</EnableCoreMrtTooling>
   </PropertyGroup>
 
-  <ItemGroup>
+  <PropertyGroup Condition="'$(IsWindowsHost)' != 'true'">
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWinUI>false</UseWinUI>
+    <EnableWindowsTargeting>false</EnableWindowsTargeting>
+    <SkipNonWindowsBuild>true</SkipNonWindowsBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsWindowsHost)' == 'true'">
     <ProjectReference Include="..\..\bindings\VelloSharp.Uwp\VelloSharp.Uwp.csproj" />
     <ProjectReference Include="..\..\bindings\VelloSharp.Windows.Core\VelloSharp.Windows.Core.csproj" />
     <ProjectReference Include="..\..\src\VelloSharp.Windows.Shared\VelloSharp.Windows.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(IsWindowsHost)' == 'true'">
     <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(SkipNonWindowsBuild)' == 'true'">
+    <Compile Remove="**\*.cs" />
+    <Page Remove="**\*.xaml" />
+    <ApplicationDefinition Remove="**\*.xaml" />
+  </ItemGroup>
+
+  <Target Name="_SkipWinOnlyProjectOnNonWindows"
+          Condition="'$(SkipNonWindowsBuild)' == 'true'"
+          BeforeTargets="Build">
+    <Message Text="Skipping WinUI-only project $(MSBuildProjectName) on non-Windows host." Importance="high" />
+  </Target>
 
 </Project>
