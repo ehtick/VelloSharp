@@ -12,9 +12,29 @@ SAMPLE_ASSET_DIR="${SAMPLE_ASSET_DIR:-${ROOT}/samples/AvaloniaVelloBrowserDemo/A
 
 mkdir -p "${OUT_DIR}"
 
-if ! command -v wasm-bindgen >/dev/null 2>&1; then
-  echo "wasm-bindgen CLI not found on PATH. Install it (cargo install wasm-bindgen-cli) and retry." >&2
+# Align wasm-bindgen CLI with the version used by the workspace.
+expected_bindgen_version="$(
+  awk '
+    $0 == "[[package]]" { in_pkg = 0 }
+    $0 == "name = \"wasm-bindgen\"" { in_pkg = 1; next }
+    in_pkg && /^version = "/ { gsub(/"/, "", $3); print $3; exit }
+  ' "${ROOT}/Cargo.lock"
+)"
+
+if [[ -z "${expected_bindgen_version}" ]]; then
+  echo "Failed to determine wasm-bindgen version from Cargo.lock" >&2
   exit 1
+fi
+
+if command -v wasm-bindgen >/dev/null 2>&1; then
+  current_bindgen_version="$(wasm-bindgen --version | awk '{print $2}')"
+else
+  current_bindgen_version=""
+fi
+
+if [[ "${current_bindgen_version}" != "${expected_bindgen_version}" ]]; then
+  echo "Ensuring wasm-bindgen CLI ${expected_bindgen_version} (current: ${current_bindgen_version:-not installed})"
+  cargo install wasm-bindgen-cli --version "${expected_bindgen_version}" --locked
 fi
 
 if ! command -v wasm-opt >/dev/null 2>&1; then
