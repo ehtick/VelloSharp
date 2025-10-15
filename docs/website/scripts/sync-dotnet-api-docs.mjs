@@ -20,9 +20,20 @@ if (skipSync) {
   process.exit(0);
 }
 
-if (!process.env.DOCFX_MSBUILD_ARGS) {
-  process.env.DOCFX_MSBUILD_ARGS = '/p:EnableWindowsTargeting=true';
+function ensureMsbuildArg(args, name, value) {
+  const pattern = new RegExp(`/(?:p|P):${name}(=|:)`, 'i');
+  if (pattern.test(args)) {
+    return args;
+  }
+  const addition = `/p:${name}=${value}`;
+  return args ? `${args} ${addition}` : addition;
 }
+
+let msbuildArgs = (process.env.DOCFX_MSBUILD_ARGS ?? '').trim();
+msbuildArgs = ensureMsbuildArg(msbuildArgs, 'EnableWindowsTargeting', 'true');
+msbuildArgs = ensureMsbuildArg(msbuildArgs, 'DocfxTargetFramework', 'net8.0');
+msbuildArgs = ensureMsbuildArg(msbuildArgs, 'MauiTargetFrameworks', 'net8.0-windows10.0.19041');
+process.env.DOCFX_MSBUILD_ARGS = msbuildArgs;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..', '..', '..');

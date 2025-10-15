@@ -27,6 +27,10 @@
     <IsBrowserWasmProject>false</IsBrowserWasmProject>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(DocfxTargetFramework)' != ''">
+    <TargetFrameworks>$(DocfxTargetFramework)</TargetFrameworks>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
