@@ -20,6 +20,7 @@ members = [
     "ffi/tree-datagrid",
     "ffi/gauges-core",
     "ffi/scada-runtime",
+    "ffi/vello_webgpu_ffi",
 ]
 exclude = [
     "extern/Avalonia",

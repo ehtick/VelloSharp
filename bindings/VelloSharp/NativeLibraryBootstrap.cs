@@ -17,6 +17,7 @@ internal static class NativeLibraryBootstrap
             "kurbo_ffi",
             "peniko_ffi",
             "accesskit_ffi",
-            "winit_ffi");
+            "winit_ffi",
+            "vello_webgpu_ffi");
     }
 }

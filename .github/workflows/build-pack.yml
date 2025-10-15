@@ -160,8 +160,17 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.95 --locked
+
+      - name: Install Binaryen
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+
       - name: Build native artifact
         run: ./scripts/build-native-wasm.sh ${{ matrix.target }} release ${{ matrix.rid }}
+
+      - name: Build WebGPU wasm bundle
+        run: ./scripts/build-wasm-vello.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

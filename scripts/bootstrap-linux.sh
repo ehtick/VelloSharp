@@ -102,4 +102,67 @@ ensure_rustup() {
 
 ensure_rustup
 
+ensure_wasm_bindgen() {
+  if has_command wasm-bindgen; then
+    echo "wasm-bindgen CLI detected."
+    return
+  fi
+
+  if ! has_command cargo; then
+    echo "Cargo is not on PATH; skipping automatic wasm-bindgen installation. Install manually with 'cargo install wasm-bindgen-cli' once cargo is available." >&2
+    return
+  fi
+
+  echo "Installing wasm-bindgen-cli via cargo..."
+  cargo install wasm-bindgen-cli --force
+  hash -r
+
+  if has_command wasm-bindgen; then
+    echo "wasm-bindgen CLI installed."
+  else
+    echo "Attempted to install wasm-bindgen-cli but the command is still missing. Verify your PATH or reinstall manually." >&2
+  fi
+}
+
+ensure_binaryen() {
+  if has_command wasm-opt; then
+    echo "wasm-opt (Binaryen) detected."
+    return
+  fi
+
+  echo "wasm-opt not detected. Attempting to install Binaryen..."
+
+  if has_command apt-get; then
+    run_as_root apt-get update
+    run_as_root apt-get install -y binaryen
+  elif has_command dnf; then
+    run_as_root dnf install -y binaryen
+  elif has_command yum; then
+    run_as_root yum install -y binaryen
+  elif has_command zypper; then
+    run_as_root zypper install -y binaryen
+  elif has_command pacman; then
+    run_as_root pacman -Sy --needed --noconfirm binaryen
+  elif has_command brew; then
+    brew install binaryen
+  elif has_command nix; then
+    nix-env -iA nixpkgs.binaryen
+  elif has_command npm; then
+    run_as_root npm install -g binaryen
+  else
+    echo "No supported package manager detected for installing Binaryen. Install it manually from https://github.com/WebAssembly/binaryen/releases." >&2
+  fi
+
+  hash -r
+
+  if has_command wasm-opt; then
+    echo "Binaryen (wasm-opt) installed."
+  else
+    echo "Attempted to install Binaryen, but wasm-opt is still not detected. Verify the installation manually." >&2
+  fi
+}
+
+ensure_wasm_bindgen
+ensure_binaryen
+
 echo "Bootstrap complete. Ensure $HOME/.cargo/bin is in your PATH before building."

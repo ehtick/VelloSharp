@@ -91,6 +91,21 @@ foreach ($ffi in $ffiProjects) {
     }
 }
 
+$webRuntimeDir = Join-Path $RuntimesRoot 'browser-wasm/native'
+if (Test-Path $webRuntimeDir -PathType Container) {
+    $webProject = Join-Path $rootPath 'packaging/VelloSharp.Native.Vello.Web/VelloSharp.Native.Vello.Web.csproj'
+    if (Test-Path $webProject -PathType Leaf) {
+        Write-Host "Packing WebAssembly WebGPU bundle"
+        dotnet pack $webProject -c Release -p:NativeAssetsDirectory="$webRuntimeDir" -p:PackageOutputPath="$outputDirAbs"
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet pack failed with exit code $LASTEXITCODE for $webProject."
+        }
+    }
+    else {
+        Write-Host ("Skipping VelloSharp.Native.Vello.Web: project not found at {0}." -f $webProject)
+    }
+}
+
 if (-not (Get-ChildItem -Path $outputDirAbs -Filter '*.nupkg' -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
     Write-Error "No native packages were produced."
     exit 1

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <PackageId Condition="'$(PackageId)'==''">VelloSharp.Native.Vello.Web</PackageId>
+    <Title Condition="'$(Title)'==''">$(PackageId)</Title>
+    <Description Condition="'$(Description)'==''">WebAssembly WebGPU runtime bundle for VelloSharp.</Description>
+    <RepositoryRoot Condition="'$(RepositoryRoot)'==''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</RepositoryRoot>
+    <NativeAssetsDirectory Condition="'$(NativeAssetsDirectory)'==''">$([System.IO.Path]::Combine('$(RepositoryRoot)','artifacts','runtimes','browser-wasm','native'))</NativeAssetsDirectory>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(NativeAssetsDirectory)')">
+    <Content Include="$(NativeAssetsDirectory)\**\*"
+             Pack="true"
+             PackagePath="runtimes/browser-wasm/native/%(RecursiveDir)%(Filename)%(Extension)"
+             Visible="false">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)build')">
+    <None Include="$(MSBuildThisFileDirectory)build\**\*"
+          Pack="true"
+          PackagePath="build\%(RecursiveDir)%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)buildTransitive')">
+    <None Include="$(MSBuildThisFileDirectory)buildTransitive\**\*"
+          Pack="true"
+          PackagePath="buildTransitive\%(RecursiveDir)%(Filename)%(Extension)"
+          Visible="false" />
+  </ItemGroup>
+</Project>

@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="11.3.6" />
+    <PackageVersion Include="Avalonia.Browser" Version="11.3.6" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.6" />
     <PackageVersion Include="MonoMac.NetStandard" Version="0.0.4" />
     <PackageVersion Include="Avalonia.Skia" Version="11.3.6" />
@@ -186,6 +187,7 @@
     <PackageVersion Include="VelloSharp.Native.Vello.osx-x64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Vello.win-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.Vello.win-x64" Version="$(VelloNativePackageVersion)" />
+    <PackageVersion Include="VelloSharp.Native.Vello.Web" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.VelloSparse" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.VelloSparse.android-arm64" Version="$(VelloNativePackageVersion)" />
     <PackageVersion Include="VelloSharp.Native.VelloSparse.browser-wasm" Version="$(VelloNativePackageVersion)" />

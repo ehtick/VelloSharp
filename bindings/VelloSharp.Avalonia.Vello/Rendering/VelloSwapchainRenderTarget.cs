@@ -1,5 +1,4 @@
 using System;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Avalonia;
@@ -19,6 +18,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
     private readonly object _syncRoot = new();
 
     private readonly PresentMode _presentMode;
+    private RendererOptions _lastResolvedRendererOptions;
     private static readonly RenderTargetProperties s_properties = new()
     {
         RetainsPreviousFrameContents = true,
@@ -51,6 +51,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _surfaceProvider = surfaceProvider ?? throw new ArgumentNullException(nameof(surfaceProvider));
         _presentMode = options.PresentMode;
+        _lastResolvedRendererOptions = _options.RendererOptions;
     }
 
     public bool IsCorrupted => false;
@@ -109,6 +110,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 
     private void OnContextCompleted(VelloDrawingContextImpl context)
     {
+        SceneLease? lease = null;
         try
         {
             lock (_syncRoot)
@@ -118,14 +120,17 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
                     return;
                 }
 
-                var resources = _graphicsDevice.Acquire(_options.RendererOptions);
-                var surfaceCallbacks = context.TakeWgpuSurfaceRenderCallbacks();
-                if (!EnsureSurface(resources, context.RenderParams))
+                lease = context.LeaseScene();
+
+                var rendererOptions = ResolveRendererOptions();
+                _lastResolvedRendererOptions = rendererOptions;
+                var resources = _graphicsDevice.Acquire(rendererOptions);
+                if (!EnsureSurface(resources, lease.RenderParams))
                 {
                     return;
                 }
 
-                RenderScene(resources, context.Scene, context.RenderParams, surfaceCallbacks);
+                RenderScene(resources, lease);
             }
         }
         catch (Exception ex)
@@ -140,7 +145,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         }
         finally
         {
-            context.Scene.Dispose();
+            lease?.Dispose();
         }
     }
 
@@ -227,7 +232,9 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             _surfaceConfiguration.Height != height ||
             _surfaceConfiguration.PresentMode != _presentMode)
         {
-            var preferredFormat = _wgpuSurface.GetPreferredFormat(resources.Adapter);
+            var preferredFormat = TryGetBrowserPreferredFormat(out var browserFormat)
+                ? browserFormat
+                : _wgpuSurface.GetPreferredFormat(resources.Adapter);
             _surfaceFormat = NormalizeSurfaceFormat(preferredFormat);
             _requiresSurfaceBlit = RequiresSurfaceBlit(preferredFormat);
             _surfaceConfiguration = new WgpuSurfaceConfiguration
@@ -250,9 +257,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 
     private void RenderScene(
         (WgpuInstance Instance, WgpuAdapter Adapter, WgpuDevice Device, WgpuQueue Queue, WgpuRenderer Renderer) resources,
-        Scene scene,
-        RenderParams renderParams,
-        IReadOnlyList<Action<WgpuSurfaceRenderContext>>? surfaceCallbacks)
+        SceneLease lease)
     {
         if (_wgpuSurface is null)
         {
@@ -267,17 +272,19 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             surfaceTexture = _wgpuSurface.AcquireNextTexture();
             using var textureView = surfaceTexture.CreateView();
 
-            var adjustedParams = AdjustRenderParams(renderParams);
+            var adjustedParams = AdjustRenderParams(lease.RenderParams);
+            lease.UpdateRenderParams(adjustedParams);
 
             if (_requiresSurfaceBlit)
             {
-                resources.Renderer.RenderSurface(scene, textureView, adjustedParams, _surfaceFormat);
+                resources.Renderer.RenderSurface(lease.Scene, textureView, adjustedParams, _surfaceFormat);
             }
             else
             {
-                resources.Renderer.Render(scene, textureView, adjustedParams);
+                resources.Renderer.Render(lease.Scene, textureView, adjustedParams);
             }
 
+            var surfaceCallbacks = lease.WgpuSurfaceCallbacks;
             if (surfaceCallbacks is { Count: > 0 })
             {
                 var callbackContext = new WgpuSurfaceRenderContext(
@@ -313,7 +320,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         var format = _requiresSurfaceBlit
             ? RenderFormat.Rgba8
             : DetermineRenderFormat(_surfaceFormat);
-        var antialiasing = AntialiasingMode.Area;
+        var antialiasing = ResolveAntialiasing(renderParams.Antialiasing);
 
         return new RenderParams(renderParams.Width, renderParams.Height, renderParams.BaseColor, antialiasing, format);
     }
@@ -337,6 +344,83 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         WgpuTextureFormat.Bgra8UnormSrgb => WgpuTextureFormat.Bgra8Unorm,
         _ => format,
     };
+
+    private RendererOptions ResolveRendererOptions()
+    {
+        var baseOptions = _options.RendererOptions;
+        if (!OperatingSystem.IsBrowser())
+        {
+            return baseOptions;
+        }
+
+        var capabilities = VelloPlatform.LatestWebGpuCapabilities;
+        if (capabilities is null)
+        {
+            return baseOptions;
+        }
+
+        var supportsMsaa8 = baseOptions.SupportMsaa8 && WebGpuCapabilityHelpers.SupportsSampleCount(capabilities, 8);
+        var supportsMsaa16 = baseOptions.SupportMsaa16 && WebGpuCapabilityHelpers.SupportsSampleCount(capabilities, 16);
+
+        return new RendererOptions(
+            baseOptions.UseCpu,
+            baseOptions.SupportArea,
+            supportsMsaa8,
+            supportsMsaa16,
+            baseOptions.InitThreads,
+            baseOptions.PipelineCache);
+    }
+
+    private AntialiasingMode ResolveAntialiasing(AntialiasingMode requested)
+    {
+        var resolved = requested switch
+        {
+            AntialiasingMode.Msaa16 when !_lastResolvedRendererOptions.SupportMsaa16
+                => _lastResolvedRendererOptions.SupportMsaa8 ? AntialiasingMode.Msaa8 : AntialiasingMode.Area,
+            AntialiasingMode.Msaa8 when !_lastResolvedRendererOptions.SupportMsaa8
+                => AntialiasingMode.Area,
+            _ => requested,
+        };
+
+        if (OperatingSystem.IsBrowser())
+        {
+            var capabilities = VelloPlatform.LatestWebGpuCapabilities;
+            if (!WebGpuCapabilityHelpers.SupportsSampleCount(capabilities, SampleCountFor(resolved)))
+            {
+                resolved = WebGpuCapabilityHelpers.SupportsSampleCount(capabilities, 8)
+                    && _lastResolvedRendererOptions.SupportMsaa8
+                        ? AntialiasingMode.Msaa8
+                        : AntialiasingMode.Area;
+            }
+        }
+
+        return resolved;
+    }
+
+    private static uint SampleCountFor(AntialiasingMode mode) => mode switch
+    {
+        AntialiasingMode.Msaa16 => 16u,
+        AntialiasingMode.Msaa8 => 8u,
+        _ => 1u,
+    };
+
+    private static bool TryGetBrowserPreferredFormat(out WgpuTextureFormat format)
+    {
+        if (!OperatingSystem.IsBrowser())
+        {
+            format = default;
+            return false;
+        }
+
+        var capabilities = VelloPlatform.LatestWebGpuCapabilities;
+        if (capabilities is null)
+        {
+            format = default;
+            return false;
+        }
+
+        return WebGpuCapabilityHelpers.TryMapTextureFormat(capabilities.SurfaceTextureFormat, out format);
+    }
 
     private bool PendingSurfaceMatches(WgpuInstance instance, in SurfaceDescriptor descriptor)
     {

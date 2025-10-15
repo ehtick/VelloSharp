@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net8.0-browser</TargetFrameworks>
+    <ImplicitUsings>true</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputType>Library</OutputType>
+    <SelfContained>false</SelfContained>
+    <UsingMicrosoftNETSdkStaticWebAssets>true</UsingMicrosoftNETSdkStaticWebAssets>
+    <WasmGenerateAppBundle>false</WasmGenerateAppBundle>
+    <IsBrowserWasmProject>false</IsBrowserWasmProject>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.Avalonia.Browser</PackageId>
+    <Title>VelloSharp.Avalonia.Browser</Title>
+    <Description>Avalonia Browser integration for the VelloSharp WebGPU renderer.</Description>
+    <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-browser'">
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <UsingMicrosoftNETSdkStaticWebAssets>true</UsingMicrosoftNETSdkStaticWebAssets>
+    <WasmGenerateAppBundle>false</WasmGenerateAppBundle>
+    <IsBrowserWasmProject>false</IsBrowserWasmProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="../VelloSharp.WebAssembly/VelloSharp.WebAssembly.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" />
+  </ItemGroup>
+</Project>

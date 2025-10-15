@@ -33,6 +33,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private VelloLeaseFeature? _leaseFeature;
     private bool _apiLeaseActive;
     private bool _platformGraphicsLeaseActive;
+    private bool _sceneLeased;
+    private SceneLease? _activeSceneLease;
     private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
     private static readonly global::Avalonia.Vector s_intermediateDpi = new(96, 96);
@@ -70,6 +72,16 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     internal void ScheduleWgpuSurfaceRender(Action<WgpuSurfaceRenderContext> callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
+        if (_graphicsDevice is null)
+        {
+            throw new PlatformNotSupportedException("WGPU surface render callbacks are not supported on this platform.");
+        }
+
+        if (_sceneLeased)
+        {
+            throw new InvalidOperationException("WGPU surface render callbacks must be scheduled before leasing the scene.");
+        }
+
         (_wgpuSurfaceCallbacks ??= new List<Action<WgpuSurfaceRenderContext>>()).Add(callback);
     }
 
@@ -78,6 +90,31 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var callbacks = _wgpuSurfaceCallbacks;
         _wgpuSurfaceCallbacks = null;
         return callbacks;
+    }
+
+    internal SceneLease LeaseScene()
+    {
+        EnsureNotDisposed();
+
+        if (_sceneLeased)
+        {
+            throw new InvalidOperationException("The current scene has already been leased.");
+        }
+
+        var lease = new SceneLease(this, _scene, RenderParams, Transform, TakeWgpuSurfaceRenderCallbacks());
+        _sceneLeased = true;
+        _activeSceneLease = lease;
+        return lease;
+    }
+
+    internal void OnSceneLeaseDisposed(SceneLease lease)
+    {
+        if (ReferenceEquals(_activeSceneLease, lease))
+        {
+            _activeSceneLease = null;
+        }
+
+        _sceneLeased = false;
     }
 
     public void Dispose()

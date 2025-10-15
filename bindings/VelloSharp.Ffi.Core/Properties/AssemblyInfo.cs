@@ -13,3 +13,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.HarfBuzzSharp")]
 [assembly: InternalsVisibleTo("HarfBuzzSharp")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Gpu.Tests")]
+[assembly: InternalsVisibleTo("VelloSharp.Avalonia.Browser")]
+[assembly: InternalsVisibleTo("VelloSharp.WebAssembly")]

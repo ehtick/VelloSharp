@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>true</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+    <OutputType>Library</OutputType>
+    <!-- Keep library portable; browser-only defines are set in the app -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IsPackable>true</IsPackable>
+    <PackageId>VelloSharp.WebAssembly</PackageId>
+    <Title>VelloSharp.WebAssembly</Title>
+    <Description>WebAssembly bindings for the VelloSharp renderer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Ffi.Core/VelloSharp.Ffi.Core.csproj" />
+  </ItemGroup>
+</Project>

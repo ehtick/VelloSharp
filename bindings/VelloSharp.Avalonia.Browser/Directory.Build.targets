@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup Condition="'$(MSBuildProjectFullPath)' == '$(MSBuildThisFileDirectory)VelloSharp.Avalonia.Browser.csproj'">
+    <OutputType>Library</OutputType>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+</Project>

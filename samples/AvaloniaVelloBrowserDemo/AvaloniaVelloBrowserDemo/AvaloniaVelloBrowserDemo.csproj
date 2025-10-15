@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net9.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);BROWSER</DefineConstants>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <VelloSampleAssetDir>$(MSBuildThisFileDirectory)wwwroot\native</VelloSampleAssetDir>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <VelloNativeAssetDir Condition="'$(VelloNativeAssetDir)'=='' and Exists('$(VelloSampleAssetDir)')">$(VelloSampleAssetDir)</VelloNativeAssetDir>
+    <UsingSampleVelloAssets Condition="'$(UsingSampleVelloAssets)'=='' and '$(VelloNativeAssetDir)' == '$(VelloSampleAssetDir)'">true</UsingSampleVelloAssets>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\bindings\VelloSharp.Avalonia.Browser\VelloSharp.Avalonia.Browser.csproj" />
+    <ProjectReference Include="..\..\..\bindings\VelloSharp.WebAssembly\VelloSharp.WebAssembly.csproj" />
+    <ProjectReference Include="..\..\AvaloniaVelloCommon\AvaloniaVelloCommon.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Browser" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Diagnostics">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsingSampleVelloAssets)' != 'true'">
+    <PackageReference Include="VelloSharp.Native.Vello.Web" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsingSampleVelloAssets)' == 'true' and Exists('$(VelloNativeAssetDir)\vello_webgpu_ffi.wasm')">
+    <WasmDeployedFile Include="$(VelloNativeAssetDir)\vello_webgpu_ffi.wasm">
+      
+      <AssetType>native</AssetType><RelativePath>native\\vello_webgpu_ffi.wasm</RelativePath>
+    </WasmDeployedFile>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsingSampleVelloAssets)' == 'true' and Exists('$(VelloNativeAssetDir)\vello_webgpu_ffi_bg.wasm')">
+    <WasmDeployedFile Include="$(VelloNativeAssetDir)\vello_webgpu_ffi_bg.wasm">
+      
+      <AssetType>wasm</AssetType><RelativePath>native\\vello_webgpu_ffi_bg.wasm</RelativePath>
+    </WasmDeployedFile>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsingSampleVelloAssets)' == 'true' and Exists('$(VelloNativeAssetDir)\vello_webgpu_ffi.js')">
+    <WasmDeployedFile Include="$(VelloNativeAssetDir)\vello_webgpu_ffi.js">
+      
+      <AssetType>wasm</AssetType><RelativePath>native\\vello_webgpu_ffi.js</RelativePath>
+    </WasmDeployedFile>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsingSampleVelloAssets)' == 'true' and Exists('$(VelloNativeAssetDir)\package.json')">
+    <WasmDeployedFile Include="$(VelloNativeAssetDir)\package.json">
+      
+      <AssetType>native</AssetType><RelativePath>native\\package.json</RelativePath>
+    </WasmDeployedFile>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsingSampleVelloAssets)' == 'true' and Exists('$(VelloNativeAssetDir)\snippets')">
+    <WasmDeployedFile Include="$(VelloNativeAssetDir)\snippets\**\*">
+      
+      <AssetType>js-module</AssetType><RelativePath>native\\snippets\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+    </WasmDeployedFile>
+  </ItemGroup>
+</Project>
+
+
+
+

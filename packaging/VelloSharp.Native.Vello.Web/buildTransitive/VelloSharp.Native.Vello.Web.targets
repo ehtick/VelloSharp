@@ -1,0 +1,36 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <_VelloWebNativeRoot Condition="'$(_VelloWebNativeRoot)'==''">$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', 'runtimes', 'browser-wasm', 'native'))</_VelloWebNativeRoot>
+    <_VelloWebIsBrowser Condition="'$(TargetFramework)' != ''">$(TargetFramework.Contains('browser'))</_VelloWebIsBrowser>
+    <_VelloWebIsBrowser Condition="'$(_VelloWebIsBrowser)' == '' and '$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier.Contains('browser-wasm'))</_VelloWebIsBrowser>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(VelloNativeAssetDir)'=='' and Exists('$(_VelloWebNativeRoot)')">
+    <VelloNativeAssetDir>$(_VelloWebNativeRoot)</VelloNativeAssetDir>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_VelloWebIsBrowser)' == 'True' and Exists('$(VelloNativeAssetDir)')">
+    <_VelloWebWasm Include="$(VelloNativeAssetDir)\**\*.wasm" />
+    <_VelloWebExtra Include="$(VelloNativeAssetDir)\**\*.js" />
+    <_VelloWebExtra Include="$(VelloNativeAssetDir)\**\*.json" />
+    <_VelloWebExtra Include="$(VelloNativeAssetDir)\snippets\**\*.*" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'@(_VelloWebWasm)' != ''">
+    <WasmNativeAsset Include="@(_VelloWebWasm)">
+      <RelativePath Condition="'%(RelativePath)'==''">native\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+    </WasmNativeAsset>
+  </ItemGroup>
+
+  <ItemGroup Condition="'@(_VelloWebExtra)' != ''">
+    <WasmExtraFilesToDeploy Include="@(_VelloWebExtra)">
+      <RelativePath Condition="'%(RelativePath)'==''">native\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+    </WasmExtraFilesToDeploy>
+  </ItemGroup>
+
+  <Target Name="VelloWebGpuValidateAssets"
+          BeforeTargets="_WasmGenerateAppBundle"
+          Condition="'$(_VelloWebIsBrowser)' == 'True' and !Exists('$(VelloNativeAssetDir)\vello_webgpu_ffi.wasm')">
+    <Warning Text="VelloSharp.Native.Vello.Web did not find 'vello_webgpu_ffi.wasm' under '$(VelloNativeAssetDir)'. Run scripts/build-wasm-vello.* to generate the bundle." />
+  </Target>
+</Project>

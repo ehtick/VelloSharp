@@ -4,16 +4,32 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
+using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using AvaloniaVelloCommon.Rendering;
-using Avalonia.Platform;
 using VelloSharp.Avalonia.Vello.Rendering;
 
 namespace AvaloniaVelloCommon.Controls;
 
 public class CubeDemoControl : Control
 {
+    private const string WebGpuCapabilitiesResourceKey = "Vello.WebGpu.Capabilities";
+
+    private static readonly ImmutableSolidColorBrush OverlayBackgroundBrush = new(Color.FromArgb(0xC0, 0x0A, 0x1F, 0x33));
+    private static readonly ImmutableSolidColorBrush OverlayBorderBrush = new(Color.FromArgb(0xFF, 0x3A, 0x7E, 0xC6));
+    private static readonly Pen OverlayBorderPen = new(OverlayBorderBrush, 1)
+    {
+        LineJoin = PenLineJoin.Round,
+    };
+    private static readonly Typeface OverlayTypeface = new("Inter", FontStyle.Normal, FontWeight.Medium);
+    private const double OverlayMargin = 12;
+    private const double OverlayHorizontalPadding = 12;
+    private const double OverlayVerticalPadding = 6;
+    private const double OverlayMaxWidth = 420;
+
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
     private readonly SolidColorBrush _backgroundBrush = new(Color.FromRgb(6, 20, 33));
     private readonly CubeRenderer _renderer = new();
@@ -78,6 +94,12 @@ public class CubeDemoControl : Control
 
         context.Custom(new CubeDrawOperation(bounds, this));
 
+        var capabilitiesSummary = GetWebGpuCapabilitySummary();
+        if (!string.IsNullOrWhiteSpace(capabilitiesSummary))
+        {
+            DrawCapabilitiesOverlay(context, bounds, capabilitiesSummary);
+        }
+
         if (!_wgpuAvailable)
         {
             DrawStatusMessage(context, bounds);
@@ -102,6 +124,89 @@ public class CubeDemoControl : Control
             bounds.Y + bounds.Height / 2 - message.Height / 2);
 
         context.DrawText(message, origin);
+    }
+
+    private static string? GetWebGpuCapabilitySummary()
+    {
+        if (!OperatingSystem.IsBrowser())
+        {
+            return null;
+        }
+
+        if (Application.Current is not { } app)
+        {
+            return null;
+        }
+
+        if (app.TryGetResource(WebGpuCapabilitiesResourceKey, null, out var resource) &&
+            resource is string summary &&
+            !string.IsNullOrWhiteSpace(summary))
+        {
+            return summary;
+        }
+
+        return null;
+    }
+
+    private static void DrawCapabilitiesOverlay(DrawingContext context, Rect bounds, string summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return;
+        }
+
+        var availableWidth = bounds.Width - (OverlayMargin * 2);
+        var availableHeight = bounds.Height - (OverlayMargin * 2);
+        if (availableWidth <= 0 || availableHeight <= 0)
+        {
+            return;
+        }
+
+        var maxTextWidth = Math.Max(0, Math.Min(availableWidth, OverlayMaxWidth));
+        if (maxTextWidth <= 0)
+        {
+            return;
+        }
+
+        var formatted = new FormattedText(
+            $"WebGPU: {summary}",
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            OverlayTypeface,
+            14,
+            Brushes.White)
+        {
+            TextAlignment = TextAlignment.Left,
+        };
+        formatted.MaxTextWidth = maxTextWidth;
+        formatted.Trimming = TextTrimming.None;
+
+        if (formatted.Height <= 0 || formatted.WidthIncludingTrailingWhitespace <= 0)
+        {
+            return;
+        }
+
+        var overlayWidth = Math.Min(availableWidth, formatted.WidthIncludingTrailingWhitespace + (OverlayHorizontalPadding * 2));
+        var overlayHeight = Math.Min(availableHeight, formatted.Height + (OverlayVerticalPadding * 2));
+        if (overlayWidth <= 0 || overlayHeight <= 0)
+        {
+            return;
+        }
+
+        var overlayRect = new Rect(
+            bounds.X + OverlayMargin,
+            bounds.Y + OverlayMargin,
+            overlayWidth,
+            overlayHeight);
+
+        context.FillRectangle(OverlayBackgroundBrush, overlayRect);
+        context.DrawRectangle(OverlayBorderPen, overlayRect);
+
+        var textOrigin = new Point(
+            overlayRect.X + OverlayHorizontalPadding,
+            overlayRect.Y + OverlayVerticalPadding);
+
+        context.DrawText(formatted, textOrigin);
     }
 
     private float GetElapsedTimeSeconds() => (float)_stopwatch.Elapsed.TotalSeconds;

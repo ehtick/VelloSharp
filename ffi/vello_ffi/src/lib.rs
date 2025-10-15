@@ -1609,8 +1609,7 @@ mod tests {
     }
 
     fn load_font_handle(data: &[u8]) -> *mut VelloFontHandle {
-        let handle =
-            unsafe { vello_font_create(data.as_ptr(), data.len(), 0) };
+        let handle = unsafe { vello_font_create(data.as_ptr(), data.len(), 0) };
         assert!(!handle.is_null(), "font handle should not be null");
         handle
     }
@@ -1621,13 +1620,13 @@ mod tests {
 
     #[test]
     fn font_glyph_index_matches_skrifa() {
-        let data =
-            include_bytes!("../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf");
+        let data = include_bytes!(
+            "../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf"
+        );
         let handle = load_font_handle(data);
 
         let mut glyph = 0u16;
-        let status =
-            unsafe { vello_font_get_glyph_index(handle, 'A' as u32, &mut glyph) };
+        let status = unsafe { vello_font_get_glyph_index(handle, 'A' as u32, &mut glyph) };
         assert_eq!(status, VelloStatus::Success);
         assert_ne!(glyph, 0);
 
@@ -1639,9 +1638,7 @@ mod tests {
             .unwrap_or(0);
         assert_eq!(glyph, expected);
 
-        let status = unsafe {
-            vello_font_get_glyph_index(handle, 0x10FFFF, &mut glyph)
-        };
+        let status = unsafe { vello_font_get_glyph_index(handle, 0x10FFFF, &mut glyph) };
         assert_eq!(status, VelloStatus::Success);
         assert_eq!(glyph, 0, "missing codepoint should map to zero glyph");
 
@@ -1650,8 +1647,9 @@ mod tests {
 
     #[test]
     fn font_glyph_metrics_match_skrifa() {
-        let data =
-            include_bytes!("../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf");
+        let data = include_bytes!(
+            "../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf"
+        );
         let handle = load_font_handle(data);
         let font_ref = FontRef::from_index(data, 0).expect("valid font");
 
@@ -1662,17 +1660,17 @@ mod tests {
             .expect("glyph id");
 
         let mut metrics = VelloGlyphMetrics::default();
-        let status = unsafe {
-            vello_font_get_glyph_metrics(handle, glyph, 24.0, &mut metrics)
-        };
+        let status = unsafe { vello_font_get_glyph_metrics(handle, glyph, 24.0, &mut metrics) };
         assert_eq!(status, VelloStatus::Success);
 
-        let skrifa_metrics =
-            SkrifaGlyphMetrics::new(&font_ref, SkrifaSize::new(24.0), SkrifaLocationRef::default());
+        let skrifa_metrics = SkrifaGlyphMetrics::new(
+            &font_ref,
+            SkrifaSize::new(24.0),
+            SkrifaLocationRef::default(),
+        );
         let glyph_id = SkrifaGlyphId::new(glyph as u32);
 
-        let expected_advance =
-            skrifa_metrics.advance_width(glyph_id).unwrap_or(0.0);
+        let expected_advance = skrifa_metrics.advance_width(glyph_id).unwrap_or(0.0);
         let bounds = skrifa_metrics.bounds(glyph_id);
         let expected_width = bounds.map(|b| b.x_max - b.x_min).unwrap_or(0.0);
         let expected_height = bounds.map(|b| b.y_max - b.y_min).unwrap_or(0.0);
@@ -1710,9 +1708,7 @@ mod tests {
             count: 0,
         };
 
-        let status = unsafe {
-            vello_font_get_variation_axes(handle, &mut axes_handle, &mut array)
-        };
+        let status = unsafe { vello_font_get_variation_axes(handle, &mut axes_handle, &mut array) };
         assert_eq!(status, VelloStatus::Success);
 
         if array.count == 0 {
@@ -1733,11 +1729,7 @@ mod tests {
         for index in 0..axes_collection.len() {
             if let Some(entry) = axes_collection.get(index) {
                 if entry.tag().to_be_bytes() == *b"wght" {
-                    expected = Some((
-                        entry.min_value(),
-                        entry.default_value(),
-                        entry.max_value(),
-                    ));
+                    expected = Some((entry.min_value(), entry.default_value(), entry.max_value()));
                     break;
                 }
             }
@@ -1769,17 +1761,15 @@ mod tests {
         }];
 
         let location = build_variation_location(&font_ref, axes.as_ptr(), axes.len());
-        let coords_storage = location
-            .as_ref()
-            .map(|loc| loc.coords().to_vec());
-        let coords: &[NormalizedCoord] =
-            coords_storage.as_deref().unwrap_or(&[]);
+        let coords_storage = location.as_ref().map(|loc| loc.coords().to_vec());
+        let coords: &[NormalizedCoord] = coords_storage.as_deref().unwrap_or(&[]);
 
         let location_ref = location
             .as_ref()
             .map(|loc| SkrifaLocationRef::from(loc))
             .unwrap_or_default();
-        let metrics = skrifa::metrics::Metrics::new(&font_ref, SkrifaSize::unscaled(), location_ref);
+        let metrics =
+            skrifa::metrics::Metrics::new(&font_ref, SkrifaSize::unscaled(), location_ref);
         let os2 = font_ref.os2().ok();
         let hhea = font_ref.hhea().ok();
         let vhea = font_ref.vhea().ok();
@@ -1822,13 +1812,7 @@ mod tests {
 
         let mut delta = 0.0f32;
         let status = unsafe {
-            vello_font_get_ot_variation(
-                handle,
-                asc_tag,
-                axes.as_ptr(),
-                axes.len(),
-                &mut delta,
-            )
+            vello_font_get_ot_variation(handle, asc_tag, axes.as_ptr(), axes.len(), &mut delta)
         };
         assert_eq!(status, VelloStatus::Success);
 
@@ -1873,8 +1857,9 @@ mod tests {
 
     #[test]
     fn font_table_enumeration_and_reference_succeeds() {
-        let data =
-            include_bytes!("../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf");
+        let data = include_bytes!(
+            "../../../samples/AvaloniaVelloExamples/Assets/vello/roboto/Roboto-Regular.ttf"
+        );
         let handle = load_font_handle(data);
         let font_ref = FontRef::from_index(data, 0).expect("valid font");
 
@@ -1883,9 +1868,7 @@ mod tests {
             tags: std::ptr::null(),
             count: 0,
         };
-        let status = unsafe {
-            vello_font_get_table_tags(handle, &mut tag_handle, &mut tag_array)
-        };
+        let status = unsafe { vello_font_get_table_tags(handle, &mut tag_handle, &mut tag_array) };
         assert_eq!(status, VelloStatus::Success);
         assert!(tag_array.count > 0);
 
@@ -1901,9 +1884,8 @@ mod tests {
             data: std::ptr::null(),
             length: 0,
         };
-        let status = unsafe {
-            vello_font_reference_table(handle, head_tag, &mut table_handle, &mut table)
-        };
+        let status =
+            unsafe { vello_font_reference_table(handle, head_tag, &mut table_handle, &mut table) };
         assert_eq!(status, VelloStatus::Success);
         assert!(!table.data.is_null());
         assert!(table.length > 0);

@@ -107,4 +107,54 @@ ensure_rustup() {
 
 ensure_rustup
 
+ensure_wasm_bindgen() {
+  if has_command wasm-bindgen; then
+    echo "wasm-bindgen CLI detected."
+    return
+  fi
+
+  if ! has_command cargo; then
+    echo "Cargo is not on PATH; skip automatic wasm-bindgen installation. Install manually with 'cargo install wasm-bindgen-cli' once cargo is available." >&2
+    return
+  fi
+
+  echo "Installing wasm-bindgen-cli via cargo..."
+  cargo install wasm-bindgen-cli --force
+  hash -r
+
+  if has_command wasm-bindgen; then
+    echo "wasm-bindgen CLI installed."
+  else
+    echo "Attempted to install wasm-bindgen-cli but the command is still missing. Verify your PATH or reinstall manually." >&2
+  fi
+}
+
+ensure_binaryen() {
+  if has_command wasm-opt; then
+    echo "wasm-opt (Binaryen) detected."
+    return
+  fi
+
+  echo "wasm-opt not detected. Attempting to install Binaryen..."
+
+  if has_command brew; then
+    brew install binaryen
+  elif has_command port; then
+    run_as_root port install binaryen
+  else
+    echo "Homebrew/MacPorts not detected. Install Binaryen manually (e.g., brew install binaryen or download from https://github.com/WebAssembly/binaryen/releases)." >&2
+  fi
+
+  hash -r
+
+  if has_command wasm-opt; then
+    echo "Binaryen (wasm-opt) installed."
+  else
+    echo "Attempted to install Binaryen, but wasm-opt is still not detected. Verify the installation manually." >&2
+  fi
+}
+
+ensure_wasm_bindgen
+ensure_binaryen
+
 echo "Bootstrap complete. Ensure $HOME/.cargo/bin is in your PATH before building."

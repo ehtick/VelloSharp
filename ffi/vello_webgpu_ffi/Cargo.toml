@@ -1,0 +1,48 @@
+[package]
+name = "vello_webgpu_ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WebAssembly WebGPU bindings for the Vello renderer"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+vello = { workspace = true, features = ["wgpu-profiler"] }
+wgpu = { workspace = true, default-features = false, features = ["std", "wgsl", "webgpu"] }
+pollster = { workspace = true }
+futures-intrusive = { workspace = true }
+once_cell = "1.21"
+smallvec = { workspace = true }
+raw-window-handle = { workspace = true }
+log = { workspace = true }
+static_assertions = "1.1"
+
+[target."cfg(target_arch = \"wasm32\")".dependencies]
+wasm-bindgen = { version = "0.2.95", features = ["spans"] }
+wasm-bindgen-futures = "0.4.45"
+js-sys = "0.3.72"
+web-sys = { version = "0.3.72", features = [
+    "Document",
+    "Element",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "CssStyleDeclaration",
+    "Window",
+] }
+console_error_panic_hook = "0.1.7"
+console_log = "1.0.0"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.45"
+gloo-timers = { version = "0.2.6", features = ["futures"] }
+
+[features]
+default = []
+trace-paths = []

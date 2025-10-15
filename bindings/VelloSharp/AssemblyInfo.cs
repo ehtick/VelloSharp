@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.Integration")]
 [assembly: InternalsVisibleTo("VelloSharp.Avalonia.Winit")]
 [assembly: InternalsVisibleTo("VelloSharp.Avalonia.Vello")]
+[assembly: InternalsVisibleTo("VelloSharp.Avalonia.Browser")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Core")]
 [assembly: InternalsVisibleTo("VelloSharp.Skia.Gpu")]
@@ -12,3 +13,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("VelloSharp.ChartEngine")]
 [assembly: InternalsVisibleTo("HarfBuzzSharp")]
 [assembly: InternalsVisibleTo("VelloSharp.Windows.Core.Tests")]
+[assembly: InternalsVisibleTo("VelloSharp.WebAssembly")]
