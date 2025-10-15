@@ -83,7 +83,7 @@ build pipeline.
 - `NUGET_API_KEY` must be configured in the repository secrets for the release
   workflow to publish packages.
 - Releases are initiated by creating and pushing a tag that matches `v*`
-  (for example `v0.5.0-alpha.1`). The release workflow derives the version from
+  (for example `v0.5.0-alpha.2`). The release workflow derives the version from
   the tag name.
 - Both the CI and release workflows expose `workflow_dispatch`; maintainers can
   run them manually from the Actions tab when troubleshooting or preparing dry
