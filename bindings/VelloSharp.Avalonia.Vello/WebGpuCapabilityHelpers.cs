@@ -1,14 +1,22 @@
 using System;
+using System.Runtime.Versioning;
 using VelloSharp;
 
 namespace VelloSharp.Avalonia.Vello;
 
+[SupportedOSPlatform("browser")]
 internal static class WebGpuCapabilityHelpers
 {
     public static bool TryMapTextureFormat(
         WebGpuRuntime.WebGpuTextureFormat textureFormat,
         out WgpuTextureFormat mappedFormat)
     {
+        if (!OperatingSystem.IsBrowser())
+        {
+            mappedFormat = default;
+            return false;
+        }
+
         mappedFormat = textureFormat switch
         {
             WebGpuRuntime.WebGpuTextureFormat.Rgba8Unorm => WgpuTextureFormat.Rgba8Unorm,
@@ -26,6 +34,11 @@ internal static class WebGpuCapabilityHelpers
         WebGpuRuntime.WebGpuCapabilities? capabilities,
         uint sampleCount)
     {
+        if (!OperatingSystem.IsBrowser())
+        {
+            return false;
+        }
+
         if (capabilities is null)
         {
             return false;
@@ -48,6 +61,11 @@ internal static class WebGpuCapabilityHelpers
 
     public static string BuildSummary(WebGpuRuntime.WebGpuCapabilities capabilities)
     {
+        if (!OperatingSystem.IsBrowser())
+        {
+            return "WebGPU diagnostics unavailable on this platform.";
+        }
+
         var msaa8 = SupportsSampleCount(capabilities, 8) ? "supported" : "not supported";
         var msaa16 = SupportsSampleCount(capabilities, 16) ? "supported" : "not supported";
 

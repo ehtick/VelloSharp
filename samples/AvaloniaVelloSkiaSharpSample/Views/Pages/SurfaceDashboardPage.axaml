@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rendering="clr-namespace:AvaloniaVelloSkiaSharpSample.Rendering"
+             x:Class="AvaloniaVelloSkiaSharpSample.Views.Pages.SurfaceDashboardPage">
+  <Grid Margin="24"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="320,*"
+        RowSpacing="16"
+        ColumnSpacing="16">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="Surface Dashboard"
+                 FontSize="20"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Visualise canvas state, check backend metrics, and flip SkiaSharp surface toggles in real time."
+                 Opacity="0.78"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16">
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <Grid ColumnDefinitions="Auto,*"
+                RowSpacing="6"
+                ColumnSpacing="12">
+            <TextBlock Text="Backend"
+                       Opacity="0.72"
+                       FontWeight="SemiBold" />
+            <StackPanel Grid.Column="1">
+              <TextBlock Text="{Binding Stats.BackendTitle}"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding Stats.BackendSubtitle}"
+                         FontSize="11"
+                         Opacity="0.7" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="1"
+                       Text="Surface"
+                       Opacity="0.72"
+                       FontWeight="SemiBold" />
+            <StackPanel Grid.Column="1"
+                        Grid.Row="1"
+                        Orientation="Horizontal"
+                        Spacing="8">
+              <TextBlock Text="{Binding Stats.SurfaceWidth, StringFormat='{}{0} px'}" />
+              <TextBlock Text="×" />
+              <TextBlock Text="{Binding Stats.SurfaceHeight, StringFormat='{}{0} px'}" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="2"
+                       Text="Frame Time"
+                       Opacity="0.72"
+                       FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1"
+                       Grid.Row="2"
+                       Text="{Binding Stats.FrameTimeMs, StringFormat='{}{0:F2} ms'}" />
+
+            <TextBlock Grid.Row="3"
+                       Text="Frame Rate"
+                       Opacity="0.72"
+                       FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1"
+                       Grid.Row="3"
+                       Text="{Binding Stats.FrameRate, StringFormat='{}{0:F1} fps'}" />
+
+            <TextBlock Grid.Row="4"
+                       Text="Frame #"
+                       Opacity="0.72"
+                       FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1"
+                       Grid.Row="4"
+                       Text="{Binding Stats.Frame}" />
+
+            <TextBlock Grid.Row="5"
+                       Text="Draw Commands"
+                       Opacity="0.72"
+                       FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1"
+                       Grid.Row="5"
+                       Text="{Binding Stats.CommandCount}" />
+          </Grid>
+        </Border>
+
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Canvas Options"
+                       FontWeight="SemiBold" />
+
+            <CheckBox Content="SaveLayer glow"
+                      IsChecked="{Binding UseSaveLayer}" />
+            <CheckBox Content="Clip rectangle"
+                      IsChecked="{Binding UseClipRect}" />
+            <CheckBox Content="Clip rounded mask"
+                      IsChecked="{Binding UseClipPath}" />
+            <CheckBox Content="Reset matrix"
+                      IsChecked="{Binding ResetMatrix}" />
+
+            <Button Content="Capture snapshot"
+                    Command="{Binding CaptureSnapshotCommand}" />
+            <TextBlock Text="{Binding CaptureStatus}"
+                       FontSize="11"
+                       Opacity="0.75"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Matrix Stack"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding MatrixStackSummary}"
+                       FontFamily="Consolas, Courier New"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Background="#101722"
+            CornerRadius="12"
+            Padding="16">
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
+    </Border>
+  </Grid>
+</UserControl>

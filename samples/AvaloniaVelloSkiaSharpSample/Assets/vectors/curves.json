@@ -1,0 +1,23 @@
+{
+  "name": "RibbonOverlay",
+  "commands": [
+    { "moveTo": [0.0, -120.0] },
+    { "cubicTo": [[140.0, -220.0], [220.0, 60.0], [40.0, 80.0]] },
+    { "cubicTo": [[-60.0, 120.0], [-180.0, 20.0], [-200.0, 0.0]] },
+    { "close": true }
+  ],
+  "stroke": {
+    "width": 6.0,
+    "join": "round"
+  },
+  "fillGradient": {
+    "type": "linear",
+    "start": [-200.0, -120.0],
+    "end": [160.0, 140.0],
+    "stops": [
+      { "offset": 0.0, "color": "#FF62DAFF" },
+      { "offset": 0.5, "color": "#FF6EF1C4" },
+      { "offset": 1.0, "color": "#FFEDF8FF" }
+    ]
+  }
+}

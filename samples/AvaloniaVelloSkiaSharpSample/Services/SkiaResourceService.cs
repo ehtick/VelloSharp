@@ -40,8 +40,8 @@ public sealed class SkiaResourceService : IDisposable
         var fullPath = ResolvePath(relativePath);
         return _dataCache.GetOrAdd(fullPath, path =>
         {
-            using var fs = File.OpenRead(path);
-            return SKData.Create(fs) ?? throw new InvalidOperationException($"Failed to create SKData from '{path}'.");
+            var bytes = File.ReadAllBytes(path);
+            return SKData.CreateCopy(bytes);
         });
     }
 

@@ -1,17 +1,26 @@
 using System;
 using Avalonia.Media;
 using AvaloniaVelloSkiaSharpSample.Rendering;
+using AvaloniaVelloSkiaSharpSample.Diagnostics;
+using AvaloniaVelloSkiaSharpSample.Services;
 using SkiaSharp;
+using SampleSkiaBackendService = AvaloniaVelloSkiaSharpSample.Services.SkiaBackendService;
 
 namespace AvaloniaVelloSkiaSharpSample.ViewModels.Pages;
 
 public sealed class WelcomePageViewModel : SamplePageViewModel
 {
-    public WelcomePageViewModel()
+    public WelcomePageViewModel(
+        SkiaCaptureRecorder? captureRecorder = null,
+        SampleSkiaBackendService? backendService = null,
+        SkiaResourceService? resourceService = null)
         : base(
             "Welcome",
             "Overview of the SkiaSharp shim gallery running through the Vello lease pipeline.",
-            "\u2605")
+            "\u2605",
+            captureRecorder,
+            backendService,
+            resourceService)
     {
     }
 
@@ -87,6 +96,8 @@ public sealed class WelcomePageViewModel : SamplePageViewModel
         var captionX = (info.Width - captionWidth) * 0.5f;
         var captionY = info.Height * 0.82f;
         canvas.DrawText(caption, captionX, captionY, captionPaint);
+
+        ProcessCapture(context);
     }
 
     private static float ApproximateTextWidth(string text, float size)

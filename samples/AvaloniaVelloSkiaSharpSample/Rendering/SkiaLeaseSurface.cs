@@ -5,10 +5,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
+using Avalonia.Threading;
 using SkiaSharp;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Rendering;
 using VelloSharp.Rendering;
+using AvaloniaVelloSkiaSharpSample.Services;
 using VelloImage = VelloSharp.Image;
 
 namespace AvaloniaVelloSkiaSharpSample.Rendering;
@@ -18,9 +20,14 @@ public sealed class SkiaLeaseSurface : Control
     public static readonly StyledProperty<ISkiaLeaseRenderer?> RendererProperty =
         AvaloniaProperty.Register<SkiaLeaseSurface, ISkiaLeaseRenderer?>(nameof(Renderer));
 
+    public static readonly StyledProperty<SkiaBackendDescriptor?> BackendDescriptorProperty =
+        AvaloniaProperty.Register<SkiaLeaseSurface, SkiaBackendDescriptor?>(nameof(BackendDescriptor));
+
     static SkiaLeaseSurface()
     {
         AffectsRender<SkiaLeaseSurface>(RendererProperty);
+        RendererProperty.Changed.AddClassHandler<SkiaLeaseSurface>((surface, args) => surface.OnRendererChanged(args));
+        BackendDescriptorProperty.Changed.AddClassHandler<SkiaLeaseSurface>((surface, args) => surface.OnBackendDescriptorChanged(args));
     }
 
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
@@ -38,11 +45,18 @@ public sealed class SkiaLeaseSurface : Control
 
     private byte[]? _cpuBuffer;
     private ulong _frameCounter;
+    private ISkiaLeaseRendererInvalidation? _invalidationSource;
 
     public ISkiaLeaseRenderer? Renderer
     {
         get => GetValue(RendererProperty);
         set => SetValue(RendererProperty, value);
+    }
+
+    public SkiaBackendDescriptor? BackendDescriptor
+    {
+        get => GetValue(BackendDescriptorProperty);
+        set => SetValue(BackendDescriptorProperty, value);
     }
 
     public override void Render(DrawingContext context)
@@ -60,6 +74,7 @@ public sealed class SkiaLeaseSurface : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        DetachRendererInvalidation();
         DisposeResources();
     }
 
@@ -74,6 +89,62 @@ public sealed class SkiaLeaseSurface : Control
         _surface = null;
         _surfaceWidth = 0;
         _surfaceHeight = 0;
+        _cpuBuffer = null;
+    }
+
+    private void OnRendererChanged(AvaloniaPropertyChangedEventArgs args)
+    {
+        if (args.Property != RendererProperty)
+        {
+            return;
+        }
+
+        var oldRenderer = args.GetOldValue<ISkiaLeaseRenderer?>();
+        var newRenderer = args.GetNewValue<ISkiaLeaseRenderer?>();
+
+        if (oldRenderer is ISkiaLeaseRendererInvalidation oldInvalidation)
+        {
+            oldInvalidation.RenderInvalidated -= OnRendererInvalidated;
+            if (ReferenceEquals(_invalidationSource, oldInvalidation))
+            {
+                _invalidationSource = null;
+            }
+        }
+
+        if (newRenderer is ISkiaLeaseRendererInvalidation newInvalidation)
+        {
+            _invalidationSource = newInvalidation;
+            newInvalidation.RenderInvalidated += OnRendererInvalidated;
+        }
+
+        InvalidateVisual();
+    }
+
+    private void OnBackendDescriptorChanged(AvaloniaPropertyChangedEventArgs args)
+    {
+        if (args.Property != BackendDescriptorProperty)
+        {
+            return;
+        }
+
+        DisposeResources();
+        InvalidateVisual();
+    }
+
+    private void OnRendererInvalidated(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(InvalidateVisual, DispatcherPriority.Render);
+    }
+
+    private void DetachRendererInvalidation()
+    {
+        if (_invalidationSource is null)
+        {
+            return;
+        }
+
+        _invalidationSource.RenderInvalidated -= OnRendererInvalidated;
+        _invalidationSource = null;
     }
 
     private void EnsureRenderer(uint width, uint height)
@@ -152,6 +223,8 @@ public sealed class SkiaLeaseSurface : Control
                 return;
             }
 
+            var backendDescriptor = owner.BackendDescriptor ?? SkiaBackendService.GpuDescriptor;
+
             var featureObject = context.TryGetFeature(typeof(IVelloApiLeaseFeature));
             if (featureObject is not IVelloApiLeaseFeature feature)
             {
@@ -195,7 +268,8 @@ public sealed class SkiaLeaseSurface : Control
                     bounds,
                     scaling,
                     owner._stopwatch.Elapsed,
-                    owner._frameCounter++);
+                    owner._frameCounter++,
+                    backendDescriptor);
 
                 renderer.Render(contextData);
             }
@@ -212,13 +286,44 @@ public sealed class SkiaLeaseSurface : Control
                 Height = (uint)pixelHeight,
             };
 
-            velloRenderer.Render(surface.Scene, renderParams, buffer, stride);
-
             using var lease = feature.Lease();
             if (lease is null)
             {
                 return;
             }
+
+            if (backendDescriptor.Kind == SkiaBackendKind.Gpu)
+            {
+                var platformLease = lease.TryLeasePlatformGraphics();
+                if (platformLease is not null)
+                {
+                    var scene = surface.Scene;
+                    var gpuParams = renderParams with { Format = RenderFormat.Bgra8 };
+
+                    lease.ScheduleWgpuSurfaceRender(renderContext =>
+                    {
+                        using (platformLease)
+                        {
+                            var gpuParams = renderContext.RenderParams with
+                            {
+                                Width = (uint)pixelWidth,
+                                Height = (uint)pixelHeight,
+                                Format = RenderFormat.Bgra8,
+                            };
+
+                            platformLease.Renderer.RenderSurface(
+                                scene,
+                                renderContext.TargetView,
+                                gpuParams,
+                                renderContext.SurfaceFormat);
+                        }
+                    });
+
+                    return;
+                }
+            }
+
+            velloRenderer.Render(surface.Scene, renderParams, buffer, stride);
 
             using var image = VelloImage.FromPixels(buffer, pixelWidth, pixelHeight, RenderFormat.Rgba8, ImageAlphaMode.Straight, stride);
 

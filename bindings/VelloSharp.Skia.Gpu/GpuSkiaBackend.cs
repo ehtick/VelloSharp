@@ -25,6 +25,17 @@ internal sealed class GpuSkiaBackendFactory : ISkiaBackendFactory
     }
 }
 
+public static class GpuSkiaBackend
+{
+    /// <summary>
+    /// Registers the GPU-backed Skia shim factory with the runtime.
+    /// </summary>
+    public static void Use()
+    {
+        SkiaBackendService.RegisterFactory(new GpuSkiaBackendFactory());
+    }
+}
+
 internal sealed class GpuSurfaceBackend : ISkiaSurfaceBackend
 {
     private readonly GpuScene _scene;

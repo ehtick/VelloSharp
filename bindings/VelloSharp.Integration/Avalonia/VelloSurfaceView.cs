@@ -423,26 +423,42 @@ public class VelloSurfaceView : ContentControl, IDisposable
     private static class MacInterop
     {
         private const string ObjectiveCLibrary = "/usr/lib/libobjc.A.dylib";
+        private static IntPtr s_selContentView;
 
-        private static readonly IntPtr SelContentView = sel_registerName("contentView");
-
-    [SupportedOSPlatform("macos")]
-    [DllImport(ObjectiveCLibrary)]
+        [SupportedOSPlatform("macos")]
+        [DllImport(ObjectiveCLibrary)]
         private static extern IntPtr sel_registerName(string name);
 
-    [SupportedOSPlatform("macos")]
-    [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
+        [SupportedOSPlatform("macos")]
+        [DllImport(ObjectiveCLibrary, EntryPoint = "objc_msgSend")]
         private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
 
         [SupportedOSPlatform("macos")]
         public static IntPtr GetContentView(IntPtr nsWindow)
         {
-            if (nsWindow == IntPtr.Zero || SelContentView == IntPtr.Zero)
+            if (!OperatingSystem.IsMacOS())
             {
                 return IntPtr.Zero;
             }
 
-            return objc_msgSend(nsWindow, SelContentView);
+            var selector = EnsureSelector();
+            if (nsWindow == IntPtr.Zero || selector == IntPtr.Zero)
+            {
+                return IntPtr.Zero;
+            }
+
+            return objc_msgSend(nsWindow, selector);
+        }
+
+        [SupportedOSPlatform("macos")]
+        private static IntPtr EnsureSelector()
+        {
+            if (s_selContentView == IntPtr.Zero)
+            {
+                s_selContentView = sel_registerName("contentView");
+            }
+
+            return s_selContentView;
         }
     }
 

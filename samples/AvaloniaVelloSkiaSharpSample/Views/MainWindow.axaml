@@ -34,6 +34,8 @@
                     Grid.Column="1"
                     Spacing="16"
                     VerticalAlignment="Center">
+          <ToggleSwitch Content="Dark theme"
+                        IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" />
           <StackPanel>
             <TextBlock Text="Backend"
                        FontWeight="SemiBold"

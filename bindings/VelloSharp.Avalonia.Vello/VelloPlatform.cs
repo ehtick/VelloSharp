@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using System.Threading;
 using Avalonia;
 using Avalonia.Logging;
 using Avalonia.Platform;
@@ -8,6 +7,7 @@ using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
 using VelloSharp.Avalonia.Vello.Rendering;
 using VelloSharp;
+using System.Runtime.Versioning;
 
 namespace VelloSharp.Avalonia.Vello;
 
@@ -70,7 +70,14 @@ internal static class VelloPlatform
                 locator.Bind<Compositor>().ToFunc(() => new Compositor(null));
             }
 
-            AttachWebGpuLogging();
+            if (OperatingSystem.IsBrowser())
+            {
+                AttachWebGpuLogging();
+            }
+            else
+            {
+                s_loggingAttached = true;
+            }
 
             s_initialized = true;
         }
@@ -79,9 +86,11 @@ internal static class VelloPlatform
     public static VelloGraphicsDevice GraphicsDevice =>
         s_device ?? throw new InvalidOperationException("Vello platform has not been initialized.");
 
+    [SupportedOSPlatform("browser")]
     public static WebGpuRuntime.WebGpuCapabilities? LatestWebGpuCapabilities =>
         Volatile.Read(ref s_webGpuCapabilities);
 
+    [SupportedOSPlatform("browser")]
     private static void AttachWebGpuLogging()
     {
         if (s_loggingAttached)
@@ -114,6 +123,7 @@ internal static class VelloPlatform
         s_loggingAttached = true;
     }
 
+    [SupportedOSPlatform("browser")]
     private static void OnWebGpuLogMessage(WebGpuRuntime.WebGpuLogLevel level, string message)
     {
         var avaloniaLevel = ConvertLogLevel(level);
@@ -125,8 +135,14 @@ internal static class VelloPlatform
         log.Log(null, "{Message}", message);
     }
 
+    [SupportedOSPlatform("browser")]
     private static void OnWebGpuCapabilitiesChanged(object? sender, WebGpuRuntime.WebGpuCapabilitiesChangedEventArgs e)
     {
+        if (!OperatingSystem.IsBrowser())
+        {
+            return;
+        }
+
         var previous = Volatile.Read(ref s_webGpuCapabilities);
         var current = e.Capabilities;
         Volatile.Write(ref s_webGpuCapabilities, current);
@@ -154,6 +170,7 @@ internal static class VelloPlatform
         PublishCapabilitiesToDiagnostics(current);
     }
 
+    [SupportedOSPlatform("browser")]
     private static LogEventLevel ConvertLogLevel(WebGpuRuntime.WebGpuLogLevel level)
     {
         return level switch
@@ -167,8 +184,14 @@ internal static class VelloPlatform
         };
     }
 
+    [SupportedOSPlatform("browser")]
     private static void PublishCapabilitiesToDiagnostics(WebGpuRuntime.WebGpuCapabilities? capabilities)
     {
+        if (!OperatingSystem.IsBrowser())
+        {
+            return;
+        }
+
         if (Application.Current is null)
         {
             return;

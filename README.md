@@ -716,6 +716,7 @@ model.AttachRoots(new[] { new TreeNodeDescriptor(1, TreeRowKind.Data, 24f, hasCh
   - `samples/AvaloniaVelloNativeDemo` - macOS host forced onto AvaloniaNative to vet the Vello integration end-to-end.
   - `samples/AvaloniaVelloExamples` - expanded scene catalogue with renderer option toggles and surface fallbacks.
   - `samples/AvaloniaVelloControlsSample` - quick tour of the reusable canvas, animation, and SVG controls.
+  - `samples/AvaloniaVelloSkiaSharpSample` - SkiaSharp shim gallery spanning lease-driven surfaces, SKCodec workflows, runtime effect editing, and geometry boolean operations across CPU/GPU backends.
   - `samples/AvaloniaSkiaMotionMark` - a side-by-side Skia/Vello motion-mark visualiser built on the integration layer.
   - `samples/AvaloniaSkiaSparseMotionMarkShim` - CPU sparse MotionMark shim that routes Vello scenes through the Velato Skia bridge without touching the GPU backend.
   - `samples/MauiVelloGallery` - .NET MAUI gallery hosting the new `VelloView`; GPU animation now runs on Windows and ships in preview on MacCatalyst/iOS/Android via the new Metal/Vulkan presenters. The MAUI handler exposes `SuppressGraphicsViewCompositor` so applications can disable the fallback Skia compositor while Vello owns the swapchain.
@@ -1384,6 +1385,7 @@ available to packaging steps.
 - `samples/AvaloniaVelloWinitDemo`: Avalonia desktop sample that exercises the bindings through the AvaloniaNative/Vello path.
 - `samples/AvaloniaVelloExamples`: showcases the expanded scene catalogue on Avalonia with GPU fallback logic.
 - `samples/AvaloniaVelloControlsSample`: demonstrates the reusable VelloSharp Avalonia controls (canvas, animation, SVG).
+- `samples/AvaloniaVelloSkiaSharpSample`: end-to-end SkiaSharp shim gallery covering runtime effects, SKCodec IO, boolean geometry, and CPU/GPU backend switching atop the Vello lease pipeline.
 - `extern/vello`: upstream renderer sources (core crate, sparse strips, shaders, and examples).
 - `extern/kurbo`: geometry primitives consumed by `kurbo_ffi` and Vello.
 - `extern/peniko`: brush/image utilities re-exported through `extern/peniko_shim`.

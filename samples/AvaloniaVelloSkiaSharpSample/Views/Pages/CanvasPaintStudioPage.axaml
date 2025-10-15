@@ -1,0 +1,189 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rendering="clr-namespace:AvaloniaVelloSkiaSharpSample.Rendering"
+             x:Class="AvaloniaVelloSkiaSharpSample.Views.Pages.CanvasPaintStudioPage">
+  <Grid Margin="24"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="340,*"
+        RowSpacing="16"
+        ColumnSpacing="16">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="Canvas &amp; Paint Studio"
+                 FontSize="20"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Adjust paint parameters and observe stroke geometry generated through the shim."
+                 Opacity="0.78"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16">
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Paint Configuration"
+                       FontWeight="SemiBold" />
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Style"
+                         Opacity="0.72"
+                         FontWeight="SemiBold" />
+              <ComboBox ItemsSource="{Binding PaintStyles}"
+                        SelectedItem="{Binding SelectedPaintStyle}"
+                        HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Blend Mode"
+                         Opacity="0.72"
+                         FontWeight="SemiBold" />
+              <ComboBox ItemsSource="{Binding BlendModes}"
+                        SelectedItem="{Binding SelectedBlendMode}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Stroke Width"
+                         Opacity="0.72"
+                         FontWeight="SemiBold" />
+              <Slider Minimum="0.5"
+                      Maximum="96"
+                      Value="{Binding StrokeWidth}"
+                      TickFrequency="4" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="12">
+              <StackPanel Width="150"
+                          Spacing="4">
+                <TextBlock Text="Stroke Cap"
+                           Opacity="0.72"
+                           FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding StrokeCaps}"
+                          SelectedItem="{Binding SelectedStrokeCap}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Width="150"
+                          Spacing="4">
+                <TextBlock Text="Stroke Join"
+                           Opacity="0.72"
+                           FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding StrokeJoins}"
+                          SelectedItem="{Binding SelectedStrokeJoin}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="12">
+              <StackPanel Width="150"
+                          Spacing="4">
+                <TextBlock Text="Fill"
+                           Opacity="0.72"
+                           FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding Palette}"
+                          SelectedItem="{Binding SelectedFillColor}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="6">
+                        <Border Width="16"
+                                Height="16"
+                                CornerRadius="8"
+                                Background="{Binding Brush}" />
+                        <TextBlock Text="{Binding Name}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+
+              <StackPanel Width="150"
+                          Spacing="4">
+                <TextBlock Text="Stroke"
+                           Opacity="0.72"
+                           FontWeight="SemiBold" />
+                <ComboBox ItemsSource="{Binding Palette}"
+                          SelectedItem="{Binding SelectedStrokeColor}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="6">
+                        <Border Width="16"
+                                Height="16"
+                                CornerRadius="8"
+                                Background="{Binding Brush}" />
+                        <TextBlock Text="{Binding Name}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+              </StackPanel>
+            </StackPanel>
+
+            <CheckBox Content="Antialias"
+                      IsChecked="{Binding IsAntialias}" />
+            <CheckBox Content="Gradient fill"
+                      IsChecked="{Binding UseGradientFill}" />
+            <CheckBox Content="Show guides"
+                      IsChecked="{Binding ShowGuides}" />
+
+            <Button Content="Capture snapshot"
+                    Command="{Binding CaptureSnapshotCommand}" />
+            <TextBlock Text="{Binding CaptureStatus}"
+                       FontSize="11"
+                       Opacity="0.75"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Paint Summary"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding PaintSummary}"
+                       FontFamily="Consolas, Courier New"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Background="#101722"
+            CornerRadius="12"
+            Padding="16">
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
+    </Border>
+  </Grid>
+</UserControl>

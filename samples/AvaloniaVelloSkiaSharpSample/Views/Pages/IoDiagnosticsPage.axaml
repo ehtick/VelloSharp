@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rendering="clr-namespace:AvaloniaVelloSkiaSharpSample.Rendering"
+             x:Class="AvaloniaVelloSkiaSharpSample.Views.Pages.IoDiagnosticsPage">
+  <Grid Margin="24"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="320,*"
+        RowSpacing="16"
+        ColumnSpacing="16">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="IO &amp; Diagnostics Workbench"
+                 FontSize="20"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Load assets through the resource service, inspect encoded metadata, and visualise color space diagnostics."
+                 Opacity="0.78"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16">
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Metadata"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ImageSummary}"
+                       FontSize="11"
+                       Opacity="0.78"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding DataSummary}"
+                       FontSize="11"
+                       Opacity="0.78"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding StreamSummary}"
+                       FontSize="11"
+                       Opacity="0.78"
+                       TextWrapping="Wrap" />
+
+            <CheckBox Content="Show color space bands"
+                      IsChecked="{Binding ShowColorSpace}" />
+            <Button Content="Refresh diagnostics"
+                    Command="{Binding RefreshCommand}" />
+            <Button Content="Capture snapshot"
+                    Command="{Binding CaptureSnapshotCommand}" />
+            <TextBlock Text="{Binding CaptureStatus}"
+                       FontSize="11"
+                       Opacity="0.7" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Background="#101722"
+            CornerRadius="12"
+            Padding="16">
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
+    </Border>
+  </Grid>
+</UserControl>

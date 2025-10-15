@@ -18,7 +18,8 @@
             Background="#111722"
             CornerRadius="12"
             Padding="16">
-      <rendering:SkiaLeaseSurface Renderer="{Binding}" />
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
     </Border>
   </Grid>
 </UserControl>

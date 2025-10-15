@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rendering="clr-namespace:AvaloniaVelloSkiaSharpSample.Rendering"
+             x:Class="AvaloniaVelloSkiaSharpSample.Views.Pages.RecordingStudioPage">
+  <Grid Margin="24"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="320,*"
+        RowSpacing="16"
+        ColumnSpacing="16">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="Recording &amp; Replay Studio"
+                 FontSize="20"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Capture the live Skia scene into replayable SKPictures, scrub frames, and export diagnostic captures."
+                 Opacity="0.78"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16">
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Recorder"
+                       FontWeight="SemiBold" />
+            <Button Content="Capture frame"
+                    Command="{Binding CaptureFrameCommand}" />
+            <Button Content="Next recorded frame"
+                    Command="{Binding NextFrameCommand}"
+                    IsEnabled="{Binding CanCycle}" />
+            <Button Content="Clear recordings"
+                    Command="{Binding ClearCommand}"
+                    IsEnabled="{Binding HasRecording}" />
+            <CheckBox Content="Animate playback"
+                      IsChecked="{Binding AnimatePlayback}" />
+            <TextBlock Text="{Binding Status}"
+                       FontSize="11"
+                       Opacity="0.75"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding RecordingCount, StringFormat='{}{0} frames captured'}"
+                       FontSize="11"
+                       Opacity="0.65" />
+            <Button Content="Capture snapshot"
+                    Command="{Binding CaptureSnapshotCommand}" />
+            <TextBlock Text="{Binding CaptureStatus}"
+                       FontSize="11"
+                       Opacity="0.7" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Background="#101722"
+            CornerRadius="12"
+            Padding="16">
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
+    </Border>
+  </Grid>
+</UserControl>

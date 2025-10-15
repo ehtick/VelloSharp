@@ -20,6 +20,17 @@ public static class CpuSkiaBackendConfiguration
         => s_sparseRenderOptions?.Clone();
 }
 
+public static class CpuSkiaBackend
+{
+    /// <summary>
+    /// Registers the CPU-backed Skia shim factory with the runtime.
+    /// </summary>
+    public static void Use()
+    {
+        SkiaBackendService.RegisterFactory(new CpuSkiaBackendFactory());
+    }
+}
+
 internal sealed class CpuSkiaBackendFactory : ISkiaBackendFactory
 {
     public ISkiaSurfaceBackend CreateSurface(SKImageInfo info)

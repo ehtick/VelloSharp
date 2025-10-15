@@ -9,13 +9,31 @@ public class ViewLocator : IDataTemplate
 {
     public Control? Build(object? param)
     {
+        return Resolve(param);
+    }
+
+    public bool Match(object? data) => data is ViewModelBase;
+
+    public static Control? BuildStatic(object? param)
+        => Resolve(param);
+
+    private static Control? Resolve(object? param)
+    {
         if (param is null)
         {
             return null;
         }
 
-        var name = param.GetType().FullName!.Replace("ViewModel", "View", StringComparison.Ordinal);
-        var type = Type.GetType(name);
+        var viewModelType = param.GetType();
+        var name = viewModelType.FullName!;
+        var candidate = name.Replace(".ViewModels.", ".Views.", StringComparison.Ordinal)
+            .Replace("ViewModel", string.Empty, StringComparison.Ordinal);
+
+        var assembly = viewModelType.Assembly;
+        var type = assembly.GetType(candidate)
+                   ?? assembly.GetType(candidate + "Page")
+                   ?? assembly.GetType(candidate + "View")
+                   ?? Type.GetType(candidate);
 
         if (type is not null)
         {
@@ -24,6 +42,4 @@ public class ViewLocator : IDataTemplate
 
         return new TextBlock { Text = "Not Found: " + name };
     }
-
-    public bool Match(object? data) => data is ViewModelBase;
 }

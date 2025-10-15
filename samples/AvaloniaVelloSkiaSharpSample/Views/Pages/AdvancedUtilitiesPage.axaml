@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rendering="clr-namespace:AvaloniaVelloSkiaSharpSample.Rendering"
+             x:Class="AvaloniaVelloSkiaSharpSample.Views.Pages.AdvancedUtilitiesPage">
+  <Grid Margin="24"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="320,*"
+        RowSpacing="16"
+        ColumnSpacing="16">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="Advanced Utilities"
+                 FontSize="20"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Play with matrix composition, tight bounds, and bitmap resampling to exercise the shim's helper utilities."
+                 Opacity="0.78"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16">
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Matrix Controls"
+                       FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Rotate" Width="60" />
+              <Slider Minimum="-360" Maximum="360" Value="{Binding Rotation}" Width="180" />
+              <TextBlock Text="{Binding Rotation, StringFormat='{}{0:F1}°'}" Width="60" HorizontalAlignment="Right" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Scale" Width="60" />
+              <Slider Minimum="0.5" Maximum="1.6" Value="{Binding Scale}" Width="180" />
+              <TextBlock Text="{Binding Scale, StringFormat='{}{0:F2}x'}" Width="60" HorizontalAlignment="Right" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Shear" Width="60" />
+              <Slider Minimum="-0.4" Maximum="0.4" Value="{Binding Shear}" Width="180" />
+              <TextBlock Text="{Binding Shear, StringFormat='{}{0:F2}'}" Width="60" HorizontalAlignment="Right" />
+            </StackPanel>
+            <Button Content="Reset parameters"
+                    Command="{Binding ResetCommand}" />
+            <Button Content="Capture snapshot"
+                    Command="{Binding CaptureSnapshotCommand}" />
+            <TextBlock Text="{Binding CaptureStatus}"
+                       FontSize="11"
+                       Opacity="0.7" />
+            <TextBlock Text="{Binding MatrixSummary}"
+                       FontSize="11"
+                       Opacity="0.78"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Background="#101722"
+            CornerRadius="12"
+            Padding="16">
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
+    </Border>
+  </Grid>
+</UserControl>

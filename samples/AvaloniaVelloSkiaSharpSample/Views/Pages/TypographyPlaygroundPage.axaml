@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rendering="clr-namespace:AvaloniaVelloSkiaSharpSample.Rendering"
+             x:Class="AvaloniaVelloSkiaSharpSample.Views.Pages.TypographyPlaygroundPage">
+  <Grid Margin="24"
+        RowDefinitions="Auto,*"
+        ColumnDefinitions="340,*"
+        RowSpacing="16"
+        ColumnSpacing="16">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="Typography Playground"
+                 FontSize="20"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="Flip text rendering options and baseline diagnostics to validate the shim’s glyph pipeline."
+                 Opacity="0.78"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16">
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Sample"
+                       FontWeight="SemiBold" />
+            <ComboBox ItemsSource="{Binding Samples}"
+                      SelectedItem="{Binding SelectedSample}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Font Size"
+                         Opacity="0.72"
+                         FontWeight="SemiBold" />
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          VerticalAlignment="Center">
+                <Slider Width="220"
+                        Minimum="18"
+                        Maximum="96"
+                        Value="{Binding FontSize}"
+                        TickFrequency="2" />
+                <TextBlock Text="{Binding FontSize, StringFormat='{}{0:F0} px'}"
+                           Width="60" />
+              </StackPanel>
+            </StackPanel>
+
+            <CheckBox Content="Gradient fill"
+                      IsChecked="{Binding UseGradientFill}" />
+            <CheckBox Content="Subpixel/antialias"
+                      IsChecked="{Binding UseSubpixel}" />
+            <CheckBox Content="Show metrics overlays"
+                      IsChecked="{Binding ShowMetrics}" />
+
+            <Button Content="Capture snapshot"
+                    Command="{Binding CaptureSnapshotCommand}" />
+            <TextBlock Text="{Binding CaptureStatus}"
+                       FontSize="11"
+                       Opacity="0.75"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <Border Background="#111722"
+                CornerRadius="8"
+                Padding="12">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Typography Summary"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding TypographySummary}"
+                       FontFamily="Consolas, Courier New"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1"
+            Grid.Column="1"
+            Background="#101722"
+            CornerRadius="12"
+            Padding="16">
+      <rendering:SkiaLeaseSurface Renderer="{Binding}"
+                                   BackendDescriptor="{Binding BackendDescriptor}" />
+    </Border>
+  </Grid>
+</UserControl>

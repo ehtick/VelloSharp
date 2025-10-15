@@ -1,0 +1,18 @@
+uniform float u_time;
+uniform float2 u_resolution;
+uniform float u_intensity;
+
+half4 main(float2 coord) {
+    float2 uv = coord / u_resolution.xy;
+    float wave = sin((uv.x + u_time) * 6.28318) * 0.5;
+    wave += sin((uv.y * 1.2 - u_time * 0.6) * 8.0) * 0.35;
+    wave += sin((uv.x * 2.2 + u_time * 0.3) * 5.0) * 0.25;
+    wave *= u_intensity;
+
+    half3 base = half3(0.12 + uv.y * 0.65,
+                       0.26 + wave * 0.8,
+                       0.48 + uv.x * 0.42);
+
+    half vignette = smoothstep(0.95, 0.4, length(uv - 0.5));
+    return half4(base * vignette, 1.0);
+}
