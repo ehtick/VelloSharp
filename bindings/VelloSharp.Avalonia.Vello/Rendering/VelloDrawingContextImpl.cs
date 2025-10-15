@@ -124,13 +124,13 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             return;
         }
 
-        _disposed = true;
         try
         {
             _onCompleted(this);
         }
         finally
         {
+            _disposed = true;
             foreach (var disposable in _deferredDisposables)
             {
                 disposable.Dispose();
