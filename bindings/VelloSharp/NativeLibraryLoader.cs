@@ -595,9 +595,20 @@ internal static class NativeLibraryLoader
         var depth = 0;
         while (current is not null && depth++ < 6)
         {
-            var candidate = Path.Combine(current.FullName, "VelloSharp", "bin");
-            if (Directory.Exists(candidate))
+            var candidates = new[]
             {
+                Path.Combine(current.FullName, "VelloSharp", "bin"),
+                Path.Combine(current.FullName, "bindings", "VelloSharp", "bin"),
+                Path.Combine(current.FullName, "src", "VelloSharp", "bin"),
+            };
+
+            foreach (var candidate in candidates)
+            {
+                if (!Directory.Exists(candidate))
+                {
+                    continue;
+                }
+
                 foreach (var configuration in new[] { "Debug", "Release" })
                 {
                     var basePath = Path.Combine(candidate, configuration, "net8.0");
@@ -669,5 +680,4 @@ internal static class NativeLibraryLoader
     private static extern int GetCurrentPackageFamilyName(ref int length, StringBuilder? packageFamilyName);
 }
 #pragma warning restore CS0436
-
 
