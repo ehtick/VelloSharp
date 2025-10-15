@@ -10,7 +10,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageTags>vello;graphics;rendering;gpu</PackageTags>
     <VersionPrefix>0.5.0</VersionPrefix>
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''">alpha.1</VersionSuffix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">alpha.2</VersionSuffix>
     <VelloPackageVersion Condition="'$(VersionSuffix)' == ''">$(VersionPrefix)</VelloPackageVersion>
     <VelloPackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</VelloPackageVersion>
     <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
