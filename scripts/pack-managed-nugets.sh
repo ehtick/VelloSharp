@@ -215,11 +215,36 @@ add_extra_arg() {
   eval "${array_name}+=(\"\${value}\")"
 }
 
-COMMON_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT_ABS}" "-p:EnableWindowsTargeting=true" "-p:VelloUseNativePackageDependencies=true" "-p:VelloNativePackagesAvailable=true")
+COMMON_ARGS=("-c" "Release" "-p:PackageOutputPath=${NUGET_OUTPUT_ABS}" "-p:VelloUseNativePackageDependencies=true" "-p:VelloNativePackagesAvailable=true")
 
 if [[ -n "${NATIVE_FEED_ABS}" ]]; then
   COMMON_ARGS+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED_ABS}")
 fi
+
+browser_workload_restored="false"
+
+restore_browser_workload_if_needed() {
+  local project_path="$1"
+  if [[ "${browser_workload_restored}" == "true" ]]; then
+    return 0
+  fi
+
+  if grep -q "net8.0-browser" "${project_path}"; then
+    if dotnet workload list | grep -q "wasm-tools-net8"; then
+      log "Detected wasm-tools-net8 workload; skipping restore."
+      browser_workload_restored="true"
+      return 0
+    fi
+
+    log "Restoring workloads required for browser TFM (net8.0-browser)."
+    if DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE=1 \
+         dotnet workload restore "${project_path}" --skip-manifest-update; then
+      browser_workload_restored="true"
+    else
+      log "Warning: Failed to restore workloads automatically. Ensure 'wasm-tools-net8' is installed."
+    fi
+  fi
+}
 
 for project in "${PROJECTS[@]}"; do
   full_path="${ROOT}/${project}"
@@ -242,6 +267,12 @@ for project in "${PROJECTS[@]}"; do
       add_extra_arg "-p:VelloRequireAllNativeAssets=false" extra_args
     fi
   fi
+
+  if is_windows_specific "${project}"; then
+    add_extra_arg "-p:EnableWindowsTargeting=true" extra_args
+  fi
+
+  restore_browser_workload_if_needed "${full_path}"
 
   if [[ "${project}" == "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" ]]; then
     add_extra_arg "-p:VelloSkipNativeBuild=true" extra_args
