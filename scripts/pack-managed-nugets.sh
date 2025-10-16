@@ -221,6 +221,7 @@ if [[ -n "${NATIVE_FEED_ABS}" ]]; then
   COMMON_ARGS+=("-p:RestoreAdditionalProjectSources=${NATIVE_FEED_ABS}")
 fi
 
+maui_workload_restored="false"
 browser_workload_restored="false"
 
 restore_browser_workload_if_needed() {
@@ -242,6 +243,23 @@ restore_browser_workload_if_needed() {
       browser_workload_restored="true"
     else
       log "Warning: Failed to restore workloads automatically. Ensure 'wasm-tools-net8' is installed."
+    fi
+  fi
+}
+
+restore_maui_workload_if_needed() {
+  local project_path="$1"
+  if [[ "${maui_workload_restored}" == "true" ]]; then
+    return 0
+  fi
+
+  if grep -q "<UseMaui" "${project_path}" || grep -q "<UseMauiCore" "${project_path}"; then
+    log "Restoring workloads required for MAUI target frameworks."
+    if DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE=1 \
+         dotnet workload restore "${project_path}" --skip-manifest-update; then
+      maui_workload_restored="true"
+    else
+      log "Warning: Failed to restore MAUI workloads automatically. Ensure the required workloads are installed."
     fi
   fi
 }
@@ -273,6 +291,7 @@ for project in "${PROJECTS[@]}"; do
   fi
 
   restore_browser_workload_if_needed "${full_path}"
+  restore_maui_workload_if_needed "${full_path}"
 
   if [[ "${project}" == "bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" ]]; then
     add_extra_arg "-p:VelloSkipNativeBuild=true" extra_args
