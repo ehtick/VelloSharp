@@ -308,7 +308,13 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            9.0.301
+            8.0.x
+
+      - name: Install .NET MAUI workload
+        shell: pwsh
+        run: dotnet workload install maui
 
       - name: Download native NuGet packages
         uses: actions/download-artifact@v4
