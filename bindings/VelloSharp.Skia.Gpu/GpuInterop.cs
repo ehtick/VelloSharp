@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Core = VelloSharp;
@@ -202,67 +201,48 @@ internal sealed class GpuScene : IDisposable
         using var brushData = BrushNativeFactory.Create(options.Brush);
         var stops = brushData.Stops;
 
-        var glyphArray = ArrayPool<Core.VelloGlyph>.Shared.Rent(glyphs.Length);
-        var glyphSpan = glyphArray.AsSpan(0, glyphs.Length);
-        for (var i = 0; i < glyphs.Length; i++)
+        unsafe
         {
-            glyphSpan[i] = glyphs[i].ToNative();
-        }
-
-        try
-        {
-            unsafe
+            fixed (Core.GradientStop* stopPtr = stops)
+            fixed (Core.Glyph* glyphPtr = glyphs)
             {
-                fixed (Core.VelloGlyph* glyphPtr = glyphSpan)
-                fixed (Core.VelloGradientStop* stopPtr = stops)
+                var nativeBrush = BrushInvoker.Prepare(brushData.Brush, stops, stopPtr);
+
+                var nativeOptions = new Core.VelloGlyphRunOptions
                 {
-                    var nativeBrush = BrushInvoker.Prepare(brushData.Brush, stops, stopPtr);
+                    Transform = options.Transform.ToNativeAffine(),
+                    FontSize = options.FontSize,
+                    Hint = options.Hint,
+                    Style = (Core.VelloGlyphRunStyle)options.Style,
+                    Brush = nativeBrush,
+                    BrushAlpha = options.BrushAlpha,
+                    StrokeStyle = default,
+                    GlyphTransform = IntPtr.Zero,
+                };
 
-                    var nativeOptions = new Core.VelloGlyphRunOptions
-                    {
-                        Transform = options.Transform.ToNativeAffine(),
-                        FontSize = options.FontSize,
-                        Hint = options.Hint,
-                        Style = (Core.VelloGlyphRunStyle)options.Style,
-                        Brush = nativeBrush,
-                        BrushAlpha = options.BrushAlpha,
-                        StrokeStyle = default,
-                        GlyphTransform = IntPtr.Zero,
-                    };
+                Core.VelloAffine glyphTransformValue = default;
+                if (options.GlyphTransform.HasValue)
+                {
+                    glyphTransformValue = options.GlyphTransform.Value.ToNativeAffine();
+                    nativeOptions.GlyphTransform = (IntPtr)(&glyphTransformValue);
+                }
 
-                    Core.VelloAffine glyphTransformValue = default;
-                    if (options.GlyphTransform.HasValue)
-                    {
-                        glyphTransformValue = options.GlyphTransform.Value.ToNativeAffine();
-                        nativeOptions.GlyphTransform = (IntPtr)(&glyphTransformValue);
-                    }
+                var nativeGlyphPtr = (Core.VelloGlyph*)glyphPtr;
+                var glyphCount = (nuint)glyphs.Length;
 
-                    if (options.Style == Core.GlyphRunStyle.Stroke)
+                if (options.Style == Core.GlyphRunStyle.Stroke)
+                {
+                    var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
+                    if (stroke.DashPattern is { Length: > 0 } pattern)
                     {
-                        var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
-                        if (stroke.DashPattern is { Length: > 0 } pattern)
+                        fixed (double* dashPtr = pattern)
                         {
-                            fixed (double* dashPtr = pattern)
-                            {
-                                nativeOptions.StrokeStyle = StrokeInterop.Create(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
-                                var status = Core.NativeMethods.vello_scene_draw_glyph_run(
-                                    Handle,
-                                    font.Handle,
-                                    glyphPtr,
-                                    (nuint)glyphSpan.Length,
-                                    nativeOptions);
-
-                                GpuNativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
-                            }
-                        }
-                        else
-                        {
-                            nativeOptions.StrokeStyle = StrokeInterop.Create(stroke, IntPtr.Zero, 0);
+                            nativeOptions.StrokeStyle = StrokeInterop.Create(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
                             var status = Core.NativeMethods.vello_scene_draw_glyph_run(
                                 Handle,
                                 font.Handle,
-                                glyphPtr,
-                                (nuint)glyphSpan.Length,
+                                nativeGlyphPtr,
+                                glyphCount,
                                 nativeOptions);
 
                             GpuNativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
@@ -270,21 +250,29 @@ internal sealed class GpuScene : IDisposable
                     }
                     else
                     {
+                        nativeOptions.StrokeStyle = StrokeInterop.Create(stroke, IntPtr.Zero, 0);
                         var status = Core.NativeMethods.vello_scene_draw_glyph_run(
                             Handle,
                             font.Handle,
-                            glyphPtr,
-                            (nuint)glyphSpan.Length,
+                            nativeGlyphPtr,
+                            glyphCount,
                             nativeOptions);
 
                         GpuNativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
                     }
                 }
+                else
+                {
+                    var status = Core.NativeMethods.vello_scene_draw_glyph_run(
+                        Handle,
+                        font.Handle,
+                        nativeGlyphPtr,
+                        glyphCount,
+                        nativeOptions);
+
+                    GpuNativeHelpers.ThrowOnError(status, "DrawGlyphRun failed");
+                }
             }
-        }
-        finally
-        {
-            ArrayPool<Core.VelloGlyph>.Shared.Return(glyphArray, clearArray: false);
         }
     }
 
@@ -321,7 +309,7 @@ internal sealed class GpuScene : IDisposable
         unsafe
         {
             fixed (Core.VelloPathElement* elementPtr = elements)
-            fixed (Core.VelloGradientStop* stopPtr = stops)
+            fixed (Core.GradientStop* stopPtr = stops)
             {
                 var nativeBrush = BrushInvoker.Prepare(brushData.Brush, stops, stopPtr);
 
@@ -365,7 +353,7 @@ internal sealed class GpuScene : IDisposable
         unsafe
         {
             fixed (Core.VelloPathElement* elementPtr = elements)
-            fixed (Core.VelloGradientStop* stopPtr = stops)
+            fixed (Core.GradientStop* stopPtr = stops)
             {
                 var nativeBrush = BrushInvoker.Prepare(brushData.Brush, stops, stopPtr);
 

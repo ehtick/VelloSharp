@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace VelloSharp;
 
@@ -12,18 +13,23 @@ public readonly record struct GlyphMetrics(float Advance, float XBearing, float 
     public float Height { get; init; } = Height;
 }
 
+[StructLayout(LayoutKind.Sequential)]
 public readonly struct Glyph
 {
+    private readonly uint _id;
+    private readonly float _x;
+    private readonly float _y;
+
     public Glyph(uint id, float x, float y)
     {
-        Id = id;
-        X = x;
-        Y = y;
+        _id = id;
+        _x = x;
+        _y = y;
     }
 
-    public uint Id { get; }
-    public float X { get; }
-    public float Y { get; }
+    public uint Id => _id;
+    public float X => _x;
+    public float Y => _y;
 }
 
 public sealed class GlyphRunOptions

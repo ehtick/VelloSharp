@@ -1,62 +1,61 @@
 using System;
 using System.Buffers;
+using System.Runtime.InteropServices;
 
 namespace VelloSharp;
 
 internal static class PathElementNativeExtensions
 {
-    public static VelloPathElement ToNative(this PathElement element) => new()
+    public static ReadOnlySpan<VelloPathElement> AsNativeSpan(this PathBuilder path)
     {
-        Verb = (VelloPathVerb)element.Verb,
-        X0 = element.X0,
-        Y0 = element.Y0,
-        X1 = element.X1,
-        Y1 = element.Y1,
-        X2 = element.X2,
-        Y2 = element.Y2,
-    };
+        ArgumentNullException.ThrowIfNull(path);
+        return path.AsSpan().AsNativeSpan();
+    }
+
+    public static ReadOnlySpan<VelloPathElement> AsNativeSpan(this ReadOnlySpan<PathElement> elements) =>
+        MemoryMarshal.Cast<PathElement, VelloPathElement>(elements);
 }
 
 internal struct NativePathElements : IDisposable
 {
-    private VelloPathElement[]? _buffer;
-    private int _length;
+    private readonly PathBuilder? _path;
+    private readonly VelloPathElement[]? _buffer;
+    private readonly int _length;
+
+    private NativePathElements(PathBuilder path)
+    {
+        _path = path;
+        _buffer = null;
+        _length = path.Count;
+    }
 
     private NativePathElements(VelloPathElement[]? buffer, int length)
     {
+        _path = null;
         _buffer = buffer;
         _length = length;
     }
 
-    public ReadOnlySpan<VelloPathElement> Span =>
-        _buffer is null ? ReadOnlySpan<VelloPathElement>.Empty : _buffer.AsSpan(0, _length);
-
-    public static NativePathElements Rent(PathBuilder path)
+    public ReadOnlySpan<VelloPathElement> Span
     {
-        ArgumentNullException.ThrowIfNull(path);
-        var source = path.AsSpan();
-        if (source.IsEmpty)
+        get
         {
-            return new NativePathElements(null, 0);
-        }
+            if (_path is PathBuilder builder)
+            {
+                return builder.AsSpan().AsNativeSpan();
+            }
 
-        var buffer = ArrayPool<VelloPathElement>.Shared.Rent(source.Length);
-        var span = buffer.AsSpan(0, source.Length);
-        for (var i = 0; i < source.Length; i++)
-        {
-            span[i] = source[i].ToNative();
+            return _buffer is null ? ReadOnlySpan<VelloPathElement>.Empty : _buffer.AsSpan(0, _length);
         }
-
-        return new NativePathElements(buffer, source.Length);
     }
+
+    public static NativePathElements Rent(PathBuilder path) => new(path);
 
     public void Dispose()
     {
         if (_buffer is { })
         {
             ArrayPool<VelloPathElement>.Shared.Return(_buffer);
-            _buffer = null;
-            _length = 0;
         }
     }
 }

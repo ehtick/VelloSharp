@@ -13,8 +13,18 @@ public enum PathVerb
     Close = 4,
 }
 
+[StructLayout(LayoutKind.Sequential)]
 public readonly struct PathElement
 {
+    private readonly PathVerb _verb;
+    private readonly int _padding;
+    private readonly double _x0;
+    private readonly double _y0;
+    private readonly double _x1;
+    private readonly double _y1;
+    private readonly double _x2;
+    private readonly double _y2;
+
     public PathElement(
         PathVerb verb,
         double x0 = 0,
@@ -24,22 +34,23 @@ public readonly struct PathElement
         double x2 = 0,
         double y2 = 0)
     {
-        Verb = verb;
-        X0 = x0;
-        Y0 = y0;
-        X1 = x1;
-        Y1 = y1;
-        X2 = x2;
-        Y2 = y2;
+        _verb = verb;
+        _padding = 0;
+        _x0 = x0;
+        _y0 = y0;
+        _x1 = x1;
+        _y1 = y1;
+        _x2 = x2;
+        _y2 = y2;
     }
 
-    public PathVerb Verb { get; }
-    public double X0 { get; }
-    public double Y0 { get; }
-    public double X1 { get; }
-    public double Y1 { get; }
-    public double X2 { get; }
-    public double Y2 { get; }
+    public PathVerb Verb => _verb;
+    public double X0 => _x0;
+    public double Y0 => _y0;
+    public double X1 => _x1;
+    public double Y1 => _y1;
+    public double X2 => _x2;
+    public double Y2 => _y2;
 }
 
 public sealed class PathBuilder

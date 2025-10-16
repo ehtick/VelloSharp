@@ -119,7 +119,7 @@ public sealed class PenikoBrushAdapter : Brush
         return new BrushNativeData(native, stops, stopCount, pooled);
     }
 
-    private static VelloGradientStop[]? RentStops(IReadOnlyList<PenikoColorStop> stops, out int count, out bool pooled)
+    private static GradientStop[]? RentStops(IReadOnlyList<PenikoColorStop> stops, out int count, out bool pooled)
     {
         if (stops is null || stops.Count == 0)
         {
@@ -129,16 +129,13 @@ public sealed class PenikoBrushAdapter : Brush
         }
 
         count = stops.Count;
-        var buffer = ArrayPool<VelloGradientStop>.Shared.Rent(count);
+        var buffer = ArrayPool<GradientStop>.Shared.Rent(count);
         var span = buffer.AsSpan(0, count);
         for (var i = 0; i < count; i++)
         {
             var stop = stops[i];
-            span[i] = new VelloGradientStop
-            {
-                Offset = stop.Offset,
-                Color = stop.Color,
-            };
+            var color = stop.Color;
+            span[i] = new GradientStop(stop.Offset, new RgbaColor(color.R, color.G, color.B, color.A));
         }
 
         pooled = true;

@@ -555,52 +555,59 @@ fn build_bez_path(elements: &[VelloPathElement]) -> Result<BezPath, &'static str
     if elements.is_empty() {
         return Err("path is empty");
     }
-    let mut path = BezPath::new();
+    let mut path = BezPath::with_capacity(elements.len());
     let mut has_move = false;
     for (idx, elem) in elements.iter().enumerate() {
-        if idx == 0 {
-            trace_path!(
-                "native first verb raw={:?} ({}), bytes={:02X?}",
-                elem.verb,
-                elem.verb as i32,
-                unsafe { &*(elem as *const VelloPathElement as *const [u8; 16]) }
-            );
+        if let Err(err) = push_path_element(&mut path, elem, idx, has_move) {
+            return Err(err);
         }
-        match elem.verb {
-            VelloPathVerb::MoveTo => {
-                has_move = true;
-                path.move_to((elem.x0, elem.y0));
-            }
-            VelloPathVerb::LineTo => {
-                if !has_move {
-                    return Err("path must start with MoveTo");
-                }
-                path.line_to((elem.x0, elem.y0));
-            }
-            VelloPathVerb::QuadTo => {
-                if !has_move {
-                    return Err("path must start with MoveTo");
-                }
-                path.quad_to((elem.x0, elem.y0), (elem.x1, elem.y1));
-            }
-            VelloPathVerb::CubicTo => {
-                if !has_move {
-                    return Err("path must start with MoveTo");
-                }
-                path.curve_to((elem.x0, elem.y0), (elem.x1, elem.y1), (elem.x2, elem.y2));
-            }
-            VelloPathVerb::Close => {
-                if idx == 0 {
-                    return Err("path cannot begin with Close");
-                }
-                path.close_path();
-            }
+        if matches!(elem.verb, VelloPathVerb::MoveTo) {
+            has_move = true;
         }
     }
+
     if !has_move {
         return Err("path must contain a MoveTo");
     }
     Ok(path)
+}
+
+fn push_path_element(
+    path: &mut BezPath,
+    elem: &VelloPathElement,
+    idx: usize,
+    has_move: bool,
+) -> Result<(), &'static str> {
+    match elem.verb {
+        VelloPathVerb::MoveTo => {
+            path.move_to((elem.x0, elem.y0));
+        }
+        VelloPathVerb::LineTo => {
+            if !has_move {
+                return Err("path must start with MoveTo");
+            }
+            path.line_to((elem.x0, elem.y0));
+        }
+        VelloPathVerb::QuadTo => {
+            if !has_move {
+                return Err("path must start with MoveTo");
+            }
+            path.quad_to((elem.x0, elem.y0), (elem.x1, elem.y1));
+        }
+        VelloPathVerb::CubicTo => {
+            if !has_move {
+                return Err("path must start with MoveTo");
+            }
+            path.curve_to((elem.x0, elem.y0), (elem.x1, elem.y1), (elem.x2, elem.y2));
+        }
+        VelloPathVerb::Close => {
+            if idx == 0 {
+                return Err("path cannot begin with Close");
+            }
+            path.close_path();
+        }
+    }
+    Ok(())
 }
 
 fn outline_to_path_elements(outline: &Outline) -> Vec<VelloPathElement> {

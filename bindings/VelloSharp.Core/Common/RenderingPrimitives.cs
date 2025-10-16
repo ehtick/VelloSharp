@@ -1,10 +1,30 @@
 using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace VelloSharp;
 
-public readonly record struct RgbaColor(float R, float G, float B, float A)
+[StructLayout(LayoutKind.Sequential)]
+public readonly struct RgbaColor
 {
+    private readonly float _r;
+    private readonly float _g;
+    private readonly float _b;
+    private readonly float _a;
+
+    public RgbaColor(float r, float g, float b, float a)
+    {
+        _r = r;
+        _g = g;
+        _b = b;
+        _a = a;
+    }
+
+    public float R => _r;
+    public float G => _g;
+    public float B => _b;
+    public float A => _a;
+
     public static RgbaColor FromBytes(byte r, byte g, byte b, byte a = 255)
     {
         const float Scale = 1f / 255f;
@@ -12,10 +32,22 @@ public readonly record struct RgbaColor(float R, float G, float B, float A)
     }
 }
 
-public readonly record struct GradientStop(float Offset, RgbaColor Color)
+[StructLayout(LayoutKind.Sequential)]
+public readonly struct GradientStop
 {
-    public float Offset { get; init; } = Offset;
-    public RgbaColor Color { get; init; } = Color;
+    private readonly float _offset;
+    private readonly RgbaColor _color;
+
+    public GradientStop(float offset, RgbaColor color)
+    {
+        _offset = offset;
+        _color = color;
+    }
+
+    public float Offset => _offset;
+    public RgbaColor Color => _color;
+
+    public static GradientStop At(float offset, RgbaColor color) => new(offset, color);
 }
 
 public readonly struct LayerBlend

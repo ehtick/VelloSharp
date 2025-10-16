@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
@@ -224,7 +223,7 @@ public sealed class SparseRenderContext : IDisposable
         unsafe
         {
             fixed (VelloPathElement* elementPtr = elements)
-            fixed (VelloGradientStop* stopPtr = stops)
+            fixed (GradientStop* stopPtr = stops)
             {
                 var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
                 var nativeTransform = transform.ToNativeAffine();
@@ -321,7 +320,7 @@ public sealed class SparseRenderContext : IDisposable
         unsafe
         {
             fixed (VelloPathElement* elementPtr = elements)
-            fixed (VelloGradientStop* stopPtr = stops)
+            fixed (GradientStop* stopPtr = stops)
             {
                 var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
                 var nativeTransform = transform.ToNativeAffine();
@@ -433,67 +432,56 @@ public sealed class SparseRenderContext : IDisposable
         using var brushData = BrushNativeFactory.Create(options.Brush);
         var stops = brushData.Stops;
 
-        var glyphArray = ArrayPool<VelloGlyph>.Shared.Rent(glyphs.Length);
-        var glyphSpan = glyphArray.AsSpan(0, glyphs.Length);
-        for (var i = 0; i < glyphs.Length; i++)
+        unsafe
         {
-            glyphSpan[i] = glyphs[i].ToNative();
-        }
-
-        try
-        {
-            unsafe
+            fixed (GradientStop* stopPtr = stops)
+            fixed (Glyph* glyphPtr = glyphs)
             {
-                fixed (VelloGlyph* glyphPtr = glyphSpan)
-                fixed (VelloGradientStop* stopPtr = stops)
+                var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+
+                var nativeOptions = new SparseNativeMethods.GlyphRunOptionsNative
                 {
-                    var nativeBrush = PrepareBrushForInvocation(brushData.Brush, stops, stopPtr);
+                    Transform = options.Transform.ToNativeAffine(),
+                    FontSize = options.FontSize,
+                    Hint = options.Hint,
+                    Style = (VelloGlyphRunStyle)options.Style,
+                    Brush = nativeBrush,
+                    BrushAlpha = options.BrushAlpha,
+                    StrokeStyle = default,
+                    GlyphTransform = IntPtr.Zero,
+                };
 
-                    var nativeOptions = new SparseNativeMethods.GlyphRunOptionsNative
-                    {
-                        Transform = options.Transform.ToNativeAffine(),
-                        FontSize = options.FontSize,
-                        Hint = options.Hint,
-                        Style = (VelloGlyphRunStyle)options.Style,
-                        Brush = nativeBrush,
-                        BrushAlpha = options.BrushAlpha,
-                        StrokeStyle = default,
-                        GlyphTransform = IntPtr.Zero,
-                    };
+                VelloAffine glyphTransformValue = default;
+                if (options.GlyphTransform.HasValue)
+                {
+                    glyphTransformValue = options.GlyphTransform.Value.ToNativeAffine();
+                    nativeOptions.GlyphTransform = (IntPtr)(&glyphTransformValue);
+                }
 
-                    VelloAffine glyphTransformValue = default;
-                    if (options.GlyphTransform.HasValue)
-                    {
-                        glyphTransformValue = options.GlyphTransform.Value.ToNativeAffine();
-                        nativeOptions.GlyphTransform = (IntPtr)(&glyphTransformValue);
-                    }
+                var nativeGlyphPtr = (VelloGlyph*)glyphPtr;
+                var glyphCount = (nuint)glyphs.Length;
 
-                    if (options.Style == GlyphRunStyle.Stroke)
+                if (options.Style == GlyphRunStyle.Stroke)
+                {
+                    var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
+                    if (stroke.DashPattern is { Length: > 0 } pattern)
                     {
-                        var stroke = options.Stroke ?? throw new ArgumentException("Stroke options must be provided when GlyphRunStyle.Stroke is used.", nameof(options));
-                        if (stroke.DashPattern is { Length: > 0 } pattern)
+                        fixed (double* dashPtr = pattern)
                         {
-                            fixed (double* dashPtr = pattern)
-                            {
-                                nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
-                                InvokeGlyphRun(font, glyphPtr, (nuint)glyphSpan.Length, nativeOptions);
-                                return;
-                            }
+                            nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
+                            InvokeGlyphRun(font, nativeGlyphPtr, glyphCount, nativeOptions);
+                            return;
                         }
+                    }
 
-                        nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, IntPtr.Zero, 0);
-                        InvokeGlyphRun(font, glyphPtr, (nuint)glyphSpan.Length, nativeOptions);
-                    }
-                    else
-                    {
-                        InvokeGlyphRun(font, glyphPtr, (nuint)glyphSpan.Length, nativeOptions);
-                    }
+                    nativeOptions.StrokeStyle = CreateStrokeStyle(stroke, IntPtr.Zero, 0);
+                    InvokeGlyphRun(font, nativeGlyphPtr, glyphCount, nativeOptions);
+                }
+                else
+                {
+                    InvokeGlyphRun(font, nativeGlyphPtr, glyphCount, nativeOptions);
                 }
             }
-        }
-        finally
-        {
-            ArrayPool<VelloGlyph>.Shared.Return(glyphArray, clearArray: false);
         }
     }
 
@@ -660,8 +648,8 @@ public sealed class SparseRenderContext : IDisposable
 
     private static unsafe VelloBrush PrepareBrushForInvocation(
         VelloBrush brush,
-        ReadOnlySpan<VelloGradientStop> stops,
-        VelloGradientStop* stopPtr)
+        ReadOnlySpan<GradientStop> stops,
+        GradientStop* stopPtr)
     {
         brush.Linear.Stops = IntPtr.Zero;
         brush.Radial.Stops = IntPtr.Zero;

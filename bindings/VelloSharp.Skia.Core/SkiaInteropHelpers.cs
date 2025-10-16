@@ -21,7 +21,7 @@ internal static class StrokeInterop
 
 internal static class BrushInvoker
 {
-    public static unsafe VelloSharp.VelloBrush Prepare(VelloSharp.VelloBrush brush, ReadOnlySpan<VelloSharp.VelloGradientStop> stops, VelloSharp.VelloGradientStop* stopPtr)
+    public static unsafe VelloSharp.VelloBrush Prepare(VelloSharp.VelloBrush brush, ReadOnlySpan<VelloSharp.GradientStop> stops, VelloSharp.GradientStop* stopPtr)
     {
         brush.Linear.Stops = IntPtr.Zero;
         brush.Radial.Stops = IntPtr.Zero;
@@ -142,7 +142,7 @@ internal static class BrushNativeFactory
         return new BrushNativeData(native, null, 0, pooled: false);
     }
 
-    private static VelloSharp.VelloGradientStop[]? RentStops(ReadOnlySpan<VelloSharp.GradientStop> stops, out int count, out bool pooled)
+    private static VelloSharp.GradientStop[]? RentStops(ReadOnlySpan<VelloSharp.GradientStop> stops, out int count, out bool pooled)
     {
         if (stops.IsEmpty)
         {
@@ -152,12 +152,9 @@ internal static class BrushNativeFactory
         }
 
         count = stops.Length;
-        var buffer = ArrayPool<VelloSharp.VelloGradientStop>.Shared.Rent(count);
+        var buffer = ArrayPool<VelloSharp.GradientStop>.Shared.Rent(count);
         var span = buffer.AsSpan(0, count);
-        for (var i = 0; i < count; i++)
-        {
-            span[i] = stops[i].ToNative();
-        }
+        stops.CopyTo(span);
 
         pooled = true;
         return buffer;
@@ -166,11 +163,11 @@ internal static class BrushNativeFactory
 
 internal readonly struct BrushNativeData : IDisposable
 {
-    private readonly VelloSharp.VelloGradientStop[]? _stops;
+    private readonly VelloSharp.GradientStop[]? _stops;
     private readonly int _count;
     private readonly bool _pooled;
 
-    public BrushNativeData(VelloSharp.VelloBrush brush, VelloSharp.VelloGradientStop[]? stops, int count, bool pooled)
+    public BrushNativeData(VelloSharp.VelloBrush brush, VelloSharp.GradientStop[]? stops, int count, bool pooled)
     {
         Brush = brush;
         _stops = stops;
@@ -180,16 +177,16 @@ internal readonly struct BrushNativeData : IDisposable
 
     public VelloSharp.VelloBrush Brush { get; }
 
-    public ReadOnlySpan<VelloSharp.VelloGradientStop> Stops =>
+    public ReadOnlySpan<VelloSharp.GradientStop> Stops =>
         _stops is { Length: > 0 } array && _count > 0
             ? array.AsSpan(0, _count)
-            : ReadOnlySpan<VelloSharp.VelloGradientStop>.Empty;
+            : ReadOnlySpan<VelloSharp.GradientStop>.Empty;
 
     public void Dispose()
     {
         if (_pooled && _stops is { })
         {
-            ArrayPool<VelloSharp.VelloGradientStop>.Shared.Return(_stops);
+            ArrayPool<VelloSharp.GradientStop>.Shared.Return(_stops);
         }
     }
 }
@@ -250,68 +247,30 @@ internal static class NativeConversionExtensions
         Dy = matrix.M32,
     };
 
-    public static VelloSharp.VelloGradientStop ToNative(this VelloSharp.GradientStop stop) => new()
-    {
-        Offset = stop.Offset,
-        Color = stop.Color.ToNative(),
-    };
-
-    public static VelloSharp.VelloGlyph ToNative(this VelloSharp.Glyph glyph) => new()
-    {
-        Id = glyph.Id,
-        X = glyph.X,
-        Y = glyph.Y,
-    };
 }
 
 internal readonly struct NativePathElements : IDisposable
 {
-    private readonly VelloSharp.VelloPathElement[]? _buffer;
-    private readonly int _length;
+    private readonly VelloSharp.PathBuilder? _path;
 
-    private NativePathElements(VelloSharp.VelloPathElement[]? buffer, int length)
+    private NativePathElements(VelloSharp.PathBuilder path)
     {
-        _buffer = buffer;
-        _length = length;
+        _path = path;
     }
 
     public ReadOnlySpan<VelloSharp.VelloPathElement> Span =>
-        _buffer is null ? ReadOnlySpan<VelloSharp.VelloPathElement>.Empty : _buffer.AsSpan(0, _length);
+        _path is { } builder
+            ? VelloSharp.PathElementNativeExtensions.AsNativeSpan(builder)
+            : ReadOnlySpan<VelloSharp.VelloPathElement>.Empty;
 
     public static NativePathElements Rent(VelloSharp.PathBuilder path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        var source = path.AsSpan();
-        if (source.IsEmpty)
-        {
-            return new NativePathElements(null, 0);
-        }
-
-        var buffer = ArrayPool<VelloSharp.VelloPathElement>.Shared.Rent(source.Length);
-        var span = buffer.AsSpan(0, source.Length);
-        for (var i = 0; i < source.Length; i++)
-        {
-            var element = source[i];
-            span[i] = new VelloSharp.VelloPathElement
-            {
-                Verb = (VelloSharp.VelloPathVerb)element.Verb,
-                X0 = element.X0,
-                Y0 = element.Y0,
-                X1 = element.X1,
-                Y1 = element.Y1,
-                X2 = element.X2,
-                Y2 = element.Y2,
-            };
-        }
-
-        return new NativePathElements(buffer, source.Length);
+        return new NativePathElements(path);
     }
 
     public void Dispose()
     {
-        if (_buffer is { })
-        {
-            ArrayPool<VelloSharp.VelloPathElement>.Shared.Return(_buffer);
-        }
+        // no pooled resources to return; maintained for compatibility with existing using-pattern.
     }
 }

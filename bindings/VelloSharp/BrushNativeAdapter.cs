@@ -6,11 +6,11 @@ namespace VelloSharp;
 
 internal readonly struct BrushNativeData : IDisposable
 {
-    private readonly VelloGradientStop[]? _stops;
+    private readonly GradientStop[]? _stops;
     private readonly int _stopCount;
     private readonly bool _pooled;
 
-    public BrushNativeData(VelloBrush brush, VelloGradientStop[]? stops, int stopCount, bool pooled)
+    public BrushNativeData(VelloBrush brush, GradientStop[]? stops, int stopCount, bool pooled)
     {
         Brush = brush;
         _stops = stops;
@@ -20,16 +20,16 @@ internal readonly struct BrushNativeData : IDisposable
 
     public VelloBrush Brush { get; }
 
-    public ReadOnlySpan<VelloGradientStop> Stops =>
+    public ReadOnlySpan<GradientStop> Stops =>
         _stops is { Length: > 0 } array && _stopCount > 0
             ? array.AsSpan(0, _stopCount)
-            : ReadOnlySpan<VelloGradientStop>.Empty;
+            : ReadOnlySpan<GradientStop>.Empty;
 
     public void Dispose()
     {
         if (_pooled && _stops is { })
         {
-            ArrayPool<VelloGradientStop>.Shared.Return(_stops);
+            ArrayPool<GradientStop>.Shared.Return(_stops);
         }
     }
 }
@@ -68,7 +68,8 @@ internal static class BrushNativeFactory
 
     private static BrushNativeData CreateLinearGradientBrush(LinearGradientBrush brush)
     {
-        var stops = RentStops(brush.Stops, out var count, out var pooled);
+        var stops = brush.StopsArray;
+        var count = stops.Length;
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.LinearGradient,
@@ -83,12 +84,13 @@ internal static class BrushNativeFactory
             Sweep = default,
             Image = default,
         };
-        return new BrushNativeData(native, stops, count, pooled);
+        return new BrushNativeData(native, stops, count, pooled: false);
     }
 
     private static BrushNativeData CreateRadialGradientBrush(RadialGradientBrush brush)
     {
-        var stops = RentStops(brush.Stops, out var count, out var pooled);
+        var stops = brush.StopsArray;
+        var count = stops.Length;
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.RadialGradient,
@@ -105,12 +107,13 @@ internal static class BrushNativeFactory
             Sweep = default,
             Image = default,
         };
-        return new BrushNativeData(native, stops, count, pooled);
+        return new BrushNativeData(native, stops, count, pooled: false);
     }
 
     private static BrushNativeData CreateSweepGradientBrush(SweepGradientBrush brush)
     {
-        var stops = RentStops(brush.Stops, out var count, out var pooled);
+        var stops = brush.StopsArray;
+        var count = stops.Length;
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.SweepGradient,
@@ -126,7 +129,7 @@ internal static class BrushNativeFactory
             Radial = default,
             Image = default,
         };
-        return new BrushNativeData(native, stops, count, pooled);
+        return new BrushNativeData(native, stops, count, pooled: false);
     }
 
     private static BrushNativeData CreateImageBrush(ImageBrush brush)
@@ -149,7 +152,7 @@ internal static class BrushNativeFactory
         return new BrushNativeData(native, null, 0, pooled: false);
     }
 
-    private static VelloGradientStop[]? RentStops(ReadOnlySpan<GradientStop> stops, out int count, out bool pooled)
+    internal static GradientStop[]? RentStops(ReadOnlySpan<GradientStop> stops, out int count, out bool pooled)
     {
         if (stops.IsEmpty)
         {
@@ -159,12 +162,9 @@ internal static class BrushNativeFactory
         }
 
         count = stops.Length;
-        var buffer = ArrayPool<VelloGradientStop>.Shared.Rent(count);
+        var buffer = ArrayPool<GradientStop>.Shared.Rent(count);
         var span = buffer.AsSpan(0, count);
-        for (var i = 0; i < count; i++)
-        {
-            span[i] = stops[i].ToNative();
-        }
+        stops.CopyTo(span);
 
         pooled = true;
         return buffer;
