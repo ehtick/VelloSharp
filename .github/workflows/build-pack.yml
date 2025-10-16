@@ -526,8 +526,9 @@ jobs:
         run: |
           if (Test-Path winappdriver.pid) {
             $driverPid = Get-Content winappdriver.pid | Select-Object -First 1
-            if ($driverPid) {
-              Stop-Process -Id [int]$driverPid -Force -ErrorAction SilentlyContinue
+            if ($driverPid -match '\d+') {
+              $driverPidValue = [int]$Matches[0]
+              Stop-Process -Id $driverPidValue -Force -ErrorAction SilentlyContinue
             }
           }
           Get-Process -Name WinAppDriver -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
