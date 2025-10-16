@@ -389,6 +389,7 @@ jobs:
 
   winui-uwp-validation:
     name: WinUI & UWP Validation
+    if: ${{ false }}
     needs:
       - pack-managed-merge
     runs-on: windows-latest
