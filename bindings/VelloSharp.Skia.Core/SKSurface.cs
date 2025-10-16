@@ -45,6 +45,69 @@ public sealed class SKSurface : IDisposable
         return Create(info);
     }
 
+    public static SKSurface Create(GRContext context, bool budgeted, SKImageInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        _ = budgeted;
+        return Create(info);
+    }
+
+    public static SKSurface Create(GRContext context, bool budgeted, SKImageInfo info, SKSurfaceProperties properties)
+    {
+        ArgumentNullException.ThrowIfNull(properties);
+        return Create(context, budgeted, info);
+    }
+
+    public static SKSurface Create(GRContext context, GRBackendRenderTarget renderTarget, GRSurfaceOrigin origin, SKColorType colorType)
+        => Create(context, renderTarget, origin, colorType, default(SKSurfaceProperties?));
+
+    public static SKSurface Create(GRContext context, GRBackendRenderTarget renderTarget, GRSurfaceOrigin origin, SKColorType colorType, SKSurfaceProperties? props)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(renderTarget);
+        _ = origin;
+        var info = new SKImageInfo(renderTarget.Width, renderTarget.Height, colorType, SKAlphaType.Premul);
+        return Create(info);
+    }
+
+    public static SKSurface Create(GRContext context, GRBackendRenderTarget renderTarget, GRSurfaceOrigin origin, SKColorType colorType, SKColorSpace? colorspace)
+        => Create(context, renderTarget, origin, colorType, colorspace, default(SKSurfaceProperties?));
+
+    public static SKSurface Create(GRContext context, GRBackendRenderTarget renderTarget, GRSurfaceOrigin origin, SKColorType colorType, SKColorSpace? colorspace, SKSurfaceProperties? props)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(renderTarget);
+        _ = origin;
+        _ = props;
+        _ = colorspace;
+        var info = new SKImageInfo(renderTarget.Width, renderTarget.Height, colorType, SKAlphaType.Premul);
+        return Create(info);
+    }
+
+    public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, SKColorType colorType)
+        => Create(context, texture, origin, colorType, default(SKSurfaceProperties?));
+
+    public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, SKColorType colorType, SKSurfaceProperties? props)
+        => Create(context, texture, origin, 0, colorType, default(SKColorSpace?), props);
+
+    public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, int sampleCount, SKColorType colorType)
+        => Create(context, texture, origin, sampleCount, colorType, default(SKColorSpace?), default(SKSurfaceProperties?));
+
+    public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, int sampleCount, SKColorType colorType, SKColorSpace? colorspace)
+        => Create(context, texture, origin, sampleCount, colorType, colorspace, default(SKSurfaceProperties?));
+
+    public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, int sampleCount, SKColorType colorType, SKColorSpace? colorspace, SKSurfaceProperties? props)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(texture);
+        _ = origin;
+        _ = sampleCount;
+        _ = props;
+        _ = colorspace;
+        var info = new SKImageInfo(texture.Width, texture.Height, colorType, SKAlphaType.Premul);
+        return Create(info);
+    }
+
     public static SKSurface Create(SKImageInfo info, IntPtr pixels, int rowBytes, SKSurfaceProperties properties)
     {
         ArgumentNullException.ThrowIfNull(properties);
