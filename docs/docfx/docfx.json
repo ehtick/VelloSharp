@@ -13,7 +13,10 @@
             "**/obj/**",
             "**/extern/**",
             "**/tests/**",
-            "**/samples/**"
+            "**/samples/**",
+            "bindings/VelloSharp.Avalonia.Browser/**",
+            "bindings/VelloSharp.Maui/**",
+            "src/VelloSharp.Maui.Core/**"
           ]
         }
       ],

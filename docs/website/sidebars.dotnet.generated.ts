@@ -81,7 +81,9 @@ const sidebars: SidebarsConfig = {
       "type": "category",
       "label": "SkiaSharp",
       "items": [
+        "SkiaSharp.CpuSkiaBackend",
         "SkiaSharp.CpuSkiaBackendConfiguration",
+        "SkiaSharp.GpuSkiaBackend",
         "SkiaSharp.SKBitmap",
         "SkiaSharp.SKCanvas",
         "SkiaSharp.SKCodec",
@@ -109,6 +111,9 @@ const sidebars: SidebarsConfig = {
         "SkiaSharp.SKRegion",
         "SkiaSharp.SKRegionRectIterator",
         "SkiaSharp.SKRoundRect",
+        "SkiaSharp.SKRuntimeEffect",
+        "SkiaSharp.SKRuntimeEffectChildren",
+        "SkiaSharp.SKRuntimeEffectUniforms",
         "SkiaSharp.SKShader",
         "SkiaSharp.SKStreamAsset",
         "SkiaSharp.SKSurface",
@@ -124,8 +129,11 @@ const sidebars: SidebarsConfig = {
         "SkiaSharp.SKMatrix44",
         "SkiaSharp.SKMatrix4x4",
         "SkiaSharp.SKPoint",
+        "SkiaSharp.SKPoint3",
+        "SkiaSharp.SKPointI",
         "SkiaSharp.SKRect",
         "SkiaSharp.SKRectI",
+        "SkiaSharp.SKRuntimeEffectUniform",
         "SkiaSharp.SKSamplingOptions",
         "SkiaSharp.SKSizeI",
         "SkiaSharp.SKTextBlobBuilder.PositionedRunBuffer",
@@ -196,6 +204,10 @@ const sidebars: SidebarsConfig = {
         "VelloSharp.VelloSurfaceContext",
         "VelloSharp.VelloSurfaceRenderer",
         "VelloSharp.VelloSvg",
+        "VelloSharp.WebGpuInteropException",
+        "VelloSharp.WebGpuRuntime",
+        "VelloSharp.WebGpuRuntime.WebGpuCapabilities",
+        "VelloSharp.WebGpuRuntime.WebGpuCapabilitiesChangedEventArgs",
         "VelloSharp.WgpuAdapter",
         "VelloSharp.WgpuBindGroup",
         "VelloSharp.WgpuBindGroupLayout",
@@ -258,6 +270,12 @@ const sidebars: SidebarsConfig = {
         "VelloSharp.VelloWindowHandle",
         "VelloSharp.VelloWindowHandlePayload",
         "VelloSharp.VelloXlibWindowHandle",
+        "VelloSharp.WebGpuRuntime.WebGpuDeviceHandles",
+        "VelloSharp.WebGpuRuntime.WebGpuDeviceLimits",
+        "VelloSharp.WebGpuRuntime.WebGpuRequestAdapterOptions",
+        "VelloSharp.WebGpuRuntime.WebGpuRequestDeviceOptions",
+        "VelloSharp.WebGpuRuntime.WebGpuSurfaceConfiguration",
+        "VelloSharp.WebGpuRuntime.WebGpuSurfaceDescriptor",
         "VelloSharp.WgpuAdapterInfo",
         "VelloSharp.WgpuBindGroupDescriptor",
         "VelloSharp.WgpuBindGroupEntry",
@@ -327,6 +345,11 @@ const sidebars: SidebarsConfig = {
         "VelloSharp.SparseRenderMode",
         "VelloSharp.SparseSimdLevel",
         "VelloSharp.VelloWindowHandleKind",
+        "VelloSharp.WebGpuRuntime.WebGpuLogLevel",
+        "VelloSharp.WebGpuRuntime.WebGpuPowerPreference",
+        "VelloSharp.WebGpuRuntime.WebGpuPresentMode",
+        "VelloSharp.WebGpuRuntime.WebGpuSurfaceBindingKind",
+        "VelloSharp.WebGpuRuntime.WebGpuTextureFormat",
         "VelloSharp.WgpuAddressMode",
         "VelloSharp.WgpuBackend",
         "VelloSharp.WgpuBackendType",
@@ -980,91 +1003,6 @@ const sidebars: SidebarsConfig = {
     },
     {
       "type": "category",
-      "label": "VelloSharp.Maui",
-      "items": [
-        "VelloSharp.Maui.Resource",
-        "VelloSharp.Maui.VelloViewHandler"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui"
-      }
-    },
-    {
-      "type": "category",
-      "label": "VelloSharp.Maui.Controls",
-      "items": [
-        "VelloSharp.Maui.Controls.VelloView",
-        "VelloSharp.Maui.Controls.IVelloView",
-        "VelloSharp.Maui.Controls.IVelloViewHandler"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui.Controls"
-      }
-    },
-    {
-      "type": "category",
-      "label": "VelloSharp.Maui.Diagnostics",
-      "items": [
-        "VelloSharp.Maui.Diagnostics.VelloDiagnosticsChangedEventArgs",
-        "VelloSharp.Maui.Diagnostics.VelloDiagnosticsSnapshot",
-        "VelloSharp.Maui.Diagnostics.VelloViewDiagnostics"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui.Diagnostics"
-      }
-    },
-    {
-      "type": "category",
-      "label": "VelloSharp.Maui.Events",
-      "items": [
-        "VelloSharp.Maui.Events.VelloSurfaceRenderEventArgs"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui.Events"
-      }
-    },
-    {
-      "type": "category",
-      "label": "VelloSharp.Maui.Hosting",
-      "items": [
-        "VelloSharp.Maui.Hosting.AppHostBuilderExtensions"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui.Hosting"
-      }
-    },
-    {
-      "type": "category",
-      "label": "VelloSharp.Maui.Input",
-      "items": [
-        "VelloSharp.Maui.Input.MauiCompositionInputSource"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui.Input"
-      }
-    },
-    {
-      "type": "category",
-      "label": "VelloSharp.Maui.Rendering",
-      "items": [
-        "VelloSharp.Maui.Rendering.VelloGraphicsDeviceOptions",
-        "VelloSharp.Maui.Rendering.RenderLoopDriver",
-        "VelloSharp.Maui.Rendering.VelloRenderBackend",
-        "VelloSharp.Maui.Rendering.VelloRenderMode"
-      ],
-      "link": {
-        "type": "doc",
-        "id": "VelloSharp.Maui.Rendering"
-      }
-    },
-    {
-      "type": "category",
       "label": "VelloSharp.Rendering",
       "items": [
         "VelloSharp.Rendering.VelloRenderPath",
@@ -1229,15 +1167,13 @@ const sidebars: SidebarsConfig = {
     },
     {
       "type": "category",
-      "label": "VelloSharp.Uno.Controls",
+      "label": "VelloSharp.Uno",
       "items": [
-        "VelloSharp.Uno.Controls.VelloCoreWindowHost",
-        "VelloSharp.Uno.Controls.VelloSwapChainPanel",
-        "VelloSharp.Uno.Controls.VelloXamlIslandSwapChainHost"
+        "VelloSharp.Uno.GlobalStaticResources"
       ],
       "link": {
         "type": "doc",
-        "id": "VelloSharp.Uno.Controls"
+        "id": "VelloSharp.Uno"
       }
     },
     {
@@ -1305,7 +1241,6 @@ const sidebars: SidebarsConfig = {
         "VelloSharp.Windows.WindowsSurfaceDescriptor",
         "VelloSharp.Windows.WindowsSurfaceSize",
         "VelloSharp.Windows.IWindowsSurfaceSource",
-        "VelloSharp.Windows.PresentMode",
         "VelloSharp.Windows.RenderLoopDriver",
         "VelloSharp.Windows.WindowsColorSpace",
         "VelloSharp.Windows.WindowsSurfaceKind"

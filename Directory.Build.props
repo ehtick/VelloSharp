@@ -23,6 +23,11 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(DocfxTargetFramework)' != ''">
+    <TargetFrameworks>$(DocfxTargetFramework)</TargetFrameworks>
+    <TargetFramework>$(DocfxTargetFramework)</TargetFramework>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(EnableWindowsTargeting)' == '' and !$([MSBuild]::IsOSPlatform('Windows'))">
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>

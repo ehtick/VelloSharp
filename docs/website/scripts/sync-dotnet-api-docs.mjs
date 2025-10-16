@@ -33,6 +33,7 @@ let msbuildArgs = (process.env.DOCFX_MSBUILD_ARGS ?? '').trim();
 msbuildArgs = ensureMsbuildArg(msbuildArgs, 'EnableWindowsTargeting', 'true');
 msbuildArgs = ensureMsbuildArg(msbuildArgs, 'DocfxTargetFramework', 'net8.0');
 msbuildArgs = ensureMsbuildArg(msbuildArgs, 'MauiTargetFrameworks', 'net8.0-windows10.0.19041');
+msbuildArgs = ensureMsbuildArg(msbuildArgs, 'VelloSkipNativeBuild', 'true');
 process.env.DOCFX_MSBUILD_ARGS = msbuildArgs;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
