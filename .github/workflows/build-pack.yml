@@ -431,6 +431,19 @@ jobs:
           dotnet workload restore --project bindings/VelloSharp.WinUI/VelloSharp.WinUI.csproj
           dotnet workload restore --project bindings/VelloSharp.Uwp/VelloSharp.Uwp.csproj
 
+      - name: Restore WinUI and UWP projects
+        shell: pwsh
+        run: |
+          $projects = @(
+            'bindings/VelloSharp.WinUI/VelloSharp.WinUI.csproj',
+            'bindings/VelloSharp.Uwp/VelloSharp.Uwp.csproj',
+            'samples/WinUIVelloGallery/WinUIVelloGallery.csproj',
+            'samples/UwpVelloGallery/UwpVelloGallery.csproj'
+          )
+          foreach ($project in $projects) {
+            dotnet restore $project
+          }
+
       - name: Start WinAppDriver
         shell: pwsh
         run: |
@@ -512,9 +525,9 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path winappdriver.pid) {
-            $pid = Get-Content winappdriver.pid | Select-Object -First 1
-            if ($pid) {
-              Stop-Process -Id [int]$pid -Force -ErrorAction SilentlyContinue
+            $driverPid = Get-Content winappdriver.pid | Select-Object -First 1
+            if ($driverPid) {
+              Stop-Process -Id [int]$driverPid -Force -ErrorAction SilentlyContinue
             }
           }
           Get-Process -Name WinAppDriver -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
