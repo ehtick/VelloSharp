@@ -212,4 +212,38 @@ public sealed class GeometryPrimitiveTests
         Assert.Equal(8f, bounds.Right);
         Assert.Equal(9f, bounds.Bottom);
     }
+
+    [Fact]
+    public void SKPath_ArcToProducesFiniteGeometry()
+    {
+        using var path = new SKPath();
+        path.MoveTo(-25f, -10f);
+        path.ArcTo(10f, 10f, 0f, SKPathArcSize.Small, SKPathDirection.Clockwise, 25f, -10f);
+
+        var bounds = path.TightBounds;
+
+        Assert.False(float.IsNaN(bounds.Left) || float.IsNaN(bounds.Top) || float.IsNaN(bounds.Right) || float.IsNaN(bounds.Bottom));
+        Assert.False(float.IsInfinity(bounds.Left) || float.IsInfinity(bounds.Top) || float.IsInfinity(bounds.Right) || float.IsInfinity(bounds.Bottom));
+        Assert.True(bounds.Left <= bounds.Right);
+        Assert.True(bounds.Top <= bounds.Bottom);
+
+        using var clone = new SKPath(path);
+        var cloneBounds = clone.TightBounds;
+        Assert.Equal(bounds, cloneBounds);
+    }
+
+    [Fact]
+    public void SKPath_ArcToHandlesDegenerateInputs()
+    {
+        using var path = new SKPath();
+        path.MoveTo(0f, 0f);
+
+        path.ArcTo(0f, 0f, 0f, SKPathArcSize.Small, SKPathDirection.Clockwise, 10f, 0f);
+
+        var bounds = path.TightBounds;
+        Assert.Equal(0f, bounds.Top);
+        Assert.Equal(0f, bounds.Bottom);
+        Assert.Equal(0f, bounds.Left);
+        Assert.Equal(10f, bounds.Right);
+    }
 }
