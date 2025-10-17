@@ -92,9 +92,412 @@ public sealed class SKPath : IDisposable
 
     public bool Contains(float x, float y)
     {
-        ShimNotImplemented.Throw($"{nameof(SKPath)}.{nameof(Contains)}");
-        return TightBounds.Contains(new SKPoint(x, y));
+        if (TryContainsNative(x, y, out var nativeResult))
+        {
+            return nativeResult;
+        }
+
+        return ContainsManaged(x, y);
     }
+
+    private bool TryContainsNative(float x, float y, out bool result)
+    {
+        if (_commands.Count == 0)
+        {
+            result = FillType is SKPathFillType.InverseEvenOdd or SKPathFillType.InverseWinding;
+            return true;
+        }
+
+        var builder = ToPathBuilder();
+        using var nativePath = NativePathElements.Rent(builder);
+        var span = nativePath.Span;
+        if (span.IsEmpty)
+        {
+            var insideBounds = TightBounds.Contains(new SKPoint(x, y));
+            result = FillType switch
+            {
+                SKPathFillType.InverseWinding => !insideBounds,
+                SKPathFillType.InverseEvenOdd => !insideBounds,
+                _ => insideBounds,
+            };
+            return true;
+        }
+
+        var fillRule = FillType switch
+        {
+            SKPathFillType.EvenOdd or SKPathFillType.InverseEvenOdd => FillRule.EvenOdd,
+            _ => FillRule.NonZero,
+        };
+
+        bool contains;
+        unsafe
+        {
+            fixed (VelloSharp.VelloPathElement* elementPtr = span)
+            {
+                var status = VelloSharp.NativeMethods.vello_path_contains_point(
+                    elementPtr,
+                    (nuint)span.Length,
+                    (VelloSharp.VelloFillRule)fillRule,
+                    new VelloSharp.VelloPoint { X = x, Y = y },
+                    out contains);
+
+                if (status != VelloSharp.VelloStatus.Success)
+                {
+                    result = false;
+                    return false;
+                }
+            }
+        }
+
+        if (FillType is SKPathFillType.InverseWinding or SKPathFillType.InverseEvenOdd)
+        {
+            contains = !contains;
+        }
+
+        result = contains;
+        return true;
+    }
+
+    private bool ContainsManaged(float x, float y)
+    {
+        if (_commands.Count == 0)
+        {
+            return FillType is SKPathFillType.InverseEvenOdd or SKPathFillType.InverseWinding;
+        }
+
+        var segments = ListPool<Segment>.Shared.Rent(Math.Max(_commands.Count, 4));
+        try
+        {
+            BuildSegments(segments);
+
+            if (segments.Count == 0)
+            {
+                var insideBounds = TightBounds.Contains(new SKPoint(x, y));
+                var contains = FillType switch
+                {
+                    SKPathFillType.InverseWinding => !insideBounds,
+                    SKPathFillType.InverseEvenOdd => !insideBounds,
+                    _ => insideBounds,
+                };
+                return contains;
+            }
+
+            var point = new Vector2(x, y);
+            bool inside;
+
+            if (PointOnBoundary(segments, point))
+            {
+                inside = true;
+            }
+            else
+            {
+                var evenOddInside = IsPointInsideEvenOdd(segments, point);
+                var windingNumber = ComputeWindingNumber(segments, point);
+                inside = FillType switch
+                {
+                    SKPathFillType.Winding or SKPathFillType.InverseWinding => windingNumber != 0,
+                    SKPathFillType.EvenOdd or SKPathFillType.InverseEvenOdd => evenOddInside,
+                    _ => evenOddInside,
+                };
+            }
+
+            if (FillType is SKPathFillType.InverseWinding or SKPathFillType.InverseEvenOdd)
+            {
+                inside = !inside;
+            }
+
+            return inside;
+        }
+        finally
+        {
+            segments.Clear();
+            ListPool<Segment>.Shared.Return(segments);
+        }
+    }
+
+    private void BuildSegments(List<Segment> segments)
+    {
+        const int quadraticSteps = 8;
+        const int cubicSteps = 16;
+        const int conicSteps = 8;
+
+        var current = Vector2.Zero;
+        var subpathStart = Vector2.Zero;
+        var haveCurrent = false;
+        var haveStart = false;
+
+        foreach (var command in _commands)
+        {
+            switch (command.Verb)
+            {
+                case PathVerb.MoveTo:
+                    current = command.Point0.ToVector2();
+                    subpathStart = current;
+                    haveCurrent = true;
+                    haveStart = true;
+                    break;
+
+                case PathVerb.LineTo:
+                    if (haveCurrent)
+                    {
+                        var next = command.Point0.ToVector2();
+                        AddSegment(segments, current, next);
+                        current = next;
+                    }
+                    break;
+
+                case PathVerb.QuadTo:
+                    if (haveCurrent)
+                    {
+                        var ctrl = command.Point0.ToVector2();
+                        var end = command.Point1.ToVector2();
+                        FlattenQuadratic(current, ctrl, end, quadraticSteps, segments);
+                        current = end;
+                    }
+                    break;
+
+                case PathVerb.ConicTo:
+                    if (haveCurrent)
+                    {
+                        var ctrl = command.Point0.ToVector2();
+                        var end = command.Point1.ToVector2();
+                        FlattenConic(current, ctrl, end, command.Weight, conicSteps, segments);
+                        current = end;
+                    }
+                    break;
+
+                case PathVerb.CubicTo:
+                    if (haveCurrent)
+                    {
+                        var ctrl1 = command.Point0.ToVector2();
+                        var ctrl2 = command.Point1.ToVector2();
+                        var end = command.Point2.ToVector2();
+                        FlattenCubic(current, ctrl1, ctrl2, end, cubicSteps, segments);
+                        current = end;
+                    }
+                    break;
+
+                case PathVerb.Close:
+                    if (haveCurrent && haveStart)
+                    {
+                        AddSegment(segments, current, subpathStart);
+                        current = subpathStart;
+                    }
+                    haveStart = false;
+                    break;
+            }
+        }
+    }
+
+    private static void AddSegment(List<Segment> segments, Vector2 start, Vector2 end)
+    {
+        if (Vector2.DistanceSquared(start, end) <= SegmentEpsilon * SegmentEpsilon)
+        {
+            return;
+        }
+
+        segments.Add(new Segment(start, end));
+    }
+
+    private static void FlattenQuadratic(Vector2 start, Vector2 control, Vector2 end, int steps, List<Segment> segments)
+    {
+        var previous = start;
+        for (var i = 1; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var point = EvaluateQuadratic(start, control, end, t);
+            AddSegment(segments, previous, point);
+            previous = point;
+        }
+    }
+
+    private static void FlattenConic(Vector2 start, Vector2 control, Vector2 end, float weight, int steps, List<Segment> segments)
+    {
+        if (float.IsNaN(weight) || float.IsInfinity(weight) || MathF.Abs(weight) < 1e-5f)
+        {
+            weight = 1f;
+        }
+
+        var previous = start;
+        for (var i = 1; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var point = EvaluateConic(start, control, end, weight, t);
+            AddSegment(segments, previous, point);
+            previous = point;
+        }
+    }
+
+    private static void FlattenCubic(Vector2 start, Vector2 control1, Vector2 control2, Vector2 end, int steps, List<Segment> segments)
+    {
+        var previous = start;
+        for (var i = 1; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var point = EvaluateCubic(start, control1, control2, end, t);
+            AddSegment(segments, previous, point);
+            previous = point;
+        }
+    }
+
+    private static Vector2 EvaluateQuadratic(Vector2 p0, Vector2 p1, Vector2 p2, float t)
+    {
+        var mt = 1f - t;
+        var mt2 = mt * mt;
+        var t2 = t * t;
+        return new Vector2(
+            mt2 * p0.X + 2f * mt * t * p1.X + t2 * p2.X,
+            mt2 * p0.Y + 2f * mt * t * p1.Y + t2 * p2.Y);
+    }
+
+    private static Vector2 EvaluateCubic(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+    {
+        var mt = 1f - t;
+        var mt2 = mt * mt;
+        var mt3 = mt2 * mt;
+        var t2 = t * t;
+        var t3 = t2 * t;
+
+        return new Vector2(
+            mt3 * p0.X + 3f * mt2 * t * p1.X + 3f * mt * t2 * p2.X + t3 * p3.X,
+            mt3 * p0.Y + 3f * mt2 * t * p1.Y + 3f * mt * t2 * p2.Y + t3 * p3.Y);
+    }
+
+    private static Vector2 EvaluateConic(Vector2 p0, Vector2 p1, Vector2 p2, float weight, float t)
+    {
+        if (MathF.Abs(weight - 1f) < 1e-3f)
+        {
+            return EvaluateQuadratic(p0, p1, p2, t);
+        }
+
+        var mt = 1f - t;
+        var w = weight;
+        var denom = mt * mt + 2f * w * mt * t + t * t;
+        if (MathF.Abs(denom) < 1e-6f)
+        {
+            return p2;
+        }
+
+        var x = (mt * mt * p0.X + 2f * w * mt * t * p1.X + t * t * p2.X) / denom;
+        var y = (mt * mt * p0.Y + 2f * w * mt * t * p1.Y + t * t * p2.Y) / denom;
+        return new Vector2(x, y);
+    }
+
+    private static bool PointOnBoundary(List<Segment> segments, Vector2 point)
+    {
+        foreach (var segment in segments)
+        {
+            if (IsPointOnSegment(segment.Start, segment.End, point))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPointOnSegment(Vector2 a, Vector2 b, Vector2 point)
+    {
+        var ab = b - a;
+        var ap = point - a;
+
+        if (ab.LengthSquared() <= SegmentEpsilon * SegmentEpsilon)
+        {
+            return Vector2.DistanceSquared(a, point) <= SegmentEpsilon * SegmentEpsilon;
+        }
+
+        var cross = ab.X * ap.Y - ab.Y * ap.X;
+        if (MathF.Abs(cross) > BoundaryEpsilon)
+        {
+            return false;
+        }
+
+        var dot = Vector2.Dot(ap, ab);
+        if (dot < -BoundaryEpsilon)
+        {
+            return false;
+        }
+
+        var abLengthSquared = ab.LengthSquared();
+        if (dot - abLengthSquared > BoundaryEpsilon)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsPointInsideEvenOdd(List<Segment> segments, Vector2 point)
+    {
+        var inside = false;
+        foreach (var segment in segments)
+        {
+            if (RayIntersectsSegment(point, segment.Start, segment.End))
+            {
+                inside = !inside;
+            }
+        }
+
+        return inside;
+    }
+
+    private static bool RayIntersectsSegment(Vector2 point, Vector2 a, Vector2 b)
+    {
+        if (a.Y > b.Y)
+        {
+            (a, b) = (b, a);
+        }
+
+        if (point.Y <= a.Y || point.Y > b.Y)
+        {
+            return false;
+        }
+
+        if (MathF.Abs(a.Y - b.Y) < BoundaryEpsilon)
+        {
+            return false;
+        }
+
+        var xIntersect = a.X + (point.Y - a.Y) * (b.X - a.X) / (b.Y - a.Y);
+        return xIntersect > point.X;
+    }
+
+    private static int ComputeWindingNumber(List<Segment> segments, Vector2 point)
+    {
+        var winding = 0;
+        foreach (var segment in segments)
+        {
+            var a = segment.Start;
+            var b = segment.End;
+
+            if (MathF.Abs(a.Y - b.Y) < BoundaryEpsilon)
+            {
+                continue;
+            }
+
+            if (a.Y <= point.Y)
+            {
+                if (b.Y > point.Y && IsLeft(a, b, point) > 0f)
+                {
+                    winding++;
+                }
+            }
+            else if (b.Y <= point.Y && IsLeft(a, b, point) < 0f)
+            {
+                winding--;
+            }
+        }
+
+        return winding;
+    }
+
+    private static float IsLeft(Vector2 a, Vector2 b, Vector2 point)
+        => (b.X - a.X) * (point.Y - a.Y) - (point.X - a.X) * (b.Y - a.Y);
+
+    private const float SegmentEpsilon = 1e-4f;
+    private const float BoundaryEpsilon = 1e-4f;
+
+    private readonly record struct Segment(Vector2 Start, Vector2 End);
 
     public void MoveTo(float x, float y) => MoveTo(new SKPoint(x, y));
 

@@ -58,7 +58,7 @@ public sealed class SKPaint : IDisposable
 
     public void Reset()
     {
-        ShimNotImplemented.Throw($"{nameof(SKPaint)}.{nameof(Reset)}");
+        ThrowIfDisposed();
         Style = SKPaintStyle.Fill;
         StrokeCap = SKStrokeCap.Butt;
         StrokeJoin = SKStrokeJoin.Miter;

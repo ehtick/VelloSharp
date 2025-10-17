@@ -348,12 +348,12 @@ public sealed class SKFont : IDisposable
             ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(GetGlyphWidths)}", "Paint parameter");
         }
 
-        if (glyphs.Length > widths.Length)
+        if (!widths.IsEmpty && glyphs.Length > widths.Length)
         {
             throw new ArgumentException("Widths span is too small for the glyph collection.", nameof(widths));
         }
 
-        if (glyphs.Length > bounds.Length)
+        if (!bounds.IsEmpty && glyphs.Length > bounds.Length)
         {
             throw new ArgumentException("Bounds span is too small for the glyph collection.", nameof(bounds));
         }
@@ -365,8 +365,8 @@ public sealed class SKFont : IDisposable
             return;
         }
 
-        var widthSlice = widths.Slice(0, glyphs.Length);
-        var boundsSlice = bounds.Slice(0, glyphs.Length);
+        var widthSlice = widths.IsEmpty ? Span<float>.Empty : widths.Slice(0, glyphs.Length);
+        var boundsSlice = bounds.IsEmpty ? Span<SKRect>.Empty : bounds.Slice(0, glyphs.Length);
         ProcessGlyphRun(glyphs, widthSlice, boundsSlice, Span<SKPoint>.Empty, out _);
     }
 

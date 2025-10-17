@@ -2048,11 +2048,16 @@ mod tests {
 
         TimeoutFuture::new(0).await;
 
-        let snapshot = registry.poll(id).expect("snapshot must exist after resolve");
+        let snapshot = registry
+            .poll(id)
+            .expect("snapshot must exist after resolve");
         assert_eq!(snapshot.state, FutureState::Ready);
 
         match snapshot.result {
-            Some(FutureOutput::Device { device_handle, queue_handle }) => {
+            Some(FutureOutput::Device {
+                device_handle,
+                queue_handle,
+            }) => {
                 assert_eq!(device_handle, Some(7));
                 assert_eq!(queue_handle, Some(11));
             }

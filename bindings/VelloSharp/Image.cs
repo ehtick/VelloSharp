@@ -95,20 +95,23 @@ public sealed class Image : IDisposable
 
     public void Dispose()
     {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    private void Dispose(bool disposing)
+    {
         if (_handle != IntPtr.Zero)
         {
+            var phase = disposing ? "Dispose" : "Finalizer";
             NativeMethods.vello_image_destroy(_handle);
             _handle = IntPtr.Zero;
-            GC.SuppressFinalize(this);
         }
     }
 
     ~Image()
     {
-        if (_handle != IntPtr.Zero)
-        {
-            NativeMethods.vello_image_destroy(_handle);
-        }
+        Dispose(disposing: false);
     }
 }
 

@@ -66,12 +66,12 @@ public sealed class SKCanvas : IDisposable
 
     public void RestoreToCount(int saveCount)
     {
-        if (saveCount < 1)
+        var target = Math.Min(saveCount, SaveCount);
+        if (target < 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(saveCount));
+            target = 1;
         }
 
-        var target = Math.Min(saveCount, SaveCount);
         while (SaveCount > target)
         {
             Restore();

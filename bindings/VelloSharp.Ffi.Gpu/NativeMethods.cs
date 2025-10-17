@@ -91,6 +91,15 @@ internal static partial class NativeMethods
         VelloPathElement* elements,
         nuint elementCount);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_path_contains_point")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_path_contains_point(
+        VelloPathElement* elements,
+        nuint elementCount,
+        VelloFillRule fill,
+        VelloPoint point,
+        [MarshalAs(UnmanagedType.I1)] out bool contains);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_scene_push_layer")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_scene_push_layer(
@@ -881,5 +890,4 @@ internal static partial class NativeMethods
         float fontSize,
         out VelloFontMetricsNative metrics);
 }
-
 

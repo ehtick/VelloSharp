@@ -52,7 +52,7 @@ use swash::{
     zeno::Verb,
 };
 use velato::{self, Composition as VelatoComposition, Renderer as VelatoRenderer};
-use vello::kurbo::{Affine, BezPath, Cap, Join, Rect, Stroke, Vec2};
+use vello::kurbo::{Affine, BezPath, Cap, Join, Point, Rect, Shape, Stroke, Vec2};
 use vello::peniko::{
     self, BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
@@ -4101,6 +4101,44 @@ pub unsafe extern "C" fn vello_scene_fill_path(
         Ok(()) => VelloStatus::Success,
         Err(status) => status,
     }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_path_contains_point(
+    elements: *const VelloPathElement,
+    element_count: usize,
+    fill_rule: VelloFillRule,
+    point: VelloPoint,
+    out_contains: *mut bool,
+) -> VelloStatus {
+    clear_last_error();
+    if elements.is_null() || out_contains.is_null() {
+        return VelloStatus::NullPointer;
+    }
+    let slice = match unsafe { slice_from_raw(elements, element_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+    if slice.is_empty() {
+        unsafe { *out_contains = false };
+        return VelloStatus::Success;
+    }
+    let path = match build_bez_path(slice) {
+        Ok(path) => path,
+        Err(err) => {
+            set_last_error(err);
+            return VelloStatus::InvalidArgument;
+        }
+    };
+    let pt = Point::new(point.x, point.y);
+    let contains = match fill_rule {
+        VelloFillRule::NonZero => path.contains(pt),
+        VelloFillRule::EvenOdd => path.winding(pt).abs() % 2 == 1,
+    };
+    unsafe {
+        *out_contains = contains;
+    }
+    VelloStatus::Success
 }
 
 #[unsafe(no_mangle)]
