@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-TARGET=${1:-x86_64-apple-darwin}
+TARGET=${1:-aarch64-apple-darwin}
 PROFILE=${2:-release}
 SDK=${3:-}
 LIBS=()

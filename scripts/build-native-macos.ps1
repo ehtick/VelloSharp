@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 Param(
-    [string]$Target = "x86_64-apple-darwin",
+    [string]$Target = "aarch64-apple-darwin",
     [string]$Profile = "release",
     [string]$Sdk,
     [string]$Rid
