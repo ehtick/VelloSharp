@@ -1,5 +1,18 @@
 # VelloSharp .NET bindings
 
+[![Telegram](https://img.shields.io/badge/chat-Telegram-blue?logo=telegram)](https://t.me/+T60CZBl8wXIzYTk0)
+
+[![CI](https://github.com/wieslawsoltes/VelloSharp/actions/workflows/ci.yml/badge.svg)](https://github.com/wieslawsoltes/VelloSharp/actions/workflows/ci.yml)
+[![Docs](https://github.com/wieslawsoltes/VelloSharp/actions/workflows/docs.yml/badge.svg)](https://github.com/wieslawsoltes/VelloSharp/actions/workflows/docs.yml)
+[![Release](https://github.com/wieslawsoltes/VelloSharp/actions/workflows/release.yml/badge.svg)](https://github.com/wieslawsoltes/VelloSharp/actions/workflows/release.yml)
+
+[![NuGet](https://img.shields.io/nuget/v/VelloSharp.svg)](https://www.nuget.org/packages/VelloSharp)
+[![NuGet](https://img.shields.io/nuget/dt/VelloSharp.svg)](https://www.nuget.org/packages/VelloSharp)
+
+[![GitHub release](https://img.shields.io/github/release/wieslawsoltes/VelloSharp.svg)](https://github.com/wieslawsoltes/VelloSharp)
+[![Github All Releases](https://img.shields.io/github/downloads/wieslawsoltes/VelloSharp/total.svg)](https://github.com/wieslawsoltes/VelloSharp/releases)
+[![Github Releases](https://img.shields.io/github/downloads/wieslawsoltes/VelloSharp/latest/total.svg)](https://github.com/wieslawsoltes/VelloSharp/releases/latest)
+
 This repository hosts the managed bindings that expose the Linebender graphics stack—[`vello`](https://github.com/linebender/vello)
 for rendering, [`wgpu`](https://github.com/gfx-rs/wgpu) for portable GPU access, [`winit`](https://github.com/rust-windowing/winit)
 for cross-platform windowing, `peniko`/`kurbo` for brush and geometry data, and the text pipeline built on
