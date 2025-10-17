@@ -1,0 +1,43 @@
+# VelloSharp v0.5.0-alpha.2
+
+## Highlights
+- Interop and loading tuned: source-generated `LibraryImport` surfaces trim managed/native overhead in the FFI layer while `NativeLibraryLoader` gains MAUI and packaged-app probing plus platform overrides for deterministic resolution.
+- Text and Skia shims were refactored: the HarfBuzz-compatible layer gained full buffer/font parity (lookup tables, OpenType metrics, Unicode helpers), while `VelloSharp.Skia.Core` adds GPU surface shims (`GrContextShim`, `SKRuntimeEffect`) and recording improvements.
+- Tooling, docs, and licensing improved: the repo now ships an MIT license, a Docusaurus documentation site, expanded verification scripts for packaging and native assets, and CI coverage for browser, MAUI, WinUI, and UWP scenarios.
+- Browser/WebAssembly preview: new `VelloSharp.WebAssembly` foundations and the `VelloSharp.Avalonia.Browser` host wire the renderer into Avalonia’s WebGPU backend with diagnostics, capability probing, and wasm-friendly packaging; this is the first public pass, so feedback on the preview is encouraged.
+- MAUI integration arrives with `VelloSharp.Maui.Core` and `VelloSharp.Maui`, providing a cross-platform `VelloView` control, platform handlers, and device probing that align with the existing desktop stack; expect iteration as the handlers mature.
+- Windows XAML hosts unify on `VelloSharp.Windows.Shared`, with WinUI and UWP controls, automation-ready smoke tests, and validation scripts that keep native assets discoverable across app bundle layouts; both WinUI and UWP experiences remain early preview drops.
+
+## Managed package updates
+
+### New platform integrations
+- `VelloSharp.WebAssembly` — Shared wasm bindings that expose renderer bootstrap, native probing, and managed interop helpers to browser-hosted apps.
+- `VelloSharp.Avalonia.Browser` — Avalonia WebGPU renderer that plugs into the new wasm bindings with browser-specific swap chains, timers, and render loop management.
+- `VelloSharp.Maui.Core` — Cross-platform rendering presenters, diagnostics, and input sources tailored for MAUI handlers (Android, iOS, Mac Catalyst, Windows).
+- `VelloSharp.Maui` — MAUI handler pack with a `VelloView` control, handler wiring per platform, and hooks into diagnostics and render events.
+- `VelloSharp.Windows.Shared` — Common dispatcher, presenter, diagnostics, and contracts reused by WinUI, UWP, Uno, and MAUI Windows surfaces.
+- `VelloSharp.WinUI` *(preview)* — WinUI 3 `VelloSwapChainControl` plus diagnostics overlays and native asset bootstrap.
+- `VelloSharp.Uwp` *(preview)* — UWP swap chain host that mirrors the WinUI control for legacy Windows deployments.
+
+### Enhanced subsystems
+- `VelloSharp.Avalonia.Vello` — Adds browser-aware runtime detection (`VelloPlatform`, WebGPU helpers) and surface scheduling updates that align Avalonia desktop and wasm behavior.
+- `VelloSharp.Avalonia.Controls` — Scene leasing, swapchain updates, and drawing context improvements for better reuse across desktop and browser targets.
+- `VelloSharp.Core` & `VelloSharp.Ffi.*` — Expanded gradients, geometry helpers, and interop structs to back the new platforms and text pipeline.
+- `VelloSharp.HarfBuzzSharp` — Complete buffer/font rewrite with Unicode helpers, variation axis handling, font functions, OpenType metrics, and parity tests against upstream HarfBuzzSharp.
+- `VelloSharp.Skia.Core` — New GPU bridge (`GrContextShim`), runtime effect helpers, pixel interop, and recording tweaks that ease migration from SkiaSharp.
+- Samples & diagnostics — Avalonia HarfBuzz/Skia samples now exercise the new shims, while additional smoke tests validate MAUI, WinUI, and UWP asset loading.
+
+## Native runtime packages
+- Added `browser-wasm` runtimes alongside existing desktop/mobile RIDs so the native bundles match the new WebAssembly target.
+- Extended `NativeLibraryLoader` probing to cover MAUI bundle layouts, WinUI packaged apps, and browser-hosted native directories.
+- Introduced verification scripts (`verify-browser-webgpu`, `verify-maui-native-assets`, `verify-winui-native-assets`, `verify-uwp-native-assets`) that run in CI to ensure RID-specific payloads ship correctly.
+
+## Getting started
+- Install MAUI bindings via `dotnet add package VelloSharp.Maui` (plus `VelloSharp.Maui.Core`) and register the `VelloView` handler in your MAUI program.
+- Target browsers by combining `dotnet add package VelloSharp.WebAssembly` with `VelloSharp.Avalonia.Browser` inside an Avalonia WebAssembly host; run the verification script to confirm WebGPU availability.
+- Adopt the preview Windows XAML controls with `VelloSharp.WinUI` or `VelloSharp.Uwp`, backed by `VelloSharp.Windows.Shared` for dispatcher/presenter infrastructure.
+- Existing desktop flows continue to start with `dotnet add package VelloSharp` and the framework-specific bridge of choice (Avalonia, WPF, WinForms, Uno), now benefitting from the updated text/Skia shims.
+
+## Links
+- Release artifacts and source: https://github.com/wieslawsoltes/VelloSharp/releases/tag/v0.5.0-alpha.2
+- Documentation site: https://wieslawsoltes.github.io/VelloSharp/
