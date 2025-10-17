@@ -77,6 +77,40 @@ public sealed class SKData : IDisposable
         return _buffer;
     }
 
+    public void SaveTo(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        var span = AsSpan();
+        if (!span.IsEmpty)
+        {
+            stream.Write(span);
+        }
+    }
+
+    public bool SaveTo(Span<byte> destination) => SaveTo(destination, out _);
+
+    public bool SaveTo(Span<byte> destination, out int bytesWritten)
+    {
+        var span = AsSpan();
+        if (span.Length > destination.Length)
+        {
+            bytesWritten = 0;
+            return false;
+        }
+
+        span.CopyTo(destination);
+        bytesWritten = span.Length;
+        return true;
+    }
+
+    public byte[] ToArray()
+    {
+        var span = AsSpan();
+        var buffer = new byte[span.Length];
+        span.CopyTo(buffer);
+        return buffer;
+    }
+
     public void Dispose()
     {
         _buffer = null;

@@ -7,11 +7,13 @@ public sealed class SKSurface : IDisposable
 {
     private readonly Scene _scene;
     private readonly SKCanvas _canvas;
+    private readonly GRContext? _context;
     private bool _disposed;
 
-    private SKSurface(SKImageInfo info)
+    private SKSurface(SKImageInfo info, GRContext? context = null)
     {
         Info = info;
+        _context = context;
         _scene = new Scene();
         _canvas = new SKCanvas(_scene, info.Width, info.Height);
     }
@@ -49,7 +51,7 @@ public sealed class SKSurface : IDisposable
     {
         ArgumentNullException.ThrowIfNull(context);
         _ = budgeted;
-        return Create(info);
+        return new SKSurface(info, context);
     }
 
     public static SKSurface Create(GRContext context, bool budgeted, SKImageInfo info, SKSurfaceProperties properties)
@@ -67,7 +69,7 @@ public sealed class SKSurface : IDisposable
         ArgumentNullException.ThrowIfNull(renderTarget);
         _ = origin;
         var info = new SKImageInfo(renderTarget.Width, renderTarget.Height, colorType, SKAlphaType.Premul);
-        return Create(info);
+        return new SKSurface(info, context);
     }
 
     public static SKSurface Create(GRContext context, GRBackendRenderTarget renderTarget, GRSurfaceOrigin origin, SKColorType colorType, SKColorSpace? colorspace)
@@ -81,7 +83,7 @@ public sealed class SKSurface : IDisposable
         _ = props;
         _ = colorspace;
         var info = new SKImageInfo(renderTarget.Width, renderTarget.Height, colorType, SKAlphaType.Premul);
-        return Create(info);
+        return new SKSurface(info, context);
     }
 
     public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, SKColorType colorType)
@@ -105,7 +107,7 @@ public sealed class SKSurface : IDisposable
         _ = props;
         _ = colorspace;
         var info = new SKImageInfo(texture.Width, texture.Height, colorType, SKAlphaType.Premul);
-        return Create(info);
+        return new SKSurface(info, context);
     }
 
     public static SKSurface Create(SKImageInfo info, IntPtr pixels, int rowBytes, SKSurfaceProperties properties)
@@ -154,6 +156,15 @@ public sealed class SKSurface : IDisposable
         using var image = Snapshot();
         var dest = SKRect.Create(x, y, image.Width, image.Height);
         canvas.DrawImage(image, dest);
+    }
+
+    public void Flush() => Flush(true);
+
+    public void Flush(bool submit, bool synchronous = false)
+    {
+        ThrowIfDisposed();
+        _canvas.Flush();
+        _context?.Flush(submit, synchronous);
     }
 
     public void Dispose()

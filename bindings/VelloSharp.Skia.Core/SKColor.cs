@@ -36,6 +36,8 @@ public readonly struct SKColor : IEquatable<SKColor>
     public static bool operator !=(SKColor left, SKColor right) => !left.Equals(right);
 
     public override string ToString() => $"#{Alpha:X2}{Red:X2}{Green:X2}{Blue:X2}";
+
+    public static SKColor Empty { get; } = new(0, 0, 0, 0);
 }
 
 public static class SKColors

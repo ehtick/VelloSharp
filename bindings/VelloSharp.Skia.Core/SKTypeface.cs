@@ -18,6 +18,8 @@ public sealed class SKTypeface : IDisposable
     private readonly string _familyName;
     private readonly SKFontStyle _fontStyle;
     private readonly int _unitsPerEm;
+    private readonly int _glyphCount;
+    private readonly bool _isMonospace;
 
     private SKTypeface(Font font, byte[] fontData, bool ownsFont, string? familyName = null, SKFontStyle? fontStyle = null)
     {
@@ -28,6 +30,14 @@ public sealed class SKTypeface : IDisposable
         _familyName = familyName ?? ParseFamilyName(_fontData, _tables) ?? "Unknown";
         _fontStyle = fontStyle ?? SKFontStyle.Normal;
         _unitsPerEm = ParseUnitsPerEm(_fontData, _tables);
+
+        var metrics = font.GetMetrics();
+        if (metrics.UnitsPerEm != 0)
+        {
+            _unitsPerEm = metrics.UnitsPerEm;
+        }
+        _glyphCount = metrics.GlyphCount;
+        _isMonospace = metrics.IsMonospace;
     }
 
     public static SKTypeface Default => s_default.Value;
@@ -39,6 +49,8 @@ public sealed class SKTypeface : IDisposable
     public bool IsBold => _fontStyle.Weight >= SKFontStyleWeight.Bold;
     public bool IsItalic => _fontStyle.Slant != SKFontStyleSlant.Upright;
     public int UnitsPerEm => _unitsPerEm;
+    public int GlyphCount => _glyphCount;
+    public bool IsFixedPitch => _isMonospace;
 
     internal Font Font => _font;
 

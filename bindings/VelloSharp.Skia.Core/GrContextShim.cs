@@ -280,20 +280,21 @@ public readonly struct GRVkAlloc
     public ulong Offset { get; init; }
     public ulong Size { get; init; }
     public uint Flags { get; init; }
+    public IntPtr BackendMemory { get; init; }
 }
 
 public readonly struct GRVkImageInfo
 {
     public ulong Image { get; init; }
-    public ulong ImageTiling { get; init; }
-    public ulong ImageUsageFlags { get; init; }
-    public ulong Format { get; init; }
-    public ulong ImageLayout { get; init; }
-    public int SampleCount { get; init; }
-    public int LevelCount { get; init; }
+    public GRVkAlloc Alloc { get; init; }
+    public uint ImageTiling { get; init; }
+    public uint ImageUsageFlags { get; init; }
+    public uint Format { get; init; }
+    public uint ImageLayout { get; init; }
+    public uint SampleCount { get; init; }
+    public uint LevelCount { get; init; }
     public bool Protected { get; init; }
     public uint CurrentQueueFamily { get; init; }
-    public GRVkAlloc Alloc { get; init; }
 }
 
 public readonly struct GRVkBackendContext
@@ -315,6 +316,15 @@ public readonly struct GRD3DBackendContext
 
 public readonly struct GRMtlTextureInfo
 {
+    public GRMtlTextureInfo(IntPtr textureHandle, IntPtr format = default, int sampleCount = 1, int levelCount = 1, bool isProtected = false)
+    {
+        TextureHandle = textureHandle;
+        Format = format;
+        SampleCount = sampleCount;
+        LevelCount = levelCount;
+        IsProtected = isProtected;
+    }
+
     public IntPtr TextureHandle { get; init; }
     public IntPtr Format { get; init; }
     public int SampleCount { get; init; }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Text;
 using VelloSharp;
 
@@ -170,6 +171,10 @@ public sealed class SKFont : IDisposable
         return GetGlyphPositions(glyphs, origin);
     }
 
+    public ushort[] GetGlyphs(string text) => GetGlyphArray(text.AsSpan());
+
+    public ushort[] GetGlyphs(ReadOnlySpan<char> text) => GetGlyphArray(text);
+
     public void GetGlyphPositions(string text, Span<SKPoint> offsets, SKPoint origin = default) =>
         GetGlyphPositions(text.AsSpan(), offsets, origin);
 
@@ -191,6 +196,74 @@ public sealed class SKFont : IDisposable
         ProcessGlyphRun(glyphs, Span<float>.Empty, Span<SKRect>.Empty, span, out _);
         OffsetPositions(span, origin);
         return positions;
+    }
+
+    public SKPath? GetGlyphPath(ushort glyph)
+    {
+        ThrowIfDisposed();
+        if (!_typeface.Font.TryGetGlyphOutline(glyph, Size, out var commands, out _))
+        {
+            return null;
+        }
+
+        if (commands.Length == 0)
+        {
+            return null;
+        }
+
+        using var path = new SKPath();
+        foreach (var command in commands)
+        {
+            switch (command.Verb)
+            {
+                case VelloPathVerb.MoveTo:
+                    path.MoveTo((float)command.X0, (float)command.Y0);
+                    break;
+                case VelloPathVerb.LineTo:
+                    path.LineTo((float)command.X0, (float)command.Y0);
+                    break;
+                case VelloPathVerb.QuadTo:
+                    path.QuadTo(
+                        new SKPoint((float)command.X0, (float)command.Y0),
+                        new SKPoint((float)command.X1, (float)command.Y1));
+                    break;
+                case VelloPathVerb.CubicTo:
+                    path.CubicTo(
+                        new SKPoint((float)command.X0, (float)command.Y0),
+                        new SKPoint((float)command.X1, (float)command.Y1),
+                        new SKPoint((float)command.X2, (float)command.Y2));
+                    break;
+                case VelloPathVerb.Close:
+                    path.Close();
+                    break;
+            }
+        }
+
+        if (path.IsEmpty)
+        {
+            return null;
+        }
+
+        path.FillType = SKPathFillType.Winding;
+
+        var transform = Matrix3x2.Identity;
+
+        if (Math.Abs(ScaleX - 1f) > float.Epsilon)
+        {
+            transform *= Matrix3x2.CreateScale(ScaleX, 1f);
+        }
+
+        if (Math.Abs(SkewX) > float.Epsilon)
+        {
+            transform *= Matrix3x2.CreateSkew(SkewX, 0f);
+        }
+
+        if (transform != Matrix3x2.Identity)
+        {
+            path.Transform(SKMatrix.FromMatrix3x2(transform));
+        }
+
+        return path.Clone();
     }
 
     public void GetGlyphPositions(ReadOnlySpan<ushort> glyphs, Span<SKPoint> offsets, SKPoint origin = default)

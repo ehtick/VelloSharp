@@ -10,6 +10,7 @@ public sealed class SKBitmap : IDisposable
     private int _rowBytes;
     private bool _immutable;
     private bool _disposed;
+    private int _generationId;
 
     public SKBitmap()
     {
@@ -20,6 +21,11 @@ public sealed class SKBitmap : IDisposable
     public SKBitmap(SKImageInfo info)
     {
         AllocatePixels(info);
+    }
+
+    public SKBitmap(int width, int height)
+        : this(new SKImageInfo(width, height, SKImageInfo.PlatformColorType, SKAlphaType.Premul))
+    {
     }
 
     public int Width => _info.Width;
@@ -49,6 +55,13 @@ public sealed class SKBitmap : IDisposable
         return Decode(data);
     }
 
+    public static SKBitmap? Decode(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        using var managedStream = new SKManagedStream(stream, leaveOpen: true);
+        return Decode(managedStream);
+    }
+
     public static SKBitmap Decode(SKCodec codec, SKImageInfo desired)
     {
         ArgumentNullException.ThrowIfNull(codec);
@@ -74,6 +87,9 @@ public sealed class SKBitmap : IDisposable
         _immutable = false;
     }
 
+    public void InstallPixels(SKImageInfo info, IntPtr address, int rowBytes)
+        => InstallPixels(info, address, rowBytes, null, null);
+
     public void InstallPixels(SKImageInfo info, IntPtr address, int rowBytes, SKBitmapReleaseDelegate? releaseProc, object? context)
     {
         ThrowIfDisposed();
@@ -83,6 +99,29 @@ public sealed class SKBitmap : IDisposable
         _rowBytes = rowBytes;
         _immutable = false;
         releaseProc?.Invoke(address, context);
+        NotifyPixelsChanged();
+    }
+
+    public bool CanCopyTo(SKColorType colorType)
+    {
+        ThrowIfDisposed();
+        if (colorType == _info.ColorType)
+        {
+            return true;
+        }
+
+        if ((_info.ColorType == SKColorType.Bgra8888 && colorType == SKColorType.Rgba8888) ||
+            (_info.ColorType == SKColorType.Rgba8888 && colorType == SKColorType.Bgra8888))
+        {
+            return true;
+        }
+
+        if (colorType == SKColorType.Rgb888x)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     public void Erase(SKColor color)
@@ -107,6 +146,12 @@ public sealed class SKBitmap : IDisposable
 
     public void SetImmutable() => _immutable = true;
     public bool IsImmutable => _immutable;
+
+    public void NotifyPixelsChanged()
+    {
+        ThrowIfDisposed();
+        _generationId++;
+    }
 
     public IntPtr GetPixels()
     {

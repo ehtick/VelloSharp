@@ -9,7 +9,20 @@ public sealed class SKPath : IDisposable
 {
     private readonly List<PathCommand> _commands = new();
 
+    public SKPath()
+    {
+    }
+
+    public SKPath(SKPath path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        FillType = path.FillType;
+        _commands.AddRange(path._commands);
+    }
+
     public SKPathFillType FillType { get; set; } = SKPathFillType.Winding;
+
+    public bool IsEmpty => _commands.Count == 0;
 
     public SKRect TightBounds
     {
@@ -102,6 +115,9 @@ public sealed class SKPath : IDisposable
         _commands.Add(new PathCommand(PathVerb.QuadTo, control, end));
     }
 
+    public void QuadTo(float x1, float y1, float x2, float y2) =>
+        QuadTo(new SKPoint(x1, y1), new SKPoint(x2, y2));
+
     public void ConicTo(SKPoint control, SKPoint end, float weight)
     {
         _commands.Add(new PathCommand(PathVerb.ConicTo, control, end, default, weight));
@@ -115,15 +131,226 @@ public sealed class SKPath : IDisposable
         _commands.Add(new PathCommand(PathVerb.CubicTo, control1, control2, end));
     }
 
+    public void CubicTo(float x1, float y1, float x2, float y2, float x3, float y3) =>
+        CubicTo(new SKPoint(x1, y1), new SKPoint(x2, y2), new SKPoint(x3, y3));
+
+    public void AddRect(SKRect rect) => AddRect(rect, SKPathDirection.Clockwise);
+
+    public void AddRect(SKRect rect, SKPathDirection direction)
+    {
+        if (rect.IsEmpty)
+        {
+            return;
+        }
+
+        var topLeft = new SKPoint(rect.Left, rect.Top);
+        var topRight = new SKPoint(rect.Right, rect.Top);
+        var bottomRight = new SKPoint(rect.Right, rect.Bottom);
+        var bottomLeft = new SKPoint(rect.Left, rect.Bottom);
+
+        MoveTo(topLeft);
+        if (direction == SKPathDirection.Clockwise)
+        {
+            LineTo(topRight);
+            LineTo(bottomRight);
+            LineTo(bottomLeft);
+        }
+        else
+        {
+            LineTo(bottomLeft);
+            LineTo(bottomRight);
+            LineTo(topRight);
+        }
+
+        Close();
+    }
+
+    public void AddOval(SKRect rect) => AddOval(rect, SKPathDirection.Clockwise);
+
+    public void AddOval(SKRect rect, SKPathDirection direction)
+    {
+        if (rect.IsEmpty)
+        {
+            return;
+        }
+
+        var cx = (rect.Left + rect.Right) * 0.5f;
+        var cy = (rect.Top + rect.Bottom) * 0.5f;
+        var rx = rect.Width * 0.5f;
+        var ry = rect.Height * 0.5f;
+        if (rx == 0f || ry == 0f)
+        {
+            return;
+        }
+
+        const float kappa = 0.552284749831f;
+        var ox = rx * kappa;
+        var oy = ry * kappa;
+
+        var start = new SKPoint(rect.Right, cy);
+        MoveTo(start);
+
+        if (direction == SKPathDirection.Clockwise)
+        {
+            CubicTo(
+                new SKPoint(rect.Right, cy + oy),
+                new SKPoint(cx + ox, rect.Bottom),
+                new SKPoint(cx, rect.Bottom));
+            CubicTo(
+                new SKPoint(cx - ox, rect.Bottom),
+                new SKPoint(rect.Left, cy + oy),
+                new SKPoint(rect.Left, cy));
+            CubicTo(
+                new SKPoint(rect.Left, cy - oy),
+                new SKPoint(cx - ox, rect.Top),
+                new SKPoint(cx, rect.Top));
+            CubicTo(
+                new SKPoint(cx + ox, rect.Top),
+                new SKPoint(rect.Right, cy - oy),
+                start);
+        }
+        else
+        {
+            CubicTo(
+                new SKPoint(rect.Right, cy - oy),
+                new SKPoint(cx + ox, rect.Top),
+                new SKPoint(cx, rect.Top));
+            CubicTo(
+                new SKPoint(cx - ox, rect.Top),
+                new SKPoint(rect.Left, cy - oy),
+                new SKPoint(rect.Left, cy));
+            CubicTo(
+                new SKPoint(rect.Left, cy + oy),
+                new SKPoint(cx - ox, rect.Bottom),
+                new SKPoint(cx, rect.Bottom));
+            CubicTo(
+                new SKPoint(cx + ox, rect.Bottom),
+                new SKPoint(rect.Right, cy + oy),
+                start);
+        }
+
+        Close();
+    }
+
+    public void AddPath(SKPath path)
+    {
+        AppendPath(path, null);
+    }
+
+    public void AddPath(SKPath path, float dx, float dy)
+    {
+        var transform = Matrix3x2.CreateTranslation(dx, dy);
+        AppendPath(path, transform);
+    }
+
+    public void AddPath(SKPath path, SKMatrix matrix)
+    {
+        AppendPath(path, matrix.ToMatrix3x2());
+    }
+
     public void ArcTo(float rx, float ry, float xAxisRotate, SKPathArcSize arcSize, SKPathDirection direction, float x, float y)
     {
-        _ = rx;
-        _ = ry;
-        _ = xAxisRotate;
-        _ = arcSize;
-        _ = direction;
-        ShimNotImplemented.Throw($"{nameof(SKPath)}.{nameof(ArcTo)}");
-        LineTo(x, y);
+        var endPoint = new SKPoint(x, y);
+        if (!TryGetCurrentPoint(out var current))
+        {
+            MoveTo(endPoint);
+            return;
+        }
+
+        if (Math.Abs(rx) < float.Epsilon || Math.Abs(ry) < float.Epsilon || Approximately(current, endPoint))
+        {
+            LineTo(endPoint);
+            return;
+        }
+
+        var sweepPositive = direction == SKPathDirection.Clockwise;
+        var largeArc = arcSize == SKPathArcSize.Large;
+
+        var x0 = current.X;
+        var y0 = current.Y;
+        var x1 = endPoint.X;
+        var y1 = endPoint.Y;
+
+        var rxAbs = Math.Abs((double)rx);
+        var ryAbs = Math.Abs((double)ry);
+
+        var phi = DegreesToRadians(xAxisRotate);
+        var cosPhi = Math.Cos(phi);
+        var sinPhi = Math.Sin(phi);
+
+        var dx2 = (x0 - x1) / 2.0;
+        var dy2 = (y0 - y1) / 2.0;
+
+        var x1Prime = cosPhi * dx2 + sinPhi * dy2;
+        var y1Prime = -sinPhi * dx2 + cosPhi * dy2;
+
+        if (Math.Abs(x1Prime) < 1e-12 && Math.Abs(y1Prime) < 1e-12)
+        {
+            LineTo(endPoint);
+            return;
+        }
+
+        var rxSq = rxAbs * rxAbs;
+        var rySq = ryAbs * ryAbs;
+        var x1PrimeSq = x1Prime * x1Prime;
+        var y1PrimeSq = y1Prime * y1Prime;
+
+        var radiiCheck = x1PrimeSq / rxSq + y1PrimeSq / rySq;
+        if (radiiCheck > 1)
+        {
+            var scale = Math.Sqrt(radiiCheck);
+            rxAbs *= scale;
+            ryAbs *= scale;
+            rxSq = rxAbs * rxAbs;
+            rySq = ryAbs * ryAbs;
+        }
+
+        var sign = (largeArc == sweepPositive) ? -1.0 : 1.0;
+        var numerator = Math.Max(0.0, rxSq * rySq - rxSq * y1PrimeSq - rySq * x1PrimeSq);
+        var denom = rxSq * y1PrimeSq + rySq * x1PrimeSq;
+        var coef = denom == 0 ? 0 : sign * Math.Sqrt(numerator / denom);
+
+        var cxPrime = coef * (rxAbs * y1Prime / ryAbs);
+        var cyPrime = coef * (-ryAbs * x1Prime / rxAbs);
+
+        var cx = cosPhi * cxPrime - sinPhi * cyPrime + (x0 + x1) / 2.0;
+        var cy = sinPhi * cxPrime + cosPhi * cyPrime + (y0 + y1) / 2.0;
+
+        var startVector = new Vector2d((x1Prime - cxPrime) / rxAbs, (y1Prime - cyPrime) / ryAbs);
+        var endVector = new Vector2d((-x1Prime - cxPrime) / rxAbs, (-y1Prime - cyPrime) / ryAbs);
+
+        var startAngle = AngleBetween(new Vector2d(1, 0), startVector);
+        var sweepAngle = AngleBetween(startVector, endVector);
+
+        if (!largeArc && Math.Abs(sweepAngle) > Math.PI)
+        {
+            sweepAngle += sweepAngle > 0 ? -2 * Math.PI : 2 * Math.PI;
+        }
+        else if (largeArc && Math.Abs(sweepAngle) < Math.PI)
+        {
+            sweepAngle += sweepAngle > 0 ? 2 * Math.PI : -2 * Math.PI;
+        }
+
+        if (!sweepPositive && sweepAngle > 0)
+        {
+            sweepAngle -= 2 * Math.PI;
+        }
+        else if (sweepPositive && sweepAngle < 0)
+        {
+            sweepAngle += 2 * Math.PI;
+        }
+
+        var segments = Math.Max(1, (int)Math.Ceiling(Math.Abs(sweepAngle) / (Math.PI / 2.0)));
+        var delta = sweepAngle / segments;
+        var t = startAngle;
+
+        for (var i = 0; i < segments; i++)
+        {
+            var t1 = t;
+            var t2 = t1 + delta;
+            AddArcSegment(cx, cy, rxAbs, ryAbs, cosPhi, sinPhi, t1, t2);
+            t = t2;
+        }
     }
 
     public void Reset() => _commands.Clear();
@@ -135,12 +362,7 @@ public sealed class SKPath : IDisposable
         _commands.Clear();
     }
 
-    public SKPath Clone()
-    {
-        var clone = new SKPath();
-        clone._commands.AddRange(_commands);
-        return clone;
-    }
+    public SKPath Clone() => new(this);
 
     public void Transform(SKMatrix matrix) => Transform(in matrix);
 
@@ -317,6 +539,27 @@ public sealed class SKPath : IDisposable
         public float Weight { get; }
     }
 
+    private void AppendPath(SKPath path, Matrix3x2? transform)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        var source = ReferenceEquals(path, this)
+            ? new List<PathCommand>(_commands)
+            : path._commands;
+
+        if (transform is Matrix3x2 matrix)
+        {
+            foreach (var command in source)
+            {
+                _commands.Add(TransformCommand(command, matrix));
+            }
+        }
+        else
+        {
+            _commands.AddRange(source);
+        }
+    }
+
     private static PathCommand TransformCommand(PathCommand command, Matrix3x2 transform) => command.Verb switch
     {
         PathVerb.MoveTo => new PathCommand(PathVerb.MoveTo, TransformPoint(command.Point0, transform)),
@@ -332,6 +575,139 @@ public sealed class SKPath : IDisposable
     {
         var vector = Vector2.Transform(point.ToVector2(), transform);
         return new SKPoint(vector.X, vector.Y);
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * (Math.PI / 180.0);
+
+    private static bool Approximately(in SKPoint a, in SKPoint b)
+        => Math.Abs(a.X - b.X) < 1e-4f && Math.Abs(a.Y - b.Y) < 1e-4f;
+
+    private bool TryGetCurrentPoint(out SKPoint point)
+    {
+        point = default;
+        if (_commands.Count == 0)
+        {
+            return false;
+        }
+
+        var current = new SKPoint(0, 0);
+        var first = new SKPoint(0, 0);
+        var haveCurrent = false;
+        var haveFirst = false;
+
+        foreach (var command in _commands)
+        {
+            switch (command.Verb)
+            {
+                case PathVerb.MoveTo:
+                    current = command.Point0;
+                    first = current;
+                    haveCurrent = true;
+                    haveFirst = true;
+                    break;
+                case PathVerb.LineTo:
+                    if (!haveFirst)
+                    {
+                        first = current;
+                        haveFirst = true;
+                    }
+                    current = command.Point0;
+                    haveCurrent = true;
+                    break;
+                case PathVerb.QuadTo:
+                case PathVerb.ConicTo:
+                    if (!haveFirst)
+                    {
+                        first = current;
+                        haveFirst = true;
+                    }
+                    current = command.Point1;
+                    haveCurrent = true;
+                    break;
+                case PathVerb.CubicTo:
+                    if (!haveFirst)
+                    {
+                        first = current;
+                        haveFirst = true;
+                    }
+                    current = command.Point2;
+                    haveCurrent = true;
+                    break;
+                case PathVerb.Close:
+                    if (haveFirst)
+                    {
+                        current = first;
+                        haveCurrent = true;
+                    }
+                    break;
+            }
+        }
+
+        point = current;
+        return haveCurrent;
+    }
+
+    private void AddArcSegment(double cx, double cy, double rx, double ry, double cosPhi, double sinPhi, double startAngle, double endAngle)
+    {
+        var delta = endAngle - startAngle;
+        var alpha = (4.0 / 3.0) * Math.Tan(delta / 4.0);
+
+        var cosStart = Math.Cos(startAngle);
+        var sinStart = Math.Sin(startAngle);
+        var cosEnd = Math.Cos(endAngle);
+        var sinEnd = Math.Sin(endAngle);
+
+        var p1x = cosStart;
+        var p1y = sinStart;
+        var p2x = cosEnd;
+        var p2y = sinEnd;
+
+        var cp1x = p1x - alpha * p1y;
+        var cp1y = p1y + alpha * p1x;
+        var cp2x = p2x + alpha * p2y;
+        var cp2y = p2y - alpha * p2x;
+
+        var cp1 = TransformArcPoint(cx, cy, rx, ry, cosPhi, sinPhi, cp1x, cp1y);
+        var cp2 = TransformArcPoint(cx, cy, rx, ry, cosPhi, sinPhi, cp2x, cp2y);
+        var end = TransformArcPoint(cx, cy, rx, ry, cosPhi, sinPhi, p2x, p2y);
+
+        CubicTo(cp1, cp2, end);
+    }
+
+    private static SKPoint TransformArcPoint(double cx, double cy, double rx, double ry, double cosPhi, double sinPhi, double x, double y)
+    {
+        var xr = rx * x;
+        var yr = ry * y;
+        var xp = cosPhi * xr - sinPhi * yr;
+        var yp = sinPhi * xr + cosPhi * yr;
+        return new SKPoint((float)(xp + cx), (float)(yp + cy));
+    }
+
+    private static double AngleBetween(Vector2d u, Vector2d v)
+    {
+        var dot = u.X * v.X + u.Y * v.Y;
+        var len = Math.Sqrt((u.X * u.X + u.Y * u.Y) * (v.X * v.X + v.Y * v.Y));
+        if (len == 0)
+        {
+            return 0;
+        }
+
+        var cos = Math.Clamp(dot / len, -1.0, 1.0);
+        var angle = Math.Acos(cos);
+        var cross = u.X * v.Y - u.Y * v.X;
+        return cross >= 0 ? angle : -angle;
+    }
+
+    private readonly struct Vector2d
+    {
+        public Vector2d(double x, double y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public double X { get; }
+        public double Y { get; }
     }
 
     private enum PathVerb

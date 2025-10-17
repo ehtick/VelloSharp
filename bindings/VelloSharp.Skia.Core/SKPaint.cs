@@ -38,6 +38,11 @@ public sealed class SKPaint : IDisposable
     public SKColor Color { get; set; } = new(0, 0, 0, 255);
     public SKTypeface? Typeface { get; set; }
     public float Opacity { get; set; } = 1f;
+    public SKColorF ColorF
+    {
+        get => Color;
+        set => Color = value;
+    }
     public SKShader? Shader { get; set; }
     public SKBlendMode BlendMode { get; set; } = SKBlendMode.SrcOver;
     public SKImageFilter? ImageFilter { get; set; }

@@ -208,6 +208,11 @@ public struct SKMatrix44
         M32 = 0,
         M33 = 1,
     };
+
+    public Matrix3x2 ToMatrix3x2() => new(
+        M00, M10,
+        M01, M11,
+        M03, M13);
 }
 
 public struct SKMatrix4x4

@@ -4,39 +4,98 @@ namespace SkiaSharp;
 
 public sealed class SKRoundRect : IDisposable
 {
-    private SKRect _rect;
     private readonly SKPoint[] _radii = new SKPoint[4];
+    private SKRect _rect;
     private bool _disposed;
 
     public SKRoundRect()
     {
-        ShimNotImplemented.Throw($"{nameof(SKRoundRect)}.ctor", "rounded rectangle geometry");
     }
 
-    public bool IsEmpty => _rect.IsEmpty;
+    public SKRoundRect(SKRect rect)
+    {
+        _rect = rect;
+    }
 
-    public SKRect Rect => _rect;
+    public bool IsEmpty
+    {
+        get
+        {
+            EnsureNotDisposed();
+            return _rect.IsEmpty;
+        }
+    }
+
+    public SKRect Rect
+    {
+        get
+        {
+            EnsureNotDisposed();
+            return _rect;
+        }
+    }
+
+    public SKPoint[] Radii
+    {
+        get
+        {
+            EnsureNotDisposed();
+            var copy = new SKPoint[4];
+            Array.Copy(_radii, copy, 4);
+            return copy;
+        }
+    }
+
+    public void SetRect(SKRect rect)
+    {
+        EnsureNotDisposed();
+        _rect = rect;
+    }
 
     public void SetRectRadii(SKRect rect, SKPoint[] radii)
     {
-        EnsureNotDisposed();
         ArgumentNullException.ThrowIfNull(radii);
+        SetRectRadii(rect, radii.AsSpan());
+    }
+
+    public void SetRectRadii(SKRect rect, ReadOnlySpan<SKPoint> radii)
+    {
+        EnsureNotDisposed();
         if (radii.Length < 4)
         {
             throw new ArgumentException("Expecting four corner radii.", nameof(radii));
         }
 
-        ShimNotImplemented.Throw($"{nameof(SKRoundRect)}.{nameof(SetRectRadii)}");
         _rect = rect;
-        Array.Copy(radii, _radii, 4);
+        for (var i = 0; i < 4; i++)
+        {
+            _radii[i] = radii[i];
+        }
     }
 
     public void SetEmpty()
     {
         EnsureNotDisposed();
-        ShimNotImplemented.Throw($"{nameof(SKRoundRect)}.{nameof(SetEmpty)}");
         _rect = default;
         Array.Clear(_radii, 0, _radii.Length);
+    }
+
+    public void Offset(float dx, float dy)
+    {
+        EnsureNotDisposed();
+        _rect.Offset(dx, dy);
+    }
+
+    public void Inflate(float dx, float dy)
+    {
+        EnsureNotDisposed();
+        _rect.Inflate(dx, dy);
+    }
+
+    public void Deflate(float dx, float dy)
+    {
+        EnsureNotDisposed();
+        _rect.Deflate(dx, dy);
     }
 
     public void Dispose()

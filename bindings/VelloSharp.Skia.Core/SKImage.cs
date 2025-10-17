@@ -53,6 +53,60 @@ public sealed class SKImage : IDisposable
         return FromPixels(info, pixels, info.RowBytes);
     }
 
+    public SKImage ToRasterImage() => ToRasterImage(true);
+
+    public SKImage ToRasterImage(bool cachingHint)
+    {
+        _ = cachingHint;
+
+        var handle = Image.Handle;
+        if (NativeMethods.vello_image_get_info(handle, out var nativeInfo) != VelloStatus.Success)
+        {
+            throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to query image information.");
+        }
+
+        if (!SkiaImageDecoder.TryCopyPixels(handle, nativeInfo, out var pixels))
+        {
+            throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to copy image pixels.");
+        }
+
+        var colorType = SkiaImageDecoder.ConvertColorType(nativeInfo.Format);
+        if (colorType == SKColorType.Unknown)
+        {
+            throw new NotSupportedException($"Unsupported image format '{nativeInfo.Format}'.");
+        }
+
+        var alphaType = SkiaImageDecoder.ConvertAlphaType(nativeInfo.Alpha);
+        var width = checked((int)nativeInfo.Width);
+        var height = checked((int)nativeInfo.Height);
+
+        var desiredInfo = new SKImageInfo(width, height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+        SkiaImageDecoder.ConvertColor(pixels.AsSpan(), width, height, ref colorType, desiredInfo.ColorType);
+        SkiaImageDecoder.ConvertAlpha(pixels.AsSpan(), width, height, ref alphaType, desiredInfo.AlphaType);
+        SkiaImageDecoder.EnsureBufferMatchesInfo(pixels.Length, desiredInfo);
+
+        return FromPixels(desiredInfo, pixels, desiredInfo.RowBytes);
+    }
+
+    public SKShader ToShader() => ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, SKSamplingOptions.Default, SKMatrix.CreateIdentity(), SKRect.Create(0, 0, Width, Height));
+
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY) =>
+        ToShader(tileModeX, tileModeY, SKSamplingOptions.Default, SKMatrix.CreateIdentity(), SKRect.Create(0, 0, Width, Height));
+
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKMatrix localMatrix) =>
+        ToShader(tileModeX, tileModeY, SKSamplingOptions.Default, localMatrix, SKRect.Create(0, 0, Width, Height));
+
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling) =>
+        ToShader(tileModeX, tileModeY, sampling, SKMatrix.CreateIdentity(), SKRect.Create(0, 0, Width, Height));
+
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling, SKMatrix localMatrix) =>
+        ToShader(tileModeX, tileModeY, sampling, localMatrix, SKRect.Create(0, 0, Width, Height));
+
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling, SKMatrix localMatrix, SKRect tileRect)
+    {
+        return SKShader.CreateImageShader(this, tileModeX, tileModeY, localMatrix, tileRect, sampling, takeOwnership: false);
+    }
+
     public bool ScalePixels(SKPixmap destination, SKSamplingOptions samplingOptions)
     {
         ArgumentNullException.ThrowIfNull(destination);
@@ -307,12 +361,84 @@ public sealed class SKImage : IDisposable
         return new SKImage(image, info.Width, info.Height);
     }
 
+    public static SKImage FromPixels(SKImageInfo info, IntPtr pixels, int rowBytes)
+    {
+        if (pixels == IntPtr.Zero)
+        {
+            throw new ArgumentNullException(nameof(pixels));
+        }
+
+        if (rowBytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(rowBytes));
+        }
+
+        var height = Math.Max(1, info.Height);
+        var length = checked(rowBytes * height);
+
+        unsafe
+        {
+            var span = new ReadOnlySpan<byte>(pixels.ToPointer(), length);
+            return FromPixels(info, span, rowBytes);
+        }
+    }
+
     public SKData Encode(SKEncodedImageFormat format, int quality)
     {
-        ShimNotImplemented.Throw($"{nameof(SKImage)}.{nameof(Encode)}", $"{format}, quality={quality}");
-        _ = format;
-        _ = quality;
-        return SKData.CreateCopy(Array.Empty<byte>());
+        if (format != SKEncodedImageFormat.Png)
+        {
+            throw new NotSupportedException($"Encoding '{format}' images is not supported yet.");
+        }
+
+        var compression = NormalizePngCompression(quality);
+        var handle = Image.Handle;
+        IntPtr blobHandle = IntPtr.Zero;
+
+        try
+        {
+            var status = NativeMethods.vello_image_encode_png(handle, compression, out blobHandle);
+            NativeHelpers.ThrowOnError(status, "Failed to encode image as PNG");
+
+            status = NativeMethods.vello_blob_get_data(blobHandle, out var blobData);
+            NativeHelpers.ThrowOnError(status, "Unable to access encoded PNG data");
+
+            var length = checked((int)blobData.Length);
+            if (length == 0)
+            {
+                return SKData.CreateCopy(ReadOnlySpan<byte>.Empty);
+            }
+
+            var buffer = new byte[length];
+            Marshal.Copy(blobData.Data, buffer, 0, length);
+            return SKData.CreateCopy(buffer.AsSpan());
+        }
+        finally
+        {
+            if (blobHandle != IntPtr.Zero)
+            {
+                NativeMethods.vello_blob_destroy(blobHandle);
+            }
+        }
+    }
+
+    public SKData Encode() => Encode(SKEncodedImageFormat.Png, 100);
+
+    public bool Encode(Span<byte> destination, out int bytesWritten)
+        => Encode(SKEncodedImageFormat.Png, 100, destination, out bytesWritten);
+
+    public bool Encode(SKEncodedImageFormat format, Span<byte> destination, out int bytesWritten)
+        => Encode(format, 100, destination, out bytesWritten);
+
+    public bool Encode(SKEncodedImageFormat format, int quality, Span<byte> destination, out int bytesWritten)
+    {
+        using var data = Encode(format, quality);
+        return data.SaveTo(destination, out bytesWritten);
+    }
+
+    private static byte NormalizePngCompression(int quality)
+    {
+        var clamped = Math.Clamp(quality, 0, 100);
+        return (byte)Math.Clamp((int)Math.Round(clamped / 10.0), 0, 9);
     }
 
     public void Dispose()

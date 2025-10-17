@@ -57,7 +57,7 @@ public sealed class SKPicture : IDisposable
 
             Playback(canvas);
             var image = surface.Snapshot();
-            return SKShader.CreateImageShader(image, tileModeX, tileModeY, localMatrix, tileRect);
+            return SKShader.CreateImageShader(image, tileModeX, tileModeY, localMatrix, tileRect, SKSamplingOptions.Default, takeOwnership: true);
         }
         finally
         {

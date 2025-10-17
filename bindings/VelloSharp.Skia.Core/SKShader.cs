@@ -121,6 +121,20 @@ public sealed class SKShader : IDisposable
         return new SKShader(ShaderKind.Compose, new ComposeData(outer, inner));
     }
 
+    public static SKShader CreateBitmap(SKBitmap bitmap, SKShaderTileMode tileModeX, SKShaderTileMode tileModeY) =>
+        CreateBitmap(bitmap, tileModeX, tileModeY, SKSamplingOptions.Default, SKMatrix.CreateIdentity());
+
+    public static SKShader CreateBitmap(SKBitmap bitmap, SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling) =>
+        CreateBitmap(bitmap, tileModeX, tileModeY, sampling, SKMatrix.CreateIdentity());
+
+    public static SKShader CreateBitmap(SKBitmap bitmap, SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling, SKMatrix localMatrix)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        var image = SKImage.FromBitmap(bitmap) ?? throw new InvalidOperationException("Unable to create shader – bitmap could not be converted to an image.");
+        var tileRect = SKRect.Create(0, 0, image.Width, image.Height);
+        return CreateImageShader(image, tileModeX, tileModeY, localMatrix, tileRect, sampling, takeOwnership: true);
+    }
+
     public SKShader WithColorFilter(SKColorFilter? filter)
     {
         ShimNotImplemented.Throw($"{nameof(SKShader)}.{nameof(WithColorFilter)}");
@@ -140,7 +154,7 @@ public sealed class SKShader : IDisposable
             compose.Outer.Dispose();
             compose.Inner.Dispose();
         }
-        else if (_data is ImageData image)
+        else if (_data is ImageData image && image.OwnsImage)
         {
             image.Image.Dispose();
         }
@@ -221,6 +235,7 @@ public sealed class SKShader : IDisposable
             XExtend = ToExtendMode(data.TileModeX),
             YExtend = ToExtendMode(data.TileModeY),
             Alpha = Math.Clamp(opacity, 0f, 1f),
+            Quality = data.Sampling.ToBrushQuality(),
         };
 
         var transform = data.LocalMatrix.ToMatrix3x2();
@@ -296,10 +311,17 @@ public sealed class SKShader : IDisposable
         _ => ExtendMode.Pad,
     };
 
-    internal static SKShader CreateImageShader(SKImage image, SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKMatrix localMatrix, SKRect tileRect)
+    internal static SKShader CreateImageShader(
+        SKImage image,
+        SKShaderTileMode tileModeX,
+        SKShaderTileMode tileModeY,
+        SKMatrix localMatrix,
+        SKRect tileRect,
+        SKSamplingOptions sampling = default,
+        bool takeOwnership = true)
     {
         ArgumentNullException.ThrowIfNull(image);
-        var data = new ImageData(image, tileModeX, tileModeY, localMatrix, tileRect);
+        var data = new ImageData(image, tileModeX, tileModeY, localMatrix, tileRect, sampling, takeOwnership);
         return new SKShader(ShaderKind.Image, data);
     }
 
@@ -308,5 +330,5 @@ public sealed class SKShader : IDisposable
     private readonly record struct TwoPointData(SKPoint Start, float StartRadius, SKPoint End, float EndRadius, SKColor[] Colors, float[] Stops, SKShaderTileMode TileMode, SKMatrix? LocalMatrix);
     private readonly record struct SweepData(SKPoint Center, SKColor[] Colors, float[] Stops, SKShaderTileMode TileMode, SKMatrix? LocalMatrix);
     private readonly record struct ComposeData(SKShader Outer, SKShader Inner);
-    private sealed record ImageData(SKImage Image, SKShaderTileMode TileModeX, SKShaderTileMode TileModeY, SKMatrix LocalMatrix, SKRect TileRect);
+    private sealed record ImageData(SKImage Image, SKShaderTileMode TileModeX, SKShaderTileMode TileModeY, SKMatrix LocalMatrix, SKRect TileRect, SKSamplingOptions Sampling, bool OwnsImage);
 }
