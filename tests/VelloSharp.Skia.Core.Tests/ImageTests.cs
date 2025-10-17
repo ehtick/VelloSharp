@@ -7,6 +7,16 @@ namespace VelloSharp.Skia.Core.Tests;
 
 public sealed class ImageTests
 {
+    private static SKImage CreateTestImage()
+    {
+        var info = new SKImageInfo(8, 8, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+        surface.Canvas.Clear(SKColors.Transparent);
+        using var paint = new SKPaint { Color = SKColors.Red, IsAntialias = true };
+        surface.Canvas.DrawCircle(4, 4, 3, paint);
+        return surface.Snapshot();
+    }
+
     [Fact]
     public void FromPixels_BgraInputIsRespected()
     {
@@ -63,5 +73,54 @@ public sealed class ImageTests
         }
 
         Assert.True(hasNonWhite, "Decoded PNG should contain coloured pixels.");
+    }
+
+    [Fact]
+    public void Encode_DefaultProducesPngData()
+    {
+        using var image = CreateTestImage();
+        using var data = image.Encode();
+        Assert.NotNull(data);
+        Assert.True(data.AsSpan().Length > 0);
+    }
+
+    [Fact]
+    public void Encode_SpanOverloadWritesBytes()
+    {
+        using var image = CreateTestImage();
+        using var baseline = image.Encode();
+        var expected = baseline.AsSpan();
+
+        var buffer = new byte[expected.Length];
+        var encoded = image.Encode(buffer, out var bytesWritten);
+
+        Assert.True(encoded);
+        Assert.Equal(expected.Length, bytesWritten);
+        Assert.Equal(expected.ToArray(), buffer);
+
+        using var copy = SKData.CreateCopy(buffer);
+        using var decoded = SKImage.FromEncodedData(copy);
+
+        Assert.Equal(image.Width, decoded.Width);
+        Assert.Equal(image.Height, decoded.Height);
+    }
+
+    [Fact]
+    public void SKData_SaveToSpanHonorsCapacity()
+    {
+        using var image = CreateTestImage();
+        using var data = image.Encode();
+
+        var tooSmall = new byte[data.AsSpan().Length - 1];
+        var success = data.SaveTo(tooSmall, out var written);
+
+        Assert.False(success);
+        Assert.Equal(0, written);
+
+        var exact = new byte[data.AsSpan().Length];
+        success = data.SaveTo(exact, out written);
+
+        Assert.True(success);
+        Assert.Equal(exact.Length, written);
     }
 }
