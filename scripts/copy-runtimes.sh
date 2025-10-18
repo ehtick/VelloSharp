@@ -32,18 +32,21 @@ declare -a TARGETS=(
   "samples/WinUIVelloGallery"
   "samples/WinFormsMotionMarkShim"
 )
-declare -A TARGET_SET=()
-for target in "${TARGETS[@]}"; do
-  TARGET_SET["${target}"]=1
-done
-
 if [[ -d "${ROOT}/integration" ]]; then
   while IFS= read -r project_path; do
     project_dir="$(dirname "${project_path}")"
     rel_path="${project_dir#"${ROOT}/"}"
-    if [[ -n "${rel_path}" && -z "${TARGET_SET["${rel_path}"]+_}" ]]; then
-      TARGETS+=("${rel_path}")
-      TARGET_SET["${rel_path}"]=1
+    if [[ -n "${rel_path}" ]]; then
+      already_listed=false
+      for existing in "${TARGETS[@]}"; do
+        if [[ "${existing}" == "${rel_path}" ]]; then
+          already_listed=true
+          break
+        fi
+      done
+      if [[ "${already_listed}" == "false" ]]; then
+        TARGETS+=("${rel_path}")
+      fi
     fi
   done < <(find "${ROOT}/integration" -type f -name '*.csproj' -print)
 fi
@@ -104,22 +107,39 @@ for target in "${TARGETS[@]}"; do
 
   for configuration in "${CONFIGURATIONS[@]}"; do
     config_root="${target_root}/bin/${configuration}"
-    declare -A FRAMEWORK_SEEN=()
-    declare -a FRAMEWORKS=()
+    FRAMEWORKS=()
 
     for framework in "${TARGET_FRAMEWORKS[@]}"; do
-      if [[ -n "${framework}" && -z "${FRAMEWORK_SEEN["${framework}"]+_}" ]]; then
+      if [[ -z "${framework}" ]]; then
+        continue
+      fi
+      duplicate=false
+      for existing in "${FRAMEWORKS[@]-}"; do
+        if [[ "${existing}" == "${framework}" ]]; then
+          duplicate=true
+          break
+        fi
+      done
+      if [[ "${duplicate}" == "false" ]]; then
         FRAMEWORKS+=("${framework}")
-        FRAMEWORK_SEEN["${framework}"]=1
       fi
     done
 
     if [[ -d "${config_root}" ]]; then
       while IFS= read -r -d '' framework_dir; do
         framework="$(basename "${framework_dir}")"
-        if [[ -n "${framework}" && -z "${FRAMEWORK_SEEN["${framework}"]+_}" ]]; then
+        if [[ -z "${framework}" ]]; then
+          continue
+        fi
+        duplicate=false
+        for existing in "${FRAMEWORKS[@]-}"; do
+          if [[ "${existing}" == "${framework}" ]]; then
+            duplicate=true
+            break
+          fi
+        done
+        if [[ "${duplicate}" == "false" ]]; then
           FRAMEWORKS+=("${framework}")
-          FRAMEWORK_SEEN["${framework}"]=1
         fi
       done < <(find "${config_root}" -mindepth 1 -maxdepth 1 -type d -print0)
     fi
