@@ -358,10 +358,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         }
     }
 
-    public IDrawingContextLayerImpl CreateLayer(PixelSize size)
-    {
-        throw new NotSupportedException("Layers are not supported in the limited Vello context.");
-    }
+    public IDrawingContextLayerImpl CreateLayer(PixelSize size) =>
+        new VelloOffscreenRenderTarget(size, s_intermediateDpi, _options, _graphicsDeviceProvider);
 
     public void PushClip(Rect clip)
     {

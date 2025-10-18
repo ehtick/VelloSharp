@@ -110,7 +110,7 @@ internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
     }
 
     public IRenderTargetBitmapImpl CreateRenderTargetBitmap(PixelSize size, Vector dpi) =>
-        throw new NotSupportedException("RenderTargetBitmap is not supported by the Vello backend yet.");
+        new VelloOffscreenRenderTarget(size, dpi, _options, _graphicsDevice);
 
     public IWriteableBitmapImpl CreateWriteableBitmap(PixelSize size, Vector dpi, PixelFormat format, AlphaFormat alphaFormat)
     {

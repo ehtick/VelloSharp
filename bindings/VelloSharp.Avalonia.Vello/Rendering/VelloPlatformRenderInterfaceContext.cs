@@ -94,7 +94,8 @@ internal sealed class VelloPlatformRenderInterfaceContext : IPlatformRenderInter
 
     public IDrawingContextLayerImpl CreateOffscreenRenderTarget(PixelSize pixelSize, double scaling)
     {
-        throw new NotSupportedException("Offscreen render targets are not supported by the Vello backend yet.");
+        var dpi = new Vector(96 * scaling, 96 * scaling);
+        return new VelloOffscreenRenderTarget(pixelSize, dpi, _options, _graphicsDevice);
     }
 
     public object? TryGetFeature(Type featureType)
