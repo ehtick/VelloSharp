@@ -611,8 +611,9 @@ internal sealed class WinitSampleApp : IWinitEventHandler, IDisposable
             return;
         }
 
-        _surfaceFormat = _wgpuSurface.GetPreferredFormat(_wgpuAdapter);
-        _requiresSurfaceBlit = RequiresSurfaceBlit(_surfaceFormat);
+        var preferredFormat = _wgpuSurface.GetPreferredFormat(_wgpuAdapter);
+        _requiresSurfaceBlit = RequiresSurfaceBlit(preferredFormat);
+        _surfaceFormat = NormalizeSurfaceFormat(preferredFormat);
 
         _surfaceConfig = new WgpuSurfaceConfiguration
         {
@@ -1271,6 +1272,13 @@ internal sealed class WinitSampleApp : IWinitEventHandler, IDisposable
     {
         WgpuTextureFormat.Rgba8Unorm => false,
         _ => true,
+    };
+
+    private static WgpuTextureFormat NormalizeSurfaceFormat(WgpuTextureFormat format) => format switch
+    {
+        WgpuTextureFormat.Rgba8UnormSrgb => WgpuTextureFormat.Rgba8Unorm,
+        WgpuTextureFormat.Bgra8UnormSrgb => WgpuTextureFormat.Bgra8Unorm,
+        _ => format,
     };
 
     private string BuildWindowTitle()
