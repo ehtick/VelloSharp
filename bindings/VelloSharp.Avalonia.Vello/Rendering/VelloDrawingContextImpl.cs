@@ -41,6 +41,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private SceneLease? _activeSceneLease;
     private static readonly LayerBlend s_defaultLayerBlend = new(LayerMix.Normal, LayerCompose.SrcOver);
     private static readonly LayerBlend s_clipLayerBlend = new(LayerMix.Clip, LayerCompose.SrcOver);
+    private static readonly LayerBlend s_destOutLayerBlend = new(LayerMix.Normal, LayerCompose.DestOut);
+    private static readonly VelloSharp.SolidColorBrush s_opaqueWhiteBrush = new(new RgbaColor(1f, 1f, 1f, 1f));
     private static readonly global::Avalonia.Vector s_intermediateDpi = new(96, 96);
     private static readonly PropertyInfo? s_imageBrushBitmapProperty =
         typeof(IImageBrushSource).GetProperty("Bitmap", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -281,6 +283,11 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         if (pen is not null && TryCreateStroke(pen, bounds, out var strokeStyle, out var strokeBrush, out var strokeBrushTransform))
         {
             _scene.StrokePath(builder, strokeStyle, ToMatrix3x2(Transform), strokeBrush, strokeBrushTransform);
+        }
+
+        if (boxShadows.Count > 0)
+        {
+            DrawBoxShadows(rect, boxShadows);
         }
     }
 
@@ -862,6 +869,130 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         _scene.StrokePath(builder, style, ToMatrix3x2(Transform), brush, brushTransform);
     }
 
+    private void DrawBoxShadows(RoundedRect rect, BoxShadows boxShadows)
+    {
+        foreach (var shadow in boxShadows)
+        {
+            if (shadow == default || shadow.Color.A == 0)
+            {
+                continue;
+            }
+
+            if (shadow.IsInset)
+            {
+                DrawInsetShadow(rect, shadow);
+            }
+            else
+            {
+                DrawDropShadow(rect, shadow);
+            }
+        }
+    }
+
+    private void DrawDropShadow(RoundedRect rect, BoxShadow shadow)
+    {
+        var shadowRect = shadow.Spread != 0 ? rect.Inflate(shadow.Spread, shadow.Spread) : rect;
+        shadowRect = TranslateRoundedRect(shadowRect, new global::Avalonia.Vector(shadow.OffsetX, shadow.OffsetY));
+
+        var targetRect = shadowRect.Rect;
+        if (targetRect.Width <= 0 || targetRect.Height <= 0)
+        {
+            return;
+        }
+
+        var stdDev = CalculateBlurStdDeviation(shadow.Blur);
+        var clipBounds = ExpandRectForBlur(shadowRect.Rect, stdDev);
+        if (clipBounds.Width <= 0 || clipBounds.Height <= 0)
+        {
+            return;
+        }
+
+        var transform = ToMatrix3x2(Transform);
+
+        var clipPath = CreateRectanglePath(clipBounds);
+        PushSceneLayer(clipPath, 1f, s_defaultLayerBlend, transform);
+        try
+        {
+            var color = ToRgbaColor(shadow.Color, 1.0);
+            if (color.A <= 0f)
+            {
+                return;
+            }
+
+            var radius = CalculateUniformCornerRadius(shadowRect);
+            var origin = new Vector2((float)targetRect.X, (float)targetRect.Y);
+            var size = new Vector2(
+                (float)Math.Max(0, targetRect.Width),
+                (float)Math.Max(0, targetRect.Height));
+
+            _scene.DrawBlurredRoundedRect(origin, size, transform, color, radius, stdDev);
+
+            var subtractPath = CreateRoundedRectPath(rect);
+            PushSceneLayer(subtractPath, 1f, s_destOutLayerBlend, transform);
+            try
+            {
+                _scene.FillPath(subtractPath, VelloSharp.FillRule.NonZero, transform, s_opaqueWhiteBrush);
+            }
+            finally
+            {
+                PopLayerEntry();
+            }
+        }
+        finally
+        {
+            PopLayerEntry();
+        }
+    }
+
+    private void DrawInsetShadow(RoundedRect rect, BoxShadow shadow)
+    {
+        var inner = shadow.Spread != 0 ? rect.Deflate(shadow.Spread, shadow.Spread) : rect;
+        inner = TranslateRoundedRect(inner, new global::Avalonia.Vector(shadow.OffsetX, shadow.OffsetY));
+
+        var innerRect = inner.Rect;
+        if (innerRect.Width <= 0 || innerRect.Height <= 0)
+        {
+            return;
+        }
+
+        var color = ToRgbaColor(shadow.Color, 1.0);
+        if (color.A <= 0f)
+        {
+            return;
+        }
+
+        var stdDev = CalculateBlurStdDeviation(shadow.Blur);
+        var transform = ToMatrix3x2(Transform);
+
+        var clipPath = CreateRoundedRectPath(rect);
+        PushSceneLayer(clipPath, 1f, s_defaultLayerBlend, transform);
+        try
+        {
+            var radius = CalculateUniformCornerRadius(inner);
+            var origin = new Vector2((float)innerRect.X, (float)innerRect.Y);
+            var size = new Vector2(
+                (float)Math.Max(0, innerRect.Width),
+                (float)Math.Max(0, innerRect.Height));
+
+            _scene.DrawBlurredRoundedRect(origin, size, transform, color, radius, stdDev);
+
+            var subtractPath = CreateRoundedRectPath(inner);
+            PushSceneLayer(subtractPath, 1f, s_destOutLayerBlend, transform);
+            try
+            {
+                _scene.FillPath(subtractPath, VelloSharp.FillRule.NonZero, transform, s_opaqueWhiteBrush);
+            }
+            finally
+            {
+                PopLayerEntry();
+            }
+        }
+        finally
+        {
+            PopLayerEntry();
+        }
+    }
+
     private static PathBuilder BuildPath(VelloGeometryImplBase geometry)
     {
         var builder = new PathBuilder();
@@ -1004,6 +1135,13 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         return builder;
     }
 
+    private static PathBuilder CreateRoundedRectPath(RoundedRect rect)
+    {
+        var builder = new PathBuilder();
+        builder.AddRoundedRectangle(rect);
+        return builder;
+    }
+
     private static void AppendRectangle(PathBuilder builder, Rect rect)
     {
         builder.MoveTo(rect.Left, rect.Top)
@@ -1011,6 +1149,76 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             .LineTo(rect.Right, rect.Bottom)
             .LineTo(rect.Left, rect.Bottom)
             .Close();
+    }
+
+    private static RoundedRect TranslateRoundedRect(RoundedRect rect, global::Avalonia.Vector offset)
+    {
+        if (offset == default)
+        {
+            return rect;
+        }
+
+        var translatedRect = new Rect(rect.Rect.Position + offset, rect.Rect.Size);
+        return new RoundedRect(
+            translatedRect,
+            rect.RadiiTopLeft,
+            rect.RadiiTopRight,
+            rect.RadiiBottomRight,
+            rect.RadiiBottomLeft);
+    }
+
+    private static double CalculateUniformCornerRadius(RoundedRect rect)
+    {
+        double sum = 0;
+        var count = 0;
+
+        static double GetCornerRadius(global::Avalonia.Vector radii)
+        {
+            return Math.Min(Math.Abs(radii.X), Math.Abs(radii.Y));
+        }
+
+        void Accumulate(global::Avalonia.Vector radii)
+        {
+            var radius = GetCornerRadius(radii);
+            if (radius > 0)
+            {
+                sum += radius;
+                count++;
+            }
+        }
+
+        Accumulate(rect.RadiiTopLeft);
+        Accumulate(rect.RadiiTopRight);
+        Accumulate(rect.RadiiBottomRight);
+        Accumulate(rect.RadiiBottomLeft);
+
+        return count > 0 ? sum / count : 0;
+    }
+
+    private static double CalculateBlurStdDeviation(double blur)
+    {
+        if (blur <= 0)
+        {
+            return 0;
+        }
+
+        return blur / Math.Sqrt(2.0);
+    }
+
+    private static Rect ExpandRectForBlur(Rect rect, double stdDev)
+    {
+        if (stdDev <= 0)
+        {
+            return rect;
+        }
+
+        var extent = stdDev * 3.0;
+        if (extent <= 0)
+        {
+            return rect;
+        }
+
+        return rect.Inflate(extent);
     }
 
     private void EnsureNotDisposed()
