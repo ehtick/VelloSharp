@@ -32,6 +32,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private int _clipDepth;
     private int _opacityDepth;
     private int _layerDepth;
+    private readonly Stack<byte> _opacityMaskLayerEntries = new();
     private bool _skipInitialClip;
     private VelloLeaseFeature? _leaseFeature;
     private bool _apiLeaseActive;
@@ -187,7 +188,33 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     public void DrawBitmap(IBitmapImpl source, IBrush opacityMask, Rect opacityMaskRect, Rect destRect)
     {
-        throw new NotSupportedException("Bitmap drawing with opacity masks is not supported by the Vello renderer yet.");
+        EnsureNotDisposed();
+
+        if (destRect.Width <= 0 || destRect.Height <= 0)
+        {
+            return;
+        }
+
+        if (opacityMaskRect.Width <= 0 || opacityMaskRect.Height <= 0)
+        {
+            return;
+        }
+
+        PushOpacityMask(opacityMask, opacityMaskRect);
+        try
+        {
+            if (source is not VelloBitmapImpl bitmap)
+            {
+                throw new NotSupportedException("The provided bitmap implementation is not compatible with the Vello renderer.");
+            }
+
+            var sourceRect = new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height);
+            DrawBitmap(source, 1.0, sourceRect, destRect);
+        }
+        finally
+        {
+            PopOpacityMask();
+        }
     }
 
     public void DrawLine(IPen? pen, Point p1, Point p2)
@@ -522,45 +549,61 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     {
         _opacityDepth++;
 
-        if (mask is null)
+        byte entriesPushed = 0;
+
+        if (mask is null || bounds.Width <= 0 || bounds.Height <= 0)
         {
             _layerStack.Push(LayerEntry.Noop());
+            _opacityMaskLayerEntries.Push(1);
             return;
         }
 
-        var width = bounds.Width;
-        var height = bounds.Height;
-        if (width <= 0 || height <= 0)
+        if (!TryCreateBrush(mask, bounds, out var maskBrush, out var maskTransform))
         {
             _layerStack.Push(LayerEntry.Noop());
+            _opacityMaskLayerEntries.Push(1);
             return;
         }
 
-        if (mask is ISolidColorBrush solidMask)
+        var transform = ToMatrix3x2(Transform);
+
+        var maskPath = CreateRectanglePath(bounds);
+        if (maskPath.Count == 0)
         {
-            var maskOpacity = Math.Clamp(mask.Opacity, 0.0, 1.0);
-            var solidOpacity = maskOpacity * (solidMask.Color.A / 255.0);
-            var alpha = (float)Math.Clamp(solidOpacity, 0.0, 1.0);
-
-            if (alpha <= 0f)
-            {
-                _layerStack.Push(LayerEntry.Noop());
-                return;
-            }
-
-            var builder = new PathBuilder();
-            builder.AddRectangle(bounds);
-
-            PushSceneLayer(builder, alpha, s_defaultLayerBlend, ToMatrix3x2(Transform));
+            _layerStack.Push(LayerEntry.Noop());
+            _opacityMaskLayerEntries.Push(1);
             return;
         }
 
-        _layerStack.Push(LayerEntry.Noop());
+        _scene.PushLuminanceMaskLayer(maskPath, transform, 1f);
+        _layerStack.Push(LayerEntry.Scene());
+        entriesPushed++;
+
+        var maskFillPath = CreateRectanglePath(bounds);
+        _scene.FillPath(maskFillPath, VelloSharp.FillRule.NonZero, transform, maskBrush, maskTransform);
+
+        var contentPath = CreateRectanglePath(bounds);
+        PushSceneLayer(contentPath, 1f, s_defaultLayerBlend, transform);
+        entriesPushed++;
+
+        _opacityMaskLayerEntries.Push(entriesPushed);
     }
 
     public void PopOpacityMask()
     {
-        PopLayer(ref _opacityDepth);
+        if (_opacityDepth > 0)
+        {
+            _opacityDepth--;
+        }
+
+        var entriesToPop = _opacityMaskLayerEntries.Count > 0
+            ? _opacityMaskLayerEntries.Pop()
+            : (byte)0;
+
+        for (var i = 0; i < entriesToPop; i++)
+        {
+            PopLayerEntry();
+        }
     }
 
     public void PushGeometryClip(IGeometryImpl clip)
@@ -938,6 +981,36 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         {
             _scene.PopLayer();
         }
+    }
+
+    private void PopLayerEntry()
+    {
+        if (_layerStack.Count == 0)
+        {
+            return;
+        }
+
+        var entry = _layerStack.Pop();
+        if (entry.HasLayer)
+        {
+            _scene.PopLayer();
+        }
+    }
+
+    private static PathBuilder CreateRectanglePath(Rect rect)
+    {
+        var builder = new PathBuilder();
+        AppendRectangle(builder, rect);
+        return builder;
+    }
+
+    private static void AppendRectangle(PathBuilder builder, Rect rect)
+    {
+        builder.MoveTo(rect.Left, rect.Top)
+            .LineTo(rect.Right, rect.Top)
+            .LineTo(rect.Right, rect.Bottom)
+            .LineTo(rect.Left, rect.Bottom)
+            .Close();
     }
 
     private void EnsureNotDisposed()
