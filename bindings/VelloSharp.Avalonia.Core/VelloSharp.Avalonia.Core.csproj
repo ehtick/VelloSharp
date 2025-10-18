@@ -10,6 +10,7 @@
     <Title>VelloSharp.Avalonia.Core</Title>
     <Description>Shared Avalonia abstractions for VelloSharp render backends.</Description>
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
+    <Avalonia_I_Want_To_Use_Private_Apis_In_Nuget_Package_And_Promise_To_Pin_The_Exact_Avalonia_Version_In_Package_Dependency>true</Avalonia_I_Want_To_Use_Private_Apis_In_Nuget_Package_And_Promise_To_Pin_The_Exact_Avalonia_Version_In_Package_Dependency>
     <NoWarn>1591</NoWarn>
   </PropertyGroup>
 
