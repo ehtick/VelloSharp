@@ -1,9 +1,10 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
-using System.Text;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Media.TextFormatting.Unicode;
 using Avalonia.Platform;
 using VelloSharp.Text;
 
@@ -11,6 +12,8 @@ namespace VelloSharp.Avalonia.Vello.Rendering;
 
 internal sealed class VelloTextShaper : ITextShaperImpl
 {
+    private const char ZeroWidthNonJoiner = '\u200C';
+
     public ShapedBuffer ShapeText(ReadOnlyMemory<char> text, TextShaperOptions options)
     {
         if (text.IsEmpty)
@@ -22,32 +25,46 @@ internal sealed class VelloTextShaper : ITextShaperImpl
         var font = VelloFontManager.GetFont(typeface);
         var isRightToLeft = (options.BidiLevel & 1) != 0;
 
-        var glyphs = VelloTextShaperCore.ShapeUtf16(
-            font.Handle,
-            text.Span,
-            (float)options.FontRenderingEmSize,
-            isRightToLeft,
-            (float)options.LetterSpacing);
+        var textSpan = text.Span;
+        char[]? normalizationBuffer = null;
+        var shapingSpan = NormalizeBreakCharacters(textSpan, out normalizationBuffer);
 
-        if (glyphs.Count == 0)
+        try
         {
-            return ShapeWithFallback(text, options);
-        }
+            var glyphs = VelloTextShaperCore.ShapeUtf16(
+                font.Handle,
+                shapingSpan,
+                (float)options.FontRenderingEmSize,
+                isRightToLeft,
+                (float)options.LetterSpacing);
 
-        var shapedBuffer = new ShapedBuffer(text, glyphs.Count, typeface, options.FontRenderingEmSize, options.BidiLevel);
-        for (var i = 0; i < glyphs.Count; i++)
+            if (glyphs.Count == 0)
+            {
+                return ShapeWithFallback(text, shapingSpan, options);
+            }
+
+            var shapedBuffer = new ShapedBuffer(text, glyphs.Count, typeface, options.FontRenderingEmSize, options.BidiLevel);
+            for (var i = 0; i < glyphs.Count; i++)
+            {
+                var glyph = glyphs[i];
+                var offset = new Vector(glyph.XOffset, -glyph.YOffset);
+                shapedBuffer[i] = new GlyphInfo((ushort)glyph.GlyphId, (int)glyph.Cluster, glyph.XAdvance, offset);
+            }
+
+            return shapedBuffer;
+        }
+        finally
         {
-            var glyph = glyphs[i];
-            var offset = new Vector(glyph.XOffset, -glyph.YOffset);
-            shapedBuffer[i] = new GlyphInfo((ushort)glyph.GlyphId, (int)glyph.Cluster, glyph.XAdvance, offset);
+            if (normalizationBuffer is not null)
+            {
+                ArrayPool<char>.Shared.Return(normalizationBuffer);
+            }
         }
-
-        return shapedBuffer;
     }
 
-    private static ShapedBuffer ShapeWithFallback(ReadOnlyMemory<char> text, TextShaperOptions options)
+    private static ShapedBuffer ShapeWithFallback(ReadOnlyMemory<char> text, ReadOnlySpan<char> shapingSpan, TextShaperOptions options)
     {
-        var span = text.Span;
+        var span = shapingSpan;
         var isRightToLeft = (options.BidiLevel & 1) != 0;
 
         var entries = new List<GlyphInfo>(span.Length);
@@ -84,5 +101,35 @@ internal sealed class VelloTextShaper : ITextShaperImpl
         }
 
         return shapedBuffer;
+    }
+
+    private static ReadOnlySpan<char> NormalizeBreakCharacters(ReadOnlySpan<char> span, out char[]? rentedBuffer)
+    {
+        rentedBuffer = null;
+
+        for (var i = 0; i < span.Length; i++)
+        {
+            if (!new Codepoint(span[i]).IsBreakChar)
+            {
+                continue;
+            }
+
+            var buffer = ArrayPool<char>.Shared.Rent(span.Length);
+            span.CopyTo(buffer);
+
+            var bufferSpan = buffer.AsSpan(0, span.Length);
+            for (var j = 0; j < bufferSpan.Length; j++)
+            {
+                if (new Codepoint(bufferSpan[j]).IsBreakChar)
+                {
+                    bufferSpan[j] = ZeroWidthNonJoiner;
+                }
+            }
+
+            rentedBuffer = buffer;
+            return bufferSpan;
+        }
+
+        return span;
     }
 }
