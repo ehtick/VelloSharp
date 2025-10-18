@@ -1,0 +1,65 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\extern\Avalonia\src\Avalonia.Base\Rendering\SceneGraph\LineBoundsHelper.cs" Link="LineBoundsHelper.cs" />
+    <Compile Update="Pages\TextFormatterPage.axaml.cs">
+      <DependentUpon>TextFormatterPage.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="**/*.xaml.cs">
+      <DependentUpon>%(Filename)</DependentUpon>
+    </Compile>
+    <AvaloniaResource Include="**/*.xaml">
+      <SubType>Designer</SubType>
+    </AvaloniaResource>
+    <AvaloniaResource Include="Assets/*" />
+    <AvaloniaResource Include="Assets/Fonts/*" />
+  </ItemGroup>
+
+    <ItemGroup>
+    <PackageReference Include="Avalonia.Diagnostics" />
+        <PackageReference Include="Avalonia.Native" />
+    <PackageReference Include="Avalonia.Win32" />
+    <PackageReference Include="Avalonia.X11" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.LinuxFramebuffer" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- <ProjectReference Include="..\..\src\Avalonia.Diagnostics\Avalonia.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\src\Avalonia.Fonts.Inter\Avalonia.Fonts.Inter.csproj" />
+    <ProjectReference Include="..\..\src\Avalonia.Themes.Fluent\Avalonia.Themes.Fluent.csproj" />
+    <ProjectReference Include="..\..\src\Linux\Avalonia.LinuxFramebuffer\Avalonia.LinuxFramebuffer.csproj" /> -->
+    <ProjectReference Include="..\MiniMvvm\MiniMvvm.csproj" />
+    <ProjectReference Include="..\SampleControls\ControlSamples.csproj" />
+  </ItemGroup>
+  <!-- <Import Project="..\..\build\SampleApp.props" />
+  <Import Project="..\..\build\EmbedXaml.props" />
+  <Import Project="..\..\build\Rx.props" />
+  <Import Condition="'$(TargetFramework)'=='net461'" Project="..\..\build\NetFX.props" />
+  <Import Project="..\..\build\ReferenceCoreLibraries.props" />
+  <Import Project="..\..\build\BuildTargets.targets" /> -->
+    <ItemGroup>
+    <ProjectReference Include="../../bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
+    <ProjectReference Include="../../bindings/Avalonia.Skia/Avalonia.Skia.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="../../bindings/VelloSharp.Integration/VelloSharp.Integration.csproj" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.AccessKit/VelloSharp.Native.AccessKit.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Kurbo/VelloSharp.Native.Kurbo.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Peniko/VelloSharp.Native.Peniko.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Vello/VelloSharp.Native.Vello.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.VelloSparse/VelloSharp.Native.VelloSparse.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../packaging/VelloSharp.Native.Winit/VelloSharp.Native.Winit.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>
