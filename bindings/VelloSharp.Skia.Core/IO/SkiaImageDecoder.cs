@@ -40,12 +40,24 @@ internal static class SkiaImageDecoder
             return false;
         }
 
+        var codec = DetectCodec(data);
+        if (codec == ImageCodec.Unknown)
+        {
+            return false;
+        }
+
         var buffer = data.ToArray();
         unsafe
         {
             fixed (byte* ptr = buffer)
             {
-                var status = NativeMethods.vello_image_decode_png(ptr, (nuint)buffer.LongLength, out var decodedHandle);
+                IntPtr decodedHandle;
+                var status = codec switch
+                {
+                    ImageCodec.Png => NativeMethods.vello_image_decode_png(ptr, (nuint)buffer.LongLength, out decodedHandle),
+                    ImageCodec.Ico => NativeMethods.vello_image_decode_ico(ptr, (nuint)buffer.LongLength, out decodedHandle),
+                    _ => throw new NotSupportedException("Unsupported image format."),
+                };
                 if (status != VelloStatus.Success || decodedHandle == IntPtr.Zero)
                 {
                     return false;
@@ -383,5 +395,49 @@ internal static class SkiaImageDecoder
         {
             throw new InvalidOperationException("Decoded pixel buffer does not match the provided image information.");
         }
+    }
+
+    private enum ImageCodec
+    {
+        Unknown = 0,
+        Png,
+        Ico,
+    }
+
+    private static ImageCodec DetectCodec(ReadOnlySpan<byte> data)
+    {
+        if (HasPngSignature(data))
+        {
+            return ImageCodec.Png;
+        }
+
+        if (HasIcoSignature(data))
+        {
+            return ImageCodec.Ico;
+        }
+
+        return ImageCodec.Unknown;
+    }
+
+    private static bool HasPngSignature(ReadOnlySpan<byte> data)
+    {
+        return data.Length >= 8
+            && data[0] == 0x89
+            && data[1] == 0x50
+            && data[2] == 0x4E
+            && data[3] == 0x47
+            && data[4] == 0x0D
+            && data[5] == 0x0A
+            && data[6] == 0x1A
+            && data[7] == 0x0A;
+    }
+
+    private static bool HasIcoSignature(ReadOnlySpan<byte> data)
+    {
+        return data.Length >= 4
+            && data[0] == 0x00
+            && data[1] == 0x00
+            && data[2] == 0x01
+            && data[3] == 0x00;
     }
 }

@@ -3334,6 +3334,7 @@ dependencies = [
  "fontique",
  "futures-intrusive",
  "harfrust",
+ "image",
  "once_cell",
  "parley",
  "png",

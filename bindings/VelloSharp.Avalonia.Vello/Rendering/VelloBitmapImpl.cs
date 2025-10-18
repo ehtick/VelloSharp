@@ -406,6 +406,43 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
             throw new InvalidOperationException("Image stream is empty.");
         }
 
+        if (HasPngSignature(data))
+        {
+            return DecodePngBytes(data);
+        }
+
+        if (HasIcoSignature(data))
+        {
+            return DecodeIcoBytes(data);
+        }
+
+        throw new InvalidOperationException("Unsupported image format. Only PNG and ICO are supported.");
+    }
+
+    private static bool HasPngSignature(byte[] data)
+    {
+        return data.Length >= 8
+            && data[0] == 0x89
+            && data[1] == 0x50
+            && data[2] == 0x4E
+            && data[3] == 0x47
+            && data[4] == 0x0D
+            && data[5] == 0x0A
+            && data[6] == 0x1A
+            && data[7] == 0x0A;
+    }
+
+    private static bool HasIcoSignature(byte[] data)
+    {
+        return data.Length >= 4
+            && data[0] == 0x00
+            && data[1] == 0x00
+            && data[2] == 0x01
+            && data[3] == 0x00;
+    }
+
+    private static unsafe VelloBitmapImpl DecodePngBytes(byte[] data)
+    {
         fixed (byte* ptr = data)
         {
             var status = NativeMethods.vello_image_decode_png(ptr, (nuint)data.LongLength, out var imageHandle);
@@ -417,5 +454,18 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
             return CreateFromNativeImageHandle(imageHandle, new Vector(96, 96));
         }
     }
-}
 
+    private static unsafe VelloBitmapImpl DecodeIcoBytes(byte[] data)
+    {
+        fixed (byte* ptr = data)
+        {
+            var status = NativeMethods.vello_image_decode_ico(ptr, (nuint)data.LongLength, out var imageHandle);
+            if (status != VelloStatus.Success || imageHandle == IntPtr.Zero)
+            {
+                throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to decode ICO image.");
+            }
+
+            return CreateFromNativeImageHandle(imageHandle, new Vector(96, 96));
+        }
+    }
+}

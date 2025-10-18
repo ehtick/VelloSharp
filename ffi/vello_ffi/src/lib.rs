@@ -26,6 +26,7 @@ use harfrust::{
     Direction as HrDirection, FontRef as HrFontRef, ShaperData as HrShaperData,
     UnicodeBuffer as HrUnicodeBuffer,
 };
+use image::{codecs::ico::IcoDecoder, ColorType as ImageColorType, ImageDecoder};
 use once_cell::sync::Lazy;
 use parley::FontContext;
 use png::{BitDepth, ColorType, Compression, Decoder, Encoder};
@@ -4468,6 +4469,40 @@ pub unsafe extern "C" fn vello_image_encode_png(
     VelloStatus::Success
 }
 
+fn create_rgba_image_handle(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    alpha_type: ImageAlphaType,
+) -> Result<*mut VelloImageHandle, VelloStatus> {
+    let expected = match (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|value| value.checked_mul(4))
+    {
+        Some(value) => value,
+        None => {
+            set_last_error("Image dimensions overflow");
+            return Err(VelloStatus::InvalidArgument);
+        }
+    };
+
+    if rgba.len() != expected {
+        set_last_error("Image buffer size does not match dimensions");
+        return Err(VelloStatus::RenderError);
+    }
+
+    let stride = width as usize * 4;
+    let image = ImageData {
+        data: Blob::from(rgba),
+        format: ImageFormat::Rgba8,
+        alpha_type,
+        width,
+        height,
+    };
+
+    Ok(Box::into_raw(Box::new(VelloImageHandle { image, stride })))
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_image_destroy(image: *mut VelloImageHandle) {
     if !image.is_null() {
@@ -4550,8 +4585,42 @@ pub unsafe extern "C" fn vello_image_decode_png(
             }
         }
         ColorType::Indexed => {
-            set_last_error("Indexed PNG images are not supported yet");
-            return VelloStatus::Unsupported;
+            let palette = match reader.info().palette.as_ref() {
+                Some(palette) => palette,
+                None => {
+                    set_last_error("Indexed PNG images are missing a palette");
+                    return VelloStatus::Unsupported;
+                }
+            };
+
+            if palette.len() % 3 != 0 {
+                set_last_error("Indexed PNG palette has invalid length");
+                return VelloStatus::RenderError;
+            }
+
+            let entry_count = palette.len() / 3;
+            let transparency = reader.info().trns.as_ref();
+
+            for &index in pixels {
+                let idx = index as usize;
+                if idx >= entry_count {
+                    set_last_error("Indexed PNG palette entry is out of range");
+                    return VelloStatus::RenderError;
+                }
+
+                let base = idx * 3;
+                let alpha = transparency
+                    .and_then(|values| values.get(idx))
+                    .copied()
+                    .unwrap_or(0xFF);
+
+                rgba.extend_from_slice(&[
+                    palette[base],
+                    palette[base + 1],
+                    palette[base + 2],
+                    alpha,
+                ]);
+            }
         }
     }
 
@@ -4560,18 +4629,95 @@ pub unsafe extern "C" fn vello_image_decode_png(
         return VelloStatus::RenderError;
     }
 
-    let stride = width as usize * 4;
-    let blob = Blob::from(rgba);
-    let image = ImageData {
-        data: blob,
-        format: ImageFormat::Rgba8,
-        alpha_type,
-        width,
-        height,
+    let handle = match create_rgba_image_handle(rgba, width, height, alpha_type) {
+        Ok(handle) => handle,
+        Err(status) => return status,
     };
 
     unsafe {
-        *out_image = Box::into_raw(Box::new(VelloImageHandle { image, stride }));
+        *out_image = handle;
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_image_decode_ico(
+    data: *const u8,
+    length: usize,
+    out_image: *mut *mut VelloImageHandle,
+) -> VelloStatus {
+    if data.is_null() || out_image.is_null() {
+        return VelloStatus::NullPointer;
+    }
+    if length == 0 {
+        return VelloStatus::InvalidArgument;
+    }
+
+    clear_last_error();
+
+    let bytes = unsafe { slice::from_raw_parts(data, length) };
+    let cursor = Cursor::new(bytes);
+
+    let decoder = match IcoDecoder::new(cursor) {
+        Ok(decoder) => decoder,
+        Err(err) => {
+            set_last_error(format!("ICO decode failed: {err}"));
+            return VelloStatus::RenderError;
+        }
+    };
+
+    let (width, height) = decoder.dimensions();
+    if width == 0 || height == 0 {
+        set_last_error("Decoded ICO has zero dimensions");
+        return VelloStatus::InvalidArgument;
+    }
+
+    if decoder.color_type() != ImageColorType::Rgba8 {
+        set_last_error("ICO decode failed: unsupported pixel format (expected RGBA8)");
+        return VelloStatus::Unsupported;
+    }
+
+    let total_bytes = decoder.total_bytes();
+    let required_len = match usize::try_from(total_bytes) {
+        Ok(len) => len,
+        Err(_) => {
+            set_last_error("ICO decode failed: image is too large");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let mut rgba = vec![0u8; required_len];
+    if let Err(err) = decoder.read_image(&mut rgba) {
+        set_last_error(format!("ICO frame decode failed: {err}"));
+        return VelloStatus::RenderError;
+    }
+
+    let expected_len = match (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|value| value.checked_mul(4))
+    {
+        Some(len) => len,
+        None => {
+            set_last_error("ICO decode failed: image dimensions overflow");
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    if rgba.len() != expected_len {
+        set_last_error("ICO decode failed: unexpected buffer size");
+        return VelloStatus::RenderError;
+    }
+
+    let alpha_type = ImageAlphaType::Alpha;
+
+    let handle = match create_rgba_image_handle(rgba, width, height, alpha_type) {
+        Ok(handle) => handle,
+        Err(status) => return status,
+    };
+
+    unsafe {
+        *out_image = handle;
     }
 
     VelloStatus::Success

@@ -30,6 +30,7 @@ harfrust = { workspace = true }
 png = "0.17"
 once_cell = "1.19"
 read-fonts = { workspace = true }
+image = { version = "0.24", default-features = false, features = ["ico", "png"] }
 
 [features]
 default = []

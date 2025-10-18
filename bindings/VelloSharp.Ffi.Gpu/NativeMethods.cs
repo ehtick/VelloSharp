@@ -147,6 +147,10 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial VelloStatus vello_image_decode_png(byte* data, nuint length, out IntPtr image);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_image_decode_ico")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_image_decode_ico(byte* data, nuint length, out IntPtr image);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_image_encode_png")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_image_encode_png(IntPtr image, byte compression, out IntPtr blob);
@@ -890,4 +894,3 @@ internal static partial class NativeMethods
         float fontSize,
         out VelloFontMetricsNative metrics);
 }
-
