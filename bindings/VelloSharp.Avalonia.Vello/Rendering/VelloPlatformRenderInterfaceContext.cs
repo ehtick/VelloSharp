@@ -5,15 +5,17 @@ using Avalonia;
 using Avalonia.Platform;
 using Avalonia.Rendering;
 using Avalonia.Winit;
+using VelloSharp.Avalonia.Core.Device;
+using VelloSharp.Avalonia.Core.Surface.Providers;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
 internal sealed class VelloPlatformRenderInterfaceContext : IPlatformRenderInterfaceContext
 {
-    private readonly VelloGraphicsDevice _graphicsDevice;
+    private readonly WgpuGraphicsDeviceProvider _graphicsDevice;
     private readonly VelloPlatformOptions _options;
     public VelloPlatformRenderInterfaceContext(
-        VelloGraphicsDevice graphicsDevice,
+        WgpuGraphicsDeviceProvider graphicsDevice,
         VelloPlatformOptions options)
     {
         _graphicsDevice = graphicsDevice ?? throw new ArgumentNullException(nameof(graphicsDevice));

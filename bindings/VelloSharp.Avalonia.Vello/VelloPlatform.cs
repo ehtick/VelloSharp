@@ -8,6 +8,8 @@ using Avalonia.Threading;
 using VelloSharp.Avalonia.Vello.Rendering;
 using VelloSharp;
 using System.Runtime.Versioning;
+using VelloSharp.Avalonia.Core.Device;
+using VelloSharp.Avalonia.Core.Options;
 
 namespace VelloSharp.Avalonia.Vello;
 
@@ -17,7 +19,8 @@ internal static class VelloPlatform
     private static bool s_initialized;
     private static VelloPlatformOptions s_options = new();
     private static VelloPlatformRenderInterface? s_renderInterface;
-    private static VelloGraphicsDevice? s_device;
+    private static WgpuGraphicsDeviceProvider? s_deviceProvider;
+    private static GraphicsBackendOptions? s_backendOptions;
     private static bool s_loggingAttached;
     private static WebGpuRuntime.WebGpuCapabilities? s_webGpuCapabilities;
     private const string WebGpuLogArea = "Vello.WebGPU";
@@ -38,8 +41,9 @@ internal static class VelloPlatform
             }
 
             s_options = options;
-            s_device = new VelloGraphicsDevice();
-            s_renderInterface = new VelloPlatformRenderInterface(s_device, s_options);
+            s_deviceProvider = new WgpuGraphicsDeviceProvider(ResolveRendererOptions);
+            s_backendOptions = CreateBackendOptions(s_options);
+            s_renderInterface = new VelloPlatformRenderInterface(s_deviceProvider, s_options);
 
             var locator = AvaloniaLocator.CurrentMutable;
 
@@ -83,12 +87,52 @@ internal static class VelloPlatform
         }
     }
 
-    public static VelloGraphicsDevice GraphicsDevice =>
-        s_device ?? throw new InvalidOperationException("Vello platform has not been initialized.");
+    public static WgpuGraphicsDeviceProvider GraphicsDeviceProvider =>
+        s_deviceProvider ?? throw new InvalidOperationException("Vello platform has not been initialized.");
+
+    public static GraphicsBackendOptions BackendOptions =>
+        s_backendOptions ?? throw new InvalidOperationException("Vello platform has not been initialized.");
 
     [SupportedOSPlatform("browser")]
     public static WebGpuRuntime.WebGpuCapabilities? LatestWebGpuCapabilities =>
         Volatile.Read(ref s_webGpuCapabilities);
+
+    private static RendererOptions ResolveRendererOptions(GraphicsDeviceOptions deviceOptions)
+    {
+        var baseOptions = s_options.RendererOptions;
+        var features = deviceOptions.Features;
+
+        return new RendererOptions(
+            useCpu: baseOptions.UseCpu || features.EnableCpuFallback,
+            supportArea: baseOptions.SupportArea && features.EnableAreaAa,
+            supportMsaa8: baseOptions.SupportMsaa8 && features.EnableMsaa8,
+            supportMsaa16: baseOptions.SupportMsaa16 && features.EnableMsaa16,
+            initThreads: baseOptions.InitThreads,
+            pipelineCache: baseOptions.PipelineCache);
+    }
+
+    private static GraphicsBackendOptions CreateBackendOptions(VelloPlatformOptions options)
+    {
+        var rendererOptions = options.RendererOptions;
+        var features = new GraphicsFeatureSet(
+            EnableCpuFallback: rendererOptions.UseCpu,
+            EnableMsaa8: rendererOptions.SupportMsaa8,
+            EnableMsaa16: rendererOptions.SupportMsaa16,
+            EnableAreaAa: rendererOptions.SupportArea,
+            EnableOpacityLayers: true,
+            MaxGpuResourceBytes: null,
+            EnableValidationLayers: false);
+
+        var presentation = new GraphicsPresentationOptions(
+            options.PresentMode,
+            options.ClearColor,
+            options.FramesPerSecond);
+
+        return new GraphicsBackendOptions(
+            new[] { GraphicsBackendKind.VelloWgpu },
+            features,
+            presentation);
+    }
 
     [SupportedOSPlatform("browser")]
     private static void AttachWebGpuLogging()

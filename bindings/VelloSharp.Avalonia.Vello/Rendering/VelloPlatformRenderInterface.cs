@@ -7,16 +7,18 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Platform;
+using VelloSharp.Avalonia.Core.Device;
+using VelloSharp.Avalonia.Core.Surface.Providers;
 using VelloSharp.Avalonia.Vello.Geometry;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
 internal sealed class VelloPlatformRenderInterface : IPlatformRenderInterface
 {
-    private readonly VelloGraphicsDevice _graphicsDevice;
+    private readonly WgpuGraphicsDeviceProvider _graphicsDevice;
     private readonly VelloPlatformOptions _options;
 
-    public VelloPlatformRenderInterface(VelloGraphicsDevice graphicsDevice, VelloPlatformOptions options)
+    public VelloPlatformRenderInterface(WgpuGraphicsDeviceProvider graphicsDevice, VelloPlatformOptions options)
     {
         _graphicsDevice = graphicsDevice ?? throw new ArgumentNullException(nameof(graphicsDevice));
         _options = options ?? throw new ArgumentNullException(nameof(options));

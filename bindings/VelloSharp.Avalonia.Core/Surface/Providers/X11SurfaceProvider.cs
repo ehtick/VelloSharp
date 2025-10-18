@@ -7,9 +7,9 @@ using Avalonia.Threading;
 using Avalonia.Winit;
 using VelloSharp;
 
-namespace VelloSharp.Avalonia.Vello.Rendering;
+namespace VelloSharp.Avalonia.Core.Surface.Providers;
 
-internal sealed class X11SurfaceProvider : IVelloWinitSurfaceProvider
+public sealed class X11SurfaceProvider : IVelloWinitSurfaceProvider
 {
     private readonly INativePlatformHandleSurface _surface;
     private readonly IntPtr _display;

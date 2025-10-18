@@ -6,12 +6,12 @@ using Avalonia.Threading;
 using Avalonia.Winit;
 using VelloSharp;
 
-namespace VelloSharp.Avalonia.Vello.Rendering;
+namespace VelloSharp.Avalonia.Core.Surface.Providers;
 
 /// <summary>
 /// Provides the surface details required by the Vello renderer for Avalonia.Native on macOS.
 /// </summary>
-internal sealed class AvaloniaNativeSurfaceProvider : IVelloWinitSurfaceProvider
+public sealed class AvaloniaNativeSurfaceProvider : IVelloWinitSurfaceProvider
 {
     private readonly ITopLevelImpl _topLevel;
     private readonly object _invalidateSync = new();

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>VelloSharp.Avalonia.SkiaBridge</PackageId>
+    <Title>VelloSharp.Avalonia.SkiaBridge</Title>
+    <Description>Skia-specific extensions for the VelloSharp Avalonia integration layer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Avalonia.Core/VelloSharp.Avalonia.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
+    <ProjectReference Include="../VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Skia.Cpu/VelloSharp.Skia.Cpu.csproj" />
+    <ProjectReference Include="../VelloSharp.Skia.Gpu/VelloSharp.Skia.Gpu.csproj" />
+  </ItemGroup>
+</Project>

@@ -11,6 +11,8 @@ using Avalonia.Platform;
 using Avalonia.Utilities;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Geometry;
+using VelloSharp.Avalonia.Core.Device;
+using VelloSharp.Avalonia.Core.Options;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
@@ -20,7 +22,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private readonly PixelSize _targetSize;
     private readonly Action<VelloDrawingContextImpl> _onCompleted;
     private readonly VelloPlatformOptions _options;
-    private readonly VelloGraphicsDevice? _graphicsDevice;
+    private readonly bool _supportsWgpuSurfaceCallbacks;
+    private readonly WgpuGraphicsDeviceProvider? _graphicsDeviceProvider;
     private bool _disposed;
     private readonly Stack<Matrix> _transformStack = new();
     private readonly Stack<LayerEntry> _layerStack = new();
@@ -47,14 +50,16 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         VelloPlatformOptions options,
         Action<VelloDrawingContextImpl> onCompleted,
         bool skipInitialClip = false,
-        VelloGraphicsDevice? graphicsDevice = null)
+        bool supportsWgpuSurfaceCallbacks = false,
+        WgpuGraphicsDeviceProvider? graphicsDeviceProvider = null)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _targetSize = targetSize;
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _onCompleted = onCompleted ?? throw new ArgumentNullException(nameof(onCompleted));
         _skipInitialClip = skipInitialClip;
-        _graphicsDevice = graphicsDevice;
+        _graphicsDeviceProvider = graphicsDeviceProvider;
+        _supportsWgpuSurfaceCallbacks = supportsWgpuSurfaceCallbacks && graphicsDeviceProvider is not null;
         Transform = Matrix.Identity;
         RenderParams = new RenderParams((uint)Math.Max(1, targetSize.Width), (uint)Math.Max(1, targetSize.Height), options.ClearColor)
         {
@@ -72,7 +77,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     internal void ScheduleWgpuSurfaceRender(Action<WgpuSurfaceRenderContext> callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
-        if (_graphicsDevice is null)
+        if (!_supportsWgpuSurfaceCallbacks || _graphicsDeviceProvider is null)
         {
             throw new PlatformNotSupportedException("WGPU surface render callbacks are not supported on this platform.");
         }
@@ -568,7 +573,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     private IVelloPlatformGraphicsLease? TryCreatePlatformGraphicsLease(Action onLeaseDisposed)
     {
-        if (_graphicsDevice is null)
+        if (_graphicsDeviceProvider is null)
         {
             return null;
         }
@@ -578,7 +583,13 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             throw new InvalidOperationException("The Vello platform graphics API is already leased.");
         }
 
-        var resources = _graphicsDevice.Acquire(_options.RendererOptions);
+        var deviceOptions = CreateDeviceOptionsForLease();
+        var deviceLease = _graphicsDeviceProvider.Acquire(deviceOptions);
+        if (!deviceLease.TryGetWgpuResources(out var resources))
+        {
+            return null;
+        }
+
         _platformGraphicsLeaseActive = true;
         return new VelloPlatformGraphicsLease(this, onLeaseDisposed, resources.Instance, resources.Adapter, resources.Device, resources.Queue, resources.Renderer);
     }
@@ -723,6 +734,25 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             _disposed = true;
             _onDispose();
         }
+    }
+
+    private GraphicsDeviceOptions CreateDeviceOptionsForLease()
+    {
+        var rendererOptions = _options.RendererOptions;
+        var features = new GraphicsFeatureSet(
+            EnableCpuFallback: rendererOptions.UseCpu,
+            EnableMsaa8: rendererOptions.SupportMsaa8,
+            EnableMsaa16: rendererOptions.SupportMsaa16,
+            EnableAreaAa: rendererOptions.SupportArea,
+            EnableOpacityLayers: true,
+            MaxGpuResourceBytes: null,
+            EnableValidationLayers: false);
+
+        return new GraphicsDeviceOptions(
+            GraphicsBackendKind.VelloWgpu,
+            features,
+            new GraphicsPresentationOptions(_options.PresentMode, _options.ClearColor, _options.FramesPerSecond),
+            rendererOptions);
     }
 
     private void ApplyStroke(PathBuilder builder, StrokeStyle style, VelloSharp.Brush brush, Matrix3x2? brushTransform)

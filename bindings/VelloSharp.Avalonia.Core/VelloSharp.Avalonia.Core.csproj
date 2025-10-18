@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>VelloSharp.Avalonia.Core</PackageId>
+    <Title>VelloSharp.Avalonia.Core</Title>
+    <Description>Shared Avalonia abstractions for VelloSharp render backends.</Description>
+    <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
+    <NoWarn>1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
+    <ProjectReference Include="../VelloSharp.Core/VelloSharp.Core.csproj" />
+    <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
+    <ProjectReference Include="../VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+</Project>

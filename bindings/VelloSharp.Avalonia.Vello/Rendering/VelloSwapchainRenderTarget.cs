@@ -7,12 +7,14 @@ using Avalonia.Rendering;
 using Avalonia.Threading;
 using Avalonia.Winit;
 using VelloSharp;
+using VelloSharp.Avalonia.Core.Device;
+using VelloSharp.Avalonia.Core.Options;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
 internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 {
-    private readonly VelloGraphicsDevice _graphicsDevice;
+    private readonly WgpuGraphicsDeviceProvider _graphicsDevice;
     private readonly VelloPlatformOptions _options;
     private readonly IVelloWinitSurfaceProvider _surfaceProvider;
     private readonly object _syncRoot = new();
@@ -43,7 +45,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
     private long _surfaceCreationRequestId;
 
     public VelloSwapchainRenderTarget(
-        VelloGraphicsDevice graphicsDevice,
+        WgpuGraphicsDeviceProvider graphicsDevice,
         VelloPlatformOptions options,
         IVelloWinitSurfaceProvider surfaceProvider)
     {
@@ -91,7 +93,8 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             _options,
             OnContextCompleted,
             skipInitialClip: !properties.PreviousFrameIsRetained,
-            graphicsDevice: _graphicsDevice);
+            supportsWgpuSurfaceCallbacks: true,
+            graphicsDeviceProvider: _graphicsDevice);
     }
 
     public void Dispose()
@@ -124,7 +127,14 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
 
                 var rendererOptions = ResolveRendererOptions();
                 _lastResolvedRendererOptions = rendererOptions;
-                var resources = _graphicsDevice.Acquire(rendererOptions);
+
+                var deviceOptions = CreateGraphicsDeviceOptions(rendererOptions);
+                var deviceLease = _graphicsDevice.Acquire(deviceOptions);
+                if (!deviceLease.TryGetWgpuResources(out var resources))
+                {
+                    throw new InvalidOperationException("Unable to acquire WGPU resources from the device provider.");
+                }
+
                 if (!EnsureSurface(resources, lease.RenderParams))
                 {
                     return;
@@ -150,7 +160,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
     }
 
     private bool EnsureSurface(
-        (WgpuInstance Instance, WgpuAdapter Adapter, WgpuDevice Device, WgpuQueue Queue, WgpuRenderer Renderer) resources,
+        WgpuDeviceResources resources,
         RenderParams renderParams)
     {
         var width = Math.Max(1u, renderParams.Width);
@@ -171,12 +181,9 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             Handle = surfaceHandle,
         };
 
-        if (OperatingSystem.IsMacOS() && _surfaceCreationPending)
+        if (OperatingSystem.IsMacOS() && _surfaceCreationPending && PendingSurfaceMatches(resources.Instance, descriptor))
         {
-            if (PendingSurfaceMatches(resources.Instance, descriptor))
-            {
-                return false;
-            }
+            return false;
         }
 
         if (!_surfaceHandle.HasValue ||
@@ -256,7 +263,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
     }
 
     private void RenderScene(
-        (WgpuInstance Instance, WgpuAdapter Adapter, WgpuDevice Device, WgpuQueue Queue, WgpuRenderer Renderer) resources,
+        WgpuDeviceResources resources,
         SceneLease lease)
     {
         if (_wgpuSurface is null)
@@ -369,6 +376,24 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             supportsMsaa16,
             baseOptions.InitThreads,
             baseOptions.PipelineCache);
+    }
+
+    private GraphicsDeviceOptions CreateGraphicsDeviceOptions(RendererOptions rendererOptions)
+    {
+        var features = new GraphicsFeatureSet(
+            EnableCpuFallback: rendererOptions.UseCpu,
+            EnableMsaa8: rendererOptions.SupportMsaa8,
+            EnableMsaa16: rendererOptions.SupportMsaa16,
+            EnableAreaAa: rendererOptions.SupportArea,
+            EnableOpacityLayers: true,
+            MaxGpuResourceBytes: null,
+            EnableValidationLayers: false);
+
+        return new GraphicsDeviceOptions(
+            GraphicsBackendKind.VelloWgpu,
+            features,
+            new GraphicsPresentationOptions(_presentMode, _options.ClearColor, _options.FramesPerSecond),
+            rendererOptions);
     }
 
     private AntialiasingMode ResolveAntialiasing(AntialiasingMode requested)

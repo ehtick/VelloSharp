@@ -110,7 +110,7 @@ internal sealed class VelloBrowserRenderTarget : IRenderTarget2
             _options,
             OnContextCompleted,
             skipInitialClip: !properties.PreviousFrameIsRetained,
-            graphicsDevice: null);
+            supportsWgpuSurfaceCallbacks: false);
     }
 
     public void Dispose()
@@ -709,7 +709,6 @@ internal sealed class VelloBrowserRenderTarget : IRenderTarget2
         return false;
     }
 }
-
 
 
 

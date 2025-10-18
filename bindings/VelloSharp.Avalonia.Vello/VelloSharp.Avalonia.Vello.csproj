@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../VelloSharp.Avalonia.Core/VelloSharp.Avalonia.Core.csproj" />
     <ProjectReference Include="../VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
