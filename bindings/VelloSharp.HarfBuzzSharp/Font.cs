@@ -169,10 +169,10 @@ public sealed class Font : NativeObject
 
         extents = new GlyphExtents
         {
-            XBearing = metrics.XBearing,
-            YBearing = metrics.YBearing,
-            Width = metrics.Width,
-            Height = metrics.Height,
+            XBearing = RoundToInt(metrics.XBearing),
+            YBearing = RoundToInt(metrics.YBearing),
+            Width = RoundToInt(metrics.Width),
+            Height = RoundToInt(metrics.Height),
         };
         return true;
     }
@@ -311,9 +311,9 @@ public sealed class Font : NativeObject
 
         return new FontExtents
         {
-            Ascender = -metrics.Ascent,
-            Descender = -metrics.Descent,
-            LineGap = metrics.Leading,
+            Ascender = RoundToInt(-metrics.Ascent),
+            Descender = RoundToInt(-metrics.Descent),
+            LineGap = RoundToInt(metrics.Leading),
         };
     }
 
@@ -538,6 +538,7 @@ public sealed class Font : NativeObject
 
         return _cachedVariationOptions;
     }
+
+    private static int RoundToInt(float value)
+        => (int)MathF.Round(value);
 }
-
-
