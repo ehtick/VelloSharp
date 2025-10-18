@@ -33,6 +33,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private int _opacityDepth;
     private int _layerDepth;
     private readonly Stack<byte> _opacityMaskLayerEntries = new();
+    private RenderOptions _renderOptions;
+    private readonly Stack<RenderOptions> _renderOptionsStack = new();
     private bool _skipInitialClip;
     private VelloLeaseFeature? _leaseFeature;
     private bool _apiLeaseActive;
@@ -44,6 +46,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private static readonly LayerBlend s_destOutLayerBlend = new(LayerMix.Normal, LayerCompose.DestOut);
     private static readonly VelloSharp.SolidColorBrush s_opaqueWhiteBrush = new(new RgbaColor(1f, 1f, 1f, 1f));
     private static readonly global::Avalonia.Vector s_intermediateDpi = new(96, 96);
+    private static readonly RenderOptions s_defaultRenderOptions = new()
+    {
+        BitmapInterpolationMode = BitmapInterpolationMode.HighQuality,
+        BitmapBlendingMode = BitmapBlendingMode.SourceOver,
+        EdgeMode = EdgeMode.Unspecified,
+        TextRenderingMode = TextRenderingMode.Unspecified,
+        RequiresFullOpacityHandling = null,
+    };
     private static readonly PropertyInfo? s_imageBrushBitmapProperty =
         typeof(IImageBrushSource).GetProperty("Bitmap", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -69,6 +79,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             Antialiasing = AntialiasingMode.Area,
             Format = RenderFormat.Bgra8,
         };
+        _renderOptions = s_defaultRenderOptions;
     }
 
     public Matrix Transform { get; set; }
@@ -175,6 +186,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var brush = new ImageBrush(image)
         {
             Alpha = (float)opacity,
+            Quality = ToImageQuality(GetEffectiveBitmapInterpolationMode()),
         };
 
         var scaleX = destRect.Width / sourceRect.Width;
@@ -185,7 +197,29 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                          * Matrix3x2.CreateTranslation((float)destRect.X, (float)destRect.Y)
                          * ToMatrix3x2(Transform);
 
-        _scene.DrawImage(brush, transform);
+        var (layerBlend, skipDraw) = ResolveBitmapBlendingMode(GetEffectiveBitmapBlendingMode());
+        if (skipDraw)
+        {
+            return;
+        }
+
+        if (layerBlend.HasValue)
+        {
+            var blendPath = CreateRectanglePath(destRect);
+            PushSceneLayer(blendPath, 1f, layerBlend.Value, ToMatrix3x2(Transform));
+        }
+
+        try
+        {
+            _scene.DrawImage(brush, transform);
+        }
+        finally
+        {
+            if (layerBlend.HasValue)
+            {
+                PopLayerEntry();
+            }
+        }
     }
 
     public void DrawBitmap(IBitmapImpl source, IBrush opacityMask, Rect opacityMaskRect, Rect destRect)
@@ -378,7 +412,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             Brush = velloBrush,
             Transform = transform,
             BrushAlpha = 1f,
-            Hint = false,
+            Hint = ShouldHintText(),
             Style = GlyphRunStyle.Fill,
         };
 
@@ -645,10 +679,16 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     public void PushRenderOptions(RenderOptions renderOptions)
     {
+        _renderOptionsStack.Push(_renderOptions);
+        _renderOptions = _renderOptions.MergeWith(renderOptions);
     }
 
     public void PopRenderOptions()
     {
+        if (_renderOptionsStack.Count > 0)
+        {
+            _renderOptions = _renderOptionsStack.Pop();
+        }
     }
 
     public object? GetFeature(Type t)
@@ -1141,6 +1181,105 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         builder.AddRoundedRectangle(rect);
         return builder;
     }
+
+    private BitmapInterpolationMode GetEffectiveBitmapInterpolationMode()
+    {
+        var mode = _renderOptions.BitmapInterpolationMode;
+        return mode == BitmapInterpolationMode.Unspecified ? BitmapInterpolationMode.HighQuality : mode;
+    }
+
+    private BitmapBlendingMode GetEffectiveBitmapBlendingMode()
+    {
+        var mode = _renderOptions.BitmapBlendingMode;
+        return mode == BitmapBlendingMode.Unspecified ? BitmapBlendingMode.SourceOver : mode;
+    }
+
+    private static ImageQuality ToImageQuality(BitmapInterpolationMode interpolationMode)
+    {
+        return interpolationMode switch
+        {
+            BitmapInterpolationMode.None => ImageQuality.Low,
+            BitmapInterpolationMode.LowQuality => ImageQuality.Low,
+            BitmapInterpolationMode.MediumQuality => ImageQuality.Medium,
+            BitmapInterpolationMode.HighQuality => ImageQuality.High,
+            _ => ImageQuality.High,
+        };
+    }
+
+    private (LayerBlend? Blend, bool Skip) ResolveBitmapBlendingMode(BitmapBlendingMode mode)
+    {
+        switch (mode)
+        {
+            case BitmapBlendingMode.SourceOver:
+                return (null, false);
+            case BitmapBlendingMode.Source:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.Copy), false);
+            case BitmapBlendingMode.Destination:
+                return (null, true);
+            case BitmapBlendingMode.DestinationOver:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.DestOver), false);
+            case BitmapBlendingMode.SourceIn:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.SrcIn), false);
+            case BitmapBlendingMode.DestinationIn:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.DestIn), false);
+            case BitmapBlendingMode.SourceOut:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.SrcOut), false);
+            case BitmapBlendingMode.DestinationOut:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.DestOut), false);
+            case BitmapBlendingMode.SourceAtop:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.SrcAtop), false);
+            case BitmapBlendingMode.DestinationAtop:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.DestAtop), false);
+            case BitmapBlendingMode.Xor:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.Xor), false);
+            case BitmapBlendingMode.Plus:
+                return (new LayerBlend(LayerMix.Normal, LayerCompose.Plus), false);
+            case BitmapBlendingMode.Screen:
+                return (new LayerBlend(LayerMix.Screen, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Overlay:
+                return (new LayerBlend(LayerMix.Overlay, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Darken:
+                return (new LayerBlend(LayerMix.Darken, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Lighten:
+                return (new LayerBlend(LayerMix.Lighten, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.ColorDodge:
+                return (new LayerBlend(LayerMix.ColorDodge, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.ColorBurn:
+                return (new LayerBlend(LayerMix.ColorBurn, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.HardLight:
+                return (new LayerBlend(LayerMix.HardLight, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.SoftLight:
+                return (new LayerBlend(LayerMix.SoftLight, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Difference:
+                return (new LayerBlend(LayerMix.Difference, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Exclusion:
+                return (new LayerBlend(LayerMix.Exclusion, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Multiply:
+                return (new LayerBlend(LayerMix.Multiply, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Hue:
+                return (new LayerBlend(LayerMix.Hue, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Saturation:
+                return (new LayerBlend(LayerMix.Saturation, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Color:
+                return (new LayerBlend(LayerMix.Color, LayerCompose.SrcOver), false);
+            case BitmapBlendingMode.Luminosity:
+                return (new LayerBlend(LayerMix.Luminosity, LayerCompose.SrcOver), false);
+            default:
+                return (null, false);
+        }
+    }
+
+    private bool ShouldHintText()
+    {
+        var mode = _renderOptions.TextRenderingMode;
+        if (mode == TextRenderingMode.Alias)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
 
     private static void AppendRectangle(PathBuilder builder, Rect rect)
     {
