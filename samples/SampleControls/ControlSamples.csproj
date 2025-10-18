@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindings>true</AvaloniaUseCompiledBindings>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,4 +21,3 @@
     <PackageReference Include="Avalonia" />
   </ItemGroup>
 </Project>
-
