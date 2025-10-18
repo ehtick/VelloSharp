@@ -8,7 +8,14 @@
     <WarningsAsErrors>$(WarningsAsErrors);CS0618</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Assets\NoiseAsset_256X256_PNG.png" />
+    <Compile Include="..\..\extern\Avalonia\src\Skia\Avalonia.Skia\**\*.cs">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\extern\Avalonia\src\Skia\Avalonia.Skia\Assets\NoiseAsset_256X256_PNG.png">
+      <Link>Assets\NoiseAsset_256X256_PNG.png</Link>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VelloSharp.Skia.Core\VelloSharp.Skia.Core.csproj" />
