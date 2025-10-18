@@ -497,11 +497,47 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     public void PushOpacityMask(IBrush mask, Rect bounds)
     {
-        throw new NotSupportedException("Opacity masks are not supported in the limited Vello context.");
+        _opacityDepth++;
+
+        if (mask is null)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        var width = bounds.Width;
+        var height = bounds.Height;
+        if (width <= 0 || height <= 0)
+        {
+            _layerStack.Push(LayerEntry.Noop());
+            return;
+        }
+
+        if (mask is ISolidColorBrush solidMask)
+        {
+            var maskOpacity = Math.Clamp(mask.Opacity, 0.0, 1.0);
+            var solidOpacity = maskOpacity * (solidMask.Color.A / 255.0);
+            var alpha = (float)Math.Clamp(solidOpacity, 0.0, 1.0);
+
+            if (alpha <= 0f)
+            {
+                _layerStack.Push(LayerEntry.Noop());
+                return;
+            }
+
+            var builder = new PathBuilder();
+            builder.AddRectangle(bounds);
+
+            PushSceneLayer(builder, alpha, s_defaultLayerBlend, ToMatrix3x2(Transform));
+            return;
+        }
+
+        _layerStack.Push(LayerEntry.Noop());
     }
 
     public void PopOpacityMask()
     {
+        PopLayer(ref _opacityDepth);
     }
 
     public void PushGeometryClip(IGeometryImpl clip)
