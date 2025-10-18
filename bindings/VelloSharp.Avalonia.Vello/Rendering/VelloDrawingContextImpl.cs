@@ -259,7 +259,32 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
     public void DrawRegion(IBrush? brush, IPen? pen, IPlatformRenderInterfaceRegion region)
     {
-        throw new NotSupportedException("Region drawing is not implemented.");
+        if (brush is null && pen is null)
+        {
+            return;
+        }
+
+        if (region is not VelloRegionImpl velloRegion)
+        {
+            return;
+        }
+
+        if (!velloRegion.TryCreatePath(out var pathBuilder, out var regionBounds) || pathBuilder is null)
+        {
+            return;
+        }
+
+        var transform = ToMatrix3x2(Transform);
+
+        if (brush is not null && TryCreateBrush(brush, regionBounds, out var fillBrush, out var fillTransform))
+        {
+            _scene.FillPath(pathBuilder, VelloSharp.FillRule.NonZero, transform, fillBrush, fillTransform);
+        }
+
+        if (pen is not null && TryCreateStroke(pen, regionBounds, out var strokeStyle, out var strokeBrush, out var strokeTransform))
+        {
+            _scene.StrokePath(pathBuilder, strokeStyle, transform, strokeBrush, strokeTransform);
+        }
     }
 
     public void DrawEllipse(IBrush? brush, IPen? pen, Rect rect)

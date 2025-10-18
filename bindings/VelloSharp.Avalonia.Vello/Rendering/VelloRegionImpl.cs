@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Platform;
+using VelloSharp;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
@@ -80,6 +81,56 @@ internal sealed class VelloRegionImpl : IPlatformRenderInterfaceRegion
     {
         EnsureNotDisposed();
         return _rects.Count > 0;
+    }
+
+    internal bool TryCreatePath(out PathBuilder? pathBuilder, out Rect bounds)
+    {
+        EnsureNotDisposed();
+
+        pathBuilder = null;
+        bounds = default;
+
+        if (!_hasBounds || _rects.Count == 0)
+        {
+            return false;
+        }
+
+        var builder = new PathBuilder();
+        foreach (var rect in _rects)
+        {
+            var width = rect.Right - rect.Left;
+            var height = rect.Bottom - rect.Top;
+            if (width <= 0 || height <= 0)
+            {
+                continue;
+            }
+
+            AddRectangle(builder, rect.Left, rect.Top, width, height);
+        }
+
+        if (builder.Count == 0)
+        {
+            return false;
+        }
+
+        var b = _bounds;
+        var boundWidth = Math.Max(0, b.Right - b.Left);
+        var boundHeight = Math.Max(0, b.Bottom - b.Top);
+        bounds = new Rect(b.Left, b.Top, boundWidth, boundHeight);
+        pathBuilder = builder;
+        return true;
+    }
+
+    private static void AddRectangle(PathBuilder builder, double left, double top, double width, double height)
+    {
+        var right = left + width;
+        var bottom = top + height;
+
+        builder.MoveTo(left, top)
+            .LineTo(right, top)
+            .LineTo(right, bottom)
+            .LineTo(left, bottom)
+            .Close();
     }
 
     private static LtrbPixelRect ToPixelRect(LtrbRect rect)
