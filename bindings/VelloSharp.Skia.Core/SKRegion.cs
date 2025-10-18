@@ -10,7 +10,6 @@ public sealed class SKRegion : IDisposable
 
     public SKRegion()
     {
-        ShimNotImplemented.Throw($"{nameof(SKRegion)}.ctor", "region boolean operations");
     }
 
     public bool IsEmpty
@@ -52,14 +51,12 @@ public sealed class SKRegion : IDisposable
     public void SetEmpty()
     {
         EnsureNotDisposed();
-        ShimNotImplemented.Throw($"{nameof(SKRegion)}.{nameof(SetEmpty)}");
         _rects.Clear();
     }
 
     public bool Contains(int x, int y)
     {
         EnsureNotDisposed();
-        ShimNotImplemented.Throw($"{nameof(SKRegion)}.{nameof(Contains)}");
         foreach (var rect in _rects)
         {
             if (x >= rect.Left && x < rect.Right && y >= rect.Top && y < rect.Bottom)
@@ -74,13 +71,10 @@ public sealed class SKRegion : IDisposable
     public bool Intersects(SKRectI rect)
     {
         EnsureNotDisposed();
-        ShimNotImplemented.Throw($"{nameof(SKRegion)}.{nameof(Intersects)}");
+        rect = NormalizeRect(rect);
         foreach (var existing in _rects)
         {
-            if (existing.Left < rect.Right &&
-                existing.Right > rect.Left &&
-                existing.Top < rect.Bottom &&
-                existing.Bottom > rect.Top)
+            if (TryIntersect(existing, rect, out _))
             {
                 return true;
             }
@@ -99,19 +93,44 @@ public sealed class SKRegion : IDisposable
     public void Op(SKRectI rect, SKRegionOperation operation)
     {
         EnsureNotDisposed();
-        ShimNotImplemented.Throw($"{nameof(SKRegion)}.{nameof(Op)}", operation.ToString());
-        if (operation != SKRegionOperation.Union)
+        rect = NormalizeRect(rect);
+
+        if (IsRectDegenerate(rect))
         {
+            if (operation == SKRegionOperation.Replace)
+            {
+                _rects.Clear();
+            }
             return;
         }
 
-        _rects.Add(rect);
+        switch (operation)
+        {
+            case SKRegionOperation.Union:
+                AddRect(rect);
+                break;
+            case SKRegionOperation.Replace:
+                _rects.Clear();
+                AddRect(rect);
+                break;
+            case SKRegionOperation.Intersect:
+                ApplyIntersect(rect);
+                break;
+            case SKRegionOperation.Difference:
+                ApplyDifference(rect);
+                break;
+            case SKRegionOperation.ReverseDifference:
+                ApplyReverseDifference(rect);
+                break;
+            case SKRegionOperation.Xor:
+                ApplyXor(rect);
+                break;
+        }
     }
 
     public SKRegionRectIterator CreateRectIterator()
     {
         EnsureNotDisposed();
-        ShimNotImplemented.Throw($"{nameof(SKRegion)}.{nameof(CreateRectIterator)}");
         return new SKRegionRectIterator(_rects);
     }
 
@@ -127,6 +146,200 @@ public sealed class SKRegion : IDisposable
         {
             throw new ObjectDisposedException(nameof(SKRegion));
         }
+    }
+
+    private void AddRect(SKRectI rect)
+    {
+        if (IsRectDegenerate(rect))
+        {
+            return;
+        }
+
+        if (!_rects.Contains(rect))
+        {
+            _rects.Add(rect);
+        }
+    }
+
+    private void ApplyIntersect(SKRectI rect)
+    {
+        var intersections = new List<SKRectI>();
+        foreach (var existing in _rects)
+        {
+            if (TryIntersect(existing, rect, out var intersection))
+            {
+                intersections.Add(intersection);
+            }
+        }
+
+        _rects.Clear();
+        foreach (var candidate in intersections)
+        {
+            if (!IsRectDegenerate(candidate))
+            {
+                _rects.Add(candidate);
+            }
+        }
+    }
+
+    private void ApplyDifference(SKRectI rect)
+    {
+        var result = new List<SKRectI>();
+        foreach (var existing in _rects)
+        {
+            result.AddRange(SubtractRect(existing, rect));
+        }
+
+        _rects.Clear();
+        foreach (var candidate in result)
+        {
+            if (!IsRectDegenerate(candidate))
+            {
+                _rects.Add(candidate);
+            }
+        }
+    }
+
+    private void ApplyReverseDifference(SKRectI rect)
+    {
+        var seeds = new List<SKRectI> { rect };
+        foreach (var existing in _rects)
+        {
+            var next = new List<SKRectI>();
+            foreach (var candidate in seeds)
+            {
+                next.AddRange(SubtractRect(candidate, existing));
+            }
+
+            seeds = next;
+            if (seeds.Count == 0)
+            {
+                break;
+            }
+        }
+
+        _rects.Clear();
+        foreach (var candidate in seeds)
+        {
+            if (!IsRectDegenerate(candidate))
+            {
+                _rects.Add(candidate);
+            }
+        }
+    }
+
+    private void ApplyXor(SKRectI rect)
+    {
+        var existingMinusRect = new List<SKRectI>();
+        foreach (var existing in _rects)
+        {
+            existingMinusRect.AddRange(SubtractRect(existing, rect));
+        }
+
+        var rectMinusExisting = new List<SKRectI> { rect };
+        foreach (var existing in _rects)
+        {
+            var next = new List<SKRectI>();
+            foreach (var candidate in rectMinusExisting)
+            {
+                next.AddRange(SubtractRect(candidate, existing));
+            }
+
+            rectMinusExisting = next;
+            if (rectMinusExisting.Count == 0)
+            {
+                break;
+            }
+        }
+
+        _rects.Clear();
+        foreach (var candidate in existingMinusRect)
+        {
+            if (!IsRectDegenerate(candidate))
+            {
+                _rects.Add(candidate);
+            }
+        }
+
+        foreach (var candidate in rectMinusExisting)
+        {
+            if (!IsRectDegenerate(candidate))
+            {
+                AddRect(candidate);
+            }
+        }
+    }
+
+    private static IEnumerable<SKRectI> SubtractRect(SKRectI source, SKRectI subtractor)
+    {
+        source = NormalizeRect(source);
+        subtractor = NormalizeRect(subtractor);
+
+        if (!TryIntersect(source, subtractor, out var intersection))
+        {
+            yield return source;
+            yield break;
+        }
+
+        if (RectEquals(intersection, source))
+        {
+            yield break;
+        }
+
+        if (source.Top < intersection.Top)
+        {
+            yield return new SKRectI(source.Left, source.Top, source.Right, intersection.Top);
+        }
+
+        if (intersection.Bottom < source.Bottom)
+        {
+            yield return new SKRectI(source.Left, intersection.Bottom, source.Right, source.Bottom);
+        }
+
+        if (source.Left < intersection.Left)
+        {
+            yield return new SKRectI(source.Left, intersection.Top, intersection.Left, intersection.Bottom);
+        }
+
+        if (intersection.Right < source.Right)
+        {
+            yield return new SKRectI(intersection.Right, intersection.Top, source.Right, intersection.Bottom);
+        }
+    }
+
+    private static bool TryIntersect(SKRectI a, SKRectI b, out SKRectI intersection)
+    {
+        var left = Math.Max(a.Left, b.Left);
+        var top = Math.Max(a.Top, b.Top);
+        var right = Math.Min(a.Right, b.Right);
+        var bottom = Math.Min(a.Bottom, b.Bottom);
+
+        if (left < right && top < bottom)
+        {
+            intersection = new SKRectI(left, top, right, bottom);
+            return true;
+        }
+
+        intersection = default;
+        return false;
+    }
+
+    private static SKRectI NormalizeRect(SKRectI rect)
+    {
+        var left = Math.Min(rect.Left, rect.Right);
+        var right = Math.Max(rect.Left, rect.Right);
+        var top = Math.Min(rect.Top, rect.Bottom);
+        var bottom = Math.Max(rect.Top, rect.Bottom);
+        return new SKRectI(left, top, right, bottom);
+    }
+
+    private static bool RectEquals(SKRectI a, SKRectI b) =>
+        a.Left == b.Left && a.Top == b.Top && a.Right == b.Right && a.Bottom == b.Bottom;
+
+    private static bool IsRectDegenerate(SKRectI rect)
+    {
+        rect = NormalizeRect(rect);
+        return rect.Right <= rect.Left || rect.Bottom <= rect.Top;
     }
 }
 

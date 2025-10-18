@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 namespace SkiaSharp;
 
 internal interface ICanvasCommand
@@ -114,6 +115,44 @@ internal sealed class ClipRectCommand(SKRect rect) : ICanvasCommand
 {
     private readonly SKRect _rect = rect;
     public void Replay(SKCanvas canvas) => canvas.ClipRect(_rect);
+}
+
+internal sealed class ClipRegionCommand : ICanvasCommand
+{
+    private readonly SKRectI[] _rects;
+
+    public ClipRegionCommand(SKRegion region)
+    {
+        ArgumentNullException.ThrowIfNull(region);
+        var rects = new List<SKRectI>();
+        using var iterator = region.CreateRectIterator();
+        while (iterator.Next(out var rect))
+        {
+            rects.Add(NormalizeRect(rect));
+        }
+
+        _rects = rects.ToArray();
+    }
+
+    public void Replay(SKCanvas canvas)
+    {
+        using var region = new SKRegion();
+        foreach (var rect in _rects)
+        {
+            region.Op(rect, SKRegionOperation.Union);
+        }
+
+        canvas.ClipRegion(region);
+    }
+
+    private static SKRectI NormalizeRect(SKRectI rect)
+    {
+        var left = Math.Min(rect.Left, rect.Right);
+        var right = Math.Max(rect.Left, rect.Right);
+        var top = Math.Min(rect.Top, rect.Bottom);
+        var bottom = Math.Max(rect.Top, rect.Bottom);
+        return new SKRectI(left, top, right, bottom);
+    }
 }
 
 internal sealed class ClipPathCommand : ICanvasCommand

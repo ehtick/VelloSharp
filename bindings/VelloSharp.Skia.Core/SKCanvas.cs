@@ -205,7 +205,39 @@ public sealed class SKCanvas : IDisposable
     public void ClipRegion(SKRegion region)
     {
         ArgumentNullException.ThrowIfNull(region);
-        ShimNotImplemented.Throw($"{nameof(SKCanvas)}.{nameof(ClipRegion)}", "region clipping");
+        using var path = new SKPath
+        {
+            FillType = SKPathFillType.Winding,
+        };
+
+        using var iterator = region.CreateRectIterator();
+        var hasRect = false;
+        while (iterator.Next(out var rect))
+        {
+            var normalized = NormalizeRect(rect);
+            if (normalized.Right <= normalized.Left || normalized.Bottom <= normalized.Top)
+            {
+                continue;
+            }
+
+            hasRect = true;
+            path.AddRect(new SKRect(normalized.Left, normalized.Top, normalized.Right, normalized.Bottom));
+        }
+
+        PathBuilder clipBuilder;
+        if (hasRect)
+        {
+            clipBuilder = path.ToPathBuilder();
+        }
+        else
+        {
+            clipBuilder = CreateEmptyClipBuilder();
+        }
+
+        _scene.PushLayer(clipBuilder, s_clipLayerBlend, _currentState.Transform, alpha: 1f);
+        _activeLayerDepth++;
+        _currentState = _currentState with { LayerDepth = _activeLayerDepth };
+        _commandLog?.Add(new ClipRegionCommand(region));
     }
 
     public void ClipPath(SKPath path, SKClipOperation operation, bool doAntialias)
@@ -1014,6 +1046,25 @@ public sealed class SKCanvas : IDisposable
     }
 
     private readonly record struct CanvasState(Matrix3x2 Transform, int LayerDepth);
+
+    private static SKRectI NormalizeRect(SKRectI rect)
+    {
+        var left = Math.Min(rect.Left, rect.Right);
+        var right = Math.Max(rect.Left, rect.Right);
+        var top = Math.Min(rect.Top, rect.Bottom);
+        var bottom = Math.Max(rect.Top, rect.Bottom);
+        return new SKRectI(left, top, right, bottom);
+    }
+
+    private static PathBuilder CreateEmptyClipBuilder()
+    {
+        var builder = new PathBuilder();
+        builder.MoveTo(0, 0)
+               .LineTo(0, 0)
+               .LineTo(0, 0)
+               .Close();
+        return builder;
+    }
 }
 
 internal sealed class ListPool<T>
