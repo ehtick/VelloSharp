@@ -47,6 +47,8 @@ public sealed class SKData : IDisposable
 
     public static SKData Create(SKManagedStream stream) => Create((Stream)stream);
 
+    public bool IsEmpty => AsSpan().IsEmpty;
+
     public ReadOnlySpan<byte> AsSpan()
     {
         if (_buffer is not null)

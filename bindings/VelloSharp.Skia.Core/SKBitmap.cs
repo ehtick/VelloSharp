@@ -215,6 +215,39 @@ public sealed class SKBitmap : IDisposable
         return bitmap;
     }
 
+    public SKBitmap Resize(SKImageInfo info, SKFilterQuality quality) =>
+        Resize(info, quality.ToSamplingOptions());
+
+    public SKBitmap Resize(SKSizeI size, SKSamplingOptions options) =>
+        Resize(new SKImageInfo(size.Width, size.Height, _info.ColorType, _info.AlphaType), options);
+
+    public SKBitmap Resize(SKSizeI size, SKFilterQuality quality) =>
+        Resize(size, quality.ToSamplingOptions());
+
+    public bool ScalePixels(SKBitmap destination, SKSamplingOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        return ScalePixels(destination.PeekPixels(), options);
+    }
+
+    public bool ScalePixels(SKBitmap destination, SKFilterQuality quality) =>
+        ScalePixels(destination, quality.ToSamplingOptions());
+
+    public bool ScalePixels(SKPixmap destination, SKSamplingOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        using var image = SKImage.FromBitmap(this);
+        if (image is null)
+        {
+            return false;
+        }
+
+        return image.ScalePixels(destination, options);
+    }
+
+    public bool ScalePixels(SKPixmap destination, SKFilterQuality quality) =>
+        ScalePixels(destination, quality.ToSamplingOptions());
+
     public SKBitmap Copy()
     {
         ThrowIfDisposed();

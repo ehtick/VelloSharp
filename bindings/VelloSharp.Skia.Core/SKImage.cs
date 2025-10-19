@@ -102,6 +102,12 @@ public sealed class SKImage : IDisposable
     public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling, SKMatrix localMatrix) =>
         ToShader(tileModeX, tileModeY, sampling, localMatrix, SKRect.Create(0, 0, Width, Height));
 
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKFilterQuality quality) =>
+        ToShader(tileModeX, tileModeY, quality.ToSamplingOptions());
+
+    public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKFilterQuality quality, SKMatrix localMatrix) =>
+        ToShader(tileModeX, tileModeY, quality.ToSamplingOptions(), localMatrix);
+
     public SKShader ToShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKSamplingOptions sampling, SKMatrix localMatrix, SKRect tileRect)
     {
         return SKShader.CreateImageShader(this, tileModeX, tileModeY, localMatrix, tileRect, sampling, takeOwnership: false);
@@ -191,6 +197,18 @@ public sealed class SKImage : IDisposable
             }
         }
     }
+
+    public bool ScalePixels(SKPixmap destination, SKSamplingOptions samplingOptions, SKImageCachingHint cachingHint)
+    {
+        _ = cachingHint;
+        return ScalePixels(destination, samplingOptions);
+    }
+
+    public bool ScalePixels(SKPixmap destination, SKFilterQuality quality) =>
+        ScalePixels(destination, quality.ToSamplingOptions());
+
+    public bool ScalePixels(SKPixmap destination, SKFilterQuality quality, SKImageCachingHint cachingHint) =>
+        ScalePixels(destination, quality.ToSamplingOptions(), cachingHint);
 
     public bool ReadPixels(SKImageInfo info, IntPtr pixels, int rowBytes, int srcX, int srcY, SKImageCachingHint cachingHint)
     {

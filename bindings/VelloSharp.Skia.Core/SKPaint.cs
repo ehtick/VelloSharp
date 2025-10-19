@@ -47,6 +47,10 @@ public sealed class SKPaint : IDisposable
     public SKBlendMode BlendMode { get; set; } = SKBlendMode.SrcOver;
     public SKImageFilter? ImageFilter { get; set; }
     public SKPathEffect? PathEffect { get; set; }
+    public SKMaskFilter? MaskFilter { get; set; }
+    public SKColorFilter? ColorFilter { get; set; }
+    public SKBlender? Blender { get; set; }
+    public SKFilterQuality FilterQuality { get; set; } = SKFilterQuality.None;
 
     public bool IsStroke
     {
@@ -73,6 +77,10 @@ public sealed class SKPaint : IDisposable
         BlendMode = SKBlendMode.SrcOver;
         ImageFilter = null;
         PathEffect = null;
+        MaskFilter = null;
+        ColorFilter = null;
+        Blender = null;
+        FilterQuality = SKFilterQuality.None;
     }
 
     public bool GetFillPath(SKPath source, SKPath destination)

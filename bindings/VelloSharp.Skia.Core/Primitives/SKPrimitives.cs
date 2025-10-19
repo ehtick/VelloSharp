@@ -189,30 +189,203 @@ public struct SKMatrix44
         M33 = 1,
     };
 
-    public static SKMatrix44 FromMatrix3x2(Matrix3x2 matrix) => new()
+    public static SKMatrix44 CreateTranslation(float x, float y, float z)
+    {
+        var matrix = CreateIdentity();
+        matrix.M03 = x;
+        matrix.M13 = y;
+        matrix.M23 = z;
+        return matrix;
+    }
+
+    public static SKMatrix44 CreateScale(float x, float y, float z)
+    {
+        var matrix = CreateIdentity();
+        matrix.M00 = x;
+        matrix.M11 = y;
+        matrix.M22 = z;
+        return matrix;
+    }
+
+    public static SKMatrix44 CreateScale(float x, float y, float z, float pivotX, float pivotY, float pivotZ)
+    {
+        var translationToOrigin = CreateTranslation(-pivotX, -pivotY, -pivotZ);
+        var scale = CreateScale(x, y, z);
+        var translationBack = CreateTranslation(pivotX, pivotY, pivotZ);
+        return translationBack * scale * translationToOrigin;
+    }
+
+    public static SKMatrix44 CreateRotation(float x, float y, float z, float radians)
+    {
+        var axis = new Vector3(x, y, z);
+        if (axis == Vector3.Zero)
+        {
+            return CreateIdentity();
+        }
+
+        axis = Vector3.Normalize(axis);
+        var matrix = Matrix4x4.CreateFromAxisAngle(axis, radians);
+        return FromMatrix4x4(matrix);
+    }
+
+    public static SKMatrix44 CreateRotationDegrees(float x, float y, float z, float degrees) =>
+        CreateRotation(x, y, z, degrees * (float)(Math.PI / 180.0));
+
+    public static SKMatrix44 FromMatrix3x2(Matrix3x2 matrix)
+    {
+        var result = CreateIdentity();
+        result.M00 = matrix.M11;
+        result.M01 = matrix.M12;
+        result.M03 = matrix.M31;
+        result.M10 = matrix.M21;
+        result.M11 = matrix.M22;
+        result.M13 = matrix.M32;
+        return result;
+    }
+
+    public static SKMatrix44 FromMatrix4x4(Matrix4x4 matrix) => new()
     {
         M00 = matrix.M11,
         M01 = matrix.M12,
-        M02 = 0,
-        M03 = matrix.M31,
+        M02 = matrix.M13,
+        M03 = matrix.M14,
         M10 = matrix.M21,
         M11 = matrix.M22,
-        M12 = 0,
-        M13 = matrix.M32,
-        M20 = 0,
-        M21 = 0,
-        M22 = 1,
-        M23 = 0,
-        M30 = 0,
-        M31 = 0,
-        M32 = 0,
-        M33 = 1,
+        M12 = matrix.M23,
+        M13 = matrix.M24,
+        M20 = matrix.M31,
+        M21 = matrix.M32,
+        M22 = matrix.M33,
+        M23 = matrix.M34,
+        M30 = matrix.M41,
+        M31 = matrix.M42,
+        M32 = matrix.M43,
+        M33 = matrix.M44,
     };
 
     public Matrix3x2 ToMatrix3x2() => new(
         M00, M10,
         M01, M11,
         M03, M13);
+
+    public Matrix4x4 ToMatrix4x4() => new(
+        M00, M01, M02, M03,
+        M10, M11, M12, M13,
+        M20, M21, M22, M23,
+        M30, M31, M32, M33);
+
+    public void ToRowMajor(Span<float> destination)
+    {
+        if (destination.Length != 16)
+        {
+            throw new ArgumentException("Destination span must contain 16 elements.", nameof(destination));
+        }
+
+        destination[00] = M00;
+        destination[01] = M01;
+        destination[02] = M02;
+        destination[03] = M03;
+        destination[04] = M10;
+        destination[05] = M11;
+        destination[06] = M12;
+        destination[07] = M13;
+        destination[08] = M20;
+        destination[09] = M21;
+        destination[10] = M22;
+        destination[11] = M23;
+        destination[12] = M30;
+        destination[13] = M31;
+        destination[14] = M32;
+        destination[15] = M33;
+    }
+
+    public void ToColumnMajor(Span<float> destination)
+    {
+        if (destination.Length != 16)
+        {
+            throw new ArgumentException("Destination span must contain 16 elements.", nameof(destination));
+        }
+
+        destination[00] = M00;
+        destination[01] = M10;
+        destination[02] = M20;
+        destination[03] = M30;
+        destination[04] = M01;
+        destination[05] = M11;
+        destination[06] = M21;
+        destination[07] = M31;
+        destination[08] = M02;
+        destination[09] = M12;
+        destination[10] = M22;
+        destination[11] = M32;
+        destination[12] = M03;
+        destination[13] = M13;
+        destination[14] = M23;
+        destination[15] = M33;
+    }
+
+    public static SKMatrix44 FromRowMajor(ReadOnlySpan<float> source)
+    {
+        if (source.Length != 16)
+        {
+            throw new ArgumentException("Source span must contain 16 elements.", nameof(source));
+        }
+
+        return new SKMatrix44
+        {
+            M00 = source[0],
+            M01 = source[1],
+            M02 = source[2],
+            M03 = source[3],
+            M10 = source[4],
+            M11 = source[5],
+            M12 = source[6],
+            M13 = source[7],
+            M20 = source[8],
+            M21 = source[9],
+            M22 = source[10],
+            M23 = source[11],
+            M30 = source[12],
+            M31 = source[13],
+            M32 = source[14],
+            M33 = source[15],
+        };
+    }
+
+    public static SKMatrix44 FromColumnMajor(ReadOnlySpan<float> source)
+    {
+        if (source.Length != 16)
+        {
+            throw new ArgumentException("Source span must contain 16 elements.", nameof(source));
+        }
+
+        return new SKMatrix44
+        {
+            M00 = source[0],
+            M01 = source[4],
+            M02 = source[8],
+            M03 = source[12],
+            M10 = source[1],
+            M11 = source[5],
+            M12 = source[9],
+            M13 = source[13],
+            M20 = source[2],
+            M21 = source[6],
+            M22 = source[10],
+            M23 = source[14],
+            M30 = source[3],
+            M31 = source[7],
+            M32 = source[11],
+            M33 = source[15],
+        };
+    }
+
+    public static SKMatrix44 operator *(SKMatrix44 lhs, SKMatrix44 rhs)
+    {
+        var left = lhs.ToMatrix4x4();
+        var right = rhs.ToMatrix4x4();
+        return FromMatrix4x4(Matrix4x4.Multiply(left, right));
+    }
 }
 
 public struct SKMatrix4x4
