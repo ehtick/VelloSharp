@@ -3,7 +3,12 @@ using System.Numerics;
 
 namespace VelloSharp.Avalonia.Vello.Rendering;
 
-internal readonly record struct SkiaLeaseRequest(int Width, int Height, Matrix3x2 LocalTransform, bool UseHostScene);
+internal readonly record struct SkiaLeaseRequest(
+    int Width,
+    int Height,
+    Matrix3x2 LocalTransform,
+    bool UseHostScene,
+    bool UseGpuInterop);
 
 internal static class SkiaLeaseRequestScope
 {

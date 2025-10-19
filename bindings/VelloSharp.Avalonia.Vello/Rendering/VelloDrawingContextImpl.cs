@@ -787,7 +787,11 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             private readonly SKSurface _surface;
             private readonly Matrix3x2 _finalTransform;
             private readonly bool _usesHostScene;
+            private readonly bool _usesGpu;
+            private readonly RenderParams _renderParams;
             private bool _disposed;
+            private IVelloPlatformGraphicsLease? _platformLease;
+            private bool _surfaceReleasedToCallback;
 
             public ApiLease(VelloDrawingContextImpl context)
             {
@@ -796,7 +800,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                     Math.Max(1, context._targetSize.Width),
                     Math.Max(1, context._targetSize.Height),
                     Matrix3x2.Identity,
-                    UseHostScene: true);
+                    UseHostScene: SkiaSharpLeaseDefaults.UseHostSceneByDefault,
+                    UseGpuInterop: SkiaSharpLeaseDefaults.UseGpuInteropByDefault);
 
                 var request = SkiaLeaseRequestScope.Current ?? defaultRequest;
 
@@ -808,11 +813,35 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                 var contextTransform = ToMatrix3x2(context.Transform);
                 _finalTransform = contextTransform * localTransform;
 
+                if (request.UseGpuInterop && context._supportsWgpuSurfaceCallbacks)
+                {
+                    _platformLease = context.TryCreatePlatformGraphicsLease(() => _platformLease = null);
+                }
+                if (_platformLease is not null)
+                {
+                    _usesGpu = true;
+                    _usesHostScene = false;
+                }
+                else
+                {
+                    _usesGpu = false;
+                }
+
                 if (request.UseHostScene)
                 {
-                    _surface = SKSurface.Create(context.Scene, surfaceInfo, _finalTransform)
-                        ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
-                    _usesHostScene = true;
+                    if (_usesGpu)
+                    {
+                        _surface = SKSurface.Create(surfaceInfo)
+                            ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
+                        _surface.Canvas.Clear(SKColors.Transparent);
+                        _usesHostScene = false;
+                    }
+                    else
+                    {
+                        _surface = SKSurface.Create(context.Scene, surfaceInfo, _finalTransform)
+                            ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
+                        _usesHostScene = true;
+                    }
                 }
                 else
                 {
@@ -821,6 +850,14 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                     _surface.Canvas.Clear(SKColors.Transparent);
                     _usesHostScene = false;
                 }
+
+                var baseParams = context.RenderParams;
+                _renderParams = baseParams with
+                {
+                    Width = (uint)width,
+                    Height = (uint)height,
+                    Format = RenderFormat.Bgra8,
+                };
             }
 
             private void EnsureNotDisposed()
@@ -868,12 +905,54 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
                     if (!_usesHostScene)
                     {
+                        if (_usesGpu && _platformLease is not null)
+                        {
+                            var surface = _surface;
+                            var renderParams = _renderParams;
+                            var platformLease = _platformLease;
+                            _platformLease = null;
+                            _surfaceReleasedToCallback = true;
+
+                            _context.ScheduleWgpuSurfaceRender(renderContext =>
+                            {
+                                using (platformLease)
+                                using (surface)
+                                {
+                                    var gpuParams = renderContext.RenderParams with
+                                    {
+                                        Width = renderParams.Width,
+                                        Height = renderParams.Height,
+                                        BaseColor = renderParams.BaseColor,
+                                        Antialiasing = renderParams.Antialiasing,
+                                        Format = renderParams.Format,
+                                    };
+
+                                    platformLease.Renderer.RenderSurface(
+                                        surface.Scene,
+                                        renderContext.TargetView,
+                                        gpuParams,
+                                        renderContext.SurfaceFormat);
+                                }
+                            });
+
+                            return;
+                        }
+
                         _context.Scene.Append(_surface.Scene, _finalTransform);
                     }
                 }
                 finally
                 {
-                    _surface.Dispose();
+                    if (_platformLease is not null)
+                    {
+                        _platformLease.Dispose();
+                        _platformLease = null;
+                    }
+
+                    if (!_surfaceReleasedToCallback)
+                    {
+                        _surface.Dispose();
+                    }
                     _context.EndApiLease();
                     _disposed = true;
                 }
