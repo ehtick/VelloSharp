@@ -115,16 +115,36 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
     {
         EnsureNotDisposed();
 
-        return Image.FromPixels(
-            _pixels,
-            PixelSize.Width,
-            PixelSize.Height,
-            RenderFormat.Rgba8,
-            _alphaFormat == global::Avalonia.Platform.AlphaFormat.Premul ? ImageAlphaMode.Premultiplied : ImageAlphaMode.Straight,
-            GetStride(PixelSize.Width, _pixelFormat));
+        lock (_lock)
+        {
+            EnsureNotDisposed();
+
+            var pixelData = PreparePixelDataForVello();
+            return Image.FromPixels(
+                pixelData.Buffer,
+                PixelSize.Width,
+                PixelSize.Height,
+                pixelData.Format,
+                pixelData.AlphaMode,
+                pixelData.Stride);
+        }
     }
 
     internal byte[] GetPixelsUnsafe() => _pixels;
+
+    private PixelData PreparePixelDataForVello()
+    {
+        var stride = GetStride(PixelSize.Width, _pixelFormat);
+        var format = (RenderFormat)ToRenderFormat(_pixelFormat);
+
+        if (_alphaFormat == global::Avalonia.Platform.AlphaFormat.Premul)
+        {
+            var converted = ConvertPremultipliedToStraight(_pixels, PixelSize, stride, _pixelFormat);
+            return new PixelData(converted, stride, format, ImageAlphaMode.Straight);
+        }
+
+        return new PixelData(_pixels, stride, format, ImageAlphaMode.Straight);
+    }
 
     private void EnsureNotDisposed()
     {
@@ -266,21 +286,19 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
         {
             EnsureNotDisposed();
 
-            var stride = GetStride(PixelSize.Width, _pixelFormat);
-            var format = ToRenderFormat(_pixelFormat);
-            var alpha = ToVelloAlphaMode(_alphaFormat);
+            var pixelData = PreparePixelDataForVello();
 
             GCHandle handle = default;
             try
             {
-                handle = GCHandle.Alloc(_pixels, GCHandleType.Pinned);
+                handle = GCHandle.Alloc(pixelData.Buffer, GCHandleType.Pinned);
                 var native = NativeMethods.vello_image_create(
-                    format,
-                    alpha,
+                    (VelloRenderFormat)pixelData.Format,
+                    (VelloImageAlphaMode)pixelData.AlphaMode,
                     (uint)PixelSize.Width,
                     (uint)PixelSize.Height,
                     handle.AddrOfPinnedObject(),
-                    (nuint)stride);
+                    (nuint)pixelData.Stride);
 
                 if (native == IntPtr.Zero)
                 {
@@ -393,6 +411,103 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
         global::Avalonia.Platform.AlphaFormat.Premul => VelloImageAlphaMode.Premultiplied,
         _ => VelloImageAlphaMode.Straight,
     };
+
+    private static byte[] ConvertPremultipliedToStraight(byte[] source, PixelSize size, int stride, PixelFormat pixelFormat)
+    {
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (stride <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stride));
+        }
+
+        var height = Math.Max(0, size.Height);
+        var expectedLength = stride * height;
+        if (source.Length < expectedLength)
+        {
+            throw new ArgumentException("Pixel buffer is smaller than expected for the provided stride and size.", nameof(source));
+        }
+
+        var destination = new byte[expectedLength];
+        Buffer.BlockCopy(source, 0, destination, 0, expectedLength);
+
+        var (r, g, b, a) = GetChannelIndices(pixelFormat);
+        var width = size.Width;
+
+        for (var y = 0; y < height; y++)
+        {
+            var rowOffset = y * stride;
+            for (var x = 0; x < width; x++)
+            {
+                var offset = rowOffset + (x * 4);
+                var alpha = source[offset + a];
+
+                destination[offset + a] = alpha;
+
+                if (alpha == 0)
+                {
+                    destination[offset + r] = 0;
+                    destination[offset + g] = 0;
+                    destination[offset + b] = 0;
+                    continue;
+                }
+
+                destination[offset + r] = UnpremultiplyChannel(source[offset + r], alpha);
+                destination[offset + g] = UnpremultiplyChannel(source[offset + g], alpha);
+                destination[offset + b] = UnpremultiplyChannel(source[offset + b], alpha);
+            }
+        }
+
+        return destination;
+    }
+
+    private static (int R, int G, int B, int A) GetChannelIndices(PixelFormat pixelFormat)
+    {
+        if (pixelFormat.Equals(PixelFormat.Bgra8888))
+        {
+            return (2, 1, 0, 3);
+        }
+
+        if (pixelFormat.Equals(PixelFormat.Rgba8888))
+        {
+            return (0, 1, 2, 3);
+        }
+
+        throw new NotSupportedException($"Unsupported pixel format: {pixelFormat}");
+    }
+
+    private static byte UnpremultiplyChannel(byte value, byte alpha)
+    {
+        if (alpha == 0)
+        {
+            return 0;
+        }
+
+        var result = (value * 255 + (alpha / 2)) / alpha;
+        return (byte)Math.Clamp(result, 0, 255);
+    }
+
+    private readonly struct PixelData
+    {
+        public PixelData(byte[] buffer, int stride, RenderFormat format, ImageAlphaMode alphaMode)
+        {
+            Buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
+            Stride = stride;
+            Format = format;
+            AlphaMode = alphaMode;
+        }
+
+        public byte[] Buffer { get; }
+
+        public int Stride { get; }
+
+        public RenderFormat Format { get; }
+
+        public ImageAlphaMode AlphaMode { get; }
+    }
 
     private static unsafe VelloBitmapImpl DecodeFromBytes(byte[] data)
     {

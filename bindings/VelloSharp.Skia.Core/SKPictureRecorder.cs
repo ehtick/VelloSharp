@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using VelloSharp;
 
 namespace SkiaSharp;
@@ -23,7 +24,7 @@ public sealed class SKPictureRecorder : IDisposable
         _commands = new List<ICanvasCommand>();
         _scene = new Scene();
         _cullRect = bounds;
-        _canvas = new SKCanvas(_scene, bounds.Width, bounds.Height, _commands);
+        _canvas = new SKCanvas(_scene, bounds.Width, bounds.Height, ownsScene: true, Matrix3x2.Identity, _commands);
         return _canvas;
     }
 

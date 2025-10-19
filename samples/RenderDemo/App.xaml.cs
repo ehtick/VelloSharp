@@ -51,10 +51,12 @@ namespace RenderDemo
                     CompositionMode = [Win32CompositionMode.LowLatencyDxgiSwapChain]
                 });
             }
+            /*
             if (OperatingSystem.IsLinux())
             {
                 builder.UseX11();
             }
+            */
             if (OperatingSystem.IsMacOS())
             {
                 builder.UseAvaloniaNative();

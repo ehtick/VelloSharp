@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using VelloSharp;
 
 namespace SkiaSharp;
@@ -8,14 +9,16 @@ public sealed class SKSurface : IDisposable
     private readonly Scene _scene;
     private readonly SKCanvas _canvas;
     private readonly GRContext? _context;
+    private readonly bool _ownsScene;
     private bool _disposed;
 
-    private SKSurface(SKImageInfo info, GRContext? context = null)
+    private SKSurface(Scene scene, bool ownsScene, SKImageInfo info, Matrix3x2 initialTransform, GRContext? context = null)
     {
         Info = info;
         _context = context;
-        _scene = new Scene();
-        _canvas = new SKCanvas(_scene, info.Width, info.Height);
+        _scene = scene ?? throw new ArgumentNullException(nameof(scene));
+        _ownsScene = ownsScene;
+        _canvas = new SKCanvas(_scene, info.Width, info.Height, ownsScene, initialTransform);
     }
 
     public SKImageInfo Info { get; }
@@ -38,7 +41,13 @@ public sealed class SKSurface : IDisposable
         }
     }
 
-    public static SKSurface Create(SKImageInfo info) => new(info);
+    public static SKSurface Create(SKImageInfo info) => new(new Scene(), true, info, Matrix3x2.Identity);
+
+    public static SKSurface Create(Scene scene, SKImageInfo info, Matrix3x2 initialTransform)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        return new SKSurface(scene, ownsScene: false, info, initialTransform);
+    }
 
     public static SKSurface Create(SKImageInfo info, SKSurfaceProperties properties)
     {
@@ -51,7 +60,7 @@ public sealed class SKSurface : IDisposable
     {
         ArgumentNullException.ThrowIfNull(context);
         _ = budgeted;
-        return new SKSurface(info, context);
+        return new SKSurface(new Scene(), true, info, Matrix3x2.Identity, context);
     }
 
     public static SKSurface Create(GRContext context, bool budgeted, SKImageInfo info, SKSurfaceProperties properties)
@@ -69,7 +78,7 @@ public sealed class SKSurface : IDisposable
         ArgumentNullException.ThrowIfNull(renderTarget);
         _ = origin;
         var info = new SKImageInfo(renderTarget.Width, renderTarget.Height, colorType, SKAlphaType.Premul);
-        return new SKSurface(info, context);
+        return new SKSurface(new Scene(), true, info, Matrix3x2.Identity, context);
     }
 
     public static SKSurface Create(GRContext context, GRBackendRenderTarget renderTarget, GRSurfaceOrigin origin, SKColorType colorType, SKColorSpace? colorspace)
@@ -83,7 +92,7 @@ public sealed class SKSurface : IDisposable
         _ = props;
         _ = colorspace;
         var info = new SKImageInfo(renderTarget.Width, renderTarget.Height, colorType, SKAlphaType.Premul);
-        return new SKSurface(info, context);
+        return new SKSurface(new Scene(), true, info, Matrix3x2.Identity, context);
     }
 
     public static SKSurface Create(GRContext context, GRBackendTexture texture, GRSurfaceOrigin origin, SKColorType colorType)
@@ -107,7 +116,7 @@ public sealed class SKSurface : IDisposable
         _ = props;
         _ = colorspace;
         var info = new SKImageInfo(texture.Width, texture.Height, colorType, SKAlphaType.Premul);
-        return new SKSurface(info, context);
+        return new SKSurface(new Scene(), true, info, Matrix3x2.Identity, context);
     }
 
     public static SKSurface Create(SKImageInfo info, IntPtr pixels, int rowBytes, SKSurfaceProperties properties)
@@ -118,6 +127,8 @@ public sealed class SKSurface : IDisposable
         ShimNotImplemented.Throw($"{nameof(SKSurface)}.{nameof(Create)}", "CPU surface from pixel buffer");
         return Create(info);
     }
+
+    public bool IsWrappedScene => !_ownsScene;
 
     public SKImage Snapshot()
     {
@@ -174,7 +185,10 @@ public sealed class SKSurface : IDisposable
             return;
         }
 
-        _scene.Dispose();
+        if (_ownsScene)
+        {
+            _scene.Dispose();
+        }
         _disposed = true;
         GC.SuppressFinalize(this);
     }

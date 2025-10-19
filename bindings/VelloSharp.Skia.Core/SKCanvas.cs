@@ -16,17 +16,21 @@ public sealed class SKCanvas : IDisposable
     private readonly Scene _scene;
     private readonly float _width;
     private readonly float _height;
+    private readonly bool _ownsScene;
+    private readonly Matrix3x2 _initialTransform;
     private readonly Stack<CanvasState> _saveStack = new();
     private readonly List<ICanvasCommand>? _commandLog;
 
     private CanvasState _currentState;
     private int _activeLayerDepth;
 
-    internal SKCanvas(Scene scene, float width, float height, List<ICanvasCommand>? commandLog = null)
+    internal SKCanvas(Scene scene, float width, float height, bool ownsScene, Matrix3x2 initialTransform, List<ICanvasCommand>? commandLog = null)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _width = width;
         _height = height;
+        _ownsScene = ownsScene;
+        _initialTransform = initialTransform;
         _commandLog = commandLog;
         ResetState();
     }
@@ -35,7 +39,10 @@ public sealed class SKCanvas : IDisposable
 
     public void Reset()
     {
-        _scene.Reset();
+        if (_ownsScene)
+        {
+            _scene.Reset();
+        }
         ResetState();
     }
 
@@ -106,13 +113,14 @@ public sealed class SKCanvas : IDisposable
 
     public void ResetMatrix()
     {
-        _currentState = _currentState with { Transform = Matrix3x2.Identity };
+        _currentState = _currentState with { Transform = _initialTransform };
         _commandLog?.Add(ResetMatrixCommand.Instance);
     }
 
     public void SetMatrix(SKMatrix matrix)
     {
-        _currentState = _currentState with { Transform = matrix.ToMatrix3x2() };
+        var target = matrix.ToMatrix3x2();
+        _currentState = _currentState with { Transform = _initialTransform * target };
         _commandLog?.Add(new SetMatrixCommand(matrix));
     }
 
@@ -690,15 +698,18 @@ public sealed class SKCanvas : IDisposable
 
         _saveStack.Clear();
         _commandLog?.Clear();
-        _scene.Reset();
-        _currentState = new CanvasState(Matrix3x2.Identity, 0);
+        if (_ownsScene)
+        {
+            _scene.Reset();
+        }
+        _currentState = new CanvasState(_initialTransform, 0);
     }
 
     private void ResetState()
     {
         _saveStack.Clear();
         _activeLayerDepth = 0;
-        _currentState = new CanvasState(Matrix3x2.Identity, 0);
+        _currentState = new CanvasState(_initialTransform, 0);
     }
 
     private void SaveLayerCore(SKRect? rect, SKPaint? paint, bool record)

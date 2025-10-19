@@ -26,10 +26,10 @@
     <PackageReference Include="Avalonia.Diagnostics" />
         <PackageReference Include="Avalonia.Native" />
     <PackageReference Include="Avalonia.Win32" />
-    <PackageReference Include="Avalonia.X11" />
+    <!-- <PackageReference Include="Avalonia.X11" /> -->
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Include="Avalonia.LinuxFramebuffer" />
+    <!-- <PackageReference Include="Avalonia.LinuxFramebuffer" /> -->
   </ItemGroup>
   <ItemGroup>
     <!-- <ProjectReference Include="..\..\src\Avalonia.Diagnostics\Avalonia.Diagnostics.csproj" />
@@ -46,8 +46,8 @@
   <Import Project="..\..\build\ReferenceCoreLibraries.props" />
   <Import Project="..\..\build\BuildTargets.targets" /> -->
     <ItemGroup>
+    <!-- <ProjectReference Include="../../bindings/Avalonia.Skia/Avalonia.Skia.csproj" /> -->
     <ProjectReference Include="../../bindings/VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
-    <ProjectReference Include="../../bindings/Avalonia.Skia/Avalonia.Skia.csproj" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />

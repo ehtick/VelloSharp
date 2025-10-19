@@ -20,6 +20,7 @@
     <ProjectReference Include="../VelloSharp.WebAssembly/VelloSharp.WebAssembly.csproj" />
     <!-- TODO: Remove dependency on VelloSharp.Avalonia.Winit -->
     <ProjectReference Include="../VelloSharp.Avalonia.Winit/VelloSharp.Avalonia.Winit.csproj" />
+    <ProjectReference Include="../VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,6 +9,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Platform;
 using Avalonia.Utilities;
+using Avalonia.Skia;
+using SkiaSharp;
 using VelloSharp;
 using VelloSharp.Avalonia.Vello.Geometry;
 using VelloSharp.Avalonia.Core.Device;
@@ -37,6 +39,9 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private readonly Stack<RenderOptions> _renderOptionsStack = new();
     private bool _skipInitialClip;
     private VelloLeaseFeature? _leaseFeature;
+    private readonly Stack<double> _opacityStack = new();
+    private double _currentOpacity = 1.0;
+    private SkiaLeaseFeature? _skiaLeaseFeature;
     private bool _apiLeaseActive;
     private bool _platformGraphicsLeaseActive;
     private bool _sceneLeased;
@@ -559,8 +564,11 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     public void PushOpacity(double opacity, Rect? bounds)
     {
         _opacityDepth++;
+        _opacityStack.Push(_currentOpacity);
 
         var alpha = (float)Math.Clamp(opacity, 0.0, 1.0);
+        _currentOpacity *= alpha;
+
         if (alpha <= 0f)
         {
             _layerStack.Push(LayerEntry.Noop());
@@ -584,6 +592,15 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     public void PopOpacity()
     {
         PopLayer(ref _opacityDepth);
+
+        if (_opacityStack.Count > 0)
+        {
+            _currentOpacity = _opacityStack.Pop();
+        }
+        else
+        {
+            _currentOpacity = 1.0;
+        }
     }
 
     public void PushOpacityMask(IBrush mask, Rect bounds)
@@ -699,6 +716,12 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             return _leaseFeature;
         }
 
+        if (t == typeof(ISkiaSharpApiLeaseFeature))
+        {
+            _skiaLeaseFeature ??= new SkiaLeaseFeature(this);
+            return _skiaLeaseFeature;
+        }
+
         return null;
     }
 
@@ -741,6 +764,121 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
         _platformGraphicsLeaseActive = true;
         return new VelloPlatformGraphicsLease(this, onLeaseDisposed, resources.Instance, resources.Adapter, resources.Device, resources.Queue, resources.Renderer);
+    }
+
+    private sealed class SkiaLeaseFeature : ISkiaSharpApiLeaseFeature
+    {
+        private readonly VelloDrawingContextImpl _context;
+
+        public SkiaLeaseFeature(VelloDrawingContextImpl context)
+        {
+            _context = context;
+        }
+
+        public ISkiaSharpApiLease Lease()
+        {
+            _context.BeginApiLease();
+            return new ApiLease(_context);
+        }
+
+        private sealed class ApiLease : ISkiaSharpApiLease
+        {
+            private readonly VelloDrawingContextImpl _context;
+            private readonly SKSurface _surface;
+            private readonly Matrix3x2 _finalTransform;
+            private readonly bool _usesHostScene;
+            private bool _disposed;
+
+            public ApiLease(VelloDrawingContextImpl context)
+            {
+                _context = context;
+                var defaultRequest = new SkiaLeaseRequest(
+                    Math.Max(1, context._targetSize.Width),
+                    Math.Max(1, context._targetSize.Height),
+                    Matrix3x2.Identity,
+                    UseHostScene: true);
+
+                var request = SkiaLeaseRequestScope.Current ?? defaultRequest;
+
+                var width = Math.Max(1, request.Width);
+                var height = Math.Max(1, request.Height);
+                var surfaceInfo = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+
+                var localTransform = request.LocalTransform;
+                var contextTransform = ToMatrix3x2(context.Transform);
+                _finalTransform = contextTransform * localTransform;
+
+                if (request.UseHostScene)
+                {
+                    _surface = SKSurface.Create(context.Scene, surfaceInfo, _finalTransform)
+                        ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
+                    _usesHostScene = true;
+                }
+                else
+                {
+                    _surface = SKSurface.Create(surfaceInfo)
+                        ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
+                    _surface.Canvas.Clear(SKColors.Transparent);
+                    _usesHostScene = false;
+                }
+            }
+
+            private void EnsureNotDisposed()
+            {
+                if (_disposed)
+                {
+                    throw new ObjectDisposedException(nameof(ApiLease));
+                }
+            }
+
+            public SKCanvas SkCanvas
+            {
+                get
+                {
+                    EnsureNotDisposed();
+                    return _surface.Canvas;
+                }
+            }
+
+            public GRContext? GrContext => null;
+
+            public SKSurface? SkSurface
+            {
+                get
+                {
+                    EnsureNotDisposed();
+                    return _surface;
+                }
+            }
+
+            public double CurrentOpacity => _context._currentOpacity;
+
+            public ISkiaSharpPlatformGraphicsApiLease? TryLeasePlatformGraphicsApi() => null;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _surface.Canvas.Flush();
+
+                    if (!_usesHostScene)
+                    {
+                        _context.Scene.Append(_surface.Scene, _finalTransform);
+                    }
+                }
+                finally
+                {
+                    _surface.Dispose();
+                    _context.EndApiLease();
+                    _disposed = true;
+                }
+            }
+        }
     }
 
     private sealed class VelloLeaseFeature : IVelloApiLeaseFeature
