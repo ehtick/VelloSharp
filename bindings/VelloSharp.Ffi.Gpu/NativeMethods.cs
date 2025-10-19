@@ -100,6 +100,36 @@ internal static partial class NativeMethods
         VelloPoint point,
         [MarshalAs(UnmanagedType.I1)] out bool contains);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_path_stroke_to_fill")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_path_stroke_to_fill(
+        VelloPathElement* elements,
+        nuint elementCount,
+        VelloStrokeStyle style,
+        double tolerance,
+        out IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_path_boolean_op")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_path_boolean_op(
+        VelloPathElement* pathA,
+        nuint pathACount,
+        VelloPathElement* pathB,
+        nuint pathBCount,
+        VelloFillRule fillRule,
+        VelloPathBooleanOp op,
+        out IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_path_command_list_get_data")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_path_command_list_get_data(
+        IntPtr handle,
+        out VelloPathCommandList data);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_path_command_list_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_path_command_list_destroy(IntPtr handle);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_scene_push_layer")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_scene_push_layer(

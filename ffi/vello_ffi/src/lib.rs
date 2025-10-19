@@ -47,13 +47,15 @@ use skrifa::{
     prelude::LocationRef as SkrifaLocationRef,
     setting::VariationSetting,
 };
+use linesweeper::{BinaryOp as LinesweeperBinaryOp, FillRule as LinesweeperFillRule};
+use kurbo_v11::{BezPath as BezPathV11, PathEl as PathElV11, Point as PointV11};
 use swash::{
     FontRef as SwashFontRef, GlyphId as SwashGlyphId,
     scale::{ScaleContext, outline::Outline},
     zeno::Verb,
 };
 use velato::{self, Composition as VelatoComposition, Renderer as VelatoRenderer};
-use vello::kurbo::{Affine, BezPath, Cap, Join, Point, Rect, Shape, Stroke, Vec2};
+use vello::kurbo::{Affine, BezPath, Cap, Join, PathEl, Point, Rect, Shape, Stroke, StrokeOpts, Vec2};
 use vello::peniko::{
     self, BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
@@ -184,6 +186,15 @@ impl From<VelloFillRule> for Fill {
     }
 }
 
+impl From<VelloFillRule> for LinesweeperFillRule {
+    fn from(value: VelloFillRule) -> Self {
+        match value {
+            VelloFillRule::NonZero => LinesweeperFillRule::NonZero,
+            VelloFillRule::EvenOdd => LinesweeperFillRule::EvenOdd,
+        }
+    }
+}
+
 #[repr(i32)]
 #[derive(Debug, Copy, Clone)]
 pub enum VelloPathVerb {
@@ -205,6 +216,37 @@ pub struct VelloPathElement {
     pub y1: f64,
     pub x2: f64,
     pub y2: f64,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone)]
+pub enum VelloPathBooleanOp {
+    Union = 0,
+    Intersection = 1,
+    Difference = 2,
+    Xor = 3,
+}
+
+impl From<VelloPathBooleanOp> for LinesweeperBinaryOp {
+    fn from(value: VelloPathBooleanOp) -> Self {
+        match value {
+            VelloPathBooleanOp::Union => LinesweeperBinaryOp::Union,
+            VelloPathBooleanOp::Intersection => LinesweeperBinaryOp::Intersection,
+            VelloPathBooleanOp::Difference => LinesweeperBinaryOp::Difference,
+            VelloPathBooleanOp::Xor => LinesweeperBinaryOp::Xor,
+        }
+    }
+}
+
+pub struct VelloPathCommandListHandle {
+    commands: Box<[VelloPathElement]>,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloPathCommandList {
+    pub commands: *const VelloPathElement,
+    pub command_count: usize,
 }
 
 #[repr(C)]
@@ -573,6 +615,57 @@ fn build_bez_path(elements: &[VelloPathElement]) -> Result<BezPath, &'static str
     Ok(path)
 }
 
+fn build_bez_path_v11(elements: &[VelloPathElement]) -> Result<BezPathV11, &'static str> {
+    if elements.is_empty() {
+        return Err("path is empty");
+    }
+    let mut path = BezPathV11::with_capacity(elements.len());
+    let mut has_move = false;
+    for (idx, elem) in elements.iter().enumerate() {
+        match elem.verb {
+            VelloPathVerb::MoveTo => {
+                path.move_to(PointV11::new(elem.x0, elem.y0));
+                has_move = true;
+            }
+            VelloPathVerb::LineTo => {
+                if !has_move {
+                    return Err("path must start with MoveTo");
+                }
+                path.line_to(PointV11::new(elem.x0, elem.y0));
+            }
+            VelloPathVerb::QuadTo => {
+                if !has_move {
+                    return Err("path must start with MoveTo");
+                }
+                path.quad_to(
+                    PointV11::new(elem.x0, elem.y0),
+                    PointV11::new(elem.x1, elem.y1),
+                );
+            }
+            VelloPathVerb::CubicTo => {
+                if !has_move {
+                    return Err("path must start with MoveTo");
+                }
+                path.curve_to(
+                    PointV11::new(elem.x0, elem.y0),
+                    PointV11::new(elem.x1, elem.y1),
+                    PointV11::new(elem.x2, elem.y2),
+                );
+            }
+            VelloPathVerb::Close => {
+                if idx == 0 {
+                    return Err("path cannot begin with Close");
+                }
+                path.close_path();
+            }
+        }
+    }
+    if !has_move {
+        return Err("path must contain a MoveTo");
+    }
+    Ok(path)
+}
+
 fn push_path_element(
     path: &mut BezPath,
     elem: &VelloPathElement,
@@ -609,6 +702,158 @@ fn push_path_element(
         }
     }
     Ok(())
+}
+
+fn vello_path_element_from_path_el(element: PathEl) -> VelloPathElement {
+    match element {
+        PathEl::MoveTo(p0) => VelloPathElement {
+            verb: VelloPathVerb::MoveTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        },
+        PathEl::LineTo(p0) => VelloPathElement {
+            verb: VelloPathVerb::LineTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        },
+        PathEl::QuadTo(p0, p1) => VelloPathElement {
+            verb: VelloPathVerb::QuadTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: p1.x,
+            y1: p1.y,
+            x2: 0.0,
+            y2: 0.0,
+        },
+        PathEl::CurveTo(p0, p1, p2) => VelloPathElement {
+            verb: VelloPathVerb::CubicTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y,
+        },
+        PathEl::ClosePath => VelloPathElement {
+            verb: VelloPathVerb::Close,
+            _padding: 0,
+            x0: 0.0,
+            y0: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        },
+    }
+}
+
+fn append_bez_path_elements(dest: &mut Vec<VelloPathElement>, path: &BezPath) {
+    let elements = path.elements();
+    for element in elements {
+        dest.push(vello_path_element_from_path_el(*element));
+    }
+    if let Some(last) = elements.last() {
+        if !matches!(last, PathEl::ClosePath) {
+            dest.push(VelloPathElement {
+                verb: VelloPathVerb::Close,
+                _padding: 0,
+                x0: 0.0,
+                y0: 0.0,
+                x1: 0.0,
+                y1: 0.0,
+                x2: 0.0,
+                y2: 0.0,
+            });
+        }
+    }
+}
+
+fn vello_path_element_from_path_el_v11(element: PathElV11) -> VelloPathElement {
+    match element {
+        PathElV11::MoveTo(p0) => VelloPathElement {
+            verb: VelloPathVerb::MoveTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        },
+        PathElV11::LineTo(p0) => VelloPathElement {
+            verb: VelloPathVerb::LineTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        },
+        PathElV11::QuadTo(p0, p1) => VelloPathElement {
+            verb: VelloPathVerb::QuadTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: p1.x,
+            y1: p1.y,
+            x2: 0.0,
+            y2: 0.0,
+        },
+        PathElV11::CurveTo(p0, p1, p2) => VelloPathElement {
+            verb: VelloPathVerb::CubicTo,
+            _padding: 0,
+            x0: p0.x,
+            y0: p0.y,
+            x1: p1.x,
+            y1: p1.y,
+            x2: p2.x,
+            y2: p2.y,
+        },
+        PathElV11::ClosePath => VelloPathElement {
+            verb: VelloPathVerb::Close,
+            _padding: 0,
+            x0: 0.0,
+            y0: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        },
+    }
+}
+
+fn append_bez_path_elements_v11(dest: &mut Vec<VelloPathElement>, path: &BezPathV11) {
+    let elements = path.elements();
+    for element in elements {
+        dest.push(vello_path_element_from_path_el_v11(*element));
+    }
+    if let Some(last) = elements.last() {
+        if !matches!(last, PathElV11::ClosePath) {
+            dest.push(VelloPathElement {
+                verb: VelloPathVerb::Close,
+                _padding: 0,
+                x0: 0.0,
+                y0: 0.0,
+                x1: 0.0,
+                y1: 0.0,
+                x2: 0.0,
+                y2: 0.0,
+            });
+        }
+    }
 }
 
 fn outline_to_path_elements(outline: &Outline) -> Vec<VelloPathElement> {
@@ -1068,6 +1313,160 @@ impl VelloStrokeStyle {
             stroke = stroke.with_dashes(self.dash_phase, dashes.to_vec());
         }
         Ok(stroke)
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_path_stroke_to_fill(
+    elements: *const VelloPathElement,
+    element_count: usize,
+    style: VelloStrokeStyle,
+    tolerance: f64,
+    out_handle: *mut *mut VelloPathCommandListHandle,
+) -> VelloStatus {
+    if out_handle.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    clear_last_error();
+
+    let elements_slice = match unsafe { slice_from_raw(elements, element_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+
+    let path = match build_bez_path(elements_slice) {
+        Ok(path) => path,
+        Err(err) => {
+            set_last_error(err);
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let stroke = match style.to_stroke() {
+        Ok(stroke) => stroke,
+        Err(status) => return status,
+    };
+
+    let stroke_opts = StrokeOpts::default();
+    let stroked = vello::kurbo::stroke(
+        path.elements().iter().copied(),
+        &stroke,
+        &stroke_opts,
+        tolerance,
+    );
+
+    let mut commands = Vec::new();
+    append_bez_path_elements(&mut commands, &stroked);
+
+    let handle = VelloPathCommandListHandle {
+        commands: commands.into_boxed_slice(),
+    };
+
+    unsafe {
+        *out_handle = Box::into_raw(Box::new(handle));
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_path_boolean_op(
+    path_a: *const VelloPathElement,
+    path_a_count: usize,
+    path_b: *const VelloPathElement,
+    path_b_count: usize,
+    fill_rule: VelloFillRule,
+    op: VelloPathBooleanOp,
+    out_handle: *mut *mut VelloPathCommandListHandle,
+) -> VelloStatus {
+    if out_handle.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    clear_last_error();
+
+    let slice_a = match unsafe { slice_from_raw(path_a, path_a_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+    let slice_b = match unsafe { slice_from_raw(path_b, path_b_count) } {
+        Ok(slice) => slice,
+        Err(status) => return status,
+    };
+
+    let path_a = match build_bez_path_v11(slice_a) {
+        Ok(path) => path,
+        Err(err) => {
+            set_last_error(err);
+            return VelloStatus::InvalidArgument;
+        }
+    };
+    let path_b = match build_bez_path_v11(slice_b) {
+        Ok(path) => path,
+        Err(err) => {
+            set_last_error(err);
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let ls_fill_rule: LinesweeperFillRule = fill_rule.into();
+    let ls_op: LinesweeperBinaryOp = op.into();
+
+    let contours = match linesweeper::binary_op(&path_a, &path_b, ls_fill_rule, ls_op) {
+        Ok(result) => result,
+        Err(err) => {
+            set_last_error(err.to_string());
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let mut commands = Vec::new();
+    let groups = contours.grouped();
+    for group in groups {
+        for contour_idx in group {
+            let contour = &contours[contour_idx];
+            append_bez_path_elements_v11(&mut commands, &contour.path);
+        }
+    }
+
+    let handle = VelloPathCommandListHandle {
+        commands: commands.into_boxed_slice(),
+    };
+
+    unsafe {
+        *out_handle = Box::into_raw(Box::new(handle));
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_path_command_list_get_data(
+    handle: *const VelloPathCommandListHandle,
+    out_data: *mut VelloPathCommandList,
+) -> VelloStatus {
+    if handle.is_null() || out_data.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let handle_ref = unsafe { &*handle };
+    unsafe {
+        *out_data = VelloPathCommandList {
+            commands: handle_ref.commands.as_ptr(),
+            command_count: handle_ref.commands.len(),
+        };
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_path_command_list_destroy(
+    handle: *mut VelloPathCommandListHandle,
+) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
     }
 }
 

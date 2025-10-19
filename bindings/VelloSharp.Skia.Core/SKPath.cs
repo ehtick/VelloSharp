@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using VelloSharp;
+using SkiaSharpShim;
 
 namespace SkiaSharp;
 
@@ -783,11 +784,49 @@ public sealed class SKPath : IDisposable
 
     public Iterator CreateIterator() => CreateIterator(false);
 
-    public SKPath Op(SKPath other, SKPathOp operation)
+    public bool Op(SKPath other, SKPathOp operation, SKPath result)
     {
         ArgumentNullException.ThrowIfNull(other);
-        ShimNotImplemented.Throw($"{nameof(SKPath)}.{nameof(Op)}", operation.ToString());
-        return Clone();
+        ArgumentNullException.ThrowIfNull(result);
+
+        var clipBounds = ComputeClipBounds(this, other);
+        using var left = NormalizeOperandForOp(this, clipBounds);
+        using var right = NormalizeOperandForOp(other, clipBounds);
+
+        if (!PathOps.TryCompute(left, right, operation, out var computed) || computed is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            result.Reset();
+            result.FillType = computed.FillType;
+            result.AddPath(computed);
+            return !result.IsEmpty;
+        }
+        finally
+        {
+            if (!ReferenceEquals(result, computed))
+            {
+                computed.Dispose();
+            }
+        }
+    }
+
+    public SKPath? Op(SKPath other, SKPathOp operation)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        var clipBounds = ComputeClipBounds(this, other);
+        using var left = NormalizeOperandForOp(this, clipBounds);
+        using var right = NormalizeOperandForOp(other, clipBounds);
+
+        if (!PathOps.TryCompute(left, right, operation, out var result))
+        {
+            return null;
+        }
+
+        return result;
     }
 
     internal PathBuilder ToPathBuilder()
@@ -978,6 +1017,77 @@ public sealed class SKPath : IDisposable
     {
         var vector = Vector2.Transform(point.ToVector2(), transform);
         return new SKPoint(vector.X, vector.Y);
+    }
+
+    private static SKRect ComputeClipBounds(SKPath first, SKPath second)
+    {
+        var bounds = first.TightBounds;
+        bounds.Union(second.TightBounds);
+
+        if (bounds.IsEmpty)
+        {
+            bounds = SKRect.Create(-1024f, -1024f, 2048f, 2048f);
+        }
+
+        var padding = MathF.Max(MathF.Max(bounds.Width, bounds.Height), 1f) * 4f + 32f;
+        bounds.Inflate(padding, padding);
+        return bounds;
+    }
+
+    private static SKPath NormalizeOperandForOp(SKPath source, SKRect clipBounds)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        var originalFill = source.FillType;
+        var normalizedFill = NormalizeFillType(originalFill);
+        var clone = new SKPath(source)
+        {
+            FillType = normalizedFill,
+        };
+
+        if (!PathOps.HasInverseFill(originalFill))
+        {
+            return clone;
+        }
+
+        var boundsPath = CreateBoundsPath(clipBounds);
+        try
+        {
+            var complement = PathOps.Compute(boundsPath, clone, SKPathOp.Difference);
+            clone.Dispose();
+
+            if (complement is null)
+            {
+                return new SKPath
+                {
+                    FillType = SKPathFillType.Winding,
+                };
+            }
+
+            complement.FillType = SKPathFillType.Winding;
+            return complement;
+        }
+        finally
+        {
+            boundsPath.Dispose();
+        }
+    }
+
+    private static SKPathFillType NormalizeFillType(SKPathFillType fillType) => fillType switch
+    {
+        SKPathFillType.InverseEvenOdd => SKPathFillType.EvenOdd,
+        SKPathFillType.InverseWinding => SKPathFillType.Winding,
+        _ => fillType,
+    };
+
+    private static SKPath CreateBoundsPath(SKRect rect)
+    {
+        var path = new SKPath
+        {
+            FillType = SKPathFillType.Winding,
+        };
+        path.AddRect(rect);
+        return path;
     }
 
     private static double DegreesToRadians(double degrees) => degrees * (Math.PI / 180.0);

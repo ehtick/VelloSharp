@@ -31,6 +31,8 @@ png = "0.17"
 once_cell = "1.19"
 read-fonts = { workspace = true }
 image = { version = "0.24", default-features = false, features = ["ico", "png"] }
+linesweeper = "0.1"
+kurbo_v11 = { package = "kurbo", version = "0.11", default-features = true }
 
 [features]
 default = []

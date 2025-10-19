@@ -359,6 +359,14 @@ internal enum VelloPathVerb : int
     Close = 4,
 }
 
+internal enum VelloPathBooleanOp : int
+{
+    Union = 0,
+    Intersection = 1,
+    Difference = 2,
+    Xor = 3,
+}
+
 internal enum VelloLineCap : int
 {
     Butt = 0,
@@ -500,6 +508,13 @@ internal struct VelloPathElement
     public double Y1;
     public double X2;
     public double Y2;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloPathCommandList
+{
+    public IntPtr Commands;
+    public nuint CommandCount;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -1428,4 +1443,3 @@ internal struct VelloGlyphRunOptions
     public float BrushAlpha;
     public VelloStrokeStyle StrokeStyle;
 }
-

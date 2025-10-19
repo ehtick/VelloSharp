@@ -1,4 +1,5 @@
 using System;
+using SkiaSharpShim;
 using VelloSharp;
 
 namespace SkiaSharp;
@@ -87,9 +88,82 @@ public sealed class SKPaint : IDisposable
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
-        ShimNotImplemented.Throw($"{nameof(SKPaint)}.{nameof(GetFillPath)}");
+        ThrowIfDisposed();
+
         destination.Reset();
-        return false;
+
+        SKPath? fillPath = null;
+        SKPath? strokePath = null;
+        SKPath? combinedPath = null;
+
+        try
+        {
+            if (Style != SKPaintStyle.Stroke)
+            {
+                fillPath = new SKPath(source)
+                {
+                    FillType = source.FillType,
+                };
+            }
+
+            if (Style != SKPaintStyle.Fill && StrokeWidth > 0f)
+            {
+                strokePath = ComputeStrokePath(source) ?? new SKPath(source)
+                {
+                    FillType = SKPathFillType.Winding,
+                };
+            }
+
+            if (Style == SKPaintStyle.Fill)
+            {
+                combinedPath = fillPath;
+            }
+            else if (Style == SKPaintStyle.Stroke)
+            {
+                combinedPath = strokePath;
+            }
+            else
+            {
+                if (fillPath is not null && strokePath is not null)
+                {
+                    combinedPath = PathOps.Compute(fillPath, strokePath, SKPathOp.Union);
+                    if (combinedPath is null)
+                    {
+                        combinedPath = new SKPath(fillPath)
+                        {
+                            FillType = SKPathFillType.Winding,
+                        };
+                        combinedPath.AddPath(strokePath);
+                    }
+                }
+                else
+                {
+                    combinedPath = fillPath ?? strokePath;
+                }
+            }
+
+            if (combinedPath is null)
+            {
+                return false;
+            }
+
+            destination.FillType = combinedPath.FillType;
+            destination.AddPath(combinedPath);
+
+            var success = !destination.IsEmpty;
+
+            if (combinedPath != fillPath && combinedPath != strokePath)
+            {
+                combinedPath.Dispose();
+            }
+
+            return success;
+        }
+        finally
+        {
+            fillPath?.Dispose();
+            strokePath?.Dispose();
+        }
     }
 
     internal void ThrowIfDisposed()
@@ -129,6 +203,80 @@ public sealed class SKPaint : IDisposable
             EndCap = ToLineCap(StrokeCap),
             LineJoin = ToLineJoin(StrokeJoin),
         };
+    }
+
+    private SKPath? ComputeStrokePath(SKPath source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        var builder = source.ToPathBuilder();
+        using var nativeElements = VelloSharp.NativePathElements.Rent(builder);
+        var span = nativeElements.Span;
+        if (span.IsEmpty)
+        {
+            return null;
+        }
+
+        var stroke = CreateStrokeStyle();
+
+        IntPtr handle = IntPtr.Zero;
+        try
+        {
+            unsafe
+            {
+                fixed (VelloSharp.VelloPathElement* elementPtr = span)
+                {
+                    VelloStatus status;
+
+                    if (stroke.DashPattern is { Length: > 0 } pattern)
+                    {
+                        fixed (double* dashPtr = pattern)
+                        {
+                            var nativeStyle = StrokeInterop.Create(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
+                            status = NativeMethods.vello_path_stroke_to_fill(
+                                elementPtr,
+                                (nuint)span.Length,
+                                nativeStyle,
+                                0.25,
+                                out handle);
+                        }
+                    }
+                    else
+                    {
+                        var nativeStyle = StrokeInterop.Create(stroke, IntPtr.Zero, 0);
+                        status = NativeMethods.vello_path_stroke_to_fill(
+                            elementPtr,
+                            (nuint)span.Length,
+                            nativeStyle,
+                            0.25,
+                            out handle);
+                    }
+
+                    if (status != VelloStatus.Success || handle == IntPtr.Zero)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            var path = PathOps.CreatePathFromCommandList(handle, SKPathFillType.Winding);
+            return path;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return null;
+        }
+        catch (DllNotFoundException)
+        {
+            return null;
+        }
+        finally
+        {
+            if (handle != IntPtr.Zero)
+            {
+                NativeMethods.vello_path_command_list_destroy(handle);
+            }
+        }
     }
 
     private static LineCap ToLineCap(SKStrokeCap cap) => cap switch
