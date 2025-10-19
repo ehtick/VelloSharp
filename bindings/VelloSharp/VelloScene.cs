@@ -335,6 +335,25 @@ public sealed class Scene : IDisposable
         NativeHelpers.ThrowOnError(status, "DrawImage failed");
     }
 
+    public void Append(Scene source) => Append(source, Matrix3x2.Identity);
+
+    public void Append(Scene source, Matrix3x2 transform)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (ReferenceEquals(this, source))
+        {
+            throw new InvalidOperationException("Cannot append a scene to itself.");
+        }
+
+        var status = NativeMethods.vello_scene_append_scene(
+            _handle,
+            source.Handle,
+            transform.ToNativeAffine());
+        NativeHelpers.ThrowOnError(status, "Append scene failed");
+    }
+
     public void DrawGlyphRun(Font font, ReadOnlySpan<Glyph> glyphs, GlyphRunOptions options)
     {
         ThrowIfDisposed();

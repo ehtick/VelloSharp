@@ -26,7 +26,7 @@ use harfrust::{
     Direction as HrDirection, FontRef as HrFontRef, ShaperData as HrShaperData,
     UnicodeBuffer as HrUnicodeBuffer,
 };
-use image::{codecs::ico::IcoDecoder, ColorType as ImageColorType, ImageDecoder};
+use image::{ColorType as ImageColorType, ImageDecoder, codecs::ico::IcoDecoder};
 use once_cell::sync::Lazy;
 use parley::FontContext;
 use png::{BitDepth, ColorType, Compression, Decoder, Encoder};
@@ -4867,6 +4867,30 @@ pub unsafe extern "C" fn vello_scene_draw_image(
         Err(status) => return status,
     };
     scene.inner.draw_image(brush.as_ref(), transform.into());
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_scene_append_scene(
+    scene: *mut VelloSceneHandle,
+    source: *const VelloSceneHandle,
+    transform: VelloAffine,
+) -> VelloStatus {
+    clear_last_error();
+
+    if scene.is_null() || source.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    if std::ptr::eq(scene, source as *mut VelloSceneHandle) {
+        set_last_error("Cannot append a scene to itself");
+        return VelloStatus::InvalidArgument;
+    }
+
+    let scene = unsafe { &mut *scene };
+    let source = unsafe { &*source };
+
+    scene.inner.append(&source.inner, Some(transform.into()));
     VelloStatus::Success
 }
 
