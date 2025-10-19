@@ -178,6 +178,13 @@ internal static partial class NativeMethods
         VelloImageBrushParams brush,
         VelloAffine transform);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_scene_append_scene")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_scene_append_scene(
+        IntPtr scene,
+        IntPtr source,
+        VelloAffine transform);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_blob_get_data")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_blob_get_data(IntPtr blob, out VelloBlobDataNative data);
