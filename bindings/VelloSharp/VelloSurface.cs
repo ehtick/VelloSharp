@@ -181,6 +181,8 @@ public readonly struct SurfaceHandle
 
     internal VelloWindowHandle ToNative() => _handle;
 
+    public VelloWindowHandleKind Kind => _handle.Kind;
+
     public static SurfaceHandle Headless => new(new VelloWindowHandle
     {
         Kind = VelloWindowHandleKind.Headless,

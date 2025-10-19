@@ -478,7 +478,8 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
                     timestamp,
                     delta,
                     frameId,
-                    isAnimationFrame);
+                    isAnimationFrame,
+                    _swapChain.SurfaceHandle);
                 OnRenderSurface(surfaceArgs);
                 renderParamsToUse = surfaceArgs.RenderParams;
                 if (!surfaceArgs.Handled)
@@ -849,7 +850,6 @@ public class VelloRenderControl : Control, IWindowsSurfaceSource
         }
     }
 }
-
 
 
 

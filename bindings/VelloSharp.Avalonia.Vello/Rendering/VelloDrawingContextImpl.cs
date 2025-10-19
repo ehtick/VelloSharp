@@ -26,6 +26,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     private readonly VelloPlatformOptions _options;
     private readonly bool _supportsWgpuSurfaceCallbacks;
     private readonly WgpuGraphicsDeviceProvider? _graphicsDeviceProvider;
+    private readonly Func<SurfaceHandle>? _surfaceHandleFactory;
     private bool _disposed;
     private readonly Stack<Matrix> _transformStack = new();
     private readonly Stack<LayerEntry> _layerStack = new();
@@ -61,6 +62,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     };
     private static readonly PropertyInfo? s_imageBrushBitmapProperty =
         typeof(IImageBrushSource).GetProperty("Bitmap", BindingFlags.Instance | BindingFlags.NonPublic);
+    private static readonly GRContext s_gpuContext = GRContext.CreateGl();
 
     public VelloDrawingContextImpl(
         Scene scene,
@@ -69,7 +71,8 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         Action<VelloDrawingContextImpl> onCompleted,
         bool skipInitialClip = false,
         bool supportsWgpuSurfaceCallbacks = false,
-        WgpuGraphicsDeviceProvider? graphicsDeviceProvider = null)
+        WgpuGraphicsDeviceProvider? graphicsDeviceProvider = null,
+        Func<SurfaceHandle>? surfaceHandleFactory = null)
     {
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _targetSize = targetSize;
@@ -78,6 +81,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         _skipInitialClip = skipInitialClip;
         _graphicsDeviceProvider = graphicsDeviceProvider;
         _supportsWgpuSurfaceCallbacks = supportsWgpuSurfaceCallbacks && graphicsDeviceProvider is not null;
+        _surfaceHandleFactory = surfaceHandleFactory;
         Transform = Matrix.Identity;
         RenderParams = new RenderParams((uint)Math.Max(1, targetSize.Width), (uint)Math.Max(1, targetSize.Height), options.ClearColor)
         {
@@ -114,6 +118,26 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
         var callbacks = _wgpuSurfaceCallbacks;
         _wgpuSurfaceCallbacks = null;
         return callbacks;
+    }
+
+    internal bool TryGetSurfaceHandle(out SurfaceHandle handle)
+    {
+        if (_surfaceHandleFactory is null)
+        {
+            handle = default;
+            return false;
+        }
+
+        try
+        {
+            handle = _surfaceHandleFactory();
+            return true;
+        }
+        catch
+        {
+            handle = default;
+            return false;
+        }
     }
 
     internal SceneLease LeaseScene()
@@ -792,6 +816,7 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             private bool _disposed;
             private IVelloPlatformGraphicsLease? _platformLease;
             private bool _surfaceReleasedToCallback;
+            private static readonly SKSurfaceProperties s_defaultSurfaceProperties = new(SKPixelGeometry.Unknown);
 
             public ApiLease(VelloDrawingContextImpl context)
             {
@@ -829,7 +854,13 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
 
                 if (request.UseHostScene)
                 {
-                    if (_usesGpu)
+                    if (_usesGpu && TryCreateGpuSurface(surfaceInfo, out var gpuSurface))
+                    {
+                        _surface = gpuSurface;
+                        _surface.Canvas.Clear(SKColors.Transparent);
+                        _usesHostScene = false;
+                    }
+                    else if (_usesGpu)
                     {
                         _surface = SKSurface.Create(surfaceInfo)
                             ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
@@ -845,8 +876,13 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                 }
                 else
                 {
-                    _surface = SKSurface.Create(surfaceInfo)
-                        ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
+                    if (!_usesGpu || !TryCreateGpuSurface(surfaceInfo, out var gpuSurface))
+                    {
+                        gpuSurface = SKSurface.Create(surfaceInfo)
+                            ?? throw new InvalidOperationException("Unable to allocate Skia surface for the lease.");
+                    }
+
+                    _surface = gpuSurface;
                     _surface.Canvas.Clear(SKColors.Transparent);
                     _usesHostScene = false;
                 }
@@ -865,6 +901,27 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                 if (_disposed)
                 {
                     throw new ObjectDisposedException(nameof(ApiLease));
+                }
+            }
+
+            private bool TryCreateGpuSurface(SKImageInfo surfaceInfo, out SKSurface surface)
+            {
+                surface = null!;
+                if (!_context.TryGetSurfaceHandle(out var handle))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    var sampleCount = ResolveSampleCount(_context.RenderParams.Antialiasing);
+                    surface = SKSurface.Create(s_gpuContext, surfaceInfo, handle, sampleCount, s_defaultSurfaceProperties);
+                    return true;
+                }
+                catch
+                {
+                    surface = null!;
+                    return false;
                 }
             }
 
@@ -957,6 +1014,13 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
                     _disposed = true;
                 }
             }
+
+            private static int ResolveSampleCount(AntialiasingMode mode) => mode switch
+            {
+                AntialiasingMode.Msaa16 => 16,
+                AntialiasingMode.Msaa8 => 8,
+                _ => 1,
+            };
         }
     }
 

@@ -11,7 +11,7 @@ namespace VelloSharp.Windows.Core.Tests.Helpers;
 /// <summary>
 /// Test host implementation used by unit tests to exercise <see cref="VelloSwapChainPresenter"/> without WinUI dependencies.
 /// </summary>
-internal sealed class TestSwapChainPresenterHost : IVelloSwapChainPresenterHost
+internal sealed class TestSwapChainPresenterHost : IVelloSwapChainPresenterHost, IVelloSurfaceRenderCallback
 {
     public IVelloWindowsDispatcher? Dispatcher { get; set; }
 
@@ -37,6 +37,8 @@ internal sealed class TestSwapChainPresenterHost : IVelloSwapChainPresenterHost
 
     public int RenderSurfaceCount { get; private set; }
 
+    public int AdvancedRenderSurfaceCount { get; private set; }
+
     public int DiagnosticsUpdatedCount { get; private set; }
 
     public void ApplySkiaOptOut()
@@ -51,6 +53,9 @@ internal sealed class TestSwapChainPresenterHost : IVelloSwapChainPresenterHost
 
     public void OnRenderSurface(VelloSwapChainRenderEventArgs args)
         => RenderSurfaceCount++;
+
+    public void OnRenderSurface(VelloSurfaceRenderEventArgs args)
+        => AdvancedRenderSurfaceCount++;
 
     public void OnContentInvalidated()
         => ContentInvalidatedCount++;

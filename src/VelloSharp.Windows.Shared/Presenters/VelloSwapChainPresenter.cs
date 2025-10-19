@@ -29,6 +29,11 @@ public interface IVelloSwapChainPresenterHost
     void RemoveSkiaOptOut();
 }
 
+public interface IVelloSurfaceRenderCallback
+{
+    void OnRenderSurface(VelloSurfaceRenderEventArgs args);
+}
+
 public sealed class VelloSwapChainPresenter : IDisposable
 {
     internal static Func<VelloGraphicsDeviceOptions, WindowsGpuContextLease?> AcquireContext { get; set; } = WindowsGpuContext.Acquire;
@@ -789,12 +794,37 @@ public sealed class VelloSwapChainPresenter : IDisposable
                 options.GetAntialiasingMode(),
                 options.Format);
 
-            lease.Context.Renderer.RenderSurface(session.Scene, view, renderParams, surface.Format);
+            var adjustedParams = renderParams;
+            if (_host is IVelloSurfaceRenderCallback callback)
+            {
+                var surfaceArgs = new VelloSurfaceRenderEventArgs(
+                    lease,
+                    session.Scene,
+                    view,
+                    surface.Format,
+                    renderParams,
+                    pixelSize,
+                    timestamp,
+                    delta,
+                    frameId,
+                    _host.IsContinuousRendering,
+                    surface.SurfaceHandle);
+                callback.OnRenderSurface(surfaceArgs);
+                adjustedParams = surfaceArgs.RenderParams;
+                if (!surfaceArgs.Handled)
+                {
+                    lease.Context.Renderer.RenderSurface(session.Scene, view, adjustedParams, surface.Format);
+                }
+            }
+            else
+            {
+                lease.Context.Renderer.RenderSurface(session.Scene, view, adjustedParams, surface.Format);
+            }
             texture.Present();
             lease.Context.RecordPresentation();
             session.Complete();
 
-            renderArgs = new VelloSwapChainRenderEventArgs(lease, surface, pixelSize, timestamp, delta, frameId);
+            renderArgs = new VelloSwapChainRenderEventArgs(lease, surface, pixelSize, adjustedParams, timestamp, delta, frameId);
             return true;
         }
         catch (DllNotFoundException ex)

@@ -94,7 +94,8 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
             OnContextCompleted,
             skipInitialClip: !properties.PreviousFrameIsRetained,
             supportsWgpuSurfaceCallbacks: true,
-            graphicsDeviceProvider: _graphicsDevice);
+            graphicsDeviceProvider: _graphicsDevice,
+            surfaceHandleFactory: () => _surfaceProvider.CreateSurfaceHandle());
     }
 
     public void Dispose()

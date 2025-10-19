@@ -7,16 +7,18 @@ public sealed class WindowsSwapChainSurface : IDisposable
 {
     private readonly WindowsGpuContext _context;
     private readonly WgpuSurface _surface;
+    private readonly SurfaceHandle _surfaceHandle;
     private readonly WgpuTextureFormat _format;
     private readonly PresentMode _presentMode;
     private uint _width;
     private uint _height;
     private bool _disposed;
 
-    internal WindowsSwapChainSurface(WindowsGpuContext context, WgpuSurface surface, WgpuTextureFormat format, PresentMode presentMode, uint width, uint height)
+    internal WindowsSwapChainSurface(WindowsGpuContext context, WgpuSurface surface, SurfaceHandle surfaceHandle, WgpuTextureFormat format, PresentMode presentMode, uint width, uint height)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _surface = surface ?? throw new ArgumentNullException(nameof(surface));
+        _surfaceHandle = surfaceHandle;
         _format = format;
         _presentMode = presentMode;
         Configure(width, height);
@@ -29,6 +31,8 @@ public sealed class WindowsSwapChainSurface : IDisposable
     public uint Width => _width;
 
     public uint Height => _height;
+
+    public SurfaceHandle SurfaceHandle => _surfaceHandle;
 
     public void Configure(uint width, uint height)
     {

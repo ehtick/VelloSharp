@@ -36,8 +36,11 @@ public static class WindowsSurfaceFactory
             return current;
         }
 
-        if (current is null)
+        var targetHandle = descriptor.ToSurfaceHandle();
+
+        if (current is null || !current.SurfaceHandle.Equals(targetHandle))
         {
+            current?.Dispose();
             var created = lease.Context.CreateSwapChainSurface(descriptor, size.Width, size.Height);
             source.OnSwapChainCreated(created);
             return created;

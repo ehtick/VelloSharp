@@ -41,7 +41,7 @@ using XamlSolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
 
 namespace VelloSharp.Uwp.Controls;
 
-public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwapChainPresenterHost, IVelloDiagnosticsProvider
+public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwapChainPresenterHost, IVelloSurfaceRenderCallback, IVelloDiagnosticsProvider
 {
     public static readonly DependencyProperty DeviceOptionsProperty = DependencyProperty.Register(
         nameof(DeviceOptions),
@@ -95,6 +95,7 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
 
     public event EventHandler<VelloPaintSurfaceEventArgs>? PaintSurface;
 
+    public event EventHandler<VelloSurfaceRenderEventArgs>? RenderSurfaceSkia;
     public event EventHandler<VelloSwapChainRenderEventArgs>? RenderSurface;
 
     public event EventHandler? ContentInvalidated;
@@ -575,6 +576,9 @@ public sealed class VelloSwapChainPanel : SwapChainPanel, IDisposable, IVelloSwa
 
     void IVelloSwapChainPresenterHost.OnRenderSurface(VelloSwapChainRenderEventArgs args)
         => RenderSurface?.Invoke(this, args);
+
+    void IVelloSurfaceRenderCallback.OnRenderSurface(VelloSurfaceRenderEventArgs args)
+        => RenderSurfaceSkia?.Invoke(this, args);
 
     void IVelloSwapChainPresenterHost.OnContentInvalidated()
         => ContentInvalidated?.Invoke(this, EventArgs.Empty);

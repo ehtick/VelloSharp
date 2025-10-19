@@ -45,6 +45,7 @@
 - [x] Expand GPU resource pooling beyond swapchain textures (pipeline caches, staging/upload buffers, glyph atlases) and surface utilization metrics (pool hits/misses, memory usage).
 - [x] Implement GPU resource lifetime tracking (textures, staging buffers) to avoid per-frame allocation storms; reuse pooling patterns from Avalonia integration if available.
 - [x] Add diagnostic hooks (ETW/logging) to trace frame time, queue submission, and surface present.
+- [x] Expose the shared `SurfaceHandle` through `VelloRenderControl` render events so WinForms presenters can hand GPU swapchains to shims without additional interop.
 
 #### Phase 2 Status (2025-10-04)
 
@@ -175,8 +176,6 @@
 - Do we need to support multiple renderer instances per process with shared GPU resources?
 - What is the expected story for printing or bitmap export � reuse existing `Renderer.Render` to BGRA buffer or integrate with WinForms printing pipeline?
 - How do we align release cadence with `VelloSharp.Skia` packages (joint versioning or independent)?
-
-
 
 
 

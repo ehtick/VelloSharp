@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using SkiaSharp.IO;
 using VelloSharp;
@@ -296,13 +297,13 @@ public sealed class SKImage : IDisposable
 
     public static SKImage FromPixels(SKImageInfo info, ReadOnlySpan<byte> pixels, int rowBytes)
     {
-        var format = info.ColorType switch
+        if (rowBytes <= 0)
         {
-            SKColorType.Bgra8888 => RenderFormat.Bgra8,
-            SKColorType.Rgba8888 => RenderFormat.Rgba8,
-            _ => throw new NotSupportedException($"Unsupported colour type '{info.ColorType}'."),
-        };
+            rowBytes = info.RowBytes;
+        }
 
+        var workingRowBytes = rowBytes;
+        var format = ResolveRenderFormat(info.ColorType);
         var alpha = info.AlphaType switch
         {
             SKAlphaType.Premul => ImageAlphaMode.Premultiplied,
@@ -314,14 +315,50 @@ public sealed class SKImage : IDisposable
         ReadOnlySpan<byte> pixelSpan = pixels;
         byte[]? buffer = null;
 
+        if (info.ColorType == SKColorType.Alpha8)
+        {
+            workingRowBytes = checked(info.Width * 4);
+            buffer = new byte[checked(workingRowBytes * info.Height)];
+            ExpandAlphaToRgba(info, pixels, rowBytes, buffer.AsSpan());
+            pixelSpan = buffer;
+            format = RenderFormat.Rgba8;
+        }
+
+        if (info.ColorType == SKColorType.Rgb565)
+        {
+            workingRowBytes = checked(info.Width * 4);
+            buffer = new byte[checked(workingRowBytes * info.Height)];
+            ConvertRgb565ToRgba(info, pixels, rowBytes, buffer.AsSpan());
+            pixelSpan = buffer;
+            format = RenderFormat.Rgba8;
+        }
+
+        if (info.ColorType == SKColorType.Rgb888x)
+        {
+            workingRowBytes = checked(info.Width * 4);
+            buffer = new byte[checked(workingRowBytes * info.Height)];
+            ConvertRgb888xToRgba(info, pixels, rowBytes, buffer.AsSpan());
+            pixelSpan = buffer;
+            format = RenderFormat.Rgba8;
+        }
+
+        if (info.ColorType is SKColorType.RgbaF16 or SKColorType.RgbaF32)
+        {
+            workingRowBytes = checked(info.Width * 4);
+            buffer = new byte[checked(workingRowBytes * info.Height)];
+            ConvertFloatPixelsToBytes(info, pixels, rowBytes, buffer.AsSpan());
+            pixelSpan = buffer;
+            format = RenderFormat.Rgba8;
+        }
+
         if (format == RenderFormat.Bgra8)
         {
-            buffer = new byte[rowBytes * info.Height];
+            buffer = new byte[checked(workingRowBytes * info.Height)];
             var pixelStrideBytes = info.Width * 4;
             for (var y = 0; y < info.Height; y++)
             {
-                var sourceRow = pixels.Slice(y * rowBytes, rowBytes);
-                var targetRow = buffer.AsSpan(y * rowBytes, rowBytes);
+                var sourceRow = pixelSpan.Slice(y * workingRowBytes, workingRowBytes);
+                var targetRow = buffer.AsSpan(y * workingRowBytes, workingRowBytes);
                 for (var x = 0; x < info.Width; x++)
                 {
                     var sourceIndex = x * 4;
@@ -331,7 +368,7 @@ public sealed class SKImage : IDisposable
                     targetRow[sourceIndex + 3] = sourceRow[sourceIndex + 3];
                 }
 
-                if (rowBytes > pixelStrideBytes)
+                if (workingRowBytes > pixelStrideBytes)
                 {
                     sourceRow.Slice(pixelStrideBytes).CopyTo(targetRow.Slice(pixelStrideBytes));
                 }
@@ -348,7 +385,7 @@ public sealed class SKImage : IDisposable
             var pixelStrideBytes = info.Width * 4;
             for (var y = 0; y < info.Height; y++)
             {
-                var row = span.Slice(y * rowBytes, rowBytes);
+                var row = span.Slice(y * workingRowBytes, workingRowBytes);
                 for (var x = 0; x < info.Width; x++)
                 {
                     var index = x * 4;
@@ -375,7 +412,7 @@ public sealed class SKImage : IDisposable
             alpha = ImageAlphaMode.Straight;
         }
 
-        var image = Image.FromPixels(pixelSpan, info.Width, info.Height, format, alpha, rowBytes);
+        var image = Image.FromPixels(pixelSpan, info.Width, info.Height, format, alpha, workingRowBytes);
         return new SKImage(image, info.Width, info.Height);
     }
 
@@ -438,6 +475,156 @@ public sealed class SKImage : IDisposable
             }
         }
     }
+
+    private static RenderFormat ResolveRenderFormat(SKColorType colorType) => colorType switch
+    {
+        SKColorType.Bgra8888 => RenderFormat.Bgra8,
+        SKColorType.Rgba8888 => RenderFormat.Rgba8,
+        SKColorType.RgbaF16 => RenderFormat.Rgba8,
+        SKColorType.RgbaF32 => RenderFormat.Rgba8,
+        SKColorType.Alpha8 => RenderFormat.Rgba8,
+        SKColorType.Rgb565 => RenderFormat.Rgba8,
+        SKColorType.Rgb888x => RenderFormat.Rgba8,
+        _ => throw new NotSupportedException($"Unsupported colour type '{colorType}'."),
+    };
+
+    private static void ConvertFloatPixelsToBytes(SKImageInfo info, ReadOnlySpan<byte> source, int sourceRowBytes, Span<byte> destination)
+    {
+        var inv = 255f;
+        var width = info.Width;
+        var height = info.Height;
+        var destStride = width * 4;
+
+        for (var y = 0; y < height; y++)
+        {
+            var srcRow = source.Slice(y * sourceRowBytes, sourceRowBytes);
+            var dstRow = destination.Slice(y * destStride, destStride);
+
+            for (var x = 0; x < width; x++)
+            {
+                var srcIndex = x * info.BytesPerPixel;
+                var destIndex = x * 4;
+
+                float r, g, b, a;
+                if (info.ColorType == SKColorType.RgbaF16)
+                {
+                    r = HalfToSingle(srcRow.Slice(srcIndex + 0, 2));
+                    g = HalfToSingle(srcRow.Slice(srcIndex + 2, 2));
+                    b = HalfToSingle(srcRow.Slice(srcIndex + 4, 2));
+                    a = HalfToSingle(srcRow.Slice(srcIndex + 6, 2));
+                }
+                else
+                {
+                    r = BinaryPrimitives.ReadSingleLittleEndian(srcRow.Slice(srcIndex + 0, 4));
+                    g = BinaryPrimitives.ReadSingleLittleEndian(srcRow.Slice(srcIndex + 4, 4));
+                    b = BinaryPrimitives.ReadSingleLittleEndian(srcRow.Slice(srcIndex + 8, 4));
+                    a = BinaryPrimitives.ReadSingleLittleEndian(srcRow.Slice(srcIndex + 12, 4));
+                }
+
+                dstRow[destIndex + 0] = FloatToByte(r, inv);
+                dstRow[destIndex + 1] = FloatToByte(g, inv);
+                dstRow[destIndex + 2] = FloatToByte(b, inv);
+                dstRow[destIndex + 3] = FloatToByte(a, inv);
+            }
+        }
+    }
+
+    private static float HalfToSingle(ReadOnlySpan<byte> value)
+    {
+        var ushortValue = BinaryPrimitives.ReadUInt16LittleEndian(value);
+        return (float)BitConverter.UInt16BitsToHalf(ushortValue);
+    }
+
+    private static byte FloatToByte(float value, float scale)
+    {
+        var scaled = Math.Clamp(value, 0f, 1f) * scale;
+        return (byte)Math.Clamp((int)Math.Round(scaled), 0, 255);
+    }
+
+    private static void ExpandAlphaToRgba(SKImageInfo info, ReadOnlySpan<byte> source, int sourceRowBytes, Span<byte> destination)
+    {
+        var width = info.Width;
+        var height = info.Height;
+        var srcStride = sourceRowBytes <= 0 ? info.RowBytes : sourceRowBytes;
+        var destStride = width * 4;
+
+        for (var y = 0; y < height; y++)
+        {
+            var srcRow = source.Slice(y * srcStride, Math.Min(srcStride, source.Length - y * srcStride));
+            var dstRow = destination.Slice(y * destStride, destStride);
+
+            for (var x = 0; x < width; x++)
+            {
+                var alpha = srcRow[x];
+                var destIndex = x * 4;
+                dstRow[destIndex + 0] = 0;
+                dstRow[destIndex + 1] = 0;
+                dstRow[destIndex + 2] = 0;
+                dstRow[destIndex + 3] = alpha;
+            }
+        }
+    }
+
+    private static void ConvertRgb565ToRgba(SKImageInfo info, ReadOnlySpan<byte> source, int sourceRowBytes, Span<byte> destination)
+    {
+        var width = info.Width;
+        var height = info.Height;
+        var srcStride = sourceRowBytes <= 0 ? info.RowBytes : sourceRowBytes;
+        var destStride = width * 4;
+
+        for (var y = 0; y < height; y++)
+        {
+            var srcRow = source.Slice(y * srcStride, Math.Min(srcStride, source.Length - y * srcStride));
+            var dstRow = destination.Slice(y * destStride, destStride);
+
+            for (var x = 0; x < width; x++)
+            {
+                var srcIndex = x * 2;
+                var packed = BinaryPrimitives.ReadUInt16LittleEndian(srcRow.Slice(srcIndex, 2));
+                var destIndex = x * 4;
+
+                var r = Expand5To8((packed >> 11) & 0x1F);
+                var g = Expand6To8((packed >> 5) & 0x3F);
+                var b = Expand5To8(packed & 0x1F);
+
+                dstRow[destIndex + 0] = r;
+                dstRow[destIndex + 1] = g;
+                dstRow[destIndex + 2] = b;
+                dstRow[destIndex + 3] = 255;
+            }
+        }
+    }
+
+    private static void ConvertRgb888xToRgba(SKImageInfo info, ReadOnlySpan<byte> source, int sourceRowBytes, Span<byte> destination)
+    {
+        var width = info.Width;
+        var height = info.Height;
+        var srcStride = sourceRowBytes <= 0 ? info.RowBytes : sourceRowBytes;
+        var destStride = width * 4;
+
+        for (var y = 0; y < height; y++)
+        {
+            var srcRow = source.Slice(y * srcStride, Math.Min(srcStride, source.Length - y * srcStride));
+            var dstRow = destination.Slice(y * destStride, destStride);
+
+            for (var x = 0; x < width; x++)
+            {
+                var srcIndex = x * 4;
+                var destIndex = x * 4;
+
+                dstRow[destIndex + 0] = srcRow[srcIndex + 0];
+                dstRow[destIndex + 1] = srcRow[srcIndex + 1];
+                dstRow[destIndex + 2] = srcRow[srcIndex + 2];
+                dstRow[destIndex + 3] = 255;
+            }
+        }
+    }
+
+    private static byte Expand5To8(int value)
+        => (byte)((value << 3) | (value >> 2));
+
+    private static byte Expand6To8(int value)
+        => (byte)((value << 2) | (value >> 4));
 
     public SKData Encode() => Encode(SKEncodedImageFormat.Png, 100);
 

@@ -23,7 +23,7 @@ using CoreWindowActivatedEventArgs = Windows.UI.Core.WindowActivatedEventArgs;
 
 namespace VelloSharp.Uno.Controls;
 
-public sealed class VelloCoreWindowHost : FrameworkElement, IDisposable, IVelloSwapChainPresenterHost, IVelloDiagnosticsProvider
+public sealed class VelloCoreWindowHost : FrameworkElement, IDisposable, IVelloSwapChainPresenterHost, IVelloSurfaceRenderCallback, IVelloDiagnosticsProvider
 {
     public static readonly DependencyProperty DeviceOptionsProperty = DependencyProperty.Register(
         nameof(DeviceOptions),
@@ -72,6 +72,7 @@ public sealed class VelloCoreWindowHost : FrameworkElement, IDisposable, IVelloS
 
     public event EventHandler<VelloPaintSurfaceEventArgs>? PaintSurface;
 
+    public event EventHandler<VelloSurfaceRenderEventArgs>? RenderSurfaceSkia;
     public event EventHandler<VelloSwapChainRenderEventArgs>? RenderSurface;
 
     public event EventHandler? ContentInvalidated;
@@ -420,6 +421,9 @@ public sealed class VelloCoreWindowHost : FrameworkElement, IDisposable, IVelloS
 
     void IVelloSwapChainPresenterHost.OnRenderSurface(VelloSwapChainRenderEventArgs args)
         => RenderSurface?.Invoke(this, args);
+
+    void IVelloSurfaceRenderCallback.OnRenderSurface(VelloSurfaceRenderEventArgs args)
+        => RenderSurfaceSkia?.Invoke(this, args);
 
     void IVelloSwapChainPresenterHost.OnContentInvalidated()
         => ContentInvalidated?.Invoke(this, EventArgs.Empty);

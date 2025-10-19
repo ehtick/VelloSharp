@@ -35,6 +35,7 @@
 - [x] Introduce a Windows dispatcher abstraction (`IVelloWindowsDispatcher`) so Uno/WinUI/UWP/Maui can map to it without platform-specific `CoreDispatcher` references.
 - [x] Consolidate render loop configuration (`RenderLoopDriver`, frame pacing) into the shared project and expose common bindable properties/events for all Windows XAML hosts.
 - [x] Add unit/integration tests under `tests/VelloSharp.Windows.Shared.Tests` covering lease lifetime, dispatcher marshaling, and diagnostic toggles.
+- [x] Thread the shared `SurfaceHandle` plumbing through `VelloSwapChainPresenter` so WinUI and UWP presenters surface GPU-backed handles to managed overlays and shim consumers.
 
 ### WinUI Control Implementation
 - [x] Create `bindings/VelloSharp.WinUI/VelloSwapChainControl.cs` deriving from `Microsoft.UI.Xaml.Controls.SwapChainPanel`, embedding the shared presenter and supporting dependency properties for backend selection, diagnostics, and render loop configuration.

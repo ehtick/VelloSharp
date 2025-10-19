@@ -338,9 +338,9 @@ public class VelloNativeSwapChainView : Decorator
         var paintArgs = new VelloPaintSurfaceEventArgs(session, timestamp, delta, _frameId, RenderMode == VelloRenderMode.Continuous);
         OnPaintSurface(paintArgs);
 
-        if (TryRenderToSwapChain(e, session, pixelWidth, pixelHeight))
+        if (TryRenderToSwapChain(e, session, pixelWidth, pixelHeight, out var renderParamsUsed))
         {
-            var swapChainArgs = new VelloSwapChainRenderEventArgs(e.Lease, e.Surface, e.PixelSize, timestamp, delta, _frameId);
+            var swapChainArgs = new VelloSwapChainRenderEventArgs(e.Lease, e.Surface, e.PixelSize, renderParamsUsed, timestamp, delta, _frameId);
             RenderSurface?.Invoke(this, swapChainArgs);
         }
 
@@ -363,8 +363,10 @@ public class VelloNativeSwapChainView : Decorator
         SwapChainLeaseEventArgs e,
         VelloGraphicsSession session,
         uint pixelWidth,
-        uint pixelHeight)
+        uint pixelHeight,
+        out RenderParams renderParamsUsed)
     {
+        renderParamsUsed = default;
         try
         {
             var surface = e.Surface;
@@ -385,6 +387,7 @@ public class VelloNativeSwapChainView : Decorator
             surfaceTexture.Present();
             e.Lease.Context.RecordPresentation();
             session.Complete();
+            renderParamsUsed = renderParams;
             return true;
         }
         catch (DllNotFoundException ex)

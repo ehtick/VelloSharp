@@ -24,6 +24,7 @@
 - [x] Manage `D3DImage` locking (`Lock → SetBackBuffer → AddDirtyRect → Unlock`) and keyed-mutex coordination through the bridge, including resize/device-loss resets.
 - [ ] Provide design-time and CPU-backend placeholders that bypass GPU interop, ensuring Blend/VS designers can instantiate the control safely.
 - [x] Expose diagnostics (frame timing, device status) through dependency properties backed by `WindowsGpuDiagnostics`.
+- [x] Mirror the shared `SurfaceHandle` plumbing in `VelloNativeSwapChainHost`/`VelloView` so WPF presenters expose GPU-backed handles to downstream shims and overlays.
 
 ## Phase 4 - Optional HWND Swapchain Host
 - [x] Rename `VelloSwapChainHost` to `VelloNativeSwapChainHost` and adjust namespaces/usages so the type explicitly reads as the HWND-based implementation.
@@ -59,8 +60,6 @@
 
 ## Supporting Design Notes
 - `docs/wpf-d3dimage-interop.md` captures the shared texture shim prototype (BGRA8 + legacy handle), adapter validation, and the D3D9Ex device manager/keyed mutex coordination sketch prepared on 2025-10-06.
-
-
 
 
 

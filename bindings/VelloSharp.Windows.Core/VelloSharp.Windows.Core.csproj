@@ -18,6 +18,7 @@
     <ProjectReference Include="../VelloSharp.Rendering/VelloSharp.Rendering.csproj" />
     <ProjectReference Include="../VelloSharp.Gpu/VelloSharp.Gpu.csproj" />
     <ProjectReference Include="../VelloSharp.Text/VelloSharp.Text.csproj" />
+    <ProjectReference Include="../VelloSharp.Skia.Core/VelloSharp.Skia.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Vortice.Direct3D9" />

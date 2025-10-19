@@ -1,4 +1,5 @@
 using System;
+using VelloSharp;
 
 namespace VelloSharp.Windows;
 
@@ -55,4 +56,12 @@ public readonly struct WindowsSurfaceDescriptor
 
         return new WindowsSurfaceDescriptor(WindowsSurfaceKind.CoreWindow, coreWindow);
     }
+
+    public SurfaceHandle ToSurfaceHandle() => Kind switch
+    {
+        WindowsSurfaceKind.Win32Hwnd => SurfaceHandle.FromWin32((IntPtr)PrimaryHandle, (IntPtr)SecondaryHandle),
+        WindowsSurfaceKind.SwapChainPanel => SurfaceHandle.FromSwapChainPanel((IntPtr)PrimaryHandle),
+        WindowsSurfaceKind.CoreWindow => SurfaceHandle.FromCoreWindow((IntPtr)PrimaryHandle),
+        _ => SurfaceHandle.Headless,
+    };
 }
