@@ -173,8 +173,17 @@ jobs:
       - name: Install WASI sysroot
         run: |
           WASI_SDK_VERSION=22.0
-          curl -sSLo "$RUNNER_TEMP/wasi-sdk.tar.xz" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION}-linux.tar.xz"
-          tar -xf "$RUNNER_TEMP/wasi-sdk.tar.xz" -C "$RUNNER_TEMP"
+          BASE_URL="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}"
+          ARCHIVE_XZ="$RUNNER_TEMP/wasi-sdk.tar.xz"
+          ARCHIVE_GZ="$RUNNER_TEMP/wasi-sdk.tar.gz"
+
+          if curl -fsSLo "$ARCHIVE_XZ" "${BASE_URL}/wasi-sdk-${WASI_SDK_VERSION}-linux.tar.xz"; then
+            tar -xf "$ARCHIVE_XZ" -C "$RUNNER_TEMP"
+          else
+            curl -fsSLo "$ARCHIVE_GZ" "${BASE_URL}/wasi-sdk-${WASI_SDK_VERSION}-linux.tar.gz"
+            tar -xzf "$ARCHIVE_GZ" -C "$RUNNER_TEMP"
+          fi
+
           WASI_SDK_DIR=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name "wasi-sdk-*")
           WASI_SYSROOT="${WASI_SDK_DIR}/share/wasi-sysroot"
           {
