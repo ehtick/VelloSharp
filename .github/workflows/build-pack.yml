@@ -173,18 +173,43 @@ jobs:
       - name: Install WASI sysroot
         run: |
           WASI_SDK_VERSION=22.0
-          BASE_URL="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}"
-          ARCHIVE_XZ="$RUNNER_TEMP/wasi-sdk.tar.xz"
-          ARCHIVE_GZ="$RUNNER_TEMP/wasi-sdk.tar.gz"
+          ARCHIVE_NAME="wasi-sdk-${WASI_SDK_VERSION}-linux"
+          ARCHIVE_XZ="$RUNNER_TEMP/${ARCHIVE_NAME}.tar.xz"
+          ARCHIVE_GZ="$RUNNER_TEMP/${ARCHIVE_NAME}.tar.gz"
+          rm -f "$ARCHIVE_XZ" "$ARCHIVE_GZ"
 
-          if curl -fsSLo "$ARCHIVE_XZ" "${BASE_URL}/wasi-sdk-${WASI_SDK_VERSION}-linux.tar.xz"; then
-            tar -xf "$ARCHIVE_XZ" -C "$RUNNER_TEMP"
-          else
-            curl -fsSLo "$ARCHIVE_GZ" "${BASE_URL}/wasi-sdk-${WASI_SDK_VERSION}-linux.tar.gz"
-            tar -xzf "$ARCHIVE_GZ" -C "$RUNNER_TEMP"
+          DOWNLOAD_SUCCESS=0
+          PRIMARY_TAG="wasi-sdk-${WASI_SDK_VERSION}"
+          ALT_TAG="wasi-sdk-${WASI_SDK_VERSION%%.*}"
+          TAGS=("$PRIMARY_TAG")
+          if [ "$ALT_TAG" != "$PRIMARY_TAG" ]; then
+            TAGS+=("$ALT_TAG")
+          fi
+
+          for WASI_TAG in "${TAGS[@]}"; do
+            BASE_URL="https://github.com/WebAssembly/wasi-sdk/releases/download/${WASI_TAG}"
+
+            if curl -fsSLo "$ARCHIVE_XZ" "${BASE_URL}/${ARCHIVE_NAME}.tar.xz"; then
+              tar -xf "$ARCHIVE_XZ" -C "$RUNNER_TEMP"
+              DOWNLOAD_SUCCESS=1
+              break
+            elif curl -fsSLo "$ARCHIVE_GZ" "${BASE_URL}/${ARCHIVE_NAME}.tar.gz"; then
+              tar -xzf "$ARCHIVE_GZ" -C "$RUNNER_TEMP"
+              DOWNLOAD_SUCCESS=1
+              break
+            fi
+          done
+
+          if [ "$DOWNLOAD_SUCCESS" -ne 1 ]; then
+            echo "Failed to download WASI SDK ${WASI_SDK_VERSION}" >&2
+            exit 1
           fi
 
           WASI_SDK_DIR=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name "wasi-sdk-*")
+          if [ -z "$WASI_SDK_DIR" ]; then
+            echo "Unable to locate extracted WASI SDK directory" >&2
+            exit 1
+          fi
           WASI_SYSROOT="${WASI_SDK_DIR}/share/wasi-sysroot"
           {
             echo "WASI_SDK_DIR=${WASI_SDK_DIR}"
