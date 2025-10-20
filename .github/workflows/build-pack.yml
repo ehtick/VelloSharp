@@ -213,8 +213,8 @@ jobs:
           WASI_SYSROOT="${WASI_SDK_DIR}/share/wasi-sysroot"
           {
             echo "WASI_SDK_DIR=${WASI_SDK_DIR}"
-            echo "CFLAGS_wasm32_unknown_unknown=--sysroot=${WASI_SYSROOT} -isystem${WASI_SYSROOT}/include"
-            echo "CXXFLAGS_wasm32_unknown_unknown=--sysroot=${WASI_SYSROOT} -isystem${WASI_SYSROOT}/include"
+            echo "CFLAGS_wasm32_unknown_unknown=--target=wasm32-wasi --sysroot=${WASI_SYSROOT} -isystem${WASI_SYSROOT}/include -UHAVE_PTHREAD -DHB_NO_MT"
+            echo "CXXFLAGS_wasm32_unknown_unknown=--target=wasm32-wasi --sysroot=${WASI_SYSROOT} -isystem${WASI_SYSROOT}/include -UHAVE_PTHREAD -DHB_NO_MT"
             echo "CC_wasm32_unknown_unknown=${WASI_SDK_DIR}/bin/clang"
             echo "CXX_wasm32_unknown_unknown=${WASI_SDK_DIR}/bin/clang++"
             echo "AR_wasm32_unknown_unknown=${WASI_SDK_DIR}/bin/llvm-ar"
