@@ -18,6 +18,9 @@
     <TabItem Header="API Lease">
       <views:LeaseDemoPage />
     </TabItem>
+    <TabItem Header="SVG Control">
+      <views:SvgDemoPage />
+    </TabItem>
     <TabItem Header="Vello MotionMark">
       <views:MotionMarkLeasePage />
     </TabItem>

@@ -42,6 +42,7 @@ layout share a cohesive managed API while still exposing low-level control over 
 | `VelloSharp.Avalonia.Vello` | Avalonia rendering subsystem integration for VelloSharp. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Vello.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Vello/) |
 | `VelloSharp.Avalonia.Winit` | Avalonia windowing backend that routes through winit and Vello. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Winit.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Winit/) |
 | `VelloSharp.Avalonia.Controls` | Reusable Vello-powered Avalonia controls (`VelloCanvasControl`, `VelloAnimatedCanvasControl`, `VelloSvgControl`) for rapid UI embedding. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Avalonia.Controls.svg)](https://www.nuget.org/packages/VelloSharp.Avalonia.Controls/) |
+| `VelloSharp.Avalonia.Svg` | Avalonia-level `Svg` control matching the classic API surface while rendering exclusively through Vello leases. | <!-- pending package --> |
 | `VelloSharp.Windows.Core` | Windows swapchain, device, and interop helpers shared by WinForms/WPF hosts. | [![NuGet](https://img.shields.io/nuget/v/VelloSharp.Windows.Core.svg)](https://www.nuget.org/packages/VelloSharp.Windows.Core/) |
 | `VelloSharp.Windows.Shared` | Shared presenter, diagnostics, dispatcher, and AccessKit plumbing reused by WinUI, UWP, Uno, and MAUI controls. | _(preview)_ |
 | `VelloSharp.WinUI` | WinUI 3 `VelloSwapChainControl` with GPU backend selection, diagnostics overlays, and AccessKit automation. | _(preview)_ |

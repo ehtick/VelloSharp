@@ -21,3 +21,4 @@ Explore in-depth walkthroughs for integrating VelloSharp across platforms, under
 
 - [Layout Gallery](layout-gallery.md)
 - [Avalonia Controls](avalonia-controls.md)
+- [Avalonia SVG Control](avalonia-svg-control.md)

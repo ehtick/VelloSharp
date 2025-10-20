@@ -15,10 +15,10 @@
     <ProjectReference Include="../../bindings/VelloSharp/VelloSharp.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Avalonia.Vello/VelloSharp.Avalonia.Vello.csproj" />
     <ProjectReference Include="../../bindings/VelloSharp.Integration/VelloSharp.Integration.csproj" />
+    <ProjectReference Include="../../src/VelloSharp.Avalonia.Svg/VelloSharp.Avalonia.Svg.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>
 </Project>
-
