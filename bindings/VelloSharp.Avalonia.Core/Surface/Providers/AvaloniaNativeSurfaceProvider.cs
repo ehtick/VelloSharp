@@ -28,32 +28,11 @@ public sealed class AvaloniaNativeSurfaceProvider : IVelloWinitSurfaceProvider
         }
     }
 
-    public SurfaceHandle CreateSurfaceHandle()
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            return CreateSurfaceHandleCore();
-        }
+    public SurfaceHandle CreateSurfaceHandle() => CreateSurfaceHandleCore();
 
-        return Dispatcher.UIThread
-            .InvokeAsync(CreateSurfaceHandleCore, DispatcherPriority.Send)
-            .GetAwaiter()
-            .GetResult();
-    }
+    public PixelSize SurfacePixelSize => GetCurrentPixelSize();
 
-    public PixelSize SurfacePixelSize => Dispatcher.UIThread.CheckAccess()
-        ? GetCurrentPixelSize()
-        : Dispatcher.UIThread
-            .InvokeAsync(GetCurrentPixelSize, DispatcherPriority.Send)
-            .GetAwaiter()
-            .GetResult();
-
-    public double RenderScaling => Dispatcher.UIThread.CheckAccess()
-        ? _topLevel.RenderScaling
-        : Dispatcher.UIThread
-            .InvokeAsync(() => _topLevel.RenderScaling, DispatcherPriority.Send)
-            .GetAwaiter()
-            .GetResult();
+    public double RenderScaling => _topLevel.RenderScaling;
 
     public void PrePresent()
     {
