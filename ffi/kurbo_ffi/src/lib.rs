@@ -11,8 +11,9 @@ use std::{
 };
 
 use kurbo::{
-    Affine, BezPath, CubicBez, Line, ParamCurve, ParamCurveArclen, ParamCurveDeriv, PathEl,
-    PathSeg, Point, QuadBez, Rect, Shape, Vec2,
+    Affine, BezPath, Cap, CubicBez, Join, Line, ParamCurve, ParamCurveArclen, ParamCurveDeriv,
+    PathEl, PathSeg, Point, QuadBez, Rect, Shape, Stroke, StrokeOpts, Vec2, dash as kurbo_dash,
+    stroke as kurbo_stroke,
 };
 
 thread_local! {
@@ -267,6 +268,100 @@ fn path_el_from_element(element: &KurboPathElement) -> Result<PathEl, KurboStatu
 #[repr(C)]
 pub struct KurboBezPathHandle {
     path: BezPath,
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum KurboStrokeJoin {
+    Miter = 0,
+    Round = 1,
+    Bevel = 2,
+}
+
+impl From<KurboStrokeJoin> for Join {
+    fn from(value: KurboStrokeJoin) -> Self {
+        match value {
+            KurboStrokeJoin::Miter => Join::Miter,
+            KurboStrokeJoin::Round => Join::Round,
+            KurboStrokeJoin::Bevel => Join::Bevel,
+        }
+    }
+}
+
+#[repr(i32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum KurboStrokeCap {
+    Butt = 0,
+    Round = 1,
+    Square = 2,
+}
+
+impl From<KurboStrokeCap> for Cap {
+    fn from(value: KurboStrokeCap) -> Self {
+        match value {
+            KurboStrokeCap::Butt => Cap::Butt,
+            KurboStrokeCap::Round => Cap::Round,
+            KurboStrokeCap::Square => Cap::Square,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct KurboStrokeStyle {
+    pub width: f64,
+    pub miter_limit: f64,
+    pub start_cap: KurboStrokeCap,
+    pub end_cap: KurboStrokeCap,
+    pub join: KurboStrokeJoin,
+    pub dash_offset: f64,
+    pub dash_pattern: *const f64,
+    pub dash_length: usize,
+}
+
+impl KurboStrokeStyle {
+    fn to_stroke(&self) -> Result<Stroke, KurboStatus> {
+        if !self.width.is_finite() || self.width < 0.0 {
+            set_last_error("Stroke width must be non-negative and finite");
+            return Err(KurboStatus::InvalidArgument);
+        }
+        if !self.miter_limit.is_finite() || self.miter_limit <= 0.0 {
+            set_last_error("Miter limit must be positive and finite");
+            return Err(KurboStatus::InvalidArgument);
+        }
+
+        let mut stroke = Stroke::new(self.width)
+            .with_miter_limit(self.miter_limit)
+            .with_start_cap(self.start_cap.into())
+            .with_end_cap(self.end_cap.into())
+            .with_join(self.join.into());
+
+        if self.dash_length > 0 {
+            if self.dash_pattern.is_null() {
+                set_last_error("Dash pattern pointer is null");
+                return Err(KurboStatus::NullPointer);
+            }
+            let dash_slice = unsafe { slice_from_raw(self.dash_pattern, self.dash_length) }
+                .map_err(|status| {
+                    set_last_error("Invalid dash pattern");
+                    status
+                })?;
+            if dash_slice
+                .iter()
+                .any(|value| !value.is_finite() || *value < 0.0)
+            {
+                set_last_error("Dash pattern entries must be non-negative and finite");
+                return Err(KurboStatus::InvalidArgument);
+            }
+            if dash_slice.iter().all(|value| *value == 0.0) {
+                set_last_error("Dash pattern cannot be all zeros");
+                return Err(KurboStatus::InvalidArgument);
+            }
+            stroke = stroke.with_dashes(self.dash_offset, dash_slice.iter().copied());
+        }
+
+        Ok(stroke)
+    }
 }
 
 #[derive(Clone)]
@@ -626,6 +721,113 @@ pub unsafe extern "C" fn kurbo_bez_path_translate(
     handle
         .path
         .apply_affine(Affine::translate(Vec2::from(offset)));
+    KurboStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kurbo_bez_path_stroke(
+    path: *const KurboBezPathHandle,
+    style: KurboStrokeStyle,
+    tolerance: f64,
+    out_path: *mut *mut KurboBezPathHandle,
+) -> KurboStatus {
+    if out_path.is_null() {
+        set_last_error("Output handle pointer is null");
+        return KurboStatus::NullPointer;
+    }
+
+    clear_last_error();
+
+    let Some(handle) = (unsafe { path.as_ref() }) else {
+        set_last_error("Path pointer is null");
+        return KurboStatus::NullPointer;
+    };
+
+    if !tolerance.is_finite() || tolerance <= 0.0 {
+        set_last_error("Tolerance must be positive and finite");
+        return KurboStatus::InvalidArgument;
+    }
+
+    let stroke = match style.to_stroke() {
+        Ok(stroke) => stroke,
+        Err(status) => return status,
+    };
+
+    let stroked = kurbo_stroke(
+        handle.path.elements().iter().copied(),
+        &stroke,
+        &StrokeOpts::default(),
+        tolerance,
+    );
+
+    let result = KurboBezPathHandle { path: stroked };
+
+    unsafe {
+        *out_path = Box::into_raw(Box::new(result));
+    }
+
+    KurboStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kurbo_bez_path_dash(
+    path: *const KurboBezPathHandle,
+    dash_offset: f64,
+    dash_pattern: *const f64,
+    dash_length: usize,
+    out_path: *mut *mut KurboBezPathHandle,
+) -> KurboStatus {
+    if out_path.is_null() {
+        set_last_error("Output handle pointer is null");
+        return KurboStatus::NullPointer;
+    }
+
+    clear_last_error();
+
+    let Some(handle) = (unsafe { path.as_ref() }) else {
+        set_last_error("Path pointer is null");
+        return KurboStatus::NullPointer;
+    };
+
+    if dash_length < 2 || dash_length % 2 != 0 {
+        set_last_error("Dash pattern must contain an even number of entries (>= 2)");
+        return KurboStatus::InvalidArgument;
+    }
+
+    if dash_pattern.is_null() {
+        set_last_error("Dash pattern pointer is null");
+        return KurboStatus::NullPointer;
+    }
+
+    let dash_slice = match unsafe { slice_from_raw(dash_pattern, dash_length) } {
+        Ok(slice) => slice,
+        Err(status) => {
+            set_last_error("Invalid dash pattern slice");
+            return status;
+        }
+    };
+
+    if dash_slice
+        .iter()
+        .any(|value| !value.is_finite() || *value <= 0.0)
+    {
+        set_last_error("Dash pattern values must be positive and finite");
+        return KurboStatus::InvalidArgument;
+    }
+
+    let dashed_iter = kurbo_dash(
+        handle.path.elements().iter().copied(),
+        dash_offset,
+        dash_slice,
+    );
+    let dashed_path: BezPath = dashed_iter.collect();
+
+    let result = KurboBezPathHandle { path: dashed_path };
+
+    unsafe {
+        *out_path = Box::into_raw(Box::new(result));
+    }
+
     KurboStatus::Success
 }
 

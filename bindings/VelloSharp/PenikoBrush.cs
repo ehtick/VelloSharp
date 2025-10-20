@@ -59,6 +59,30 @@ public sealed class PenikoBrush : IDisposable
         }
     }
 
+    public static PenikoBrush CreateImage(PenikoImageData image, PenikoExtend xExtend = PenikoExtend.Pad, PenikoExtend yExtend = PenikoExtend.Pad, PenikoImageQuality quality = PenikoImageQuality.Medium, float alpha = 1f)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+
+        var parameters = new PenikoImageBrushParams
+        {
+            Image = image.DangerousGetHandle(),
+            XExtend = xExtend,
+            YExtend = yExtend,
+            Quality = quality,
+            Alpha = alpha,
+        };
+        var handle = PenikoNativeMethods.peniko_brush_create_image(parameters);
+        return new PenikoBrush(handle);
+    }
+
+    public static PenikoBrush CreateImage(Image image, PenikoExtend xExtend = PenikoExtend.Pad, PenikoExtend yExtend = PenikoExtend.Pad, PenikoImageQuality quality = PenikoImageQuality.Medium, float alpha = 1f)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+
+        using var penikoImage = PenikoImageData.FromImage(image);
+        return CreateImage(penikoImage, xExtend, yExtend, quality, alpha);
+    }
+
     public PenikoBrush Clone()
     {
         var clone = PenikoNativeMethods.peniko_brush_clone(_handle);
@@ -111,6 +135,18 @@ public sealed class PenikoBrush : IDisposable
         EnsureGradientKind(PenikoGradientKind.Sweep);
         var info = GetStops(QuerySweepGradient);
         return new PenikoSweepGradientInfo(info.Gradient.Sweep, info.Extend, info.Stops);
+    }
+
+    public PenikoImageBrushInfo GetImage()
+    {
+        NativeHelpers.ThrowOnError(PenikoNativeMethods.peniko_brush_get_image(_handle, out var parameters, out var imageHandle), "peniko_brush_get_image");
+        if (imageHandle == nint.Zero)
+        {
+            throw new InvalidOperationException("Failed to retrieve Peniko image brush data.");
+        }
+
+        var image = PenikoImageData.FromNativeHandle(imageHandle);
+        return new PenikoImageBrushInfo(image, parameters.XExtend, parameters.YExtend, parameters.Quality, parameters.Alpha);
     }
 
     public void WithAlpha(float alpha)
@@ -225,3 +261,27 @@ public readonly record struct PenikoLinearGradientInfo(PenikoLinearGradient Grad
 public readonly record struct PenikoRadialGradientInfo(PenikoRadialGradient Gradient, PenikoExtend Extend, IReadOnlyList<PenikoColorStop> Stops);
 
 public readonly record struct PenikoSweepGradientInfo(PenikoSweepGradient Gradient, PenikoExtend Extend, IReadOnlyList<PenikoColorStop> Stops);
+
+public sealed class PenikoImageBrushInfo : IDisposable
+{
+    internal PenikoImageBrushInfo(PenikoImageData image, PenikoExtend xExtend, PenikoExtend yExtend, PenikoImageQuality quality, float alpha)
+    {
+        Image = image ?? throw new ArgumentNullException(nameof(image));
+        XExtend = xExtend;
+        YExtend = yExtend;
+        Quality = quality;
+        Alpha = alpha;
+    }
+
+    public PenikoImageData Image { get; }
+    public PenikoExtend XExtend { get; }
+    public PenikoExtend YExtend { get; }
+    public PenikoImageQuality Quality { get; }
+    public float Alpha { get; }
+
+    public void Dispose()
+    {
+        Image.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}

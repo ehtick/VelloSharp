@@ -1,7 +1,8 @@
 using System;
-using System.Collections.Generic;
+using System.Buffers;
 using System.Numerics;
 using System.Text;
+using SkiaSharpShim;
 using VelloSharp;
 
 namespace SkiaSharp;
@@ -12,6 +13,92 @@ public enum SKFontHinting
     Slight,
     Normal,
     Full,
+}
+
+public readonly struct SKFontMetrics
+{
+    public SKFontMetrics(
+        float top,
+        float ascent,
+        float descent,
+        float bottom,
+        float leading,
+        float averageCharacterWidth,
+        float maxCharacterWidth,
+        float xMin,
+        float xMax,
+        float xHeight,
+        float capHeight,
+        float? underlinePosition,
+        float? underlineThickness,
+        float? strikeoutPosition,
+        float? strikeoutThickness)
+    {
+        Top = top;
+        Ascent = ascent;
+        Descent = descent;
+        Bottom = bottom;
+        Leading = leading;
+        AverageCharacterWidth = averageCharacterWidth;
+        MaxCharacterWidth = maxCharacterWidth;
+        XMin = xMin;
+        XMax = xMax;
+        XHeight = xHeight;
+        CapHeight = capHeight;
+        UnderlinePosition = underlinePosition;
+        UnderlineThickness = underlineThickness;
+        StrikeoutPosition = strikeoutPosition;
+        StrikeoutThickness = strikeoutThickness;
+    }
+
+    public float Top { get; }
+    public float Ascent { get; }
+    public float Descent { get; }
+    public float Bottom { get; }
+    public float Leading { get; }
+    public float AverageCharacterWidth { get; }
+    public float MaxCharacterWidth { get; }
+    public float XMin { get; }
+    public float XMax { get; }
+    public float XHeight { get; }
+    public float CapHeight { get; }
+    public float? UnderlinePosition { get; }
+    public float? UnderlineThickness { get; }
+    public float? StrikeoutPosition { get; }
+    public float? StrikeoutThickness { get; }
+
+    public static SKFontMetrics Empty { get; } = new(
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        0f,
+        null,
+        null,
+        null,
+        null);
+}
+
+public readonly struct SKFontVerticalMetrics
+{
+    public SKFontVerticalMetrics(float originX, float originY, float advance, float topSideBearing)
+    {
+        OriginX = originX;
+        OriginY = originY;
+        Advance = advance;
+        TopSideBearing = topSideBearing;
+    }
+
+    public float OriginX { get; }
+    public float OriginY { get; }
+    public float Advance { get; }
+    public float TopSideBearing { get; }
 }
 
 public enum SKFontEdging
@@ -72,6 +159,131 @@ public sealed class SKFont : IDisposable
     public SKFontHinting Hinting { get; set; }
     public SKFontEdging Edging { get; set; }
 
+    public float Spacing => GetMetrics(out _);
+
+    public SKFontMetrics Metrics
+    {
+        get
+        {
+            GetMetrics(out var metrics);
+            return metrics;
+        }
+    }
+
+    public float GetMetrics(out SKFontMetrics metrics)
+    {
+        ThrowIfDisposed();
+
+        var fontHandle = _typeface.Font.Handle;
+        var size = _size > 0f ? _size : 0f;
+
+        var hbStatus = NativeMethods.vello_hb_font_get_extents(fontHandle, size, out var hbExtents);
+        var fontStatus = NativeMethods.vello_font_get_metrics(fontHandle, size, out var fontExtents);
+
+        if (hbStatus != VelloStatus.Success || fontStatus != VelloStatus.Success)
+        {
+            metrics = SKFontMetrics.Empty;
+            return 0f;
+        }
+
+        var ascentUp = hbExtents.Ascender;
+        var descentDown = hbExtents.Descender;
+        var leading = hbExtents.LineGap;
+
+        var top = -ascentUp;
+        var ascent = top;
+        var descent = descentDown >= 0f ? descentDown : -descentDown;
+        var bottom = descent;
+
+        if (!LinearMetrics)
+        {
+            top = MathF.Round(top);
+            ascent = top;
+            descent = MathF.Round(descent);
+            bottom = descent;
+            leading = MathF.Round(leading);
+        }
+
+        var underlineThickness = fontExtents.UnderlineThickness;
+        var underlinePosition = fontExtents.UnderlinePosition;
+        var strikeoutThickness = fontExtents.StrikeoutThickness;
+        var strikeoutPosition = fontExtents.StrikeoutPosition;
+
+        metrics = new SKFontMetrics(
+            top,
+            ascent,
+            descent,
+            bottom,
+            leading,
+            averageCharacterWidth: 0f,
+            maxCharacterWidth: 0f,
+            xMin: 0f,
+            xMax: 0f,
+            xHeight: 0f,
+            capHeight: 0f,
+            underlinePosition,
+            underlineThickness,
+            strikeoutPosition,
+            strikeoutThickness);
+
+        var spacing = (-top) + bottom + leading;
+        return spacing;
+    }
+
+    public bool GetVerticalMetrics(ushort glyphId, out SKFontVerticalMetrics metrics, SKPaint? paint = null)
+    {
+        ThrowIfDisposed();
+        paint?.ThrowIfDisposed();
+
+        unsafe
+        {
+            var size = _size > 0f ? _size : 0f;
+            VelloHbGlyphVerticalMetricsNative native;
+            VelloVariationAxisValueNative* variationPtr = null;
+            var status = NativeMethods.vello_hb_font_get_glyph_vertical_metrics(
+                _typeface.Font.Handle,
+                glyphId,
+                size,
+                variationPtr,
+                0,
+                out native);
+
+            if (status != VelloStatus.Success)
+            {
+                metrics = default;
+                return false;
+            }
+
+            const float epsilon = 1e-5f;
+
+            var baseScaleX = ScaleX;
+            var paintScaleX = paint?.TextScaleX ?? 1f;
+            var horizontalScale = baseScaleX * paintScaleX;
+
+            var originX = native.OriginX * horizontalScale;
+            var originY = native.OriginY;
+            var advance = native.Advance;
+            var topSideBearing = native.TopSideBearing * horizontalScale;
+
+            var totalSkew = SkewX + (paint?.TextSkewX ?? 0f);
+            if (MathF.Abs(totalSkew) > epsilon)
+            {
+                originX += totalSkew * originY;
+            }
+
+            var isFakeBold = Embolden || (paint?.IsFakeBoldText ?? false);
+            if (isFakeBold)
+            {
+                var pad = MathF.Max(0.5f, _size * 0.02f * horizontalScale);
+                originX -= pad * 0.5f;
+                topSideBearing += pad;
+            }
+
+            metrics = new SKFontVerticalMetrics(originX, originY, advance, topSideBearing);
+            return true;
+        }
+    }
+
     public void Dispose()
     {
         _disposed = true;
@@ -82,8 +294,8 @@ public sealed class SKFont : IDisposable
 
     public float MeasureText(ReadOnlySpan<char> text, SKPaint? paint = null)
     {
-        var glyphs = GetGlyphArray(text);
-        return MeasureText(glyphs, paint);
+        var run = GetShapedRun(text, paint);
+        return ComputeMetricsFromRun(run, paint, Span<float>.Empty, Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
     }
 
     public float MeasureText(string text, out SKRect bounds, SKPaint? paint = null) =>
@@ -91,30 +303,20 @@ public sealed class SKFont : IDisposable
 
     public float MeasureText(ReadOnlySpan<char> text, out SKRect bounds, SKPaint? paint = null)
     {
-        var glyphs = GetGlyphArray(text);
-        return MeasureText(glyphs, out bounds, paint);
+        var run = GetShapedRun(text, paint);
+        return ComputeMetricsFromRun(run, paint, Span<float>.Empty, Span<SKRect>.Empty, Span<SKPoint>.Empty, out bounds);
     }
 
     public float MeasureText(ReadOnlySpan<ushort> glyphs, SKPaint? paint = null)
     {
         paint?.ThrowIfDisposed();
-        if (paint is not null)
-        {
-            ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(MeasureText)}", "Paint parameter");
-        }
-
-        return ProcessGlyphRun(glyphs, Span<float>.Empty, Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
+        return ProcessGlyphRun(glyphs, paint, Span<float>.Empty, Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
     }
 
     public float MeasureText(ReadOnlySpan<ushort> glyphs, out SKRect bounds, SKPaint? paint = null)
     {
         paint?.ThrowIfDisposed();
-        if (paint is not null)
-        {
-            ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(MeasureText)}", "Paint parameter");
-        }
-
-        return ProcessGlyphRun(glyphs, Span<float>.Empty, Span<SKRect>.Empty, Span<SKPoint>.Empty, out bounds);
+        return ProcessGlyphRun(glyphs, paint, Span<float>.Empty, Span<SKRect>.Empty, Span<SKPoint>.Empty, out bounds);
     }
 
     public int BreakText(string text, float maxWidth, SKPaint? paint = null) =>
@@ -130,10 +332,6 @@ public sealed class SKFont : IDisposable
     {
         ThrowIfDisposed();
         paint?.ThrowIfDisposed();
-        if (paint is not null)
-        {
-            ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(BreakText)}", "Paint parameter");
-        }
 
         measuredWidth = 0f;
         if (maxWidth <= 0f || text.IsEmpty)
@@ -141,25 +339,67 @@ public sealed class SKFont : IDisposable
             return 0;
         }
 
-        var consumed = 0;
-        foreach (var rune in text.EnumerateRunes())
+        var run = GetShapedRun(text, paint);
+        if (run.IsDisposed || run.GlyphCount == 0)
         {
-            if (!TryGetGlyphIndex((uint)rune.Value, out var glyphId))
-            {
-                continue;
-            }
-
-            var advance = GetAdvance(glyphId);
-            if (measuredWidth + advance > maxWidth)
-            {
-                break;
-            }
-
-            measuredWidth += advance;
-            consumed += rune.Utf16SequenceLength;
+            return 0;
         }
 
-        return consumed;
+        var glyphs = run.GetGlyphSpan();
+        var glyphCount = glyphs.Length;
+        if (glyphCount == 0)
+        {
+            return 0;
+        }
+
+        var pool = ArrayPool<float>.Shared;
+        var rented = pool.Rent(glyphCount);
+        try
+        {
+            var widthSlice = rented.AsSpan(0, glyphCount);
+            _ = ComputeMetricsFromRun(run, paint, widthSlice, Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
+
+            var accumulated = 0f;
+            var consumedChars = 0;
+            var processedGlyphs = 0;
+
+            for (var i = 0; i < glyphCount; i++)
+            {
+                var glyphAdvance = widthSlice[i];
+                if (accumulated + glyphAdvance > maxWidth)
+                {
+                    break;
+                }
+
+                accumulated += glyphAdvance;
+                processedGlyphs++;
+
+                var currentCluster = (int)glyphs[i].Cluster;
+                var nextCluster = i + 1 < glyphCount ? (int)glyphs[i + 1].Cluster : text.Length;
+                if (nextCluster < currentCluster)
+                {
+                    nextCluster = currentCluster;
+                }
+
+                consumedChars = Math.Max(consumedChars, nextCluster);
+            }
+
+            if (consumedChars == 0 && accumulated > 0f)
+            {
+                consumedChars = text.Length;
+            }
+            else if (processedGlyphs == glyphCount)
+            {
+                consumedChars = text.Length;
+            }
+
+            measuredWidth = accumulated;
+            return consumedChars;
+        }
+        finally
+        {
+            pool.Return(rented);
+        }
     }
 
     public SKPoint[] GetGlyphPositions(string text, SKPoint origin = default) =>
@@ -167,8 +407,17 @@ public sealed class SKFont : IDisposable
 
     public SKPoint[] GetGlyphPositions(ReadOnlySpan<char> text, SKPoint origin = default)
     {
-        var glyphs = GetGlyphArray(text);
-        return GetGlyphPositions(glyphs, origin);
+        var run = GetShapedRun(text, null);
+        if (run.IsDisposed || run.GlyphCount == 0)
+        {
+            return Array.Empty<SKPoint>();
+        }
+
+        var positions = new SKPoint[run.GlyphCount];
+        var span = positions.AsSpan();
+        ComputeMetricsFromRun(run, null, Span<float>.Empty, Span<SKRect>.Empty, span, out _);
+        OffsetPositions(span, origin);
+        return positions;
     }
 
     public ushort[] GetGlyphs(string text) => GetGlyphArray(text.AsSpan());
@@ -180,8 +429,21 @@ public sealed class SKFont : IDisposable
 
     public void GetGlyphPositions(ReadOnlySpan<char> text, Span<SKPoint> offsets, SKPoint origin = default)
     {
-        var glyphs = GetGlyphArray(text);
-        GetGlyphPositions(glyphs, offsets, origin);
+        var run = GetShapedRun(text, null);
+        if (run.IsDisposed || run.GlyphCount == 0)
+        {
+            offsets[..0].Clear();
+            return;
+        }
+
+        if (offsets.Length < run.GlyphCount)
+        {
+            throw new ArgumentException("Offsets span is too small for the glyph collection.", nameof(offsets));
+        }
+
+        var slice = offsets.IsEmpty ? Span<SKPoint>.Empty : offsets.Slice(0, run.GlyphCount);
+        ComputeMetricsFromRun(run, null, Span<float>.Empty, Span<SKRect>.Empty, slice, out _);
+        OffsetPositions(slice, origin);
     }
 
     public SKPoint[] GetGlyphPositions(ReadOnlySpan<ushort> glyphs, SKPoint origin = default)
@@ -193,7 +455,7 @@ public sealed class SKFont : IDisposable
 
         var positions = new SKPoint[glyphs.Length];
         var span = positions.AsSpan();
-        ProcessGlyphRun(glyphs, Span<float>.Empty, Span<SKRect>.Empty, span, out _);
+        ProcessGlyphRun(glyphs, null, Span<float>.Empty, Span<SKRect>.Empty, span, out _);
         OffsetPositions(span, origin);
         return positions;
     }
@@ -280,7 +542,7 @@ public sealed class SKFont : IDisposable
         }
 
         var slice = offsets.Slice(0, glyphs.Length);
-        ProcessGlyphRun(glyphs, Span<float>.Empty, Span<SKRect>.Empty, slice, out _);
+        ProcessGlyphRun(glyphs, null, Span<float>.Empty, Span<SKRect>.Empty, slice, out _);
         OffsetPositions(slice, origin);
     }
 
@@ -289,8 +551,15 @@ public sealed class SKFont : IDisposable
 
     public float[] GetGlyphWidths(ReadOnlySpan<char> text, SKPaint? paint = null)
     {
-        var glyphs = GetGlyphArray(text);
-        return GetGlyphWidths(glyphs, paint);
+        var run = GetShapedRun(text, paint);
+        if (run.IsDisposed || run.GlyphCount == 0)
+        {
+            return Array.Empty<float>();
+        }
+
+        var widths = new float[run.GlyphCount];
+        ComputeMetricsFromRun(run, paint, widths.AsSpan(), Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
+        return widths;
     }
 
     public float[] GetGlyphWidths(string text, out SKRect[] bounds, SKPaint? paint = null) =>
@@ -298,17 +567,22 @@ public sealed class SKFont : IDisposable
 
     public float[] GetGlyphWidths(ReadOnlySpan<char> text, out SKRect[] bounds, SKPaint? paint = null)
     {
-        var glyphs = GetGlyphArray(text);
-        return GetGlyphWidths(glyphs, out bounds, paint);
+        var run = GetShapedRun(text, paint);
+        if (run.IsDisposed || run.GlyphCount == 0)
+        {
+            bounds = Array.Empty<SKRect>();
+            return Array.Empty<float>();
+        }
+
+        var widths = new float[run.GlyphCount];
+        bounds = new SKRect[run.GlyphCount];
+        ComputeMetricsFromRun(run, paint, widths.AsSpan(), bounds.AsSpan(), Span<SKPoint>.Empty, out _);
+        return widths;
     }
 
     public float[] GetGlyphWidths(ReadOnlySpan<ushort> glyphs, SKPaint? paint = null)
     {
         paint?.ThrowIfDisposed();
-        if (paint is not null)
-        {
-            ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(GetGlyphWidths)}", "Paint parameter");
-        }
 
         if (glyphs.IsEmpty)
         {
@@ -316,17 +590,13 @@ public sealed class SKFont : IDisposable
         }
 
         var widths = new float[glyphs.Length];
-        ProcessGlyphRun(glyphs, widths.AsSpan(), Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
+        ProcessGlyphRun(glyphs, paint, widths.AsSpan(), Span<SKRect>.Empty, Span<SKPoint>.Empty, out _);
         return widths;
     }
 
     public float[] GetGlyphWidths(ReadOnlySpan<ushort> glyphs, out SKRect[] bounds, SKPaint? paint = null)
     {
         paint?.ThrowIfDisposed();
-        if (paint is not null)
-        {
-            ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(GetGlyphWidths)}", "Paint parameter");
-        }
 
         if (glyphs.IsEmpty)
         {
@@ -336,17 +606,13 @@ public sealed class SKFont : IDisposable
 
         var widths = new float[glyphs.Length];
         bounds = new SKRect[glyphs.Length];
-        ProcessGlyphRun(glyphs, widths.AsSpan(), bounds.AsSpan(), Span<SKPoint>.Empty, out _);
+        ProcessGlyphRun(glyphs, paint, widths.AsSpan(), bounds.AsSpan(), Span<SKPoint>.Empty, out _);
         return widths;
     }
 
     public void GetGlyphWidths(ReadOnlySpan<ushort> glyphs, Span<float> widths, Span<SKRect> bounds, SKPaint? paint = null)
     {
         paint?.ThrowIfDisposed();
-        if (paint is not null)
-        {
-            ShimNotImplemented.Throw($"{nameof(SKFont)}.{nameof(GetGlyphWidths)}", "Paint parameter");
-        }
 
         if (!widths.IsEmpty && glyphs.Length > widths.Length)
         {
@@ -367,7 +633,7 @@ public sealed class SKFont : IDisposable
 
         var widthSlice = widths.IsEmpty ? Span<float>.Empty : widths.Slice(0, glyphs.Length);
         var boundsSlice = bounds.IsEmpty ? Span<SKRect>.Empty : bounds.Slice(0, glyphs.Length);
-        ProcessGlyphRun(glyphs, widthSlice, boundsSlice, Span<SKPoint>.Empty, out _);
+        ProcessGlyphRun(glyphs, paint, widthSlice, boundsSlice, Span<SKPoint>.Empty, out _);
     }
 
     public void GetGlyphWidths(string text, Span<float> widths, Span<SKRect> bounds, SKPaint? paint = null) =>
@@ -375,8 +641,79 @@ public sealed class SKFont : IDisposable
 
     public void GetGlyphWidths(ReadOnlySpan<char> text, Span<float> widths, Span<SKRect> bounds, SKPaint? paint = null)
     {
-        var glyphs = GetGlyphArray(text);
-        GetGlyphWidths(glyphs, widths, bounds, paint);
+        var run = GetShapedRun(text, paint);
+        if (run.IsDisposed || run.GlyphCount == 0)
+        {
+            widths[..0].Clear();
+            bounds[..0].Clear();
+            return;
+        }
+
+        if (!widths.IsEmpty && widths.Length < run.GlyphCount)
+        {
+            throw new ArgumentException("Widths span is too small for the glyph collection.", nameof(widths));
+        }
+
+        if (!bounds.IsEmpty && bounds.Length < run.GlyphCount)
+        {
+            throw new ArgumentException("Bounds span is too small for the glyph collection.", nameof(bounds));
+        }
+
+        var widthSlice = widths.IsEmpty ? Span<float>.Empty : widths.Slice(0, run.GlyphCount);
+        var boundsSlice = bounds.IsEmpty ? Span<SKRect>.Empty : bounds.Slice(0, run.GlyphCount);
+        ComputeMetricsFromRun(run, paint, widthSlice, boundsSlice, Span<SKPoint>.Empty, out _);
+    }
+
+    private FontMeasurement.ShapedRunHandle GetShapedRun(ReadOnlySpan<char> text, SKPaint? paint)
+    {
+        ThrowIfDisposed();
+        paint?.ThrowIfDisposed();
+
+        if (text.IsEmpty)
+        {
+            return FontMeasurement.ShapedRunHandle.Empty;
+        }
+
+        return FontMeasurement.Instance.GetOrCreateRun(_typeface, _size, paint, text);
+    }
+
+    private float ComputeMetricsFromRun(
+        FontMeasurement.ShapedRunHandle run,
+        SKPaint? paint,
+        Span<float> widths,
+        Span<SKRect> bounds,
+        Span<SKPoint> positions,
+        out SKRect overallBounds)
+    {
+        if (run.IsDisposed || run.GlyphCount == 0)
+        {
+            overallBounds = SKRect.Create(0, 0, 0, 0);
+            return 0f;
+        }
+
+        var glyphCount = run.GlyphCount;
+
+        if (!widths.IsEmpty && widths.Length < glyphCount)
+        {
+            throw new ArgumentException("Widths span is too small for the glyph collection.", nameof(widths));
+        }
+
+        if (!bounds.IsEmpty && bounds.Length < glyphCount)
+        {
+            throw new ArgumentException("Bounds span is too small for the glyph collection.", nameof(bounds));
+        }
+
+        if (!positions.IsEmpty && positions.Length < glyphCount)
+        {
+            throw new ArgumentException("Positions span is too small for the glyph collection.", nameof(positions));
+        }
+
+        var widthSlice = widths.IsEmpty ? Span<float>.Empty : widths.Slice(0, glyphCount);
+        var boundsSlice = bounds.IsEmpty ? Span<SKRect>.Empty : bounds.Slice(0, glyphCount);
+        var positionSlice = positions.IsEmpty ? Span<SKPoint>.Empty : positions.Slice(0, glyphCount);
+
+        var measuredWidth = FontMeasurement.Instance.ComputeMetrics(this, run, widthSlice, boundsSlice, positionSlice, out overallBounds);
+        return ApplyFontAndPaintAdjustments(glyphCount, paint, widthSlice, boundsSlice, positionSlice, ref overallBounds, measuredWidth);
     }
 
     private void OffsetPositions(Span<SKPoint> positions, SKPoint origin)
@@ -395,6 +732,7 @@ public sealed class SKFont : IDisposable
 
     private float ProcessGlyphRun(
         ReadOnlySpan<ushort> glyphs,
+        SKPaint? paint,
         Span<float> widths,
         Span<SKRect> bounds,
         Span<SKPoint> positions,
@@ -417,7 +755,12 @@ public sealed class SKFont : IDisposable
             throw new ArgumentException("Positions span is too small for the glyph collection.", nameof(positions));
         }
 
-        if (glyphs.IsEmpty)
+        var glyphCount = glyphs.Length;
+        var widthSlice = widths.IsEmpty ? Span<float>.Empty : widths.Slice(0, glyphCount);
+        var boundsSlice = bounds.IsEmpty ? Span<SKRect>.Empty : bounds.Slice(0, glyphCount);
+        var positionSlice = positions.IsEmpty ? Span<SKPoint>.Empty : positions.Slice(0, glyphCount);
+
+        if (glyphCount == 0)
         {
             overallBounds = SKRect.Create(0, 0, 0, 0);
             return 0f;
@@ -435,14 +778,14 @@ public sealed class SKFont : IDisposable
             var metrics = GetGlyphMetricsOrFallback(glyphs[i]);
             var advance = metrics.Advance * ScaleX;
 
-            if (!widths.IsEmpty)
+            if (!widthSlice.IsEmpty)
             {
-                widths[i] = advance;
+                widthSlice[i] = advance;
             }
 
-            if (!positions.IsEmpty)
+            if (!positionSlice.IsEmpty)
             {
-                positions[i] = new SKPoint(penX, 0f);
+                positionSlice[i] = new SKPoint(penX, 0f);
             }
 
             var rect = GetGlyphRect(metrics);
@@ -451,9 +794,9 @@ public sealed class SKFont : IDisposable
             var left = rect.Left + penX;
             var top = rect.Top;
 
-            if (!bounds.IsEmpty)
+            if (!boundsSlice.IsEmpty)
             {
-                bounds[i] = SKRect.Create(left, top, width, height);
+                boundsSlice[i] = SKRect.Create(left, top, width, height);
             }
 
             if (width > 0f && height > 0f)
@@ -475,27 +818,165 @@ public sealed class SKFont : IDisposable
             ? new SKRect(minX, minY, maxX, maxY)
             : SKRect.Create(0, 0, 0, 0);
 
-        return penX;
+        return ApplyFontAndPaintAdjustments(glyphCount, paint, widthSlice, boundsSlice, positionSlice, ref overallBounds, penX);
+    }
+
+    private float ApplyFontAndPaintAdjustments(
+        int glyphCount,
+        SKPaint? paint,
+        Span<float> widths,
+        Span<SKRect> bounds,
+        Span<SKPoint> positions,
+        ref SKRect overallBounds,
+        float measuredWidth)
+    {
+        const float epsilon = 1e-5f;
+
+        var paintScaleX = paint?.TextScaleX ?? 1f;
+        if (MathF.Abs(paintScaleX - 1f) > epsilon)
+        {
+            if (!widths.IsEmpty)
+            {
+                for (var i = 0; i < widths.Length; i++)
+                {
+                    widths[i] *= paintScaleX;
+                }
+            }
+
+            if (!positions.IsEmpty)
+            {
+                for (var i = 0; i < positions.Length; i++)
+                {
+                    var point = positions[i];
+                    positions[i] = new SKPoint(point.X * paintScaleX, point.Y);
+                }
+            }
+
+            if (!bounds.IsEmpty)
+            {
+                for (var i = 0; i < bounds.Length; i++)
+                {
+                    var rect = bounds[i];
+                    bounds[i] = new SKRect(rect.Left * paintScaleX, rect.Top, rect.Right * paintScaleX, rect.Bottom);
+                }
+            }
+
+            overallBounds = new SKRect(overallBounds.Left * paintScaleX, overallBounds.Top, overallBounds.Right * paintScaleX, overallBounds.Bottom);
+            measuredWidth *= paintScaleX;
+        }
+
+        var totalSkew = SkewX + (paint?.TextSkewX ?? 0f);
+        if (MathF.Abs(totalSkew) > epsilon)
+        {
+            if (!positions.IsEmpty)
+            {
+                for (var i = 0; i < positions.Length; i++)
+                {
+                    var point = positions[i];
+                    positions[i] = new SKPoint(point.X + totalSkew * point.Y, point.Y);
+                }
+            }
+
+            if (!bounds.IsEmpty)
+            {
+                for (var i = 0; i < bounds.Length; i++)
+                {
+                    bounds[i] = ShearRect(bounds[i], totalSkew);
+                }
+            }
+
+            overallBounds = ShearRect(overallBounds, totalSkew);
+        }
+
+        var isFakeBold = Embolden || (paint?.IsFakeBoldText ?? false);
+        if (isFakeBold && glyphCount > 0)
+        {
+            var totalScaleX = ScaleX * paintScaleX;
+            var pad = MathF.Max(0.5f, _size * 0.02f * totalScaleX);
+            var halfPad = pad * 0.5f;
+
+            measuredWidth += pad;
+
+            if (!widths.IsEmpty && widths.Length > 0)
+            {
+                widths[^1] += pad;
+            }
+
+            if (!bounds.IsEmpty)
+            {
+                for (var i = 0; i < bounds.Length; i++)
+                {
+                    var rect = bounds[i];
+                    bounds[i] = new SKRect(rect.Left - halfPad, rect.Top, rect.Right + halfPad, rect.Bottom);
+                }
+            }
+
+            overallBounds = new SKRect(overallBounds.Left - halfPad, overallBounds.Top, overallBounds.Right + halfPad, overallBounds.Bottom);
+        }
+
+        if (paint is not null)
+        {
+            var shift = paint.TextAlign switch
+            {
+                SKTextAlign.Center => -measuredWidth * 0.5f,
+                SKTextAlign.Right => -measuredWidth,
+                _ => 0f,
+            };
+
+            if (MathF.Abs(shift) > epsilon)
+            {
+                if (!positions.IsEmpty)
+                {
+                    for (var i = 0; i < positions.Length; i++)
+                    {
+                        var point = positions[i];
+                        positions[i] = new SKPoint(point.X + shift, point.Y);
+                    }
+                }
+
+                if (!bounds.IsEmpty)
+                {
+                    for (var i = 0; i < bounds.Length; i++)
+                    {
+                        var rect = bounds[i];
+                        bounds[i] = new SKRect(rect.Left + shift, rect.Top, rect.Right + shift, rect.Bottom);
+                    }
+                }
+
+                overallBounds = new SKRect(overallBounds.Left + shift, overallBounds.Top, overallBounds.Right + shift, overallBounds.Bottom);
+            }
+        }
+
+        return measuredWidth;
+    }
+
+    private static SKRect ShearRect(SKRect rect, float skewX)
+    {
+        if (rect.IsEmpty)
+        {
+            return rect;
+        }
+
+        var topLeft = rect.Left + skewX * rect.Top;
+        var bottomLeft = rect.Left + skewX * rect.Bottom;
+        var topRight = rect.Right + skewX * rect.Top;
+        var bottomRight = rect.Right + skewX * rect.Bottom;
+
+        var newLeft = MathF.Min(MathF.Min(topLeft, bottomLeft), MathF.Min(topRight, bottomRight));
+        var newRight = MathF.Max(MathF.Max(topLeft, bottomLeft), MathF.Max(topRight, bottomRight));
+
+        return new SKRect(newLeft, rect.Top, newRight, rect.Bottom);
     }
 
     private ushort[] GetGlyphArray(ReadOnlySpan<char> text)
     {
-        ThrowIfDisposed();
-        if (text.IsEmpty)
+        var run = GetShapedRun(text, null);
+        if (run.IsDisposed || run.GlyphCount == 0)
         {
             return Array.Empty<ushort>();
         }
 
-        var glyphs = new List<ushort>(text.Length);
-        foreach (var rune in text.EnumerateRunes())
-        {
-            if (TryGetGlyphIndex((uint)rune.Value, out var glyphId))
-            {
-                glyphs.Add(glyphId);
-            }
-        }
-
-        return glyphs.Count == 0 ? Array.Empty<ushort>() : glyphs.ToArray();
+        return run.ToGlyphIdArray();
     }
 
     internal bool TryGetGlyphMetrics(uint glyphId, out GlyphMetrics metrics)

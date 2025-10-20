@@ -438,43 +438,14 @@ public sealed class SKImage : IDisposable
         }
     }
 
-    public SKData Encode(SKEncodedImageFormat format, int quality)
-    {
-        if (format != SKEncodedImageFormat.Png)
+    public SKData Encode(SKEncodedImageFormat format, int quality) =>
+        format switch
         {
-            throw new NotSupportedException($"Encoding '{format}' images is not supported yet.");
-        }
-
-        var compression = NormalizePngCompression(quality);
-        var handle = Image.Handle;
-        IntPtr blobHandle = IntPtr.Zero;
-
-        try
-        {
-            var status = NativeMethods.vello_image_encode_png(handle, compression, out blobHandle);
-            NativeHelpers.ThrowOnError(status, "Failed to encode image as PNG");
-
-            status = NativeMethods.vello_blob_get_data(blobHandle, out var blobData);
-            NativeHelpers.ThrowOnError(status, "Unable to access encoded PNG data");
-
-            var length = checked((int)blobData.Length);
-            if (length == 0)
-            {
-                return SKData.CreateCopy(ReadOnlySpan<byte>.Empty);
-            }
-
-            var buffer = new byte[length];
-            Marshal.Copy(blobData.Data, buffer, 0, length);
-            return SKData.CreateCopy(buffer.AsSpan());
-        }
-        finally
-        {
-            if (blobHandle != IntPtr.Zero)
-            {
-                NativeMethods.vello_blob_destroy(blobHandle);
-            }
-        }
-    }
+            SKEncodedImageFormat.Png => EncodePng(quality),
+            SKEncodedImageFormat.Jpeg or SKEncodedImageFormat.Webp or SKEncodedImageFormat.Avif or SKEncodedImageFormat.Gif
+                => EncodeWithImageCodec(format, quality),
+            _ => throw new NotSupportedException($"Encoding '{format}' images is not supported yet."),
+        };
 
     private static RenderFormat ResolveRenderFormat(SKColorType colorType) => colorType switch
     {
@@ -639,6 +610,83 @@ public sealed class SKImage : IDisposable
         using var data = Encode(format, quality);
         return data.SaveTo(destination, out bytesWritten);
     }
+
+    private SKData EncodePng(int quality)
+    {
+        var compression = NormalizePngCompression(quality);
+        var handle = Image.Handle;
+        IntPtr blobHandle = IntPtr.Zero;
+
+        try
+        {
+            var status = NativeMethods.vello_image_encode_png(handle, compression, out blobHandle);
+            NativeHelpers.ThrowOnError(status, "Failed to encode image as PNG");
+
+            status = NativeMethods.vello_blob_get_data(blobHandle, out var blobData);
+            NativeHelpers.ThrowOnError(status, "Unable to access encoded PNG data");
+
+            var length = checked((int)blobData.Length);
+            if (length == 0)
+            {
+                return SKData.CreateCopy(ReadOnlySpan<byte>.Empty);
+            }
+
+            var buffer = new byte[length];
+            Marshal.Copy(blobData.Data, buffer, 0, length);
+            return SKData.CreateCopy(buffer.AsSpan());
+        }
+        finally
+        {
+            if (blobHandle != IntPtr.Zero)
+            {
+                NativeMethods.vello_blob_destroy(blobHandle);
+            }
+        }
+    }
+
+    private SKData EncodeWithImageCodec(SKEncodedImageFormat format, int quality)
+    {
+        var nativeFormat = MapEncodedFormat(format);
+        var handle = Image.Handle;
+        var qualityByte = (byte)Math.Clamp(quality, 0, 100);
+        IntPtr bufferHandle = IntPtr.Zero;
+
+        try
+        {
+            var status = NativeMethods.image_codec_encode(handle, nativeFormat, qualityByte, out bufferHandle);
+            NativeHelpers.ThrowOnError(status, $"Failed to encode image as {format}");
+
+            status = NativeMethods.image_codec_buffer_get_data(bufferHandle, out var nativeBuffer);
+            NativeHelpers.ThrowOnError(status, "Unable to access encoded image data");
+
+            var length = checked((int)nativeBuffer.Length);
+            if (length == 0)
+            {
+                return SKData.CreateCopy(ReadOnlySpan<byte>.Empty);
+            }
+
+            var buffer = new byte[length];
+            Marshal.Copy(nativeBuffer.Data, buffer, 0, length);
+            return SKData.CreateCopy(buffer.AsSpan());
+        }
+        finally
+        {
+            if (bufferHandle != IntPtr.Zero)
+            {
+                NativeMethods.image_codec_buffer_destroy(bufferHandle);
+            }
+        }
+    }
+
+    private static ImageCodecFormatNative MapEncodedFormat(SKEncodedImageFormat format) => format switch
+    {
+        SKEncodedImageFormat.Png => ImageCodecFormatNative.Png,
+        SKEncodedImageFormat.Jpeg => ImageCodecFormatNative.Jpeg,
+        SKEncodedImageFormat.Webp => ImageCodecFormatNative.Webp,
+        SKEncodedImageFormat.Avif => ImageCodecFormatNative.Avif,
+        SKEncodedImageFormat.Gif => ImageCodecFormatNative.Gif,
+        _ => ImageCodecFormatNative.Auto,
+    };
 
     private static byte NormalizePngCompression(int quality)
     {

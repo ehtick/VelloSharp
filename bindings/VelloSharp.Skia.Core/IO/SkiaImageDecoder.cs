@@ -6,7 +6,6 @@ namespace SkiaSharp.IO;
 
 internal static class SkiaImageDecoder
 {
-    // TODO (Step 3e3): Extend decode support beyond PNG once the Vello FFI exposes JPEG/WebP helpers.
     public static bool TryDecode(ReadOnlySpan<byte> data, out SKImageInfo info, out byte[] pixels)
         => TryDecode(data, desiredInfo: null, out info, out pixels);
 
@@ -41,22 +40,18 @@ internal static class SkiaImageDecoder
         }
 
         var codec = DetectCodec(data);
-        if (codec == ImageCodec.Unknown)
-        {
-            return false;
-        }
-
         var buffer = data.ToArray();
         unsafe
         {
             fixed (byte* ptr = buffer)
             {
                 IntPtr decodedHandle;
+                var length = (nuint)buffer.LongLength;
                 var status = codec switch
                 {
-                    ImageCodec.Png => NativeMethods.vello_image_decode_png(ptr, (nuint)buffer.LongLength, out decodedHandle),
-                    ImageCodec.Ico => NativeMethods.vello_image_decode_ico(ptr, (nuint)buffer.LongLength, out decodedHandle),
-                    _ => throw new NotSupportedException("Unsupported image format."),
+                    ImageCodec.Ico => NativeMethods.vello_image_decode_ico(ptr, length, out decodedHandle),
+                    ImageCodec.Unknown => NativeMethods.image_codec_decode_auto(ptr, length, out decodedHandle),
+                    _ => NativeMethods.image_codec_decode(ptr, length, codec.ToNativeFormat(), out decodedHandle),
                 };
                 if (status != VelloStatus.Success || decodedHandle == IntPtr.Zero)
                 {
@@ -401,6 +396,10 @@ internal static class SkiaImageDecoder
     {
         Unknown = 0,
         Png,
+        Jpeg,
+        Webp,
+        Avif,
+        Gif,
         Ico,
     }
 
@@ -411,6 +410,26 @@ internal static class SkiaImageDecoder
             return ImageCodec.Png;
         }
 
+        if (HasJpegSignature(data))
+        {
+            return ImageCodec.Jpeg;
+        }
+
+        if (HasWebpSignature(data))
+        {
+            return ImageCodec.Webp;
+        }
+
+        if (HasAvifSignature(data))
+        {
+            return ImageCodec.Avif;
+        }
+
+        if (HasGifSignature(data))
+        {
+            return ImageCodec.Gif;
+        }
+
         if (HasIcoSignature(data))
         {
             return ImageCodec.Ico;
@@ -418,6 +437,16 @@ internal static class SkiaImageDecoder
 
         return ImageCodec.Unknown;
     }
+
+    private static ImageCodecFormatNative ToNativeFormat(this ImageCodec codec) => codec switch
+    {
+        ImageCodec.Png => ImageCodecFormatNative.Png,
+        ImageCodec.Jpeg => ImageCodecFormatNative.Jpeg,
+        ImageCodec.Webp => ImageCodecFormatNative.Webp,
+        ImageCodec.Avif => ImageCodecFormatNative.Avif,
+        ImageCodec.Gif => ImageCodecFormatNative.Gif,
+        _ => ImageCodecFormatNative.Auto,
+    };
 
     private static bool HasPngSignature(ReadOnlySpan<byte> data)
     {
@@ -430,6 +459,53 @@ internal static class SkiaImageDecoder
             && data[5] == 0x0A
             && data[6] == 0x1A
             && data[7] == 0x0A;
+    }
+
+    private static bool HasJpegSignature(ReadOnlySpan<byte> data)
+    {
+        return data.Length >= 3
+            && data[0] == 0xFF
+            && data[1] == 0xD8
+            && data[2] == 0xFF;
+    }
+
+    private static bool HasWebpSignature(ReadOnlySpan<byte> data)
+    {
+        return data.Length >= 12
+            && data[0] == (byte)'R'
+            && data[1] == (byte)'I'
+            && data[2] == (byte)'F'
+            && data[3] == (byte)'F'
+            && data[8] == (byte)'W'
+            && data[9] == (byte)'E'
+            && data[10] == (byte)'B'
+            && data[11] == (byte)'P';
+    }
+
+    private static bool HasGifSignature(ReadOnlySpan<byte> data)
+    {
+        return data.Length >= 6
+            && data[0] == (byte)'G'
+            && data[1] == (byte)'I'
+            && data[2] == (byte)'F'
+            && ((data[3] == (byte)'8' && data[4] == (byte)'7' && data[5] == (byte)'a')
+                || (data[3] == (byte)'8' && data[4] == (byte)'9' && data[5] == (byte)'a'));
+    }
+
+    private static bool HasAvifSignature(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 12)
+        {
+            return false;
+        }
+
+        if (data[4] != (byte)'f' || data[5] != (byte)'t' || data[6] != (byte)'y' || data[7] != (byte)'p')
+        {
+            return false;
+        }
+
+        var brand = data.Slice(8, Math.Min(4, data.Length - 8));
+        return brand.SequenceEqual("avif"u8) || brand.SequenceEqual("avis"u8);
     }
 
     private static bool HasIcoSignature(ReadOnlySpan<byte> data)

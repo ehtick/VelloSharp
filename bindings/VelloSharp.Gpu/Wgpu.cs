@@ -125,6 +125,7 @@ public enum WgpuTextureAspect
     DepthOnly,
     Plane0,
     Plane1,
+    Plane2,
 }
 
 public enum WgpuTextureDimension
@@ -803,6 +804,26 @@ public readonly struct WgpuPipelineCacheDescriptor
     public string? Label { get; }
     public ReadOnlyMemory<byte> Data { get; }
     public bool Fallback { get; }
+}
+
+public readonly struct WgpuSurfaceCapabilities
+{
+    public WgpuSurfaceCapabilities(
+        WgpuTextureUsage usage,
+        WgpuTextureFormat[] formats,
+        PresentMode[] presentModes,
+        WgpuCompositeAlphaMode[] alphaModes)
+    {
+        Usage = usage;
+        Formats = formats ?? Array.Empty<WgpuTextureFormat>();
+        PresentModes = presentModes ?? Array.Empty<PresentMode>();
+        AlphaModes = alphaModes ?? Array.Empty<WgpuCompositeAlphaMode>();
+    }
+
+    public WgpuTextureUsage Usage { get; }
+    public IReadOnlyList<WgpuTextureFormat> Formats { get; }
+    public IReadOnlyList<PresentMode> PresentModes { get; }
+    public IReadOnlyList<WgpuCompositeAlphaMode> AlphaModes { get; }
 }
 
 public readonly struct WgpuSurfaceConfiguration
@@ -3257,6 +3278,88 @@ public sealed class WgpuSurface : IDisposable
         }
     }
 
+    public WgpuSurfaceCapabilities GetCapabilities(WgpuAdapter adapter)
+    {
+        ArgumentNullException.ThrowIfNull(adapter);
+        ThrowIfDisposed();
+        unsafe
+        {
+            WgpuSurfaceCapabilitiesNative native;
+            var status = NativeMethods.vello_wgpu_surface_get_capabilities(
+                _handle,
+                adapter.Handle,
+                &native,
+                null,
+                0,
+                null,
+                0,
+                null,
+                0);
+            NativeHelpers.ThrowOnError(status, "Failed to query surface capabilities.");
+
+            int formatCount = checked((int)native.FormatCount);
+            int presentModeCount = checked((int)native.PresentModeCount);
+            int alphaModeCount = checked((int)native.AlphaModeCount);
+
+            var formatBuffer = formatCount > 0
+                ? new WgpuTextureFormatNative[formatCount]
+                : Array.Empty<WgpuTextureFormatNative>();
+            var presentModeBuffer = presentModeCount > 0
+                ? new VelloPresentMode[presentModeCount]
+                : Array.Empty<VelloPresentMode>();
+            var alphaModeBuffer = alphaModeCount > 0
+                ? new WgpuCompositeAlphaModeNative[alphaModeCount]
+                : Array.Empty<WgpuCompositeAlphaModeNative>();
+
+            fixed (WgpuTextureFormatNative* formatPtr = formatBuffer)
+            fixed (VelloPresentMode* presentPtr = presentModeBuffer)
+            fixed (WgpuCompositeAlphaModeNative* alphaPtr = alphaModeBuffer)
+            {
+                status = NativeMethods.vello_wgpu_surface_get_capabilities(
+                    _handle,
+                    adapter.Handle,
+                    &native,
+                    formatCount > 0 ? formatPtr : null,
+                    (nuint)formatCount,
+                    presentModeCount > 0 ? presentPtr : null,
+                    (nuint)presentModeCount,
+                    alphaModeCount > 0 ? alphaPtr : null,
+                    (nuint)alphaModeCount);
+                NativeHelpers.ThrowOnError(status, "Failed to query surface capabilities.");
+            }
+
+            var formats = formatCount > 0
+                ? new WgpuTextureFormat[formatCount]
+                : Array.Empty<WgpuTextureFormat>();
+            for (int i = 0; i < formatCount; i++)
+            {
+                formats[i] = (WgpuTextureFormat)formatBuffer[i];
+            }
+
+            var presentModes = presentModeCount > 0
+                ? new PresentMode[presentModeCount]
+                : Array.Empty<PresentMode>();
+            for (int i = 0; i < presentModeCount; i++)
+            {
+                presentModes[i] = (PresentMode)presentModeBuffer[i];
+            }
+
+            var alphaModes = alphaModeCount > 0
+                ? new WgpuCompositeAlphaMode[alphaModeCount]
+                : Array.Empty<WgpuCompositeAlphaMode>();
+            for (int i = 0; i < alphaModeCount; i++)
+            {
+                alphaModes[i] = (WgpuCompositeAlphaMode)alphaModeBuffer[i];
+            }
+
+            return new WgpuSurfaceCapabilities(
+                (WgpuTextureUsage)native.Usage,
+                formats,
+                presentModes,
+                alphaModes);
+        }
+    }
+
     public void Configure(WgpuDevice device, WgpuSurfaceConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -3372,6 +3475,15 @@ public sealed class WgpuSurfaceTexture : IDisposable
     internal WgpuSurfaceTexture(IntPtr handle)
     {
         _handle = handle;
+    }
+
+    internal IntPtr Handle
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _handle;
+        }
     }
 
     public WgpuTextureView CreateView(WgpuTextureViewDescriptor? descriptor = null)
@@ -3771,6 +3883,107 @@ public sealed class WgpuRenderer : IDisposable
         NativeHelpers.ThrowOnError(status, "Failed to render to wgpu surface texture.");
     }
 
+    public Image CreateImageFromTexture(WgpuTexture texture)
+    {
+        ArgumentNullException.ThrowIfNull(texture);
+        ThrowIfDisposed();
+
+        var handle = NativeMethods.vello_wgpu_renderer_image_create_from_texture(_handle, texture.Handle);
+        if (handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException(NativeHelpers.GetLastErrorMessage() ?? "Failed to create image from texture.");
+        }
+
+        return Image.FromNativeHandle(handle);
+    }
+
+    public void UnregisterImageTexture(Image image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ThrowIfDisposed();
+
+        var status = NativeMethods.vello_wgpu_renderer_image_unregister_texture(_handle, image.Handle);
+        NativeHelpers.ThrowOnError(status, "Failed to unregister texture-backed image.");
+    }
+
+    public void OverrideImageWithTexture(
+        Image image,
+        WgpuTexture texture,
+        WgpuOrigin3D? origin = null,
+        uint mipLevel = 0,
+        WgpuTextureAspect aspect = WgpuTextureAspect.All)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(texture);
+        ThrowIfDisposed();
+
+        var native = new VelloWgpuImageCopyTextureNative
+        {
+            Texture = texture.Handle,
+            MipLevel = mipLevel,
+            Origin = ToNativeOrigin(origin ?? default),
+            Aspect = ToNativeAspect(aspect),
+        };
+
+        unsafe
+        {
+            var status = NativeMethods.vello_wgpu_renderer_image_override_with_texture(
+                _handle,
+                image.Handle,
+                &native);
+            NativeHelpers.ThrowOnError(status, "Failed to override image with texture.");
+        }
+    }
+
+    public void OverrideImageWithSurfaceTexture(
+        Image image,
+        WgpuSurfaceTexture surfaceTexture,
+        WgpuOrigin3D? origin = null,
+        uint mipLevel = 0,
+        WgpuTextureAspect aspect = WgpuTextureAspect.All)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(surfaceTexture);
+        ThrowIfDisposed();
+
+        var status = NativeMethods.vello_wgpu_renderer_image_override_with_surface_texture(
+            _handle,
+            image.Handle,
+            surfaceTexture.Handle,
+            mipLevel,
+            ToNativeOrigin(origin ?? default),
+            ToNativeAspect(aspect));
+        NativeHelpers.ThrowOnError(status, "Failed to override image with surface texture.");
+    }
+
+    public void ClearImageOverride(Image image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ThrowIfDisposed();
+
+        var status = NativeMethods.vello_wgpu_renderer_image_clear_override(_handle, image.Handle);
+        NativeHelpers.ThrowOnError(status, "Failed to clear image override.");
+    }
+
+    private static VelloWgpuOrigin3dNative ToNativeOrigin(WgpuOrigin3D origin) =>
+        new()
+        {
+            X = origin.X,
+            Y = origin.Y,
+            Z = origin.Z,
+        };
+
+    private static uint ToNativeAspect(WgpuTextureAspect aspect) => aspect switch
+    {
+        WgpuTextureAspect.All => 0u,
+        WgpuTextureAspect.StencilOnly => 1u,
+        WgpuTextureAspect.DepthOnly => 2u,
+        WgpuTextureAspect.Plane0 => 3u,
+        WgpuTextureAspect.Plane1 => 4u,
+        WgpuTextureAspect.Plane2 => 5u,
+        _ => throw new ArgumentOutOfRangeException(nameof(aspect), aspect, "Unsupported texture aspect value."),
+    };
+
     private void ThrowIfDisposed()
     {
         if (_disposed)
@@ -3835,7 +4048,3 @@ public readonly struct GpuProfilerFrame
     public double TotalMilliseconds { get; }
     public IReadOnlyList<GpuProfilerSlice> Slices { get; }
 }
-
-
-
-

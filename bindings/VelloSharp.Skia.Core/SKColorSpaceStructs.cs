@@ -1,4 +1,5 @@
 using System;
+using VelloSharp;
 
 namespace SkiaSharp;
 
@@ -63,9 +64,15 @@ public readonly struct SKColorSpacePrimaries
 
 public readonly struct SKColorSpaceTransferFn
 {
-    public static SKColorSpaceTransferFn Srgb { get; } = new(2.4f, 1f, 0.055f, 1f / 1.055f, 0.04045f, 1f / 12.92f, 0f);
+    public static SKColorSpaceTransferFn Srgb { get; } =
+        LoadTransferFn(
+            PenikoNativeMethods.peniko_color_space_transfer_fn_srgb,
+            nameof(PenikoNativeMethods.peniko_color_space_transfer_fn_srgb));
     public static SKColorSpaceTransferFn TwoDotTwo { get; } = new(2.2f, 1f, 0f, 0f, 0f, 0f, 0f);
-    public static SKColorSpaceTransferFn Linear { get; } = new(1f, 1f, 0f, 0f, 0f, 0f, 0f);
+    public static SKColorSpaceTransferFn Linear { get; } =
+        LoadTransferFn(
+            PenikoNativeMethods.peniko_color_space_transfer_fn_linear_srgb,
+            nameof(PenikoNativeMethods.peniko_color_space_transfer_fn_linear_srgb));
     public static SKColorSpaceTransferFn Rec2020 { get; } = new(2.222f, 1f, 0f, 0f, 0f, 0f, 0f);
     public static SKColorSpaceTransferFn Pq { get; } = new(1f, 1f, 0f, 0f, 0f, 0f, 0f);
     public static SKColorSpaceTransferFn Hlg { get; } = new(1f, 1f, 0f, 0f, 0f, 0f, 0f);
@@ -107,6 +114,15 @@ public readonly struct SKColorSpaceTransferFn
         F = values[6];
     }
 
+    private delegate PenikoStatus TransferFnLoader(out PenikoColorSpaceTransferFn value);
+
+    private static SKColorSpaceTransferFn LoadTransferFn(TransferFnLoader loader, string apiName)
+    {
+        PenikoColorSpaceTransferFn native;
+        NativeHelpers.ThrowOnError(loader(out native), apiName);
+        return new SKColorSpaceTransferFn(native.G, native.A, native.B, native.C, native.D, native.E, native.F);
+    }
+
     public float[] Values => new[] { G, A, B, C, D, E, F };
 
     public SKColorSpaceTransferFn Invert()
@@ -131,9 +147,15 @@ public readonly struct SKColorSpaceXyz
         0f, 0f, 1f,
         0f, 0f, 0f);
 
-    public static SKColorSpaceXyz Srgb { get; } = Identity;
+    public static SKColorSpaceXyz Srgb { get; } =
+        LoadXyz(
+            PenikoNativeMethods.peniko_color_space_xyz_linear_srgb,
+            nameof(PenikoNativeMethods.peniko_color_space_xyz_linear_srgb));
     public static SKColorSpaceXyz AdobeRgb { get; } = Identity;
-    public static SKColorSpaceXyz DisplayP3 { get; } = Identity;
+    public static SKColorSpaceXyz DisplayP3 { get; } =
+        LoadXyz(
+            PenikoNativeMethods.peniko_color_space_xyz_display_p3,
+            nameof(PenikoNativeMethods.peniko_color_space_xyz_display_p3));
     public static SKColorSpaceXyz Rec2020 { get; } = Identity;
     public static SKColorSpaceXyz Xyz { get; } = Identity;
 
@@ -164,6 +186,19 @@ public readonly struct SKColorSpaceXyz
         J = j;
         K = k;
         L = l;
+    }
+
+    private delegate PenikoStatus XyzLoader(out PenikoColorSpaceXyz value);
+
+    private static SKColorSpaceXyz LoadXyz(XyzLoader loader, string apiName)
+    {
+        PenikoColorSpaceXyz native;
+        NativeHelpers.ThrowOnError(loader(out native), apiName);
+        return new SKColorSpaceXyz(
+            native.M00, native.M01, native.M02,
+            native.M10, native.M11, native.M12,
+            native.M20, native.M21, native.M22,
+            0f, 0f, 0f);
     }
 
     public float[] Values => new[] { A, B, C, D, E, F, G, H, I, J, K, L };

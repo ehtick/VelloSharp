@@ -18,6 +18,7 @@ internal static class NativeLibraryBootstrap
             "peniko_ffi",
             "accesskit_ffi",
             "winit_ffi",
-            "vello_webgpu_ffi");
+            "vello_webgpu_ffi",
+            "image_codec_ffi");
     }
 }

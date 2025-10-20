@@ -1,0 +1,18 @@
+[package]
+name = "image_codec_ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shim-owned image codec helpers leveraging the image crate for VelloSharp bindings"
+
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+image = { workspace = true, features = ["png", "jpeg", "webp", "gif", "avif"], default-features = false }
+vello_ffi = { path = "../vello_ffi" }

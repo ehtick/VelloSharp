@@ -149,6 +149,22 @@ internal static class NativeHelpers
         Throw(message, status, WinitNativeMethods.winit_last_error_message);
     }
 
+    internal static void ThrowIfNull(nint ptr, string message, Func<nint> getter)
+    {
+        if (ptr != IntPtr.Zero)
+        {
+            return;
+        }
+
+        var native = GetErrorMessage(getter);
+        if (!string.IsNullOrWhiteSpace(native))
+        {
+            throw new InvalidOperationException($"{message}: {native}");
+        }
+
+        throw new InvalidOperationException(message);
+    }
+
     private static void Throw<TStatus>(string message, TStatus status, Func<nint> getter)
         where TStatus : struct
     {

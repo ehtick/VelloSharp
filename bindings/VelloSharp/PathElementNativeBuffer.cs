@@ -14,6 +14,15 @@ internal static class PathElementNativeExtensions
 
     public static ReadOnlySpan<VelloPathElement> AsNativeSpan(this ReadOnlySpan<PathElement> elements) =>
         MemoryMarshal.Cast<PathElement, VelloPathElement>(elements);
+
+    public static ReadOnlySpan<KurboPathElement> AsKurboSpan(this PathBuilder path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return path.AsSpan().AsKurboSpan();
+    }
+
+    public static ReadOnlySpan<KurboPathElement> AsKurboSpan(this ReadOnlySpan<PathElement> elements) =>
+        MemoryMarshal.Cast<PathElement, KurboPathElement>(elements);
 }
 
 internal struct NativePathElements : IDisposable

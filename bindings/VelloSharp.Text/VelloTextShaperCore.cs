@@ -16,6 +16,37 @@ public readonly record struct VelloGlyph(
     float XOffset,
     float YOffset);
 
+public readonly record struct HbGlyphInfo(uint GlyphId, uint Cluster);
+
+public readonly record struct HbGlyphPosition(float XAdvance, float YAdvance, float XOffset, float YOffset);
+
+public readonly record struct HbShapeResult(
+    HbGlyphInfo[] Infos,
+    HbGlyphPosition[] Positions,
+    float AdvanceX,
+    float AdvanceY)
+{
+    public static HbShapeResult Empty { get; } = new(
+        Array.Empty<HbGlyphInfo>(),
+        Array.Empty<HbGlyphPosition>(),
+        0f,
+        0f);
+
+    public bool IsEmpty => Infos.Length == 0;
+}
+
+public readonly record struct HbFontExtents(float Ascender, float Descender, float LineGap)
+{
+    public static HbFontExtents Empty { get; } = new(0f, 0f, 0f);
+    public bool IsEmpty => Ascender == 0f && Descender == 0f && LineGap == 0f;
+}
+
+public readonly record struct HbVerticalGlyphMetrics(float Advance, float OriginX, float OriginY, float TopSideBearing)
+{
+    public static HbVerticalGlyphMetrics Empty { get; } = new(0f, 0f, 0f, 0f);
+    public bool IsEmpty => Advance == 0f && OriginX == 0f && OriginY == 0f && TopSideBearing == 0f;
+}
+
 public static class VelloTextShaperCore
 {
     public static IReadOnlyList<VelloGlyph> ShapeUtf16(
@@ -157,6 +188,177 @@ public static class VelloTextShaperCore
         }
     }
 
+    private static unsafe HbShapeResult ShapeHarfbuzzCore(
+        IntPtr fontHandle,
+        ReadOnlySpan<char> text,
+        VelloTextShaperOptions options,
+        ReadOnlySpan<VelloOpenTypeFeatureNative> features,
+        ReadOnlySpan<VelloVariationAxisValueNative> variations,
+        byte[]? languageBytes,
+        nuint languageLength)
+    {
+        if (text.IsEmpty)
+        {
+            return HbShapeResult.Empty;
+        }
+
+        VelloHbShapeRunNative run;
+        IntPtr handle = IntPtr.Zero;
+
+        fixed (char* textPtr = text)
+        fixed (VelloOpenTypeFeatureNative* featurePtr = features)
+        fixed (VelloVariationAxisValueNative* variationPtr = variations)
+        {
+            Span<byte> languageSpan = languageBytes is null ? Span<byte>.Empty : languageBytes.AsSpan();
+            fixed (byte* languagePtr = languageSpan)
+            {
+                var optionsNative = new VelloTextShapeOptionsNative
+                {
+                    FontSize = options.FontSize,
+                    Direction = options.IsRightToLeft ? 1 : 0,
+                    ScriptTag = 0,
+                    Language = languageBytes is null ? null : languagePtr,
+                    LanguageLength = languageLength,
+                    Features = featurePtr,
+                    FeatureCount = (nuint)features.Length,
+                    VariationAxes = variationPtr,
+                    VariationAxisCount = (nuint)variations.Length,
+                };
+
+                var status = NativeMethods.vello_hb_shape_utf16(
+                    fontHandle,
+                    (ushort*)textPtr,
+                    (nuint)text.Length,
+                    &optionsNative,
+                    out run,
+                    out handle);
+
+                if (status != VelloStatus.Success || run.Infos == IntPtr.Zero || run.Positions == IntPtr.Zero)
+                {
+                    if (handle != IntPtr.Zero)
+                    {
+                        NativeMethods.vello_hb_shape_destroy(handle);
+                    }
+
+                    return HbShapeResult.Empty;
+                }
+            }
+        }
+
+        try
+        {
+            var glyphCount = checked((int)run.GlyphCount);
+            if (glyphCount == 0)
+            {
+                return HbShapeResult.Empty;
+            }
+
+            var infos = new HbGlyphInfo[glyphCount];
+            var positions = new HbGlyphPosition[glyphCount];
+            var infoSpan = new ReadOnlySpan<VelloHbGlyphInfoNative>((void*)run.Infos, glyphCount);
+            var positionSpan = new ReadOnlySpan<VelloHbGlyphPositionNative>((void*)run.Positions, glyphCount);
+
+            var advanceX = 0f;
+            var advanceY = 0f;
+
+            for (var i = 0; i < glyphCount; i++)
+            {
+                ref readonly var info = ref infoSpan[i];
+                ref readonly var pos = ref positionSpan[i];
+
+                var xAdvance = pos.XAdvance + options.LetterSpacing;
+                var yAdvance = pos.YAdvance;
+
+                advanceX += xAdvance;
+                advanceY += yAdvance;
+
+                infos[i] = new HbGlyphInfo(info.GlyphId, info.Cluster);
+                positions[i] = new HbGlyphPosition(xAdvance, yAdvance, pos.XOffset, pos.YOffset);
+            }
+
+            if (options.IsRightToLeft && glyphCount > 1)
+            {
+                Array.Reverse(infos);
+                Array.Reverse(positions);
+            }
+
+            return new HbShapeResult(infos, positions, advanceX, advanceY);
+        }
+        finally
+        {
+            NativeMethods.vello_hb_shape_destroy(handle);
+        }
+    }
+
+    public static HbFontExtents GetHarfbuzzFontExtents(IntPtr fontHandle, float fontSize)
+    {
+        if (fontHandle == IntPtr.Zero || fontSize <= 0f)
+        {
+            return HbFontExtents.Empty;
+        }
+
+        var status = NativeMethods.vello_hb_font_get_extents(fontHandle, fontSize, out var extents);
+        if (status != VelloStatus.Success)
+        {
+            return HbFontExtents.Empty;
+        }
+
+        return new HbFontExtents(extents.Ascender, extents.Descender, extents.LineGap);
+    }
+
+    public static unsafe HbVerticalGlyphMetrics GetHarfbuzzVerticalMetrics(
+        IntPtr fontHandle,
+        ushort glyphId,
+        float fontSize,
+        VelloTextShaperOptions options,
+        Func<ReadOnlyMemory<byte>>? fontDataProvider = null,
+        uint faceIndex = 0)
+    {
+        if (fontHandle == IntPtr.Zero || fontSize <= 0f)
+        {
+            return HbVerticalGlyphMetrics.Empty;
+        }
+
+        _ = fontDataProvider;
+        _ = faceIndex;
+
+        var variationArray = PrepareVariations(options.VariationAxes, out var variationSpan);
+        try
+        {
+            VelloHbGlyphVerticalMetricsNative metricsNative;
+            var status = VelloStatus.Success;
+
+            fixed (VelloVariationAxisValueNative* variationPtr = variationSpan)
+            {
+                status = NativeMethods.vello_hb_font_get_glyph_vertical_metrics(
+                    fontHandle,
+                    glyphId,
+                    fontSize,
+                    variationPtr,
+                    (nuint)variationSpan.Length,
+                    out metricsNative);
+            }
+
+            if (status != VelloStatus.Success)
+            {
+                return HbVerticalGlyphMetrics.Empty;
+            }
+
+            return new HbVerticalGlyphMetrics(
+                metricsNative.Advance,
+                metricsNative.OriginX,
+                metricsNative.OriginY,
+                metricsNative.TopSideBearing);
+        }
+        finally
+        {
+            if (variationArray is not null)
+            {
+                ArrayPool<VelloVariationAxisValueNative>.Shared.Return(variationArray);
+            }
+        }
+    }
+
     private static unsafe IReadOnlyList<VelloGlyph> ShapeWithVello(
         IntPtr fontHandle,
         ReadOnlySpan<char> text,
@@ -239,6 +441,69 @@ public static class VelloTextShaperCore
         finally
         {
             NativeMethods.vello_text_shape_destroy(handle);
+        }
+    }
+
+    public static HbShapeResult ShapeHarfbuzzUtf16(
+        IntPtr fontHandle,
+        ReadOnlySpan<char> text,
+        VelloTextShaperOptions options,
+        Func<ReadOnlyMemory<byte>>? fontDataProvider = null,
+        uint faceIndex = 0)
+    {
+        if (text.IsEmpty || fontHandle == IntPtr.Zero)
+        {
+            return HbShapeResult.Empty;
+        }
+
+        _ = fontDataProvider;
+        _ = faceIndex;
+
+        var languageBytes = GetLanguageBytes(options.Culture);
+        var languageLength = languageBytes is null ? (nuint)0 : (nuint)(languageBytes.Length - 1);
+
+        var variationArray = PrepareVariations(options.VariationAxes, out var variationSpan);
+        try
+        {
+            Span<VelloOpenTypeFeatureNative> featureSpan = Span<VelloOpenTypeFeatureNative>.Empty;
+            VelloOpenTypeFeatureNative[]? featureBuffer = null;
+
+            if (options.Features is { Count: > 0 })
+            {
+                var featureCount = CountFeaturesForSegment(options.Features, 0, text.Length);
+                if (featureCount > 0)
+                {
+                    featureBuffer = ArrayPool<VelloOpenTypeFeatureNative>.Shared.Rent(featureCount);
+                    featureSpan = featureBuffer.AsSpan(0, featureCount);
+                    PopulateFeaturesForSegment(options.Features, 0, text.Length, featureSpan);
+                }
+            }
+
+            try
+            {
+                return ShapeHarfbuzzCore(
+                    fontHandle,
+                    text,
+                    options,
+                    featureSpan,
+                    variationSpan,
+                    languageBytes,
+                    languageLength);
+            }
+            finally
+            {
+                if (featureBuffer is not null)
+                {
+                    ArrayPool<VelloOpenTypeFeatureNative>.Shared.Return(featureBuffer);
+                }
+            }
+        }
+        finally
+        {
+            if (variationArray is not null)
+            {
+                ArrayPool<VelloVariationAxisValueNative>.Shared.Return(variationArray);
+            }
         }
     }
 

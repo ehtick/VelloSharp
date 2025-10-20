@@ -24,6 +24,7 @@ public sealed class SKShader : IDisposable
         TwoPointConical,
         Sweep,
         Compose,
+        ColorFilter,
         Image,
     }
 
@@ -385,7 +386,9 @@ public sealed class SKShader : IDisposable
     {
         ArgumentNullException.ThrowIfNull(shader);
         ArgumentNullException.ThrowIfNull(filter);
-        return ThrowNotSupported<SKShader>($"{nameof(SKShader)}.{nameof(CreateColorFilter)}");
+        shader.ThrowIfDisposed();
+        filter.ThrowIfDisposed();
+        return new SKShader(ShaderKind.ColorFilter, new ColorFilterData(shader, filter));
     }
 
     public static SKShader CreateLocalMatrix(SKShader shader, SKMatrix localMatrix)
@@ -396,9 +399,14 @@ public sealed class SKShader : IDisposable
 
     public SKShader WithColorFilter(SKColorFilter? filter)
     {
-        ShimNotImplemented.Throw($"{nameof(SKShader)}.{nameof(WithColorFilter)}");
-        _ = filter;
-        return this;
+        ThrowIfDisposed();
+        if (filter is null)
+        {
+            return this;
+        }
+
+        filter.ThrowIfDisposed();
+        return CreateColorFilter(this, filter);
     }
 
     public void Dispose()
@@ -412,6 +420,11 @@ public sealed class SKShader : IDisposable
         {
             compose.Outer.Dispose();
             compose.Inner.Dispose();
+        }
+        else if (_data is ColorFilterData colorFilter)
+        {
+            colorFilter.Shader.Dispose();
+            colorFilter.Filter.Dispose();
         }
         else if (_data is ImageData image && image.OwnsImage)
         {
@@ -437,6 +450,7 @@ public sealed class SKShader : IDisposable
             ShaderKind.TwoPointConical => CreateTwoPointBrush((TwoPointData)_data, paint.Opacity),
             ShaderKind.Sweep => CreateSweepBrush((SweepData)_data, paint.Opacity),
             ShaderKind.Compose => ((ComposeData)_data).Inner.CreateBrush(paint),
+            ShaderKind.ColorFilter => CreateFilteredBrush((ColorFilterData)_data, paint),
             ShaderKind.Image => CreateImageBrush((ImageData)_data, paint.Opacity),
             _ => CreateSolidBrush(paint.Color, paint.Opacity),
         };
@@ -511,6 +525,14 @@ public sealed class SKShader : IDisposable
         return new PaintBrush(brush, transform);
     }
 
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(SKShader));
+        }
+    }
+
     private static (Vector2 Start, Vector2 End) ApplyMatrix(SKPoint startPoint, SKPoint endPoint, SKMatrix? matrix)
     {
         var start = startPoint.ToVector2();
@@ -534,6 +556,12 @@ public sealed class SKShader : IDisposable
             gradientStops[i] = new GradientStop(stops[i], new RgbaColor(rgba.R, rgba.G, rgba.B, rgba.A * paintAlpha));
         }
         return gradientStops;
+    }
+
+    private static PaintBrush CreateFilteredBrush(ColorFilterData data, SKPaint paint)
+    {
+        var baseBrush = data.Shader.CreateBrush(paint);
+        return data.Filter.Apply(baseBrush);
     }
 
     private static SKColor GetColorWithOpacity(SKColor color, float opacity)
@@ -594,5 +622,6 @@ public sealed class SKShader : IDisposable
     private readonly record struct TwoPointData(SKPoint Start, float StartRadius, SKPoint End, float EndRadius, SKColor[] Colors, float[] Stops, SKShaderTileMode TileMode, SKMatrix? LocalMatrix);
     private readonly record struct SweepData(SKPoint Center, SKColor[] Colors, float[] Stops, SKShaderTileMode TileMode, float StartAngle, float EndAngle, SKMatrix? LocalMatrix);
     private readonly record struct ComposeData(SKShader Outer, SKShader Inner);
+    private sealed record ColorFilterData(SKShader Shader, SKColorFilter Filter);
     private sealed record ImageData(SKImage Image, SKShaderTileMode TileModeX, SKShaderTileMode TileModeY, SKMatrix LocalMatrix, SKRect TileRect, SKSamplingOptions Sampling, bool OwnsImage);
 }

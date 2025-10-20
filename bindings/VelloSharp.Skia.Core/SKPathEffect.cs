@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SkiaSharp;
 
@@ -17,10 +18,21 @@ public enum SKTrimPathEffectMode
 
 public sealed class SKPathEffect : IDisposable
 {
-    private bool _disposed;
-
-    private SKPathEffect()
+    private enum PathEffectType
     {
+        Dash,
+    }
+
+    private bool _disposed;
+    private readonly PathEffectType _type;
+    private readonly double[]? _dashIntervals;
+    private readonly double _dashPhase;
+
+    private SKPathEffect(PathEffectType type, double[]? dashIntervals, double dashPhase)
+    {
+        _type = type;
+        _dashIntervals = dashIntervals;
+        _dashPhase = dashPhase;
     }
 
     public static SKPathEffect CreateCompose(SKPathEffect outer, SKPathEffect inner)
@@ -63,10 +75,22 @@ public sealed class SKPathEffect : IDisposable
         ArgumentNullException.ThrowIfNull(intervals);
         if (intervals.Length == 0 || intervals.Length % 2 != 0)
         {
-            throw new ArgumentException("Intervals must contain an even, non-zero number of entries.", nameof(intervals));
+        throw new ArgumentException("Intervals must contain an even, non-zero number of entries.", nameof(intervals));
+    }
+
+        var copy = new double[intervals.Length];
+        for (var i = 0; i < intervals.Length; i++)
+        {
+            var interval = intervals[i];
+            if (interval <= 0f)
+            {
+                throw new ArgumentException("Intervals must be positive values.", nameof(intervals));
+            }
+
+            copy[i] = interval;
         }
 
-        return ThrowNotSupported($"{nameof(SKPathEffect)}.{nameof(CreateDash)}");
+        return new SKPathEffect(PathEffectType.Dash, copy, phase);
     }
 
     public static SKPathEffect CreateTrim(float start, float stop) =>
@@ -84,6 +108,30 @@ public sealed class SKPathEffect : IDisposable
 
         _disposed = true;
         GC.SuppressFinalize(this);
+    }
+
+    internal bool TryApply(SKPath source, [NotNullWhen(true)] out SKPath? result)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ThrowIfDisposed();
+
+        switch (_type)
+        {
+            case PathEffectType.Dash when _dashIntervals is { Length: > 0 } intervals:
+                result = KurboPathEffects.ApplyDash(source, intervals, _dashPhase);
+                return true;
+            default:
+                result = null;
+                return false;
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(SKPathEffect));
+        }
     }
 
     private static SKPathEffect ThrowNotSupported(string memberName, string? details = null)

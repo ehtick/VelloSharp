@@ -8,4 +8,5 @@ public enum SKEncodedImageFormat
     Jpeg,
     Png,
     Webp,
+    Avif,
 }

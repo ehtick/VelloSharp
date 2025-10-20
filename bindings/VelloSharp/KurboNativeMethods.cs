@@ -72,6 +72,10 @@ internal static partial class KurboNativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial KurboStatus kurbo_bez_path_copy_elements(nint path, KurboPathElement* elements, nuint capacity, out nuint length);
 
+    [LibraryImport(LibraryName, EntryPoint = "kurbo_bez_path_from_elements")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial nint kurbo_bez_path_from_elements(KurboPathElement* elements, nuint length);
+
     [LibraryImport(LibraryName, EntryPoint = "kurbo_bez_path_apply_affine")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial KurboStatus kurbo_bez_path_apply_affine(nint path, KurboAffine affine);
@@ -79,6 +83,14 @@ internal static partial class KurboNativeMethods
     [LibraryImport(LibraryName, EntryPoint = "kurbo_bez_path_translate")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial KurboStatus kurbo_bez_path_translate(nint path, KurboVec2 offset);
+
+    [LibraryImport(LibraryName, EntryPoint = "kurbo_bez_path_stroke")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial KurboStatus kurbo_bez_path_stroke(nint path, KurboStrokeStyle style, double tolerance, out nint result);
+
+    [LibraryImport(LibraryName, EntryPoint = "kurbo_bez_path_dash")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial KurboStatus kurbo_bez_path_dash(nint path, double dashOffset, double* dashPattern, nuint dashLength, out nint result);
 
     [LibraryImport(LibraryName, EntryPoint = "kurbo_bez_path_bounds")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

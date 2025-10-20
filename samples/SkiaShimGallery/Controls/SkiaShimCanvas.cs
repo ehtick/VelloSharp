@@ -10,10 +10,11 @@ using Avalonia.Platform;
 using System.Numerics;
 using SkiaGallery.SharedScenes;
 using VelloSharp;
-using VelloSharp.Avalonia.Vello.Rendering;
+using VelloRendering = VelloSharp.Avalonia.Vello.Rendering;
 using VelloSharp.Integration.Skia;
 using VelloSharp.Rendering;
 using SkiaSharp;
+using System.Reflection;
 using ShimCanvas = SkiaSharp.SKCanvas;
 using ShimSurface = SkiaSharp.SKSurface;
 using ShimImageInfo = SkiaSharp.SKImageInfo;
@@ -159,6 +160,57 @@ public sealed class SkiaShimCanvas : Control
         return _cpuBuffer.AsSpan(0, required);
     }
 
+    private static bool TryGetSkiaLease(
+        ImmediateDrawingContext context,
+        Type? featureType,
+        out object? leaseInstance,
+        out IDisposable? leaseDisposable)
+    {
+        leaseInstance = null;
+        leaseDisposable = null;
+
+        if (featureType is null)
+        {
+            return false;
+        }
+
+        var feature = context.TryGetFeature(featureType);
+        if (feature is null)
+        {
+            return false;
+        }
+
+        var leaseMethod = featureType.GetMethod("Lease", Type.EmptyTypes) ?? featureType.GetMethod("Lease");
+        if (leaseMethod is null)
+        {
+            return false;
+        }
+
+        var leaseObj = leaseMethod.Invoke(feature, Array.Empty<object>());
+        if (leaseObj is not IDisposable disposable)
+        {
+            (leaseObj as IDisposable)?.Dispose();
+            return false;
+        }
+
+        leaseInstance = leaseObj;
+        leaseDisposable = disposable;
+        return true;
+    }
+
+    private static T? GetPropertyValue<T>(object instance, string propertyName)
+        where T : class
+    {
+        var prop = instance.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+        if (prop is null)
+        {
+            return null;
+        }
+
+        var value = prop.GetValue(instance);
+        return value as T;
+    }
+
     private void RenderScene(ShimCanvas canvas, ISkiaGalleryScene scene, double logicalWidth, double logicalHeight, double scaling)
     {
         canvas.Clear(SKColors.Transparent);
@@ -240,27 +292,40 @@ public sealed class SkiaShimCanvas : Control
             var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * scaling));
             var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * scaling));
 
-            if (context.TryGetFeature<IVelloApiLeaseFeature>(out var velloFeature) && velloFeature is not null)
+            if (context.TryGetFeature<VelloRendering.IVelloApiLeaseFeature>(out var velloFeature) && velloFeature is not null)
             {
                 RenderWithVello(velloFeature, owner, bounds, width, height, scaling, pixelWidth, pixelHeight);
                 return;
             }
 
-            var featureObj = context.TryGetFeature(typeof(ISkiaSharpApiLeaseFeature));
-            if (featureObj is not ISkiaSharpApiLeaseFeature feature)
+            var avaloniaLeaseType = Type.GetType("Avalonia.Skia.ISkiaSharpApiLeaseFeature, Avalonia.Skia");
+            if (!TryGetSkiaLease(context, avaloniaLeaseType, out var leaseInstance, out var leaseDisposable))
             {
                 return;
             }
 
-            using var lease = feature.Lease();
-            if (lease?.SkSurface is null)
+            using var _ = leaseDisposable;
+            if (leaseInstance is null)
+            {
+                return;
+            }
+
+            var hasSurface = GetPropertyValue<RealSkiaSurface>(leaseInstance, "SkSurface") is not null;
+            if (!hasSurface)
+            {
+                return;
+            }
+
+            var grContext = GetPropertyValue<RealSkiaGRContext>(leaseInstance, "GrContext");
+            var targetCanvas = GetPropertyValue<RealSkia::SkiaSharp.SKCanvas>(leaseInstance, "SkCanvas");
+            if (targetCanvas is null)
             {
                 return;
             }
 
             owner.EnsureRenderer((uint)pixelWidth, (uint)pixelHeight);
             owner.EnsureShimSurface(pixelWidth, pixelHeight);
-            owner.EnsureSkiaSurface(lease.GrContext, pixelWidth, pixelHeight);
+            owner.EnsureSkiaSurface(grContext, pixelWidth, pixelHeight);
 
             var renderer = owner._renderer;
             var shimSurface = owner._shimSurface;
@@ -274,8 +339,6 @@ public sealed class SkiaShimCanvas : Control
 
             SkiaRenderBridge.Render(skiaSurface, renderer, shimSurface.Scene, owner._renderParams);
             skiaSurface.Canvas.Flush();
-
-            var targetCanvas = lease.SkCanvas;
             var clipRect = new RealSkiaRect(
                 (float)(bounds.X * scaling),
                 (float)(bounds.Y * scaling),
@@ -289,7 +352,7 @@ public sealed class SkiaShimCanvas : Control
         }
 
         private void RenderWithVello(
-            IVelloApiLeaseFeature feature,
+            VelloRendering.IVelloApiLeaseFeature feature,
             SkiaShimCanvas owner,
             Rect bounds,
             double width,

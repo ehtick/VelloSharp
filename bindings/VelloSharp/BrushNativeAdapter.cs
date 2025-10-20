@@ -9,13 +9,15 @@ internal readonly struct BrushNativeData : IDisposable
     private readonly GradientStop[]? _stops;
     private readonly int _stopCount;
     private readonly bool _pooled;
+    private readonly Image? _image;
 
-    public BrushNativeData(VelloBrush brush, GradientStop[]? stops, int stopCount, bool pooled)
+    public BrushNativeData(VelloBrush brush, GradientStop[]? stops, int stopCount, bool pooled, Image? image = null)
     {
         Brush = brush;
         _stops = stops;
         _stopCount = stopCount;
         _pooled = pooled;
+        _image = image;
     }
 
     public VelloBrush Brush { get; }
@@ -31,6 +33,8 @@ internal readonly struct BrushNativeData : IDisposable
         {
             ArrayPool<GradientStop>.Shared.Return(_stops);
         }
+
+        _image?.Dispose();
     }
 }
 

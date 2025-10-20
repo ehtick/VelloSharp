@@ -19,6 +19,21 @@ internal static class StrokeInterop
     };
 }
 
+internal static class KurboStrokeInterop
+{
+    public static VelloSharp.KurboStrokeStyle Create(VelloSharp.StrokeStyle style, IntPtr dashPtr, nuint dashLength) => new()
+    {
+        Width = style.Width,
+        MiterLimit = style.MiterLimit,
+        StartCap = (VelloSharp.KurboStrokeCap)style.StartCap,
+        EndCap = (VelloSharp.KurboStrokeCap)style.EndCap,
+        Join = (VelloSharp.KurboStrokeJoin)style.LineJoin,
+        DashOffset = style.DashPhase,
+        DashPattern = dashPtr,
+        DashLength = dashLength,
+    };
+}
+
 internal static class BrushInvoker
 {
     public static unsafe VelloSharp.VelloBrush Prepare(VelloSharp.VelloBrush brush, ReadOnlySpan<VelloSharp.GradientStop> stops, VelloSharp.GradientStop* stopPtr)

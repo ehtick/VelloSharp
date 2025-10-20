@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 #![allow(missing_debug_implementations)]
 
+use std::str::FromStr;
 use std::{
     borrow::Cow,
     cell::RefCell,
@@ -13,7 +14,7 @@ use std::{
     mem::ManuallyDrop,
     num::{NonZeroIsize, NonZeroU64, NonZeroUsize},
     ptr::NonNull,
-    slice,
+    slice, str,
     sync::Mutex,
 };
 
@@ -22,9 +23,10 @@ use fontique::{
     FontWidth as FontiqueWidth, GenericFamily as FontiqueGenericFamily,
 };
 use futures_intrusive::channel::shared::oneshot_channel;
+use harfbuzz_rs::{Face as HbFace, Font as HbFont, Tag as HbTag, Variation as HbVariation};
 use harfrust::{
-    Direction as HrDirection, FontRef as HrFontRef, ShaperData as HrShaperData,
-    UnicodeBuffer as HrUnicodeBuffer,
+    Direction as HrDirection, Feature as HrFeature, FontRef as HrFontRef, Language as HrLanguage,
+    Script as HrScript, ShaperData as HrShaperData, Tag as HrTag, UnicodeBuffer as HrUnicodeBuffer,
 };
 use image::{ColorType as ImageColorType, ImageDecoder, codecs::ico::IcoDecoder};
 use once_cell::sync::Lazy;
@@ -36,6 +38,8 @@ use raw_window_handle::{
     XlibDisplayHandle, XlibWindowHandle,
 };
 
+use kurbo_v11::{BezPath as BezPathV11, PathEl as PathElV11, Point as PointV11};
+use linesweeper::{BinaryOp as LinesweeperBinaryOp, FillRule as LinesweeperFillRule};
 #[cfg(target_os = "android")]
 use raw_window_handle::{AndroidDisplayHandle, AndroidNdkWindowHandle};
 use skrifa::raw::TableProvider;
@@ -47,15 +51,15 @@ use skrifa::{
     prelude::LocationRef as SkrifaLocationRef,
     setting::VariationSetting,
 };
-use linesweeper::{BinaryOp as LinesweeperBinaryOp, FillRule as LinesweeperFillRule};
-use kurbo_v11::{BezPath as BezPathV11, PathEl as PathElV11, Point as PointV11};
 use swash::{
     FontRef as SwashFontRef, GlyphId as SwashGlyphId,
     scale::{ScaleContext, outline::Outline},
     zeno::Verb,
 };
 use velato::{self, Composition as VelatoComposition, Renderer as VelatoRenderer};
-use vello::kurbo::{Affine, BezPath, Cap, Join, PathEl, Point, Rect, Shape, Stroke, StrokeOpts, Vec2};
+use vello::kurbo::{
+    Affine, BezPath, Cap, Join, PathEl, Point, Rect, Shape, Stroke, StrokeOpts, Vec2,
+};
 use vello::peniko::{
     self, BlendMode, Blob, Brush, BrushRef, Color, ColorStop, ColorStops, Extend, Fill, FontData,
     Gradient, ImageAlphaType, ImageBrush, ImageData, ImageFormat, ImageQuality,
@@ -76,6 +80,8 @@ use wgpu::{
 #[cfg(target_os = "windows")]
 #[cfg(target_os = "windows")]
 mod windows_shared_texture;
+
+mod ffi_filters;
 
 #[cfg(feature = "trace-paths")]
 macro_rules! trace_path {
@@ -116,6 +122,14 @@ fn set_last_error(msg: impl Into<String>) {
     let msg = msg.into();
     let cstr = CString::new(msg).unwrap_or_else(|_| CString::new("invalid error message").unwrap());
     LAST_ERROR.with(|slot| *slot.borrow_mut() = Some(cstr));
+}
+
+pub fn shim_clear_last_error() {
+    clear_last_error();
+}
+
+pub fn shim_set_last_error(msg: impl Into<String>) {
+    set_last_error(msg);
 }
 
 unsafe fn slice_from_raw<'a, T>(ptr: *const T, len: usize) -> Result<&'a [T], VelloStatus> {
@@ -1462,9 +1476,7 @@ pub unsafe extern "C" fn vello_path_command_list_get_data(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn vello_path_command_list_destroy(
-    handle: *mut VelloPathCommandListHandle,
-) {
+pub unsafe extern "C" fn vello_path_command_list_destroy(handle: *mut VelloPathCommandListHandle) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle)) };
     }
@@ -3109,6 +3121,23 @@ pub struct VelloFontMetricsData {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloHbFontExtents {
+    pub ascender: f32,
+    pub descender: f32,
+    pub line_gap: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloHbGlyphVerticalMetrics {
+    pub advance: f32,
+    pub origin_x: f32,
+    pub origin_y: f32,
+    pub top_side_bearing: f32,
+}
+
+#[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct VelloParleyFontInfo {
     pub family_name: *const c_char,
@@ -3279,6 +3308,38 @@ pub struct VelloShapedRun {
 #[allow(dead_code)]
 pub struct VelloShapedRunHandle {
     glyphs: Box<[VelloShapedGlyph]>,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloHbGlyphInfo {
+    pub glyph_id: u32,
+    pub cluster: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloHbGlyphPosition {
+    pub x_advance: f32,
+    pub y_advance: f32,
+    pub x_offset: f32,
+    pub y_offset: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct VelloHbShapeRun {
+    pub infos: *const VelloHbGlyphInfo,
+    pub positions: *const VelloHbGlyphPosition,
+    pub glyph_count: usize,
+    pub advance_x: f32,
+    pub advance_y: f32,
+}
+
+#[allow(dead_code)]
+pub struct VelloHbShapeHandle {
+    infos: Box<[VelloHbGlyphInfo]>,
+    positions: Box<[VelloHbGlyphPosition]>,
 }
 
 #[repr(C)]
@@ -3632,6 +3693,15 @@ pub struct VelloWgpuSurfaceConfiguration {
     pub alpha_mode: VelloWgpuCompositeAlphaMode,
     pub view_format_count: usize,
     pub view_formats: *const VelloWgpuTextureFormat,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct VelloWgpuSurfaceCapabilities {
+    pub usage: u32,
+    pub format_count: usize,
+    pub present_mode_count: usize,
+    pub alpha_mode_count: usize,
 }
 
 #[repr(C)]
@@ -4068,6 +4138,21 @@ struct RendererContext {
     queue: Queue,
     renderer: Renderer,
     target: RenderTarget,
+}
+
+fn texture_aspect_from_raw(value: u32) -> Result<TextureAspect, VelloStatus> {
+    match value {
+        0 => Ok(TextureAspect::All),
+        1 => Ok(TextureAspect::StencilOnly),
+        2 => Ok(TextureAspect::DepthOnly),
+        3 => Ok(TextureAspect::Plane0),
+        4 => Ok(TextureAspect::Plane1),
+        5 => Ok(TextureAspect::Plane2),
+        _ => {
+            set_last_error("Invalid texture aspect value");
+            Err(VelloStatus::InvalidArgument)
+        }
+    }
 }
 
 fn align_to(value: usize, alignment: usize) -> Option<usize> {
@@ -5600,18 +5685,25 @@ fn build_variation_location<'a>(
         return None;
     }
 
+    let slice = unsafe { slice::from_raw_parts(variations, variation_count) };
+    build_variation_location_from_slice(font_ref, slice)
+}
+
+fn build_variation_location_from_slice<'a>(
+    font_ref: &FontRef<'a>,
+    variations: &[VelloVariationAxisValue],
+) -> Option<Location> {
+    if variations.is_empty() {
+        return None;
+    }
+
     let axes = font_ref.axes();
     if axes.is_empty() {
         return None;
     }
 
-    let slice = unsafe { slice::from_raw_parts(variations, variation_count) };
-    if slice.is_empty() {
-        return None;
-    }
-
     let filtered: Vec<_> = axes
-        .filter(slice.iter().map(|value| {
+        .filter(variations.iter().map(|value| {
             let tag_bytes = value.tag.to_be_bytes();
             VariationSetting::new(SkrifaTag::new(&tag_bytes), value.value)
         }))
@@ -5902,7 +5994,7 @@ pub unsafe extern "C" fn vello_font_get_ot_variation(
 
     let tag = SkrifaTag::new(&metrics_tag.to_be_bytes());
     let location = build_variation_location(&font_ref, variations, variation_count);
-    let location_ref = location
+    let _location_ref = location
         .as_ref()
         .map(|loc| SkrifaLocationRef::from(loc))
         .unwrap_or_default();
@@ -5944,7 +6036,7 @@ pub unsafe extern "C" fn vello_font_get_ot_variation_x(
 
     let tag = SkrifaTag::new(&metrics_tag.to_be_bytes());
     let location = build_variation_location(&font_ref, variations, variation_count);
-    let location_ref = location
+    let _location_ref = location
         .as_ref()
         .map(|loc| SkrifaLocationRef::from(loc))
         .unwrap_or_default();
@@ -6026,6 +6118,225 @@ pub unsafe extern "C" fn vello_font_get_ot_variation_y(
     }
 
     VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_hb_font_get_extents(
+    font: *const VelloFontHandle,
+    font_size: f32,
+    out_extents: *mut VelloHbFontExtents,
+) -> VelloStatus {
+    if font.is_null() || out_extents.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match FontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let units_per_em = font_ref
+        .head()
+        .map(|head| head.units_per_em() as f32)
+        .unwrap_or(0.0);
+
+    let (ascender_units, descender_units, line_gap_units) = if let Ok(os2) = font_ref.os2() {
+        (
+            os2.s_typo_ascender() as f32,
+            os2.s_typo_descender() as f32,
+            os2.s_typo_line_gap() as f32,
+        )
+    } else if let Ok(hhea) = font_ref.hhea() {
+        (
+            hhea.ascender().to_i16() as f32,
+            hhea.descender().to_i16() as f32,
+            hhea.line_gap().to_i16() as f32,
+        )
+    } else {
+        (0.0f32, 0.0f32, 0.0f32)
+    };
+
+    let scale = if units_per_em.abs() > f32::EPSILON {
+        font_size / units_per_em
+    } else {
+        0.0
+    };
+
+    unsafe {
+        *out_extents = VelloHbFontExtents {
+            ascender: ascender_units * scale,
+            descender: descender_units * scale,
+            line_gap: line_gap_units * scale,
+        };
+    }
+
+    VelloStatus::Success
+}
+
+fn harfbuzz_vertical_metrics(
+    font_handle: &VelloFontHandle,
+    glyph_id: u16,
+    font_size: f32,
+    variation_values: &[VelloVariationAxisValue],
+) -> Result<VelloHbGlyphVerticalMetrics, (VelloStatus, String)> {
+    let data = font_handle.font.data.data();
+
+    let face = HbFace::from_bytes(data, font_handle.font.index);
+    let units_per_em = face.upem();
+    if units_per_em == 0 {
+        return Err((
+            VelloStatus::InvalidArgument,
+            "Font reports zero units-per-em".to_string(),
+        ));
+    }
+
+    let mut font = HbFont::new(face.to_shared());
+    if !variation_values.is_empty() {
+        let mut hb_variations = Vec::with_capacity(variation_values.len());
+        for value in variation_values {
+            hb_variations.push(HbVariation::new(HbTag(value.tag), value.value));
+        }
+        font.set_variations(&hb_variations);
+    }
+
+    let glyph = glyph_id as u32;
+    let (origin_x_units, origin_y_units) = font
+        .get_glyph_v_origin(glyph)
+        .map(|(x, y)| (x as f32, y as f32))
+        .ok_or_else(|| {
+            (
+                VelloStatus::Unsupported,
+                format!("HarfBuzz did not provide a vertical origin for glyph {glyph_id}"),
+            )
+        })?;
+
+    let font_size = font_size.max(0.0);
+    let scale = if font_size == 0.0 {
+        0.0
+    } else {
+        font_size / units_per_em as f32
+    };
+
+    let advance_units = font.get_glyph_v_advance(glyph) as f32;
+    let top_side_bearing_units = font
+        .get_glyph_extents(glyph)
+        .map(|extents| origin_y_units - extents.y_bearing as f32)
+        .unwrap_or(0.0);
+
+    Ok(VelloHbGlyphVerticalMetrics {
+        advance: advance_units * scale,
+        origin_x: origin_x_units * scale,
+        origin_y: origin_y_units * scale,
+        top_side_bearing: top_side_bearing_units * scale,
+    })
+}
+
+fn swash_vertical_metrics(
+    font_handle: &VelloFontHandle,
+    glyph_id: u16,
+    font_size: f32,
+    variation_values: &[VelloVariationAxisValue],
+) -> Result<VelloHbGlyphVerticalMetrics, (VelloStatus, String)> {
+    let data = font_handle.font.data.data();
+
+    let font_ref = FontRef::from_index(data, font_handle.font.index).map_err(|err| {
+        (
+            VelloStatus::InvalidArgument,
+            format!("Failed to read font: {err}"),
+        )
+    })?;
+
+    let index = usize::try_from(font_handle.font.index).map_err(|_| {
+        (
+            VelloStatus::InvalidArgument,
+            "Font index exceeds platform limits".to_string(),
+        )
+    })?;
+
+    let location = build_variation_location_from_slice(&font_ref, variation_values);
+    let mut coords_storage: Vec<i16> = Vec::new();
+    if let Some(loc) = location.as_ref() {
+        coords_storage.extend(loc.coords().iter().map(|coord| coord.to_bits()));
+    }
+
+    let swash_font = SwashFontRef::from_index(data, index).ok_or_else(|| {
+        (
+            VelloStatus::InvalidArgument,
+            "Failed to read font tables for vertical metrics".to_string(),
+        )
+    })?;
+
+    let glyph_metrics = swash_font
+        .glyph_metrics(coords_storage.as_slice())
+        .scale(font_size.max(0.0));
+
+    let glyph = SwashGlyphId::from(glyph_id);
+    let advance = glyph_metrics.advance_height(glyph);
+    let origin_y = glyph_metrics.vertical_origin(glyph);
+    let origin_x = glyph_metrics.advance_width(glyph) * 0.5;
+    let top_side_bearing = glyph_metrics.tsb(glyph);
+
+    Ok(VelloHbGlyphVerticalMetrics {
+        advance,
+        origin_x,
+        origin_y,
+        top_side_bearing,
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_hb_font_get_glyph_vertical_metrics(
+    font: *const VelloFontHandle,
+    glyph_id: u16,
+    font_size: f32,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+    out_metrics: *mut VelloHbGlyphVerticalMetrics,
+) -> VelloStatus {
+    if font.is_null() || out_metrics.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let font_size = font_size.max(0.0);
+
+    let variation_slice = if !variations.is_null() && variation_count > 0 {
+        unsafe { slice::from_raw_parts(variations, variation_count) }
+    } else {
+        &[]
+    };
+
+    match harfbuzz_vertical_metrics(font_handle, glyph_id, font_size, variation_slice) {
+        Ok(metrics) => {
+            unsafe {
+                *out_metrics = metrics;
+            }
+            VelloStatus::Success
+        }
+        Err((hb_status, hb_message)) => {
+            match swash_vertical_metrics(font_handle, glyph_id, font_size, variation_slice) {
+                Ok(metrics) => {
+                    unsafe {
+                        *out_metrics = metrics;
+                    }
+                    VelloStatus::Success
+                }
+                Err((swash_status, swash_message)) => {
+                    let combined_message = format!(
+                        "HarfBuzz vertical metrics failed ({hb_status:?}): {hb_message}. Swash fallback failed ({swash_status:?}): {swash_message}"
+                    );
+                    set_last_error(combined_message);
+                    swash_status
+                }
+            }
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -6303,6 +6614,155 @@ pub unsafe extern "C" fn vello_glyph_outline_destroy(outline: *mut VelloGlyphOut
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_hb_shape_utf16(
+    font: *const VelloFontHandle,
+    text: *const u16,
+    length: usize,
+    options: *const VelloTextShapeOptions,
+    out_run: *mut VelloHbShapeRun,
+    out_handle: *mut *mut VelloHbShapeHandle,
+) -> VelloStatus {
+    if font.is_null() || text.is_null() || out_run.is_null() || out_handle.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    if options.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let options = unsafe { &*options };
+    let font_size = options.font_size;
+    let direction = options.direction;
+
+    let feature_slice = if !options.features.is_null() && options.feature_count > 0 {
+        unsafe { slice::from_raw_parts(options.features, options.feature_count) }
+    } else {
+        &[]
+    };
+
+    let mut hb_features = Vec::with_capacity(feature_slice.len());
+    for feature in feature_slice {
+        let tag = HrTag::from_u32(feature.tag);
+        if feature.end == u32::MAX {
+            hb_features.push(HrFeature::new(tag, feature.value, feature.start as usize..));
+        } else {
+            let end = feature.end as usize;
+            hb_features.push(HrFeature::new(
+                tag,
+                feature.value,
+                feature.start as usize..=end,
+            ));
+        }
+    }
+
+    let slice = unsafe { slice::from_raw_parts(text, length) };
+    let text_owned = String::from_utf16_lossy(slice);
+
+    let font_handle = unsafe { &*font };
+    let data = font_handle.font.data.data();
+
+    let font_ref = match HrFontRef::from_index(data, font_handle.font.index) {
+        Ok(font_ref) => font_ref,
+        Err(err) => {
+            set_last_error(format!("Failed to read font: {err}"));
+            return VelloStatus::InvalidArgument;
+        }
+    };
+
+    let shaper_data = HrShaperData::new(&font_ref);
+    let shaper = shaper_data
+        .shaper(&font_ref)
+        .point_size(Some(font_size))
+        .build();
+
+    let units_per_em = shaper.units_per_em() as f32;
+    let scale = if units_per_em.abs() > f32::EPSILON {
+        font_size / units_per_em
+    } else {
+        1.0
+    };
+
+    let mut buffer = HrUnicodeBuffer::new();
+    buffer.push_str(&text_owned);
+    buffer.set_direction(if direction != 0 {
+        HrDirection::RightToLeft
+    } else {
+        HrDirection::LeftToRight
+    });
+
+    if options.script_tag != 0 {
+        let tag = HrTag::from_u32(options.script_tag);
+        if let Some(script) = HrScript::from_iso15924_tag(tag) {
+            buffer.set_script(script);
+        }
+    }
+
+    if !options.language.is_null() && options.language_length > 0 {
+        let language_slice =
+            unsafe { slice::from_raw_parts(options.language, options.language_length) };
+        if let Ok(language_str) = str::from_utf8(language_slice) {
+            if let Ok(language) = HrLanguage::from_str(language_str) {
+                buffer.set_language(language);
+            }
+        }
+    }
+
+    buffer.guess_segment_properties();
+
+    let shaped = shaper.shape(buffer, &hb_features);
+    let positions = shaped.glyph_positions();
+    let infos = shaped.glyph_infos();
+
+    let mut info_vec = Vec::with_capacity(infos.len());
+    let mut position_vec = Vec::with_capacity(positions.len());
+    let mut advance_x = 0.0f32;
+    let mut advance_y = 0.0f32;
+
+    for (info, pos) in infos.iter().zip(positions.iter()) {
+        let x_adv = pos.x_advance as f32 * scale;
+        let y_adv = pos.y_advance as f32 * scale;
+        let x_off = pos.x_offset as f32 * scale;
+        let y_off = pos.y_offset as f32 * scale;
+
+        advance_x += x_adv;
+        advance_y += y_adv;
+
+        info_vec.push(VelloHbGlyphInfo {
+            glyph_id: info.glyph_id,
+            cluster: info.cluster,
+        });
+
+        position_vec.push(VelloHbGlyphPosition {
+            x_advance: x_adv,
+            y_advance: y_adv,
+            x_offset: x_off,
+            y_offset: y_off,
+        });
+    }
+
+    let infos_boxed = info_vec.into_boxed_slice();
+    let positions_boxed = position_vec.into_boxed_slice();
+
+    let run = VelloHbShapeRun {
+        infos: infos_boxed.as_ptr(),
+        positions: positions_boxed.as_ptr(),
+        glyph_count: infos_boxed.len(),
+        advance_x,
+        advance_y,
+    };
+
+    unsafe {
+        *out_run = run;
+        *out_handle = Box::into_raw(Box::new(VelloHbShapeHandle {
+            infos: infos_boxed,
+            positions: positions_boxed,
+        }));
+    }
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_text_shape_utf16(
     font: *const VelloFontHandle,
     text: *const u16,
@@ -6433,6 +6893,13 @@ pub unsafe extern "C" fn vello_text_segment_utf16(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_text_shape_destroy(handle: *mut VelloShapedRunHandle) {
+    if !handle.is_null() {
+        unsafe { drop(Box::from_raw(handle)) };
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_hb_shape_destroy(handle: *mut VelloHbShapeHandle) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle)) };
     }
@@ -6711,6 +7178,26 @@ fn texture_format_to_ffi(format: TextureFormat) -> Option<VelloWgpuTextureFormat
     }
 }
 
+fn texture_usage_to_bits(usage: TextureUsages) -> u32 {
+    let mut bits = 0;
+    if usage.contains(TextureUsages::COPY_SRC) {
+        bits |= 0x1;
+    }
+    if usage.contains(TextureUsages::COPY_DST) {
+        bits |= 0x2;
+    }
+    if usage.contains(TextureUsages::TEXTURE_BINDING) {
+        bits |= 0x4;
+    }
+    if usage.contains(TextureUsages::STORAGE_BINDING) {
+        bits |= 0x8;
+    }
+    if usage.contains(TextureUsages::RENDER_ATTACHMENT) {
+        bits |= 0x10;
+    }
+    bits
+}
+
 fn texture_usage_from_bits(bits: u32) -> Result<TextureUsages, VelloStatus> {
     if bits == 0 {
         return Err(VelloStatus::InvalidArgument);
@@ -6788,6 +7275,50 @@ fn alpha_mode_from_ffi(alpha: VelloWgpuCompositeAlphaMode) -> CompositeAlphaMode
         VelloWgpuCompositeAlphaMode::PostMultiplied => CompositeAlphaMode::PostMultiplied,
         VelloWgpuCompositeAlphaMode::Inherit => CompositeAlphaMode::Inherit,
     }
+}
+
+fn alpha_mode_to_ffi(alpha: CompositeAlphaMode) -> VelloWgpuCompositeAlphaMode {
+    match alpha {
+        CompositeAlphaMode::Auto => VelloWgpuCompositeAlphaMode::Auto,
+        CompositeAlphaMode::Opaque => VelloWgpuCompositeAlphaMode::Opaque,
+        CompositeAlphaMode::PreMultiplied => VelloWgpuCompositeAlphaMode::Premultiplied,
+        CompositeAlphaMode::PostMultiplied => VelloWgpuCompositeAlphaMode::PostMultiplied,
+        CompositeAlphaMode::Inherit => VelloWgpuCompositeAlphaMode::Inherit,
+    }
+}
+
+fn present_mode_to_ffi(mode: wgpu::PresentMode) -> Option<VelloPresentMode> {
+    match mode {
+        wgpu::PresentMode::AutoVsync => Some(VelloPresentMode::AutoVsync),
+        wgpu::PresentMode::AutoNoVsync => Some(VelloPresentMode::AutoNoVsync),
+        wgpu::PresentMode::Fifo => Some(VelloPresentMode::Fifo),
+        wgpu::PresentMode::Immediate => Some(VelloPresentMode::Immediate),
+        // Present modes without direct equivalents are skipped.
+        wgpu::PresentMode::FifoRelaxed | wgpu::PresentMode::Mailbox => None,
+    }
+}
+
+fn copy_slice_to_ptr<T: Copy>(
+    source: &[T],
+    destination: *mut T,
+    capacity: usize,
+    label: &str,
+) -> Result<(), VelloStatus> {
+    if source.is_empty() || capacity == 0 {
+        return Ok(());
+    }
+    if destination.is_null() {
+        set_last_error(format!("{label} pointer is null"));
+        return Err(VelloStatus::NullPointer);
+    }
+    if capacity < source.len() {
+        set_last_error(format!("{label} buffer is too small"));
+        return Err(VelloStatus::InvalidArgument);
+    }
+    unsafe {
+        std::ptr::copy_nonoverlapping(source.as_ptr(), destination, source.len());
+    }
+    Ok(())
 }
 
 fn texture_view_dimension_from_u32(
@@ -8956,6 +9487,85 @@ pub unsafe extern "C" fn vello_wgpu_surface_get_preferred_format(
 }
 
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_surface_get_capabilities(
+    surface: *mut VelloWgpuSurfaceHandle,
+    adapter: *mut VelloWgpuAdapterHandle,
+    out_capabilities: *mut VelloWgpuSurfaceCapabilities,
+    out_formats: *mut VelloWgpuTextureFormat,
+    formats_capacity: usize,
+    out_present_modes: *mut VelloPresentMode,
+    present_modes_capacity: usize,
+    out_alpha_modes: *mut VelloWgpuCompositeAlphaMode,
+    alpha_modes_capacity: usize,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(surface) = (unsafe { surface.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(adapter) = (unsafe { adapter.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(out_capabilities) = (unsafe { out_capabilities.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    let capabilities = surface.surface.get_capabilities(&adapter.adapter);
+
+    let formats: Vec<_> = capabilities
+        .formats
+        .iter()
+        .filter_map(|format| texture_format_to_ffi(*format))
+        .collect();
+    if formats.is_empty() {
+        set_last_error("No supported texture formats for this surface/adapter pair");
+        return VelloStatus::Unsupported;
+    }
+
+    let present_modes: Vec<_> = capabilities
+        .present_modes
+        .iter()
+        .filter_map(|mode| present_mode_to_ffi(*mode))
+        .collect();
+
+    let alpha_modes: Vec<_> = capabilities
+        .alpha_modes
+        .iter()
+        .map(|mode| alpha_mode_to_ffi(*mode))
+        .collect();
+
+    let usage_bits = texture_usage_to_bits(capabilities.usages);
+
+    if let Err(status) =
+        copy_slice_to_ptr(&formats, out_formats, formats_capacity, "surface formats")
+    {
+        return status;
+    }
+    if let Err(status) = copy_slice_to_ptr(
+        &present_modes,
+        out_present_modes,
+        present_modes_capacity,
+        "present modes",
+    ) {
+        return status;
+    }
+    if let Err(status) = copy_slice_to_ptr(
+        &alpha_modes,
+        out_alpha_modes,
+        alpha_modes_capacity,
+        "alpha modes",
+    ) {
+        return status;
+    }
+
+    out_capabilities.usage = usage_bits;
+    out_capabilities.format_count = formats.len();
+    out_capabilities.present_mode_count = present_modes.len();
+    out_capabilities.alpha_mode_count = alpha_modes.len();
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_wgpu_surface_configure(
     surface: *mut VelloWgpuSurfaceHandle,
     device: *mut VelloWgpuDeviceHandle,
@@ -9223,6 +9833,150 @@ pub unsafe extern "C" fn vello_wgpu_renderer_render_surface(
 
     renderer.queue.submit(std::iter::once(encoder.finish()));
 
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_image_create_from_texture(
+    renderer: *mut VelloWgpuRendererHandle,
+    texture: *const VelloWgpuTextureHandle,
+) -> *mut VelloImageHandle {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        set_last_error("Renderer handle is null");
+        return std::ptr::null_mut();
+    };
+    let Some(texture) = (unsafe { texture.as_ref() }) else {
+        set_last_error("Texture handle is null");
+        return std::ptr::null_mut();
+    };
+
+    let image = renderer
+        .renderer
+        .register_texture(texture.texture.clone());
+    let stride = match (image.width as usize).checked_mul(4) {
+        Some(value) => value,
+        None => {
+            set_last_error("Image row size overflow");
+            return std::ptr::null_mut();
+        }
+    };
+
+    Box::into_raw(Box::new(VelloImageHandle { image, stride }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_image_unregister_texture(
+    renderer: *mut VelloWgpuRendererHandle,
+    image: *const VelloImageHandle,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(image) = (unsafe { image.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    renderer
+        .renderer
+        .unregister_texture(image.image.clone());
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_image_override_with_texture(
+    renderer: *mut VelloWgpuRendererHandle,
+    image: *const VelloImageHandle,
+    texture: VelloWgpuImageCopyTexture,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(image) = (unsafe { image.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(texture_handle) = (unsafe { texture.texture.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let aspect = match texture_aspect_from_raw(texture.aspect) {
+        Ok(value) => value,
+        Err(status) => return status,
+    };
+
+    renderer.renderer.override_image(
+        &image.image,
+        Some(wgpu::TexelCopyTextureInfoBase {
+            texture: texture_handle.texture.clone(),
+            mip_level: texture.mip_level,
+            origin: wgpu::Origin3d {
+                x: texture.origin.x,
+                y: texture.origin.y,
+                z: texture.origin.z,
+            },
+            aspect,
+        }),
+    );
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_image_override_with_surface_texture(
+    renderer: *mut VelloWgpuRendererHandle,
+    image: *const VelloImageHandle,
+    surface_texture: *mut VelloWgpuSurfaceTextureHandle,
+    mip_level: u32,
+    origin: VelloWgpuOrigin3d,
+    aspect: u32,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(image) = (unsafe { image.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(surface_texture) = (unsafe { surface_texture.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let aspect = match texture_aspect_from_raw(aspect) {
+        Ok(value) => value,
+        Err(status) => return status,
+    };
+
+    renderer.renderer.override_image(
+        &image.image,
+        Some(wgpu::TexelCopyTextureInfoBase {
+            texture: surface_texture.texture.texture.clone(),
+            mip_level,
+            origin: wgpu::Origin3d {
+                x: origin.x,
+                y: origin.y,
+                z: origin.z,
+            },
+            aspect,
+        }),
+    );
+
+    VelloStatus::Success
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_wgpu_renderer_image_clear_override(
+    renderer: *mut VelloWgpuRendererHandle,
+    image: *const VelloImageHandle,
+) -> VelloStatus {
+    clear_last_error();
+    let Some(renderer) = (unsafe { renderer.as_mut() }) else {
+        return VelloStatus::NullPointer;
+    };
+    let Some(image) = (unsafe { image.as_ref() }) else {
+        return VelloStatus::NullPointer;
+    };
+
+    renderer.renderer.override_image(&image.image, None);
     VelloStatus::Success
 }
 

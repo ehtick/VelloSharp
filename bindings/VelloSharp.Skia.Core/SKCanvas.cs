@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
+using SkiaSharpShim;
 using VelloSharp;
 
 namespace SkiaSharp;
@@ -400,8 +401,18 @@ public sealed class SKCanvas : IDisposable
         ArgumentNullException.ThrowIfNull(paint);
         paint.ThrowIfDisposed();
 
-        var builder = path.ToPathBuilder();
-        var brushInfo = paint.CreateBrush();
+        SKPath? effectedPath = null;
+        var targetPath = path;
+        if (paint.PathEffect is { } pathEffect && pathEffect.TryApply(path, out var transformed))
+        {
+            effectedPath = transformed;
+            targetPath = transformed;
+        }
+
+        try
+        {
+            var builder = targetPath.ToPathBuilder();
+            var brushInfo = paint.CreateBrush();
         var (fillBrush, fillTransform) = brushInfo;
 
         if (paint.Style is SKPaintStyle.Fill or SKPaintStyle.StrokeAndFill)
@@ -416,6 +427,11 @@ public sealed class SKCanvas : IDisposable
         }
 
         _commandLog?.Add(new DrawPathCommand(path, paint));
+        }
+        finally
+        {
+            effectedPath?.Dispose();
+        }
     }
 
     public void DrawPaint(SKPaint paint)
@@ -563,61 +579,27 @@ public sealed class SKCanvas : IDisposable
         var font = typeface.Font;
         var fontSize = paint.TextSize <= 0 ? 16f : paint.TextSize;
 
-        var glyphs = ListPool<Glyph>.Shared.Rent(text.Length);
-        var rendered = false;
-        try
+        var shapedRun = FontMeasurement.Instance.GetOrCreateRun(typeface, paint, text.AsSpan());
+        var glyphArray = shapedRun.ToGlyphArray();
+        if (glyphArray.Length == 0)
         {
-            var penX = 0f;
-            foreach (var rune in text.EnumerateRunes())
-            {
-                if (!font.TryGetGlyphIndex((uint)rune.Value, out var glyphIndex))
-                {
-                    continue;
-                }
-
-                float advance;
-                if (font.TryGetGlyphMetrics(glyphIndex, fontSize, out var metrics))
-                {
-                    advance = metrics.Advance;
-                }
-                else
-                {
-                    advance = fontSize * 0.6f;
-                }
-
-                glyphs.Add(new Glyph(glyphIndex, penX, 0f));
-                penX += advance;
-            }
-
-            if (glyphs.Count == 0)
-            {
-                return;
-            }
-
-            var snapshot = new SKFont.FontSnapshot(
-                typeface,
-                fontSize,
-                1f,
-                0f,
-                true,
-                false,
-                paint.IsAntialias,
-                paint.IsAntialias ? SKFontHinting.Normal : SKFontHinting.None,
-                paint.IsAntialias ? SKFontEdging.SubpixelAntialias : SKFontEdging.Alias);
-
-            var transform = Matrix3x2.CreateTranslation(x, y) * _currentState.Transform;
-            RenderGlyphRun(snapshot, CollectionsMarshal.AsSpan(glyphs), paint, transform);
-            rendered = true;
-        }
-        finally
-        {
-            ListPool<Glyph>.Shared.Return(glyphs);
+            return;
         }
 
-        if (rendered)
-        {
-            _commandLog?.Add(new DrawTextCommand(text, x, y, paint));
-        }
+        var snapshot = new SKFont.FontSnapshot(
+            typeface,
+            fontSize,
+            1f,
+            0f,
+            true,
+            false,
+            paint.IsAntialias,
+            paint.IsAntialias ? SKFontHinting.Normal : SKFontHinting.None,
+            paint.IsAntialias ? SKFontEdging.SubpixelAntialias : SKFontEdging.Alias);
+
+        var transform = Matrix3x2.CreateTranslation(x, y) * _currentState.Transform;
+        RenderGlyphRun(snapshot, glyphArray.AsSpan(), paint, transform);
+        _commandLog?.Add(new DrawTextCommand(text, x, y, paint));
     }
 
     public void DrawText(SKTextBlob textBlob, float x, float y, SKPaint paint)
@@ -630,23 +612,63 @@ public sealed class SKCanvas : IDisposable
 
         foreach (var run in textBlob.Runs)
         {
-            var glyphs = run.Glyphs;
-            var positions = run.Positions;
-            var glyphList = ListPool<Glyph>.Shared.Rent(glyphs.Length);
-            try
+            if (run.UsesHandle && run.Handle is { } handle)
             {
-                for (var i = 0; i < glyphs.Length; i++)
+                var span = handle.GetGlyphSpan();
+                if (span.Length == 0)
                 {
-                    var pos = positions[i];
-                    glyphList.Add(new Glyph(glyphs[i], pos.X, pos.Y));
+                    continue;
                 }
 
-                RenderGlyphRun(run.FontSnapshot, CollectionsMarshal.AsSpan(glyphList), paint, transform);
-                rendered = true;
+                var glyphList = ListPool<Glyph>.Shared.Rent(span.Length);
+                try
+                {
+                    var penX = run.Origin.X;
+                    var originY = run.Origin.Y;
+                    for (var i = 0; i < span.Length; i++)
+                    {
+                        ref readonly var nativeGlyph = ref span[i];
+                        var glyphX = penX + nativeGlyph.XOffset;
+                        var glyphY = originY + nativeGlyph.YOffset;
+                        glyphList.Add(new Glyph(nativeGlyph.GlyphId, glyphX, glyphY));
+                        penX += nativeGlyph.XAdvance;
+                    }
+
+                    handle.Touch();
+                    RenderGlyphRun(run.FontSnapshot, CollectionsMarshal.AsSpan(glyphList), paint, transform);
+                    rendered = true;
+                }
+                finally
+                {
+                    ListPool<Glyph>.Shared.Return(glyphList);
+                }
             }
-            finally
+            else
             {
-                ListPool<Glyph>.Shared.Return(glyphList);
+                var glyphs = run.Glyphs;
+                if (glyphs.Length == 0)
+                {
+                    continue;
+                }
+
+                var positions = run.Positions;
+                var glyphList = ListPool<Glyph>.Shared.Rent(glyphs.Length);
+                try
+                {
+                    var origin = run.Origin;
+                    for (var i = 0; i < glyphs.Length; i++)
+                    {
+                        var pos = positions[i];
+                        glyphList.Add(new Glyph(glyphs[i], pos.X + origin.X, pos.Y + origin.Y));
+                    }
+
+                    RenderGlyphRun(run.FontSnapshot, CollectionsMarshal.AsSpan(glyphList), paint, transform);
+                    rendered = true;
+                }
+                finally
+                {
+                    ListPool<Glyph>.Shared.Return(glyphList);
+                }
             }
         }
 

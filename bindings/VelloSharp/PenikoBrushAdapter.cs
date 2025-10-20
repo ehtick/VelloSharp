@@ -1,6 +1,5 @@
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 
 namespace VelloSharp;
 
@@ -17,118 +16,188 @@ public sealed class PenikoBrushAdapter : Brush
 
     internal BrushNativeData CreateNative()
     {
-        return _brush.Kind switch
+        var data = Serialize();
+        return data.Brush.Kind switch
         {
-            PenikoBrushKind.Solid => CreateSolidBrush(),
-            PenikoBrushKind.Gradient => CreateGradientBrush(),
-            PenikoBrushKind.Image => throw new NotSupportedException("Image brushes are not supported via Peniko interop yet."),
-            _ => throw new InvalidOperationException($"Unsupported Peniko brush kind: {_brush.Kind}.")
+            PenikoBrushKind.Solid => CreateSolidBrush(data.Brush.Solid),
+            PenikoBrushKind.Gradient => CreateGradientBrush(data.Brush, data.Stops.AsSpan()),
+            PenikoBrushKind.Image => CreateImageBrush(data.Brush.Image),
+            _ => throw new InvalidOperationException($"Unsupported Peniko brush kind: {data.Brush.Kind}.")
         };
     }
 
-    private BrushNativeData CreateSolidBrush()
+    private SerializedBrushData Serialize()
     {
-        var color = _brush.GetSolidColor();
+        unsafe
+        {
+            PenikoSerializedBrush brush;
+            nuint length;
+            var status = PenikoNativeMethods.peniko_brush_serialize(_brush.DangerousGetHandle(), out brush, (PenikoColorStop*)0, 0, out length);
+            NativeHelpers.ThrowOnError(status, "peniko_brush_serialize");
+
+            PenikoColorStop[] stops;
+            if (length == 0)
+            {
+                stops = Array.Empty<PenikoColorStop>();
+            }
+            else
+            {
+                stops = new PenikoColorStop[(int)length];
+                fixed (PenikoColorStop* ptr = stops)
+                {
+                    status = PenikoNativeMethods.peniko_brush_serialize(_brush.DangerousGetHandle(), out brush, ptr, (nuint)stops.Length, out var written);
+                    NativeHelpers.ThrowOnError(status, "peniko_brush_serialize");
+                    if (written != (nuint)stops.Length)
+                    {
+                        Array.Resize(ref stops, (int)written);
+                    }
+                }
+            }
+
+            return new SerializedBrushData(brush, stops);
+        }
+    }
+
+    private BrushNativeData CreateSolidBrush(PenikoColor color)
+    {
         var native = new VelloBrush
         {
             Kind = VelloBrushKind.Solid,
-            Solid = color,
-            Linear = default,
-            Radial = default,
-            Sweep = default,
-            Image = default,
+            Solid = new VelloColor { R = color.R, G = color.G, B = color.B, A = color.A },
         };
         return new BrushNativeData(native, null, 0, pooled: false);
     }
 
-    private BrushNativeData CreateGradientBrush()
+    private BrushNativeData CreateGradientBrush(PenikoSerializedBrush brush, ReadOnlySpan<PenikoColorStop> stops)
     {
-        var gradientKind = _brush.GetGradientKind();
-        return gradientKind switch
+        var gradientStops = RentStops(stops, out var stopCount, out var pooled);
+        VelloBrush native;
+        switch (brush.GradientKind)
         {
-            PenikoGradientKind.Linear => CreateLinearGradientBrush(),
-            PenikoGradientKind.Radial => CreateRadialGradientBrush(),
-            PenikoGradientKind.Sweep => CreateSweepGradientBrush(),
-            _ => throw new InvalidOperationException($"Unsupported Peniko gradient kind: {gradientKind}.")
-        };
+            case PenikoGradientKind.Linear:
+                native = new VelloBrush
+                {
+                    Kind = VelloBrushKind.LinearGradient,
+                    Linear = new VelloLinearGradient
+                    {
+                        Start = ToVelloPoint(brush.Linear.Start),
+                        End = ToVelloPoint(brush.Linear.End),
+                        Extend = (VelloExtendMode)brush.Extend,
+                        StopCount = (nuint)stopCount,
+                    },
+                };
+                break;
+            case PenikoGradientKind.Radial:
+                native = new VelloBrush
+                {
+                    Kind = VelloBrushKind.RadialGradient,
+                    Radial = new VelloRadialGradient
+                    {
+                        StartCenter = ToVelloPoint(brush.Radial.StartCenter),
+                        StartRadius = brush.Radial.StartRadius,
+                        EndCenter = ToVelloPoint(brush.Radial.EndCenter),
+                        EndRadius = brush.Radial.EndRadius,
+                        Extend = (VelloExtendMode)brush.Extend,
+                        StopCount = (nuint)stopCount,
+                    },
+                };
+                break;
+            case PenikoGradientKind.Sweep:
+                native = new VelloBrush
+                {
+                    Kind = VelloBrushKind.SweepGradient,
+                    Sweep = new VelloSweepGradient
+                    {
+                        Center = ToVelloPoint(brush.Sweep.Center),
+                        StartAngle = brush.Sweep.StartAngle,
+                        EndAngle = brush.Sweep.EndAngle,
+                        Extend = (VelloExtendMode)brush.Extend,
+                        StopCount = (nuint)stopCount,
+                    },
+                };
+                break;
+            default:
+                gradientStops?.AsSpan().Clear();
+                throw new InvalidOperationException($"Unsupported Peniko gradient kind: {brush.GradientKind}.");
+        }
+
+        return new BrushNativeData(native, gradientStops, stopCount, pooled);
     }
 
-    private BrushNativeData CreateLinearGradientBrush()
+    private BrushNativeData CreateImageBrush(PenikoImageBrushParams parameters)
     {
-        var info = _brush.GetLinearGradient();
-        var stops = RentStops(info.Stops, out var stopCount, out var pooled);
-        var native = new VelloBrush
+        if (parameters.Image == IntPtr.Zero)
         {
-            Kind = VelloBrushKind.LinearGradient,
-            Linear = new VelloLinearGradient
+            throw new InvalidOperationException("Serialized image brush is missing image data.");
+        }
+
+        using var imageData = PenikoImageData.FromNativeHandle(parameters.Image);
+        var info = imageData.GetInfo();
+        var bytesRequired = checked(info.Stride * info.Height);
+        if (bytesRequired <= 0)
+        {
+            throw new InvalidOperationException("Serialized image brush has invalid dimensions.");
+        }
+
+        var buffer = ArrayPool<byte>.Shared.Rent(bytesRequired);
+        try
+        {
+            var span = buffer.AsSpan(0, bytesRequired);
+            imageData.CopyPixels(span);
+
+            var renderFormat = info.Format switch
             {
-                Start = ToVelloPoint(info.Gradient.Start),
-                End = ToVelloPoint(info.Gradient.End),
-                Extend = (VelloExtendMode)info.Extend,
-                StopCount = (nuint)stopCount,
-            },
-            Radial = default,
-            Sweep = default,
-            Image = default,
-        };
-        return new BrushNativeData(native, stops, stopCount, pooled);
-    }
+                PenikoImageFormat.Rgba8 => RenderFormat.Rgba8,
+                PenikoImageFormat.Bgra8 => RenderFormat.Bgra8,
+                _ => RenderFormat.Rgba8,
+            };
 
-    private BrushNativeData CreateRadialGradientBrush()
-    {
-        var info = _brush.GetRadialGradient();
-        var stops = RentStops(info.Stops, out var stopCount, out var pooled);
-        var native = new VelloBrush
-        {
-            Kind = VelloBrushKind.RadialGradient,
-            Radial = new VelloRadialGradient
+            var alphaMode = info.Alpha switch
             {
-                StartCenter = ToVelloPoint(info.Gradient.StartCenter),
-                StartRadius = info.Gradient.StartRadius,
-                EndCenter = ToVelloPoint(info.Gradient.EndCenter),
-                EndRadius = info.Gradient.EndRadius,
-                Extend = (VelloExtendMode)info.Extend,
-                StopCount = (nuint)stopCount,
-            },
-            Linear = default,
-            Sweep = default,
-            Image = default,
-        };
-        return new BrushNativeData(native, stops, stopCount, pooled);
-    }
+                PenikoImageAlphaType.Alpha => ImageAlphaMode.Straight,
+                PenikoImageAlphaType.AlphaPremultiplied => ImageAlphaMode.Premultiplied,
+                _ => ImageAlphaMode.Straight,
+            };
 
-    private BrushNativeData CreateSweepGradientBrush()
-    {
-        var info = _brush.GetSweepGradient();
-        var stops = RentStops(info.Stops, out var stopCount, out var pooled);
-        var native = new VelloBrush
-        {
-            Kind = VelloBrushKind.SweepGradient,
-            Linear = default,
-            Radial = default,
-            Sweep = new VelloSweepGradient
+            var image = Image.FromPixels(
+                span,
+                info.Width,
+                info.Height,
+                renderFormat,
+                alphaMode,
+                info.Stride);
+
+            var native = new VelloBrush
             {
-                Center = ToVelloPoint(info.Gradient.Center),
-                StartAngle = info.Gradient.StartAngle,
-                EndAngle = info.Gradient.EndAngle,
-                Extend = (VelloExtendMode)info.Extend,
-                StopCount = (nuint)stopCount,
-            },
-            Image = default,
-        };
-        return new BrushNativeData(native, stops, stopCount, pooled);
+                Kind = VelloBrushKind.Image,
+                Image = new VelloImageBrushParams
+                {
+                    Image = image.Handle,
+                    XExtend = (VelloExtendMode)parameters.XExtend,
+                    YExtend = (VelloExtendMode)parameters.YExtend,
+                    Quality = (VelloImageQualityMode)parameters.Quality,
+                    Alpha = parameters.Alpha,
+                },
+            };
+
+            return new BrushNativeData(native, null, 0, pooled: false, image: image);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
-    private static GradientStop[]? RentStops(IReadOnlyList<PenikoColorStop> stops, out int count, out bool pooled)
+    private static GradientStop[]? RentStops(ReadOnlySpan<PenikoColorStop> stops, out int count, out bool pooled)
     {
-        if (stops is null || stops.Count == 0)
+        if (stops.IsEmpty)
         {
             count = 0;
             pooled = false;
             return null;
         }
 
-        count = stops.Count;
+        count = stops.Length;
         var buffer = ArrayPool<GradientStop>.Shared.Rent(count);
         var span = buffer.AsSpan(0, count);
         for (var i = 0; i < count; i++)
@@ -140,6 +209,18 @@ public sealed class PenikoBrushAdapter : Brush
 
         pooled = true;
         return buffer;
+    }
+
+    private readonly struct SerializedBrushData
+    {
+        public SerializedBrushData(PenikoSerializedBrush brush, PenikoColorStop[] stops)
+        {
+            Brush = brush;
+            Stops = stops;
+        }
+
+        public PenikoSerializedBrush Brush { get; }
+        public PenikoColorStop[] Stops { get; }
     }
 
     private static VelloPoint ToVelloPoint(PenikoPoint point) => new()

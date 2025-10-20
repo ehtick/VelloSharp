@@ -273,3 +273,30 @@ public enum KurboPathVerb
     CubicTo = 3,
     Close = 4,
 }
+
+public enum KurboStrokeJoin
+{
+    Miter = 0,
+    Round = 1,
+    Bevel = 2,
+}
+
+public enum KurboStrokeCap
+{
+    Butt = 0,
+    Round = 1,
+    Square = 2,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct KurboStrokeStyle
+{
+    public double Width;
+    public double MiterLimit;
+    public KurboStrokeCap StartCap;
+    public KurboStrokeCap EndCap;
+    public KurboStrokeJoin Join;
+    public double DashOffset;
+    public IntPtr DashPattern;
+    public nuint DashLength;
+}

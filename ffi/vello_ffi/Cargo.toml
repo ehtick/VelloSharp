@@ -27,6 +27,7 @@ fontique = { workspace = true, default-features = false, features = ["std", "sys
 skrifa = { workspace = true, default-features = false, features = ["std"] }
 swash = { workspace = true, default-features = false, features = ["std", "scale"] }
 harfrust = { workspace = true }
+harfbuzz_rs = { path = "../../extern/harfbuzz_rs", default-features = false, features = ["build-native-harfbuzz"] }
 png = "0.17"
 once_cell = "1.19"
 read-fonts = { workspace = true }

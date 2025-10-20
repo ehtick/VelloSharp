@@ -7,6 +7,7 @@ namespace VelloSharp;
 internal static partial class NativeMethods
 {
     internal const string LibraryName = "vello_ffi";
+    internal const string ImageCodecLibraryName = "image_codec_ffi";
 
     [LibraryImport(LibraryName, EntryPoint = "vello_renderer_create")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -159,6 +160,54 @@ internal static partial class NativeMethods
         double radius,
         double stdDev);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_blur_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_filter_blur_create(float sigmaX, float sigmaY);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_drop_shadow_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_filter_drop_shadow_create(
+        VelloPoint offset,
+        float sigmaX,
+        float sigmaY,
+        VelloColor color);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_blend_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_filter_blend_create(VelloBlendMix mix, VelloBlendCompose compose);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_color_matrix_create")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial IntPtr vello_filter_color_matrix_create(float* matrix, nuint length);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_retain")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_filter_retain(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_release")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_filter_release(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_get_kind")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_filter_get_kind(IntPtr handle, out VelloFilterKind kind);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_get_blur")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_filter_get_blur(IntPtr handle, out VelloFilterBlur blur);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_get_drop_shadow")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_filter_get_drop_shadow(IntPtr handle, out VelloFilterDropShadow dropShadow);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_get_blend")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_filter_get_blend(IntPtr handle, out VelloFilterBlend blend);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_filter_get_color_matrix")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_filter_get_color_matrix(IntPtr handle, out VelloFilterColorMatrix matrix);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_image_create")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr vello_image_create(
@@ -184,6 +233,36 @@ internal static partial class NativeMethods
     [LibraryImport(LibraryName, EntryPoint = "vello_image_encode_png")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial VelloStatus vello_image_encode_png(IntPtr image, byte compression, out IntPtr blob);
+
+    [LibraryImport(ImageCodecLibraryName, EntryPoint = "image_codec_decode_auto")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus image_codec_decode_auto(byte* data, nuint length, out IntPtr image);
+
+    [LibraryImport(ImageCodecLibraryName, EntryPoint = "image_codec_decode")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus image_codec_decode(
+        byte* data,
+        nuint length,
+        ImageCodecFormatNative format,
+        out IntPtr image);
+
+    [LibraryImport(ImageCodecLibraryName, EntryPoint = "image_codec_encode")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus image_codec_encode(
+        IntPtr image,
+        ImageCodecFormatNative format,
+        byte quality,
+        out IntPtr bufferHandle);
+
+    [LibraryImport(ImageCodecLibraryName, EntryPoint = "image_codec_buffer_get_data")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus image_codec_buffer_get_data(
+        IntPtr handle,
+        out ImageCodecBufferNative buffer);
+
+    [LibraryImport(ImageCodecLibraryName, EntryPoint = "image_codec_buffer_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void image_codec_buffer_destroy(IntPtr handle);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_image_get_info")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -269,6 +348,16 @@ internal static partial class NativeMethods
         out VelloShapedRunNative run,
         out IntPtr handle);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_hb_shape_utf16")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_hb_shape_utf16(
+        IntPtr font,
+        ushort* text,
+        nuint length,
+        VelloTextShapeOptionsNative* options,
+        out VelloHbShapeRunNative run,
+        out IntPtr handle);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_text_segment_utf16")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial VelloStatus vello_text_segment_utf16(
@@ -295,6 +384,27 @@ internal static partial class NativeMethods
     [LibraryImport(LibraryName, EntryPoint = "vello_text_shape_destroy")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_text_shape_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_hb_shape_destroy")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void vello_hb_shape_destroy(IntPtr handle);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_hb_font_get_extents")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_hb_font_get_extents(
+        IntPtr font,
+        float fontSize,
+        out VelloHbFontExtentsNative extents);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_hb_font_get_glyph_vertical_metrics")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_hb_font_get_glyph_vertical_metrics(
+        IntPtr font,
+        ushort glyphId,
+        float fontSize,
+        VelloVariationAxisValueNative* variations,
+        nuint variationCount,
+        out VelloHbGlyphVerticalMetricsNative metrics);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_svg_load_from_memory")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -664,6 +774,19 @@ internal static partial class NativeMethods
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void vello_wgpu_surface_destroy(IntPtr surface);
 
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_surface_get_capabilities")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_wgpu_surface_get_capabilities(
+        IntPtr surface,
+        IntPtr adapter,
+        WgpuSurfaceCapabilitiesNative* capabilities,
+        WgpuTextureFormatNative* formats,
+        nuint formatsCapacity,
+        VelloPresentMode* presentModes,
+        nuint presentModesCapacity,
+        WgpuCompositeAlphaModeNative* alphaModes,
+        nuint alphaModesCapacity);
+
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_surface_get_preferred_format")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static unsafe partial VelloStatus vello_wgpu_surface_get_preferred_format(
@@ -724,6 +847,41 @@ internal static partial class NativeMethods
         IntPtr textureView,
         VelloRenderParams parameters,
         WgpuTextureFormatNative surfaceFormat);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_image_create_from_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr vello_wgpu_renderer_image_create_from_texture(
+        IntPtr renderer,
+        IntPtr texture);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_image_unregister_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_image_unregister_texture(
+        IntPtr renderer,
+        IntPtr image);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_image_override_with_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static unsafe partial VelloStatus vello_wgpu_renderer_image_override_with_texture(
+        IntPtr renderer,
+        IntPtr image,
+        VelloWgpuImageCopyTextureNative* texture);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_image_override_with_surface_texture")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_image_override_with_surface_texture(
+        IntPtr renderer,
+        IntPtr image,
+        IntPtr surfaceTexture,
+        uint mipLevel,
+        VelloWgpuOrigin3dNative origin,
+        uint aspect);
+
+    [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_image_clear_override")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial VelloStatus vello_wgpu_renderer_image_clear_override(
+        IntPtr renderer,
+        IntPtr image);
 
     [LibraryImport(LibraryName, EntryPoint = "vello_wgpu_renderer_profiler_set_enabled")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

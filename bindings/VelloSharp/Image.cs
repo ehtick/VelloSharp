@@ -23,6 +23,16 @@ public sealed class Image : IDisposable
         }
     }
 
+    internal static Image FromNativeHandle(IntPtr handle)
+    {
+        if (handle == IntPtr.Zero)
+        {
+            throw new InvalidOperationException("Image handle cannot be null.");
+        }
+
+        return new Image(handle);
+    }
+
     public static Image FromPixels(
         ReadOnlySpan<byte> pixels,
         int width,

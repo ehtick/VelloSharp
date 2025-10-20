@@ -21,6 +21,7 @@ members = [
     "ffi/gauges-core",
     "ffi/scada-runtime",
     "ffi/vello_webgpu_ffi",
+    "ffi/image_codec_ffi",
 ]
 exclude = [
     "extern/Avalonia",

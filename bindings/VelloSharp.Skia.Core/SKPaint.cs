@@ -38,6 +38,10 @@ public sealed class SKPaint : IDisposable
     public float TextSize { get; set; } = 16f;
     public SKColor Color { get; set; } = new(0, 0, 0, 255);
     public SKTypeface? Typeface { get; set; }
+    public SKTextAlign TextAlign { get; set; } = SKTextAlign.Left;
+    public float TextScaleX { get; set; } = 1f;
+    public float TextSkewX { get; set; } = 0f;
+    public bool IsFakeBoldText { get; set; }
     public float Opacity { get; set; } = 1f;
     public SKColorF ColorF
     {
@@ -82,6 +86,48 @@ public sealed class SKPaint : IDisposable
         ColorFilter = null;
         Blender = null;
         FilterQuality = SKFilterQuality.None;
+        TextAlign = SKTextAlign.Left;
+        TextScaleX = 1f;
+        TextSkewX = 0f;
+        IsFakeBoldText = false;
+    }
+
+    public float MeasureText(string text)
+    {
+        ThrowIfDisposed();
+        if (text is null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+
+        using var font = CreateMeasurementFont();
+        return font.MeasureText(text.AsSpan(), this);
+    }
+
+    public float MeasureText(ReadOnlySpan<char> text)
+    {
+        ThrowIfDisposed();
+        using var font = CreateMeasurementFont();
+        return font.MeasureText(text, this);
+    }
+
+    public float MeasureText(string text, out SKRect bounds)
+    {
+        ThrowIfDisposed();
+        if (text is null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+
+        using var font = CreateMeasurementFont();
+        return font.MeasureText(text.AsSpan(), out bounds, this);
+    }
+
+    public float MeasureText(ReadOnlySpan<char> text, out SKRect bounds)
+    {
+        ThrowIfDisposed();
+        using var font = CreateMeasurementFont();
+        return font.MeasureText(text, out bounds, this);
     }
 
     public bool GetFillPath(SKPath source, SKPath destination)
@@ -92,6 +138,14 @@ public sealed class SKPaint : IDisposable
 
         destination.Reset();
 
+        SKPath? effectedPath = null;
+        SKPath sourcePath = source;
+        if (PathEffect is { } pathEffect && pathEffect.TryApply(source, out var transformed))
+        {
+            effectedPath = transformed;
+            sourcePath = transformed;
+        }
+
         SKPath? fillPath = null;
         SKPath? strokePath = null;
         SKPath? combinedPath = null;
@@ -100,15 +154,15 @@ public sealed class SKPaint : IDisposable
         {
             if (Style != SKPaintStyle.Stroke)
             {
-                fillPath = new SKPath(source)
+                fillPath = new SKPath(sourcePath)
                 {
-                    FillType = source.FillType,
+                    FillType = sourcePath.FillType,
                 };
             }
 
             if (Style != SKPaintStyle.Fill && StrokeWidth > 0f)
             {
-                strokePath = ComputeStrokePath(source) ?? new SKPath(source)
+                strokePath = ComputeStrokePath(sourcePath) ?? new SKPath(sourcePath)
                 {
                     FillType = SKPathFillType.Winding,
                 };
@@ -163,6 +217,7 @@ public sealed class SKPaint : IDisposable
         {
             fillPath?.Dispose();
             strokePath?.Dispose();
+            effectedPath?.Dispose();
         }
     }
 
@@ -177,11 +232,16 @@ public sealed class SKPaint : IDisposable
     internal PaintBrush CreateBrush()
     {
         ThrowIfDisposed();
-        if (Shader is { } shader)
+        var brush = Shader is { } shader
+            ? shader.CreateBrush(this)
+            : CreateSolidColorBrush();
+
+        if (ColorFilter is { } filter)
         {
-            return shader.CreateBrush(this);
+            brush = filter.Apply(brush);
         }
-        return CreateSolidColorBrush();
+
+        return brush;
     }
 
     private PaintBrush CreateSolidColorBrush()
@@ -190,6 +250,19 @@ public sealed class SKPaint : IDisposable
         var color = Color.ToRgbaColor();
         var brush = new SolidColorBrush(new RgbaColor(color.R, color.G, color.B, color.A * alpha));
         return new PaintBrush(brush, null);
+    }
+
+    private SKFont CreateMeasurementFont()
+    {
+        var typeface = Typeface ?? SKTypeface.Default;
+        var textSize = TextSize > 0f ? TextSize : 16f;
+        return new SKFont(typeface, textSize)
+        {
+            LinearMetrics = true,
+            Embolden = false,
+            ScaleX = 1f,
+            SkewX = 0f,
+        };
     }
 
     internal StrokeStyle CreateStrokeStyle()
@@ -210,72 +283,65 @@ public sealed class SKPaint : IDisposable
         ArgumentNullException.ThrowIfNull(source);
 
         var builder = source.ToPathBuilder();
-        using var nativeElements = VelloSharp.NativePathElements.Rent(builder);
-        var span = nativeElements.Span;
-        if (span.IsEmpty)
+        var elements = builder.AsSpan();
+        if (elements.IsEmpty)
         {
             return null;
         }
 
         var stroke = CreateStrokeStyle();
 
-        IntPtr handle = IntPtr.Zero;
+        var kurboElements = elements.AsKurboSpan();
+
+        nint inputHandle;
+        unsafe
+        {
+            fixed (KurboPathElement* elementPtr = kurboElements)
+            {
+                inputHandle = KurboNativeMethods.kurbo_bez_path_from_elements(elementPtr, (nuint)kurboElements.Length);
+            }
+        }
+
+        NativeHelpers.ThrowIfNull(inputHandle, "kurbo_bez_path_from_elements failed", KurboNativeMethods.kurbo_last_error_message);
+
         try
         {
-            unsafe
+            nint strokedHandle;
+            KurboStatus status;
+
+            if (stroke.DashPattern is { Length: > 0 } pattern)
             {
-                fixed (VelloSharp.VelloPathElement* elementPtr = span)
+                unsafe
                 {
-                    VelloStatus status;
-
-                    if (stroke.DashPattern is { Length: > 0 } pattern)
+                    fixed (double* dashPtr = pattern)
                     {
-                        fixed (double* dashPtr = pattern)
-                        {
-                            var nativeStyle = StrokeInterop.Create(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
-                            status = NativeMethods.vello_path_stroke_to_fill(
-                                elementPtr,
-                                (nuint)span.Length,
-                                nativeStyle,
-                                0.25,
-                                out handle);
-                        }
-                    }
-                    else
-                    {
-                        var nativeStyle = StrokeInterop.Create(stroke, IntPtr.Zero, 0);
-                        status = NativeMethods.vello_path_stroke_to_fill(
-                            elementPtr,
-                            (nuint)span.Length,
-                            nativeStyle,
-                            0.25,
-                            out handle);
-                    }
-
-                    if (status != VelloStatus.Success || handle == IntPtr.Zero)
-                    {
-                        return null;
+                        var nativeStyle = KurboStrokeInterop.Create(stroke, (IntPtr)dashPtr, (nuint)pattern.Length);
+                        status = KurboNativeMethods.kurbo_bez_path_stroke(inputHandle, nativeStyle, 0.25, out strokedHandle);
                     }
                 }
             }
+            else
+            {
+                var nativeStyle = KurboStrokeInterop.Create(stroke, IntPtr.Zero, 0);
+                status = KurboNativeMethods.kurbo_bez_path_stroke(inputHandle, nativeStyle, 0.25, out strokedHandle);
+            }
 
-            var path = PathOps.CreatePathFromCommandList(handle, SKPathFillType.Winding);
-            return path;
-        }
-        catch (EntryPointNotFoundException)
-        {
-            return null;
-        }
-        catch (DllNotFoundException)
-        {
-            return null;
+            NativeHelpers.ThrowOnError(status, "kurbo_bez_path_stroke failed");
+            NativeHelpers.ThrowIfNull(strokedHandle, "kurbo_bez_path_stroke returned null", KurboNativeMethods.kurbo_last_error_message);
+
+            try
+            {
+                var path = KurboPathEffects.CreatePathFromHandle(strokedHandle, SKPathFillType.Winding);
+                return path;
+            }
+            finally
+            {
+                KurboNativeMethods.kurbo_bez_path_destroy(strokedHandle);
+            }
         }
         finally
         {
-            if (handle != IntPtr.Zero)
-            {
-                NativeMethods.vello_path_command_list_destroy(handle);
-            }
+            KurboNativeMethods.kurbo_bez_path_destroy(inputHandle);
         }
     }
 

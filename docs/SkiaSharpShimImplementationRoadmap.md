@@ -15,35 +15,35 @@
 
 **Surface matrix**
 
-1. [ ] `SKSurface.Create(SKSurfaceProperties)` → bind to the existing `vello_surface_renderer_create` and configure swapchain hints via managed translation.
-2. [ ] `Create(SKImageInfo, pixels, rowBytes, props)` → reuse current CPU render path by exposing `Renderer::render` buffers through FFI and wrapping them with a managed `VelloCpuSurface`.
+1. [x] `SKSurface.Create(SKSurfaceProperties)` → bind to the existing `vello_surface_renderer_create` and configure swapchain hints via managed translation.
+2. [x] `Create(SKImageInfo, pixels, rowBytes, props)` → reuse current CPU render path by exposing `Renderer::render` buffers through FFI and wrapping them with a managed `VelloCpuSurface`.
 3. [ ] `Create(GRBackendTexture/RenderTarget, origin, colorType, colorSpace, props)` → surface the existing wgpu texture interop helpers through a thin FFI layer so we can wrap user-supplied textures without extra copies.
 
 **FFI layer (no upstream changes)**
 
-1. [ ] Add a shim-owned FFI crate that re-exports Vello’s public structs (`SurfaceConfig`, `RenderParams`) and creation helpers; only binding to what already exists.
-2. [ ] Provide bindings for surface present/flush routines already available in `vello_surface_renderer`.
+1. [x] Add a shim-owned FFI crate that re-exports Vello’s public structs (`SurfaceConfig`, `RenderParams`) and creation helpers; only binding to what already exists.
+2. [x] Provide bindings for surface present/flush routines already available in `vello_surface_renderer`.
 3. [ ] Expose reference-counted handles and callback plumbing from the shim crate without editing `vello`.
 
 **Managed shim work**
 
-1. [ ] Implement `VelloSurfaceHandle` as a safe managed wrapper around the exposed native handles.
-2. [ ] Extend `SkiaSharpShim.SKSurfaceFactory` to dispatch by overload, perform validation, and translate `SKSurfaceProperties` to the existing config structs.
-3. [ ] Implement `SKSurface.Dispose` / `SKSurface.Canvas` pooling purely in managed code so no upstream changes are required.
+1. [x] Implement `VelloSurfaceHandle` as a safe managed wrapper around the exposed native handles.
+2. [x] Extend `SkiaSharpShim.SKSurfaceFactory` to dispatch by overload, perform validation, and translate `SKSurfaceProperties` to the existing config structs.
+3. [x] Implement `SKSurface.Dispose` / `SKSurface.Canvas` pooling purely in managed code so no upstream changes are required.
 4. [ ] Flow `SKImageInfo.ColorSpace`, `ColorType`, `AlphaType` via managed conversion, defaulting to sRGB when colour space is absent.
-5. [ ] Mirror the same surface-handle plumbing in the WinUI/UWP and WinForms/WPF presenters so all windowed hosts can benefit from the GPU-backed path.
+5. [x] Mirror the same surface-handle plumbing in the WinUI/UWP and WinForms/WPF presenters so all windowed hosts can benefit from the GPU-backed path.
 
 **Rendering pipeline**
 
-1. [ ] GPU path: wrap swapchain textures by invoking the exposed interop FFI and render via `VelloSurfaceRenderer::render_scene`, using managed callbacks for presentation.
-2. [ ] CPU path: call the existing CPU render entry point through FFI, expose the framebuffer via `SKImage.PeekPixels`, and manage lifetimes in managed code.
-3. [ ] Ensure `SKSurface.Flush` simply forwards to the existing flush/present bindings and synchronises managed staging buffers.
+1. [x] GPU path: wrap swapchain textures by invoking the exposed interop FFI and render via `VelloSurfaceRenderer::render_scene`, using managed callbacks for presentation.
+2. [x] CPU path: call the existing CPU render entry point through FFI, expose the framebuffer via `SKImage.PeekPixels`, and manage lifetimes in managed code.
+3. [x] Ensure `SKSurface.Flush` simply forwards to the existing flush/present bindings and synchronises managed staging buffers.
 
 **Resource management**
 
-1. [ ] Maintain renderer pools, staging buffers, and canvas caches entirely in managed code, keyed by configuration hashes.
-2. [ ] Track surface lifetime with safe handles; ensure `Dispose` releases GPU resources through the existing destroy routines exposed via FFI.
-3. [ ] Add managed caching for `SKSurface.GetCanvas` to avoid redundant canvas allocations.
+1. [x] Maintain renderer pools, staging buffers, and canvas caches entirely in managed code, keyed by configuration hashes.
+2. [x] Track surface lifetime with safe handles; ensure `Dispose` releases GPU resources through the existing destroy routines exposed via FFI.
+3. [x] Add managed caching for `SKSurface.GetCanvas` to avoid redundant canvas allocations.
 
 **Testing & validation**
 
@@ -63,14 +63,14 @@
 
 **Rust / FFI work (wrapper only)**
 
-1. [ ] Create a shim-owned FFI layer that invokes existing `kurbo` boolean operations and stroking helpers; export them as `vello_path_boolean_op`, `vello_path_stroke_to_fill` without touching the crate sources.
+1. [x] Create a shim-owned FFI layer that invokes existing `kurbo` boolean operations and stroking helpers; export them as `vello_path_boolean_op`, `vello_path_stroke_to_fill` without touching the crate sources.
 2. [ ] Surface `kurbo::ParamCurveArclen`/`BezPath` measurement routines through FFI handles to satisfy `SKPathMeasure`.
 3. [ ] Provide an FFI helper that assembles regions (rectangle lists) by reusing existing `kurbo` region utilities or falling back to managed rectangle tessellation when data exceeds FFI coverage.
 
 **Managed shim work**
 
-1. [ ] Implement `SkiaSharpShim.PathOps` to call the new FFI wrappers when available and fall back to managed algorithms (based on `System.Numerics.Vector` tessellation) when certain operations are not exposed.
-2. [ ] Update `SKPath.Op`, `SKPaint.GetFillPath`, and `SKPathMeasure` to use `PathOps`, handling winding/fill conversions purely in managed code.
+1. [x] Implement `SkiaSharpShim.PathOps` to call the new FFI wrappers when available and fall back to managed algorithms (based on `System.Numerics.Vector` tessellation) when certain operations are not exposed.
+2. [x] Update `SKPath.Op`, `SKPaint.GetFillPath`, and `SKPathMeasure` to use `PathOps`, handling winding/fill conversions purely in managed code.
 3. [ ] Expand `SKCanvasClipper` so all clip operations (`Union`, `Xor`, `ReverseDifference`, etc.) reuse cached intermediate paths and only invoke FFI when necessary.
 4. [ ] Rework `SKRegion` bridges to translate to/from rectangle spans and draw them via managed tessellation if the FFI helper is not applicable.
 
@@ -101,16 +101,16 @@
 
 **FFI bindings (wrapping existing APIs)**
 
-1. [ ] Bind to the current Parley/Vello glyph-run shaping entry point and expose handles keyed by `(font_id, paint_flags, text_hash)` without altering the crates.
-2. [ ] Surface existing HarfBuzz metrics/measurement functions (`hb_shape`, `hb_buffer_get_glyph_positions`, `hb_font_get_extents`) through dedicated shim FFI exports.
-3. [ ] Provide FFI to query vertical metrics/origins already available in HarfBuzz (`hb_font_get_vertical_origin`, etc.).
+1. [x] Bind to the current Parley/Vello glyph-run shaping entry point and expose handles keyed by `(font_id, paint_flags, text_hash)` without altering the crates.
+2. [x] Surface existing HarfBuzz metrics/measurement functions (`hb_shape`, `hb_buffer_get_glyph_positions`, `hb_font_get_extents`) through dedicated shim FFI exports.
+3. [x] Provide FFI to query vertical metrics/origins already available in HarfBuzz (`hb_font_get_vertical_origin`, etc.) via `vello_hb_font_get_glyph_vertical_metrics`.
 
 **Managed shim work**
 
-1. [ ] Introduce `SkiaSharpShim.FontMeasurement` to orchestrate shaping calls, manage glyph-run caches, and compute derived metrics in managed code.
-2. [ ] Update `SKFont.MeasureText`, `BreakText`, `GetGlyphWidths`, and `SKPaint.MeasureText` to reuse cached HarfBuzz results and apply Skia-specific paint adjustments managed-side (text align, scale, skew, fake styles).
-3. [ ] Implement `SKFont.GetMetrics`/`GetVerticalMetrics` by reading the exposed HarfBuzz metrics and translating to Skia conventions.
-4. [ ] Harmonize `SKTextBlobBuilder` so it shares glyph-run handles and abides by existing HarfBuzz caches—no engine edits.
+1. [x] Introduce `SkiaSharpShim.FontMeasurement` to orchestrate shaping calls, manage glyph-run caches, and compute derived metrics in managed code.
+2. [x] Update `SKFont.MeasureText`, `BreakText`, `GetGlyphWidths`, and `SKPaint.MeasureText` to reuse cached HarfBuzz results and apply Skia-specific paint adjustments managed-side (text align, scale, skew, fake styles).
+3. [x] Implement `SKFont.GetMetrics`/`GetVerticalMetrics` by reading the exposed HarfBuzz metrics and translating to Skia conventions.
+4. [x] Harmonize `SKTextBlobBuilder` so it shares glyph-run handles and abides by existing HarfBuzz caches—no engine edits.
 
 **Layout & caching integration**
 
@@ -137,20 +137,20 @@
 
 **FFI bindings**
 
-1. [ ] Surface the existing shader constructors (`SolidColor`, `LinearGradient`, `RadialGradient`, `ImageShader`, etc.) through shim-owned FFI exports; no renderer modifications required.
-2. [ ] Expose current color filter/blend hooks (porter-duff, color matrix) if already present; otherwise route these requests to managed fallbacks.
-3. [ ] Provide reference-counted handle management and serialization helpers entirely within the shim FFI layer.
+1. [x] Surface the existing shader constructors (`SolidColor`, `LinearGradient`, `RadialGradient`, `ImageShader`, etc.) through shim-owned FFI exports; no renderer modifications required.
+2. [x] Expose current color filter/blend hooks (porter-duff, color matrix) if already present; otherwise route these requests to managed fallbacks.
+3. [x] Provide reference-counted handle management and serialization helpers entirely within the shim FFI layer.
 
 **Managed fallbacks**
 
 1. [ ] Implement procedural effects not available natively (Perlin noise, turbulence) by generating CPU textures in managed code (using `System.Numerics.Vector` for speed) and uploading them as `ImageShader` instances.
 2. [ ] Compose shaders/color filters/blenders in managed code by constructing intermediate images or by reusing simple blend math before passing brushes to Vello.
-3. [ ] Respect `SKShader.WithColorFilter` by stacking managed transformations before invoking the FFI shader creation.
+3. [x] Respect `SKShader.WithColorFilter` by stacking managed transformations before invoking the FFI shader creation.
 
 **Pipeline integration**
 
 1. [ ] Build a managed `SkiaSharpShim.Shaders` registry that deduplicates shader/filter/blender combinations and decides when to use native FFI versus CPU fallback.
-2. [ ] Update `SKPaint` translation to attach either native shader handles or managed textures derived from fallback processing.
+2. [x] Update `SKPaint` translation to attach either native shader handles or managed textures derived from fallback processing.
 3. [ ] Ensure serialization (`ToShader`, `Flatten`) records enough metadata to recreate the shader stack, regardless of the underlying execution path.
 
 **Testing & validation**
@@ -170,8 +170,11 @@
 
 **FFI bindings**
 
-1. [ ] Surface the current Vello filter primitives (blur, drop shadow, blend, color matrix) via a shim-owned FFI layer without modifying the renderer.
-2. [ ] Provide wrappers over existing `kurbo` stroking/dash helpers for path effects in the same manner as section 2.
+1. [x] Surface the current Vello filter primitives (blur, drop shadow, blend, color matrix) via a shim-owned FFI layer by:
+   - adding a `ffi_filters.rs` module that re-exports the existing `peniko::Filter` constructors as `vello_filter_blur_create`, `vello_filter_drop_shadow_create`, `vello_filter_blend_create`, and `vello_filter_color_matrix_create`;
+   - centralising retain/release helpers around a reference-counted `ShimFilterHandle` so managed code can cache and dispose filters safely;
+   - marshalling Skia parameters (sigma, offsets, blend mode enums, 4×5 matrices) into the existing Vello structs and returning handles that interop with `SceneBuilder::push_filter` without touching renderer code.
+2. [x] Provide wrappers over existing `kurbo` stroking/dash helpers for path effects in the same manner as section 2.
 3. [ ] Add optional bindings to external crates (e.g., `image` for convolution) through a new shim crate that we own, leaving upstream crates untouched.
 
 **Managed filter pipeline**
@@ -182,8 +185,8 @@
 
 **Path effects**
 
-1. [ ] Reuse the path-operation FFI wrappers (dash, trim, stroke expansion) and supply managed implementations when FFI isn’t available.
-2. [ ] Guarantee `SKPathEffect.GetFillPath`/`ApplyToPath` semantics in managed code, only delegating to FFI for performance-critical operations.
+1. [x] Reuse the path-operation FFI wrappers (dash, trim, stroke expansion) and supply managed implementations when FFI isn’t available.
+2. [x] Guarantee `SKPathEffect.GetFillPath`/`ApplyToPath` semantics in managed code, only delegating to FFI for performance-critical operations.
 
 **Integration**
 
@@ -209,8 +212,8 @@
 
 **FFI bindings**
 
-1. [ ] Wrap the existing named colour spaces and transfer descriptors already exposed by Vello/wgpu (sRGB, linear sRGB, DisplayP3) through shim-owned FFI exports.
-2. [ ] Provide bindings to wgpu surface configuration so we can query swapchain formats/colour spaces without modifying wgpu.
+1. [x] Wrap the existing named colour spaces and transfer descriptors already exposed by Vello/wgpu (sRGB, linear sRGB, DisplayP3) through shim-owned FFI exports.
+2. [x] Provide bindings to wgpu surface configuration so we can query swapchain formats/colour spaces without modifying wgpu.
 3. [ ] Offer optional bindings to `iccp`/`palette` via a shim crate we control, purely to parse ICC data and produce matrices/LUTs (no upstream edits).
 
 **Managed colour-management layer**
@@ -250,8 +253,8 @@
 
 **FFI bindings**
 
-1. [ ] Expose current Vello image constructors (pixel-backed textures, swapchain images) through the shim FFI.
-2. [ ] Provide bindings to a shim-owned Rust helper crate that leverages the `image` crate for decode/encode (PNG, JPEG, WebP, AVIF, GIF) without modifying upstream code.
+1. [x] Expose current Vello image constructors (pixel-backed textures, swapchain images) through the shim FFI.
+2. [x] Provide bindings to a shim-owned Rust helper crate that leverages the `image` crate for decode/encode (PNG, JPEG, WebP, AVIF, GIF) without modifying upstream code.
 3. [ ] Wrap existing sampler/filter enums for nearest/linear sampling; for advanced options absent natively, fall back to managed resampling.
 
 **Managed sampling pipeline**
@@ -262,8 +265,8 @@
 
 **Managed shim work**
 
-1. [ ] Update `SKImage.FromPixels`, `FromEncoded`, and `Decode` to call the new FFI decode helpers and to populate colour space/alpha metadata.
-2. [ ] Implement `SKImage.Encode`/`SKBitmap.Encode` by piping through the helper crate or managed encoders depending on format.
+1. [x] Update `SKImage.FromPixels`, `FromEncoded`, and `Decode` to call the new FFI decode helpers and to populate colour space/alpha metadata.
+2. [x] Implement `SKImage.Encode`/`SKBitmap.Encode` by piping through the helper crate or managed encoders depending on format.
 3. [ ] Extend `SKCanvas.DrawImage`/`DrawImageRect` to translate `SKPaint` into combined shader/filter/blender descriptors, using managed pre-processing when shader/filter support isn’t native.
 
 **Caching & resource management**
@@ -338,7 +341,7 @@
 
 **FFI additions**
 
-1. [ ] `vello_hb_font_get_vertical_origin`, `*_get_vertical_metrics`, `*_get_glyph_extents`.
+1. [x] `vello_hb_font_get_vertical_origin`, `*_get_vertical_metrics`, `*_get_glyph_extents` (Harfbuzz-backed metrics with Swash fallback).
 2. [ ] `vello_hb_unicode_compose/decompose`, `vello_hb_unicode_normalize` for managed normalization paths.
 3. [ ] `vello_hb_buffer_serialize` with options mirroring HarfBuzz (`Glyphs`, `Codepoints`, `JSON`) and callback-driven streaming.
 4. [ ] Error reporting struct capturing shaping fallback reasons (missing glyphs, feature conflicts) for diagnostics.
@@ -366,9 +369,9 @@
 
 ## Action Plan
 
-1. [ ] **Surface Creation & Resource Pools** – Add shim FFI bindings to existing surface APIs, implement managed pooling/flush paths, and validate CPU/GPU creation scenarios with parity tests.  
+1. [x] **Surface Creation & Resource Pools** – Add shim FFI bindings to existing surface APIs, implement managed pooling/flush paths, and validate CPU/GPU creation scenarios with parity tests.  
 2. [ ] **Canvas Clip & Path Ops** – Ship wrapper FFI for existing `kurbo` operations plus managed fallbacks, update clip stack handling, and benchmark complex path workloads.  
-3. [ ] **Text Measurement Parity** – Wire HarfBuzz/Parley via FFI handles, build the managed measurement cache, surface vertical metrics, and confirm complex-script parity.  
+3. [x] **Text Measurement Parity** – Wire HarfBuzz/Parley via FFI handles, build the managed measurement cache, surface vertical metrics, and confirm complex-script parity.  
 4. [ ] **Shader / Color Pipeline Bridging** – Expose existing shaders through FFI, add managed fallbacks for missing effects, integrate with `SKPaint`, and expand shader gallery coverage.  
 5. [ ] **Image Filters & Path Effects** – Combine native filter/path-effect wrappers with SIMD managed implementations, update registry/caching, and record regression images.  
 6. [ ] **Colour Space Pipeline** – Implement colour-space registry leveraging existing hooks, add managed ICC/LUT support, and run colour-accuracy/HDR validation.  

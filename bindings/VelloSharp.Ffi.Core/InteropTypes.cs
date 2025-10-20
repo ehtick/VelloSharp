@@ -75,11 +75,98 @@ public enum PenikoGradientKind : int
     Sweep = 2,
 }
 
+public enum PenikoImageFormat : int
+{
+    Rgba8 = 0,
+    Bgra8 = 1,
+}
+
+public enum PenikoImageAlphaType : int
+{
+    Alpha = 0,
+    AlphaPremultiplied = 1,
+}
+
+public enum PenikoImageQuality : int
+{
+    Low = 0,
+    Medium = 1,
+    High = 2,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoImageInfo
+{
+    public uint Width;
+    public uint Height;
+    public PenikoImageFormat Format;
+    public PenikoImageAlphaType Alpha;
+    public nuint Stride;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
+public struct PenikoImageBrushParams
+{
+    public IntPtr Image;
+    public PenikoExtend XExtend;
+    public PenikoExtend YExtend;
+    public PenikoImageQuality Quality;
+    public float Alpha;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 8)]
+public struct PenikoSerializedBrush
+{
+    public PenikoBrushKind Kind;
+    public PenikoGradientKind GradientKind;
+    public PenikoColor Solid;
+    public PenikoLinearGradient Linear;
+    public PenikoRadialGradient Radial;
+    public PenikoSweepGradient Sweep;
+    public PenikoExtend Extend;
+    public PenikoImageBrushParams Image;
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public struct PenikoPoint
 {
     public double X;
     public double Y;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoColor
+{
+    public float R;
+    public float G;
+    public float B;
+    public float A;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoColorSpaceTransferFn
+{
+    public float G;
+    public float A;
+    public float B;
+    public float C;
+    public float D;
+    public float E;
+    public float F;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct PenikoColorSpaceXyz
+{
+    public float M00;
+    public float M01;
+    public float M02;
+    public float M10;
+    public float M11;
+    public float M12;
+    public float M20;
+    public float M21;
+    public float M22;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -110,7 +197,7 @@ public struct PenikoSweepGradient
 public struct PenikoColorStop
 {
     public float Offset;
-    public VelloColor Color;
+    public PenikoColor Color;
 }
 
 public enum WinitStatus : int
@@ -445,7 +532,7 @@ internal enum VelloBrushKind : int
     Image = 4,
 }
 
-internal enum VelloBlendMix : int
+public enum VelloBlendMix : int
 {
     Normal = 0,
     Multiply = 1,
@@ -466,7 +553,7 @@ internal enum VelloBlendMix : int
     Clip = 128,
 }
 
-internal enum VelloBlendCompose : int
+public enum VelloBlendCompose : int
 {
     Clear = 0,
     Copy = 1,
@@ -491,7 +578,7 @@ internal enum VelloGlyphRunStyle : int
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct VelloPoint
+public struct VelloPoint
 {
     public double X;
     public double Y;
@@ -604,6 +691,44 @@ internal struct VelloBrush
     public VelloRadialGradient Radial;
     public VelloSweepGradient Sweep;
     public VelloImageBrushParams Image;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct VelloFilterBlur
+{
+    public float SigmaX;
+    public float SigmaY;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct VelloFilterDropShadow
+{
+    public VelloPoint Offset;
+    public float SigmaX;
+    public float SigmaY;
+    public VelloColor Color;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct VelloFilterBlend
+{
+    public VelloBlendMix Mix;
+    public VelloBlendCompose Compose;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct VelloFilterColorMatrix
+{
+    public const int ElementCount = 20;
+    public fixed float Values[ElementCount];
+}
+
+public enum VelloFilterKind : int
+{
+    Blur = 0,
+    DropShadow = 1,
+    Blend = 2,
+    ColorMatrix = 3,
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 8)]
@@ -721,6 +846,49 @@ internal unsafe struct VelloTextShapeOptionsNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct VelloHbGlyphInfoNative
+{
+    public uint GlyphId;
+    public uint Cluster;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloHbGlyphPositionNative
+{
+    public float XAdvance;
+    public float YAdvance;
+    public float XOffset;
+    public float YOffset;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloHbShapeRunNative
+{
+    public IntPtr Infos;
+    public IntPtr Positions;
+    public nuint GlyphCount;
+    public float AdvanceX;
+    public float AdvanceY;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloHbFontExtentsNative
+{
+    public float Ascender;
+    public float Descender;
+    public float LineGap;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct VelloHbGlyphVerticalMetricsNative
+{
+    public float Advance;
+    public float OriginX;
+    public float OriginY;
+    public float TopSideBearing;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct VelloScriptSegmentNative
 {
     public uint Start;
@@ -799,6 +967,23 @@ internal struct VelloBlobDataNative
 {
     public IntPtr Data;
     public nuint Length;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ImageCodecBufferNative
+{
+    public IntPtr Data;
+    public nuint Length;
+}
+
+internal enum ImageCodecFormatNative : int
+{
+    Auto = 0,
+    Png = 1,
+    Jpeg = 2,
+    Webp = 3,
+    Avif = 4,
+    Gif = 5,
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -909,13 +1094,22 @@ internal struct WgpuAdapterInfoNative
 internal struct WgpuSurfaceConfigurationNative
 {
     public uint Usage;
-    public WgpuTextureFormatNative Format;
-    public uint Width;
-    public uint Height;
-    public VelloPresentMode PresentMode;
-    public WgpuCompositeAlphaModeNative AlphaMode;
-    public nuint ViewFormatCount;
-    public IntPtr ViewFormats;
+   public WgpuTextureFormatNative Format;
+   public uint Width;
+   public uint Height;
+   public VelloPresentMode PresentMode;
+   public WgpuCompositeAlphaModeNative AlphaMode;
+   public nuint ViewFormatCount;
+   public IntPtr ViewFormats;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WgpuSurfaceCapabilitiesNative
+{
+    public uint Usage;
+    public nuint FormatCount;
+    public nuint PresentModeCount;
+    public nuint AlphaModeCount;
 }
 
 [StructLayout(LayoutKind.Sequential)]
