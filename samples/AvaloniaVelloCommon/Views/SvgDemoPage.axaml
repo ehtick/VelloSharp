@@ -44,9 +44,7 @@
             Padding="12">
       <svg:Svg x:Name="DemoSvg"
                Stretch="Uniform"
-               StretchDirection="Both"
-               Width="400"
-               Height="220"/>
+               StretchDirection="Both" />
     </Border>
   </Grid>
 </UserControl>
