@@ -43,7 +43,7 @@
             CornerRadius="4"
             Padding="12">
       <svg:Svg x:Name="DemoSvg"
-               Stretch="Uniform"
+               Stretch="UniformToFill"
                StretchDirection="Both" />
     </Border>
   </Grid>
