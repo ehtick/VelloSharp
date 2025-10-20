@@ -23,6 +23,7 @@ use fontique::{
     FontWidth as FontiqueWidth, GenericFamily as FontiqueGenericFamily,
 };
 use futures_intrusive::channel::shared::oneshot_channel;
+#[cfg(not(target_arch = "wasm32"))]
 use harfbuzz_rs::{Face as HbFace, Font as HbFont, Tag as HbTag, Variation as HbVariation};
 use harfrust::{
     Direction as HrDirection, Feature as HrFeature, FontRef as HrFontRef, Language as HrLanguage,
@@ -6179,6 +6180,7 @@ pub unsafe extern "C" fn vello_hb_font_get_extents(
     VelloStatus::Success
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn harfbuzz_vertical_metrics(
     font_handle: &VelloFontHandle,
     glyph_id: u16,
@@ -6290,6 +6292,7 @@ fn swash_vertical_metrics(
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn vello_hb_font_get_glyph_vertical_metrics(
     font: *const VelloFontHandle,
@@ -6335,6 +6338,45 @@ pub unsafe extern "C" fn vello_hb_font_get_glyph_vertical_metrics(
                     swash_status
                 }
             }
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn vello_hb_font_get_glyph_vertical_metrics(
+    font: *const VelloFontHandle,
+    glyph_id: u16,
+    font_size: f32,
+    variations: *const VelloVariationAxisValue,
+    variation_count: usize,
+    out_metrics: *mut VelloHbGlyphVerticalMetrics,
+) -> VelloStatus {
+    if font.is_null() || out_metrics.is_null() {
+        return VelloStatus::NullPointer;
+    }
+
+    let font_handle = unsafe { &*font };
+    let font_size = font_size.max(0.0);
+
+    let variation_slice = if !variations.is_null() && variation_count > 0 {
+        unsafe { slice::from_raw_parts(variations, variation_count) }
+    } else {
+        &[]
+    };
+
+    match swash_vertical_metrics(font_handle, glyph_id, font_size, variation_slice) {
+        Ok(metrics) => {
+            unsafe {
+                *out_metrics = metrics;
+            }
+            VelloStatus::Success
+        }
+        Err((status, message)) => {
+            set_last_error(format!(
+                "Swash vertical metrics unavailable for glyph {glyph_id}: {message}"
+            ));
+            status
         }
     }
 }
