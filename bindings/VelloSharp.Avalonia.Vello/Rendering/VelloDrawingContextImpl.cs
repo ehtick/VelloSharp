@@ -201,16 +201,55 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
     {
         EnsureNotDisposed();
 
-        if (source is not VelloBitmapImpl bitmap)
-        {
-            throw new NotSupportedException("The provided bitmap implementation is not compatible with the Vello renderer.");
-        }
-
         if (sourceRect.Width <= 0 || sourceRect.Height <= 0 || destRect.Width <= 0 || destRect.Height <= 0)
         {
             return;
         }
 
+        var bitmap = ResolveBitmap(source);
+        DrawBitmapCore(bitmap, opacity, sourceRect, destRect);
+    }
+
+    public void DrawBitmap(IBitmapImpl source, IBrush opacityMask, Rect opacityMaskRect, Rect destRect)
+    {
+        EnsureNotDisposed();
+
+        if (destRect.Width <= 0 || destRect.Height <= 0)
+        {
+            return;
+        }
+
+        if (opacityMaskRect.Width <= 0 || opacityMaskRect.Height <= 0)
+        {
+            return;
+        }
+
+        var bitmap = ResolveBitmap(source);
+        var sourceRect = new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height);
+
+        PushOpacityMask(opacityMask, opacityMaskRect);
+        try
+        {
+            DrawBitmapCore(bitmap, 1.0, sourceRect, destRect);
+        }
+        finally
+        {
+            PopOpacityMask();
+        }
+    }
+
+    private VelloBitmapImpl ResolveBitmap(IBitmapImpl source)
+    {
+        return source switch
+        {
+            VelloBitmapImpl direct => direct,
+            VelloOffscreenRenderTarget offscreen => offscreen.GetCpuSnapshot(),
+            _ => throw new NotSupportedException("The provided bitmap implementation is not compatible with the Vello renderer."),
+        };
+    }
+
+    private void DrawBitmapCore(VelloBitmapImpl bitmap, double opacity, Rect sourceRect, Rect destRect)
+    {
         using var image = bitmap.CreateVelloImage();
         var brush = new ImageBrush(image)
         {
@@ -248,37 +287,6 @@ internal sealed class VelloDrawingContextImpl : IDrawingContextImpl
             {
                 PopLayerEntry();
             }
-        }
-    }
-
-    public void DrawBitmap(IBitmapImpl source, IBrush opacityMask, Rect opacityMaskRect, Rect destRect)
-    {
-        EnsureNotDisposed();
-
-        if (destRect.Width <= 0 || destRect.Height <= 0)
-        {
-            return;
-        }
-
-        if (opacityMaskRect.Width <= 0 || opacityMaskRect.Height <= 0)
-        {
-            return;
-        }
-
-        PushOpacityMask(opacityMask, opacityMaskRect);
-        try
-        {
-            if (source is not VelloBitmapImpl bitmap)
-            {
-                throw new NotSupportedException("The provided bitmap implementation is not compatible with the Vello renderer.");
-            }
-
-            var sourceRect = new Rect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height);
-            DrawBitmap(source, 1.0, sourceRect, destRect);
-        }
-        finally
-        {
-            PopOpacityMask();
         }
     }
 

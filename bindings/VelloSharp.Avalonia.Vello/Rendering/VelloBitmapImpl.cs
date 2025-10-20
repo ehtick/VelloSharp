@@ -135,15 +135,24 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
     private PixelData PreparePixelDataForVello()
     {
         var stride = GetStride(PixelSize.Width, _pixelFormat);
-        var format = (RenderFormat)ToRenderFormat(_pixelFormat);
+        var pixelBuffer = _pixels;
+        var pixelFormat = _pixelFormat;
 
         if (_alphaFormat == global::Avalonia.Platform.AlphaFormat.Premul)
         {
-            var converted = ConvertPremultipliedToStraight(_pixels, PixelSize, stride, _pixelFormat);
-            return new PixelData(converted, stride, format, ImageAlphaMode.Straight);
+            pixelBuffer = ConvertPremultipliedToStraight(pixelBuffer, PixelSize, stride, pixelFormat);
         }
 
-        return new PixelData(_pixels, stride, format, ImageAlphaMode.Straight);
+        var renderFormat = (RenderFormat)ToRenderFormat(pixelFormat);
+
+        if (renderFormat == RenderFormat.Bgra8)
+        {
+            pixelBuffer = ConvertBgraToRgba(pixelBuffer, PixelSize, stride);
+            renderFormat = RenderFormat.Rgba8;
+            pixelFormat = PixelFormat.Rgba8888;
+        }
+
+        return new PixelData(pixelBuffer, stride, renderFormat, ImageAlphaMode.Straight);
     }
 
     private void EnsureNotDisposed()
@@ -458,6 +467,48 @@ internal sealed class VelloBitmapImpl : IBitmapImpl, IWriteableBitmapImpl
                 destination[offset + r] = UnpremultiplyChannel(source[offset + r], alpha);
                 destination[offset + g] = UnpremultiplyChannel(source[offset + g], alpha);
                 destination[offset + b] = UnpremultiplyChannel(source[offset + b], alpha);
+            }
+        }
+
+        return destination;
+    }
+
+    private static byte[] ConvertBgraToRgba(byte[] source, PixelSize size, int stride)
+    {
+        if (source is null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        if (stride <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stride));
+        }
+
+        var height = Math.Max(0, size.Height);
+        var expectedLength = stride * height;
+        if (source.Length < expectedLength)
+        {
+            throw new ArgumentException("Pixel buffer is smaller than expected for the provided stride and size.", nameof(source));
+        }
+
+        if (expectedLength == 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        var destination = new byte[expectedLength];
+
+        for (var y = 0; y < height; y++)
+        {
+            var rowOffset = y * stride;
+            for (var x = 0; x < size.Width; x++)
+            {
+                var offset = rowOffset + (x * 4);
+                destination[offset + 0] = source[offset + 2]; // R
+                destination[offset + 1] = source[offset + 1]; // G
+                destination[offset + 2] = source[offset + 0]; // B
+                destination[offset + 3] = source[offset + 3]; // A
             }
         }
 

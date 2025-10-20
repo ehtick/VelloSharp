@@ -148,25 +148,34 @@ internal sealed class VelloOffscreenRenderTarget : IDrawingContextLayerImpl
         }
     }
 
-    private VelloBitmapImpl EnsureCpuRender()
+    internal VelloBitmapImpl GetCpuSnapshot()
+    {
+        return EnsureCpuRender();
+    }
+
+    private VelloBitmapImpl EnsureCpuRender(bool forceRender = false)
     {
         Scene? scene;
         RenderParams renderParams;
         CpuLayerResources resources;
+        bool needsRender;
 
         lock (_syncRoot)
         {
             EnsureNotDisposed();
             resources = GetCpuResources();
+            var currentVersion = Volatile.Read(ref _version);
+            var bitmapVersion = resources.Bitmap.Version;
 
-            if (!_pendingRender)
+            needsRender = forceRender || _pendingRender || bitmapVersion != currentVersion;
+            if (!needsRender)
             {
                 return resources.Bitmap;
             }
 
+            _pendingRender = false;
             scene = _scene;
             renderParams = _renderParams;
-            _pendingRender = false;
         }
 
         var span = resources.Buffer;
