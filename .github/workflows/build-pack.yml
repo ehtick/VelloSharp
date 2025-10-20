@@ -88,6 +88,10 @@ jobs:
         if: matrix.sdk != ''
         run: echo "SDKROOT=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)" >> $GITHUB_ENV
 
+      - name: Set iOS deployment target
+        if: contains(matrix.target, 'apple-ios')
+        run: echo "IPHONEOS_DEPLOYMENT_TARGET=10.0" >> $GITHUB_ENV
+
       - name: Build native artifact
         run: ./scripts/build-native-macos.sh ${{ matrix.target }} release '${{ matrix.sdk }}' '${{ matrix.rid }}'
 
