@@ -43,6 +43,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
     private WgpuInstance? _pendingSurfaceInstance;
     private Exception? _surfaceCreationError;
     private long _surfaceCreationRequestId;
+    private bool _initialRedrawRequested;
 
     public VelloSwapchainRenderTarget(
         WgpuGraphicsDeviceProvider graphicsDevice,
@@ -54,6 +55,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         _surfaceProvider = surfaceProvider ?? throw new ArgumentNullException(nameof(surfaceProvider));
         _presentMode = options.PresentMode;
         _lastResolvedRendererOptions = _options.RendererOptions;
+        RequestInitialRedraw();
     }
 
     public bool IsCorrupted => false;
@@ -112,6 +114,30 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
         }
     }
 
+    private void RequestInitialRedraw()
+    {
+        if (_initialRedrawRequested)
+        {
+            return;
+        }
+
+        _initialRedrawRequested = true;
+
+        TryRequestRedraw();
+    }
+
+    private void TryRequestRedraw()
+    {
+        try
+        {
+            _surfaceProvider.RequestRedraw();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Vello] Failed to request redraw: {ex}");
+        }
+    }
+
     private void OnContextCompleted(VelloDrawingContextImpl context)
     {
         SceneLease? lease = null;
@@ -152,7 +178,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
                 DisposeSurface_NoLock();
             }
 
-            _surfaceProvider.RequestRedraw();
+            TryRequestRedraw();
         }
         finally
         {
@@ -521,7 +547,7 @@ internal sealed class VelloSwapchainRenderTarget : IRenderTarget2
                 Debug.WriteLine($"[Vello] Failed to create wgpu surface: {error}");
             }
 
-            _surfaceProvider.RequestRedraw();
+            TryRequestRedraw();
         });
     }
 
