@@ -14,12 +14,12 @@ var stops = new[]
     new PenikoColorStop
     {
         Offset = 0f,
-        Color = new PenikoColor { R = 1f, G = 0f, B = 0f, A = 1f },
+        Color = new VelloColor { R = 1f, G = 0f, B = 0f, A = 1f },
     },
     new PenikoColorStop
     {
         Offset = 1f,
-        Color = new PenikoColor { R = 0f, G = 0f, B = 1f, A = 1f },
+        Color = new VelloColor { R = 0f, G = 0f, B = 1f, A = 1f },
     },
 };
 
