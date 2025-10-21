@@ -95,6 +95,7 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         {
             _window?.SetVisible(true);
             UpdateParentRelationship();
+            _window?.RequestRedraw();
         });
 
         if (activate)
@@ -1061,6 +1062,8 @@ internal sealed class WinitWindowImpl : IWindowImpl, INativePlatformHandleSurfac
         Resized?.Invoke(_clientSize, WindowResizeReason.Layout);
         ScalingChanged?.Invoke(normalizedScale);
         _screenManager.UpdateFromWindow(_surfaceSize, normalizedScale);
+
+        _window?.RequestRedraw();
 
         if (_window is { } window)
         {
