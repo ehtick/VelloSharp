@@ -1,3 +1,5 @@
+# Deprecated, waiting for final Vello api for both Vello GPU, CPU and Hybdrid, then project will be restarted in new repo.
+
 # VelloSharp .NET bindings
 
 [![Telegram](https://img.shields.io/badge/chat-Telegram-blue?logo=telegram)](https://t.me/+T60CZBl8wXIzYTk0)
